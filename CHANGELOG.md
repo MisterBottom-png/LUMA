@@ -55,3 +55,11 @@
 - Kept blank, too-short, and in-flight duplicate requests blocked.
 - Added focused regression coverage for shared submission behavior.
 - No data, navigation, dependency, AI prompt, or visual styling behavior changed.
+
+## Change 015 - Migrate repository workflow to LDS V2
+
+- Established the latest merged GitHub `main` branch as the sole source authority.
+- Added the LDS V2 repository contract, workflow guide, status model, and pull request template.
+- Retired Drive and ZIP authority while preserving source-manifest product change number 14.
+- Preserved meaningful product state and outstanding device-verification limitations.
+- No application source or runtime behavior changed.
