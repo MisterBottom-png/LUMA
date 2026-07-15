@@ -6,14 +6,6 @@
 - The latest merged commit on `main` is the sole starting point for every task.
 - Drive files, ZIP archives, local folders, previous chat artifacts, generated packages, and unmerged branches are not authoritative.
 
-## Canonical product backlog
-
-- The repository `planning/` directory is the canonical product backlog.
-- `planning/LUMA_UI_UX_Small_Change_Steps.md` defines the ordered small-change checklist.
-- `planning/LUMA_ChatGPT_Project_Small_Change_Prompts.md` defines the exact detailed task prompts, acceptance criteria, and batching guidance.
-- Do not rewrite, renumber, rename, reorder, summarize, regenerate, or otherwise alter planning task definitions unless the user explicitly requests a planning change.
-- For implementation work, use the matching checklist item and detailed prompt from `planning/` as the bounded product scope.
-
 ## Mandatory startup
 
 For every source-changing task:
@@ -22,7 +14,7 @@ For every source-changing task:
 2. Re-read the latest `main`; never continue from a previous task snapshot.
 3. Read this file first.
 4. Read root `PROJECT_STATE.md`, `PROGRESS.md`, and `CHANGELOG.md`.
-5. Read `planning/README.md` and the relevant canonical planning documents, then inspect the existing implementation.
+5. Read the relevant planning document and inspect the existing implementation.
 6. Check open pull requests to confirm the requested work is not already in progress or complete.
 7. Determine whether binary-file writes are required. If they are required and no binary-capable write action is available, stop before editing and report the exact fallback needed.
 8. Read `docs/codex/WORKPLACE_PRIVACY_POLICY.md` before changing any text-bearing repository surface.
