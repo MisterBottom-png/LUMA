@@ -1,0 +1,14 @@
+# Project-scoped defaults. Codex loads this file only after the project is trusted.
+model_reasoning_effort = "medium"
+model_verbosity = "low"
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+allow_login_shell = false
+
+[sandbox_workspace_write]
+network_access = false
+
+[agents]
+max_threads = 3
+max_depth = 1
+interrupt_message = false

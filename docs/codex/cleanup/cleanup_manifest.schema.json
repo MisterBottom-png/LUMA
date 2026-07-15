@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luma.local/schemas/cleanup-manifest-v2.json",
+  "title": "LUMA cleanup manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "repository_commit", "entries"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "repository_commit": {"type": "string", "minLength": 7},
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "type", "size", "sha256", "reason"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"},
+              "type": {"const": "file"},
+              "size": {"type": "integer", "minimum": 0},
+              "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+              "reason": {"type": "string", "minLength": 8}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "type", "reason"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"},
+              "type": {"const": "empty-directory"},
+              "reason": {"type": "string", "minLength": 8}
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+*.iml
+.gradle/
+.gradle-bootstrap/
+.kotlin/
+.idea/
+local.properties
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+orbit-debug.apk
+apk-server*.log
+tmpfiles-page*.html

@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "repository_commit": "09c56f0e1cc566f8bfeaca6bb5cea824e6b9d25e",
+  "entries": [
+    {
+      "path": "scripts/codex/__pycache__/check_workplace_privacy.cpython-312.pyc",
+      "type": "file",
+      "size": 10740,
+      "sha256": "ce9329add53847cd3e31dea05fd94c28fbfb1de697fb93dcd128efad76cae66d",
+      "reason": "Reproducible Python bytecode generated during the required privacy scan"
+    },
+    {
+      "path": "tests/codex/__pycache__/test_workplace_privacy.cpython-312.pyc",
+      "type": "file",
+      "size": 6378,
+      "sha256": "f67cbe4f1e9b87196157d9249e4d98679415329fdf9d9c8608d23ba032d2e88d",
+      "reason": "Reproducible Python bytecode generated during the required checker tests"
+    }
+  ]
+}
