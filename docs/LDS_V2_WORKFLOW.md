@@ -4,6 +4,8 @@
 
 LDS V2 makes GitHub the single source of truth for LUMA development. Work begins from the latest merged `main`, proceeds on a numbered change branch, and reaches review through a draft pull request. Archives and local copies are outputs or references only; they never outrank GitHub.
 
+The repository `planning/` directory is the canonical implementation backlog. `planning/SMALL_CHANGES.md` preserves the ordered checklist and completion state, while `planning/small-changes/NNN-short-title.md` preserves the complete bounded prompt for each numbered change.
+
 ## 1. Start from authority
 
 For every source-changing task:
@@ -11,10 +13,13 @@ For every source-changing task:
 1. Open `MisterBottom-png/LUMA` through the GitHub integration.
 2. Read the latest `main` branch.
 3. Read root `AGENTS.md`, `PROJECT_STATE.md`, `PROGRESS.md`, and `CHANGELOG.md`.
-4. Read the planning and protection documents relevant to the requested area.
-5. Inspect the existing implementation before proposing edits.
-6. Check open pull requests for duplicate or overlapping work.
-7. Confirm whether the task needs binary writes and whether the available tools can perform them safely.
+4. Read `planning/SMALL_CHANGES.md` and the matching numbered prompt under `planning/small-changes/`.
+5. Read the protection documents relevant to the requested area.
+6. Inspect the existing implementation before proposing edits.
+7. Check open pull requests for duplicate or overlapping work.
+8. Confirm whether the task needs binary writes and whether the available tools can perform them safely.
+
+For example, “Implement Small Change 15” requires both `planning/SMALL_CHANGES.md` and `planning/small-changes/015-clear-stale-ask-responses.md`.
 
 Previous branches, chat context, Drive packages, ZIP files, and local folders are not valid substitutes for this startup sequence.
 
@@ -30,7 +35,8 @@ Never reuse a published change number and never edit `main` directly.
 
 ## 3. Implement the bounded change
 
-- Change only what the request requires.
+- Change only what the matching numbered planning prompt requires.
+- Preserve the prompt text and checklist ordering; do not summarise, combine, rewrite, or regenerate task definitions.
 - Preserve unrelated application behavior.
 - Avoid opportunistic refactoring.
 - Keep source, tests, planning, and continuity updates on the same branch.
@@ -42,6 +48,8 @@ Never reuse a published change number and never edit `main` directly.
 Run the smallest relevant checks during implementation and broader relevant checks before completion. GitHub Actions is authoritative for unit tests, lint, and Android builds.
 
 For text-bearing changes, run the strict workplace-privacy checker when execution is available and semantically review all changed text.
+
+For canonical planning migrations, verify the prompt-file count, number continuity, expected titles, checklist completion state, and source provenance recorded in `planning/README.md`.
 
 Report validation only with the LDS V2 status terms defined in `docs/LDS_V2_STATUS_MODEL.md`.
 
