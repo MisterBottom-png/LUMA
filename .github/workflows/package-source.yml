@@ -1,0 +1,41 @@
+name: Package source snapshot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SOURCE_MANIFEST.json'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read change number
+        id: manifest
+        shell: bash
+        run: |
+          CHANGE=$(python -c "import json; print(int(json.load(open('SOURCE_MANIFEST.json'))['changeNumber']))")
+          printf 'change=%03d\n' "$CHANGE" >> "$GITHUB_OUTPUT"
+
+      - name: Create clean source ZIP
+        shell: bash
+        run: |
+          zip -r "LUMA-source-change-${{ steps.manifest.outputs.change }}.zip" . \
+            -x '.git/*' '.github/*' '.gradle/*' '.idea/*' '*/build/*' '*.apk' '*.aab' '*.jks' '*.keystore' 'local.properties'
+          sha256sum "LUMA-source-change-${{ steps.manifest.outputs.change }}.zip" > SHA256SUMS.txt
+          unzip -t "LUMA-source-change-${{ steps.manifest.outputs.change }}.zip"
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: luma-source-change-${{ steps.manifest.outputs.change }}
+          path: |
+            LUMA-source-change-${{ steps.manifest.outputs.change }}.zip
+            SHA256SUMS.txt
+          retention-days: 90
