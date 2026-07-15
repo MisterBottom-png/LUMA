@@ -118,3 +118,12 @@
 - Static IME/shared-path checks and the strict workplace-privacy checker passed.
 - Focused unit-test and debug-build execution were attempted through a temporary normalized Gradle launcher, but Gradle 8.9 was not cached and the environment could not reach `services.gradle.org`; no test or build pass is claimed.
 - IME Send behavior was not physically exercised because no device or emulator was attached.
+
+## 2026-07-15 — Change 15: Migrate repository workflow to LDS V2
+
+- Established the latest merged `main` branch of `MisterBottom-png/LUMA` as the sole authority for source, project state, planning, and implementation history.
+- Replaced the repository agent guidance with the LDS V2 startup, branch, pull request, source, verification, and completion contract.
+- Added dedicated LDS V2 workflow and status-model documentation plus a draft pull request template.
+- Converted `SOURCE_MANIFEST.json` from Drive/ZIP authority to GitHub authority while preserving product change number 14 and its verification record.
+- Rewrote root project state to preserve meaningful product state and known device-verification limitations.
+- Changed no application source or runtime behavior.
