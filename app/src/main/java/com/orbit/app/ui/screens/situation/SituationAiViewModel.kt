@@ -27,7 +27,6 @@ data class SituationAiUiState(
     val askQuery: String = "",
     val askAnswer: SourceLinkedAnswer? = null,
     val isAsking: Boolean = false,
-    val mondayConfigured: Boolean = false,
 )
 
 class SituationAiViewModel(
@@ -88,8 +87,6 @@ class SituationAiViewModel(
             askQuery = ask.query,
             askAnswer = ask.answerFor(data.dataKey),
             isAsking = ask.isAsking,
-            // Monday.com has no configured integration in this local MVP phase.
-            mondayConfigured = false,
         )
     }.stateIn(
         scope = viewModelScope,

@@ -7,9 +7,23 @@ import androidx.room.PrimaryKey
 
 enum class CaptureStatus { Inbox, Processed, Archived }
 
-enum class CaptureSource { Manual, Voice, Monday, Calendar }
+enum class CaptureSource {
+    Manual,
+    Voice,
+    // Legacy storage token: the monday.com integration was removed, but this
+    // value is retained so existing rows and older exports still decode.
+    Monday,
+    Calendar,
+}
 
-enum class SuggestedItemType { Note, Task, Reminder, MondayItem }
+enum class SuggestedItemType {
+    Note,
+    Task,
+    Reminder,
+    // Legacy storage token: the monday.com integration was removed, but this
+    // value is retained so existing rows and older exports still decode.
+    MondayItem,
+}
 
 enum class TaskStatus { Open, Done, Archived, WaitingFor, Someday }
 
@@ -163,6 +177,9 @@ data class TaskEntity(
     val updatedAt: Long = createdAt,
     val completedAt: Long? = null,
     val staleAfterDays: Int? = null,
+    // Legacy column: the monday.com integration was removed. Retained so the
+    // Room v5 schema stays unchanged and older exports still decode.
+    @Deprecated("Retained only for legacy data compatibility; never written.")
     val mondayItemId: String? = null,
     val scheduledDateEpochDay: Long? = null,
 )

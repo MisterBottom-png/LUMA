@@ -36,7 +36,6 @@
     <string name="core_capture_action_remind_me">Tuleta meelde</string>
     <string name="core_capture_action_set_reminder">Määra meeldetuletus</string>
     <string name="core_capture_action_keep_in_inbox">Jäta sisendkausta</string>
-    <string name="core_capture_action_send_to_monday">Saada esmaspäevale</string>
     <string name="core_capture_suggestion_title">Õrn soovitus</string>
   <string name="core_capture_suggestion_subtitle">Järgmise sammu võib valida vabalt.</string>
     <string name="core_capture_for_date">Kuupäevaks %1$s</string>

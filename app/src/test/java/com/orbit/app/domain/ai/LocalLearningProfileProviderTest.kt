@@ -62,7 +62,7 @@ class LocalLearningProfileProviderTest {
             ),
         )
 
-        val profile = provider.profileFor("Ask manager about Monday board")
+        val profile = provider.profileFor("Ask manager about work board")
 
         assertTrue(profile.contains("manager usually maps to Work"))
         assertFalse(profile.contains("money worries"))

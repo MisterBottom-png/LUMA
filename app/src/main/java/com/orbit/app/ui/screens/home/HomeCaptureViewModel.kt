@@ -62,7 +62,6 @@ data class HomeCaptureUiState(
     val suggestion: CaptureSuggestion? = null,
     val brainDumpHandledItemIds: Set<String> = emptySet(),
     val message: String? = null,
-    val mondayConfigured: Boolean = false,
     val notificationPermissionRequestPending: Boolean = false,
     val learnedRuleProposal: LearnedRuleProposal? = null,
 )
@@ -568,7 +567,6 @@ class HomeCaptureViewModel(
             suggestedSpaceName = "Inbox",
             suggestedTitle = "Brain Dump",
             summary = "A multi-part capture ready to review.",
-            possibleMondayItem = false,
             suggestedNextAction = "Review the split suggestions one at a time",
             relatedTopics = items.map { it.suggestedSpaceName }.distinct(),
             reminderPossible = items.any { it.suggestedType == SuggestedItemType.Reminder },
@@ -718,7 +716,6 @@ class HomeCaptureViewModel(
         rawText = rawText,
         suggestedType = SuggestedItemType.Note,
         suggestedSpaceName = "Inbox",
-        possibleMondayItem = false,
         suggestedNextAction = "Keep this in Inbox for now",
         relatedTopics = listOf("Inbox"),
         reminderPossible = false,

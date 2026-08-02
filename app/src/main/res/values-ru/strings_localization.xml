@@ -36,7 +36,6 @@
     <string name="core_capture_action_remind_me">Напомнить</string>
     <string name="core_capture_action_set_reminder">Создать напоминание</string>
     <string name="core_capture_action_keep_in_inbox">Оставить во входящих</string>
-    <string name="core_capture_action_send_to_monday">Перенести на понедельник</string>
     <string name="core_capture_suggestion_title">Мягкое предложение</string>
   <string name="core_capture_suggestion_subtitle">Следующий шаг можно выбрать свободно.</string>
     <string name="core_capture_for_date">На %1$s</string>

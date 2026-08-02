@@ -37,7 +37,6 @@
     <string name="core_capture_action_remind_me">Remind me</string>
     <string name="core_capture_action_set_reminder">Set reminder</string>
     <string name="core_capture_action_keep_in_inbox">Keep in Inbox</string>
-    <string name="core_capture_action_send_to_monday">Send to Monday</string>
     <string name="core_capture_suggestion_title">A gentle suggestion</string>
     <string name="core_capture_suggestion_subtitle">You decide what happens next.</string>
     <string name="core_capture_for_date">For %1$s</string>

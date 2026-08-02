@@ -287,7 +287,6 @@ fun HomeScreen(
             suggestion = suggestion,
             timeFormat = timeFormat,
             brainDumpHandledItemIds = uiState.brainDumpHandledItemIds,
-            mondayConfigured = uiState.mondayConfigured,
             isPerformingAction = uiState.isPerformingAction,
             onSaveNote = viewModel::saveNote,
             onCreateTask = viewModel::createTask,

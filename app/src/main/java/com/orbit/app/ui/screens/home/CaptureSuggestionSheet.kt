@@ -79,7 +79,6 @@ internal enum class CaptureDecisionAction(
     CreateTask(R.string.core_capture_action_create_task, R.string.core_capture_action_create_task),
     CreateReminder(R.string.core_capture_action_remind_me, R.string.core_capture_action_set_reminder),
     KeepInbox(R.string.core_capture_action_keep_in_inbox, R.string.core_capture_action_keep_in_inbox),
-    SendMonday(R.string.core_capture_action_send_to_monday, R.string.core_capture_action_send_to_monday),
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -88,7 +87,6 @@ fun CaptureSuggestionSheet(
     suggestion: CaptureSuggestion,
     timeFormat: OrbitTimeFormat,
     brainDumpHandledItemIds: Set<String>,
-    mondayConfigured: Boolean,
     isPerformingAction: Boolean,
     onSaveNote: (title: String, spaceId: Long?) -> Unit,
     onCreateTask: (title: String, dueAt: Long?, spaceId: Long?) -> Unit,
@@ -100,7 +98,6 @@ fun CaptureSuggestionSheet(
     onKeepInInbox: () -> Unit,
     onCancelBrainDump: () -> Unit,
     onCancel: () -> Unit,
-    onSendToMonday: (() -> Unit)? = null,
 ) {
     val analysis = suggestion.analysis
     val calendarDateContext = suggestion.calendarDateContextEpochDay?.let {
@@ -242,7 +239,6 @@ fun CaptureSuggestionSheet(
                     } else {
                         SuggestedActions(
                             suggestion = suggestion,
-                            mondayConfigured = mondayConfigured,
                             isPerformingAction = isPerformingAction,
                             selectedAction = selectedAction,
                             selectedSpaceId = selectedSpaceId,
@@ -260,11 +256,6 @@ fun CaptureSuggestionSheet(
                             onCreateReminder = {
                                 selectedActionName = CaptureDecisionAction.CreateReminder.name
                                 actionSetup = ActionSetup.Reminder
-                            },
-                            onSendToMonday = onSendToMonday?.let { sendToMonday ->
-                                {
-                                    confirmAction(sendToMonday)
-                                }
                             },
                             onKeepInInbox = {
                                 confirmAction(onKeepInInbox)
@@ -654,7 +645,6 @@ private fun BrainDumpReview(
 @Composable
 private fun SuggestedActions(
     suggestion: CaptureSuggestion,
-    mondayConfigured: Boolean,
     isPerformingAction: Boolean,
     selectedAction: CaptureDecisionAction,
     selectedSpaceId: Long?,
@@ -663,7 +653,6 @@ private fun SuggestedActions(
     onSaveNote: () -> Unit,
     onCreateTask: () -> Unit,
     onCreateReminder: () -> Unit,
-    onSendToMonday: (() -> Unit)?,
     onKeepInInbox: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -760,11 +749,9 @@ private fun SuggestedActions(
                 CaptureDecisionAction.CreateTask -> onCreateTask()
                 CaptureDecisionAction.CreateReminder -> onCreateReminder()
                 CaptureDecisionAction.KeepInbox -> onKeepInInbox()
-                CaptureDecisionAction.SendMonday -> onSendToMonday?.invoke()
             }
         },
-        enabled = !isPerformingAction &&
-            (selectedAction != CaptureDecisionAction.SendMonday || (mondayConfigured && onSendToMonday != null)),
+        enabled = !isPerformingAction,
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 18.dp),
@@ -794,7 +781,7 @@ private fun SuggestedActions(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            decisionActions(mondayConfigured, onSendToMonday != null).forEach { action ->
+            decisionActions().forEach { action ->
                 ChoiceButton(
                     text = stringResource(action.labelRes),
                     selected = selectedAction == action,
@@ -888,18 +875,12 @@ private fun defaultDecisionAction(analysis: com.orbit.app.domain.analyzer.Captur
         else -> CaptureDecisionAction.SaveNote
     }
 
-internal fun decisionActions(
-    mondayConfigured: Boolean,
-    sendToMondayAvailable: Boolean,
-): List<CaptureDecisionAction> = buildList {
-    add(CaptureDecisionAction.SaveNote)
-    add(CaptureDecisionAction.CreateTask)
-    add(CaptureDecisionAction.CreateReminder)
-    if (mondayConfigured && sendToMondayAvailable) {
-        add(CaptureDecisionAction.SendMonday)
-    }
-    add(CaptureDecisionAction.KeepInbox)
-}
+internal fun decisionActions(): List<CaptureDecisionAction> = listOf(
+    CaptureDecisionAction.SaveNote,
+    CaptureDecisionAction.CreateTask,
+    CaptureDecisionAction.CreateReminder,
+    CaptureDecisionAction.KeepInbox,
+)
 
 internal fun brainDumpTaskInitialDueAt(item: BrainDumpSuggestion): Long? = item.suggestedReminderAt
 

@@ -44,7 +44,6 @@ object GeminiJsonValidator {
                 ?.take(MaxTextFieldLength)
                 ?: fallbackRawText.toSafeTitle(),
             suggestedSpaceName = suggestedSpaceName,
-            possibleMondayItem = extractBoolean(text, "possibleMondayItem") ?: false,
             suggestedNextAction = suggestedNextAction.take(MaxTextFieldLength),
             relatedTopics = extractStringArray(text, "relatedTopics")
                 .map { it.take(MaxTextFieldLength) }
@@ -184,7 +183,6 @@ object GeminiJsonValidator {
         "note" -> SuggestedItemType.Note
         "task" -> SuggestedItemType.Task
         "reminder" -> SuggestedItemType.Reminder
-        "mondayitem", "monday_item", "monday" -> SuggestedItemType.MondayItem
         else -> null
     }
 

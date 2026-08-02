@@ -8,7 +8,7 @@ import org.junit.Test
 class GeminiPromptBuildersTest {
     @Test
     fun capturePromptRequiresJsonOnlyAndNoRecordCreation() {
-        val prompt = GeminiPromptBuilders.captureAnalysis("ask manager about Monday board")
+        val prompt = GeminiPromptBuilders.captureAnalysis("ask manager about work board")
 
         assertTrue(prompt.contains("Return JSON only"))
         assertTrue(prompt.contains("Never create tasks"))
@@ -28,7 +28,7 @@ class GeminiPromptBuildersTest {
     @Test
     fun capturePromptIncludesCompactLearningProfileWhenProvided() {
         val prompt = GeminiPromptBuilders.captureAnalysis(
-            rawText = "ask manager about Monday board",
+            rawText = "ask manager about work board",
             learningProfile = "- manager usually maps to Work",
         )
 

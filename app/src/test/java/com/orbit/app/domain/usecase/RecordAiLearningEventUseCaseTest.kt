@@ -120,7 +120,6 @@ class RecordAiLearningEventUseCaseTest {
             suggestedSpaceName = "Work",
             suggestedTitle = "Ask manager about budget",
             summary = "Ask manager about budget",
-            possibleMondayItem = false,
             suggestedNextAction = "Ask manager about budget",
             relatedTopics = listOf("manager"),
             reminderPossible = false,

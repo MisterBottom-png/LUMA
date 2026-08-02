@@ -33,7 +33,6 @@ class LocalRulesCaptureAnalyzerTest {
             "stakeholder" to "Work",
             "data governance" to "Work",
             "change management" to "Work",
-            "Monday" to "Work",
             "car" to "Car",
             "Audi" to "Car",
             "Lexus" to "Car",
@@ -87,22 +86,6 @@ class LocalRulesCaptureAnalyzerTest {
     }
 
     @Test
-    fun workTaskCanBeSuggestedAsMondayItem() {
-        val result = analyzer.analyze("Call manager")
-
-        assertTrue(result.possibleMondayItem)
-        assertEquals("Work", result.suggestedSpaceName)
-        assertEquals(SuggestedItemType.Task, result.suggestedType)
-    }
-
-    @Test
-    fun mondaySignalMarksPossibleMondayItem() {
-        val result = analyzer.analyze("Monday planning notes")
-
-        assertTrue(result.possibleMondayItem)
-    }
-
-    @Test
     fun rawTextIsPreservedExactly() {
         val rawText = "  Call manager tomorrow.  \n"
 
@@ -126,7 +109,6 @@ class LocalRulesCaptureAnalyzerTest {
         assertEquals(CaptureConfidence.Low, result.confidenceLevel)
         assertTrue(result.typeReason.isNotBlank())
         assertTrue(result.spaceReason.isNotBlank())
-        assertFalse(result.possibleMondayItem)
         assertFalse(result.reminderPossible)
     }
 

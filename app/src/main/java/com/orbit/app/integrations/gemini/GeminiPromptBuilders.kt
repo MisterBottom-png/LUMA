@@ -30,7 +30,6 @@ object GeminiPromptBuilders {
           "summary": "one sentence summary",
           "suggestedType": "note|task|reminder",
           "suggestedSpaceName": "Work|Personal|Car|Dog|Money|Ideas|Home|Health|Learning|Inbox",
-          "possibleMondayItem": false,
           "suggestedNextAction": "short action",
           "relatedTopics": ["short topic"],
           "suggestionChips": ["short chip"],

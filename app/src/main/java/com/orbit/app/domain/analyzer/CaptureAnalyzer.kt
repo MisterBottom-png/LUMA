@@ -11,7 +11,6 @@ data class CaptureAnalysis(
     val suggestedSpaceName: String,
     val suggestedTitle: String = rawText.toSuggestedTitle(),
     val summary: String = rawText.toSuggestedTitle(),
-    val possibleMondayItem: Boolean,
     val suggestedNextAction: String,
     val relatedTopics: List<String>,
     val suggestionChips: List<String> = emptyList(),
@@ -119,7 +118,6 @@ class LocalRulesCaptureAnalyzer(
             return analyzeSingle(rawText).copy(
                 suggestedType = SuggestedItemType.Note,
                 suggestedSpaceName = "Inbox",
-                possibleMondayItem = brainDumpItems.any { it.suggestedSpaceName == "Work" },
                 suggestedNextAction = "Review the split suggestions one at a time",
                 relatedTopics = brainDumpItems.map { it.suggestedSpaceName }.distinct(),
                 reminderPossible = brainDumpItems.any {
@@ -193,10 +191,6 @@ class LocalRulesCaptureAnalyzer(
             suggestedSpaceName = suggestedSpace,
             suggestedTitle = rawText.toSuggestedTitle(),
             summary = rawText.toSuggestedTitle(),
-            possibleMondayItem = rulePacks.any { pack ->
-                pack.mondaySignals.any { signal -> normalized.containsSignal(signal) }
-            } ||
-                (suggestedSpace == "Work" && suggestedType == SuggestedItemType.Task),
             suggestedNextAction = nextActionFor(
                 rawText = rawText,
                 type = suggestedType,
@@ -265,7 +259,6 @@ private data class CaptureRulePack(
     val taskStartSignals: List<String>,
     val explicitReminderSignals: List<String>,
     val reminderSignals: List<String>,
-    val mondaySignals: List<String>,
     val spaceRules: List<SpaceRule>,
     val topicRules: List<TopicRule>,
     val waitingSignals: List<String>,
@@ -289,11 +282,10 @@ private val EnglishCaptureRules = CaptureRulePack(
     taskStartSignals = listOf("need", "fix", "sort", "prepare", "remember", "buy", "get"),
     explicitReminderSignals = listOf("remind me", "reminder"),
     reminderSignals = listOf("today", "tomorrow", "next week", "next month"),
-    mondaySignals = listOf("monday"),
     spaceRules = listOf(
         SpaceRule(
             "Work",
-            listOf("manager", "stakeholder", "data governance", "change management", "monday"),
+            listOf("manager", "stakeholder", "data governance", "change management"),
         ),
         SpaceRule("Car", listOf("car", "audi", "lexus", "mazda")),
         SpaceRule("Dog", listOf("dog")),
@@ -306,7 +298,6 @@ private val EnglishCaptureRules = CaptureRulePack(
         TopicRule("stakeholder", listOf("stakeholder")),
         TopicRule("Data governance", listOf("data governance")),
         TopicRule("Change management", listOf("change management")),
-        TopicRule("Monday", listOf("monday")),
         TopicRule("Car", listOf("car", "audi", "lexus", "mazda")),
         TopicRule("Dog", listOf("dog")),
         TopicRule("Money", listOf("money", "pay", "salary", "budget")),
@@ -361,7 +352,6 @@ private val EstonianCaptureRules = CaptureRulePack(
         "järgmisel kuul",
         "järgmine kuu",
     ),
-    mondaySignals = listOf("esmaspäev", "esmaspäeval"),
     spaceRules = listOf(
         SpaceRule(
             "Work",
@@ -371,8 +361,6 @@ private val EstonianCaptureRules = CaptureRulePack(
                 "andmehaldus",
                 "muudatuste juhtimine",
                 "töö",
-                "esmaspäev",
-                "esmaspäeval",
             ),
         ),
         SpaceRule("Car", listOf("auto", "audi", "lexus", "mazda")),
@@ -382,7 +370,7 @@ private val EstonianCaptureRules = CaptureRulePack(
         SpaceRule("Learning", listOf("õpi", "õppida", "õppimine", "kursus")),
     ),
     topicRules = listOf(
-        TopicRule("Work", listOf("juht", "sidusrühm", "töö", "esmaspäev", "esmaspäeval")),
+        TopicRule("Work", listOf("juht", "sidusrühm", "töö")),
         TopicRule("Data governance", listOf("andmehaldus")),
         TopicRule("Change management", listOf("muudatuste juhtimine")),
         TopicRule("Car", listOf("auto", "audi", "lexus", "mazda")),
@@ -439,7 +427,6 @@ private val RussianCaptureRules = CaptureRulePack(
         "в следующем месяце",
         "следующий месяц",
     ),
-    mondaySignals = listOf("понедельник", "в понедельник"),
     spaceRules = listOf(
         SpaceRule(
             "Work",
@@ -449,8 +436,6 @@ private val RussianCaptureRules = CaptureRulePack(
                 "управление данными",
                 "управление изменениями",
                 "работа",
-                "понедельник",
-                "в понедельник",
             ),
         ),
         SpaceRule("Car", listOf("машина", "авто", "audi", "lexus", "mazda")),
@@ -460,7 +445,7 @@ private val RussianCaptureRules = CaptureRulePack(
         SpaceRule("Learning", listOf("учиться", "обучение", "курс", "изучить")),
     ),
     topicRules = listOf(
-        TopicRule("Work", listOf("руководитель", "заинтересованная сторона", "работа", "понедельник")),
+        TopicRule("Work", listOf("руководитель", "заинтересованная сторона", "работа")),
         TopicRule("Data governance", listOf("управление данными")),
         TopicRule("Change management", listOf("управление изменениями")),
         TopicRule("Car", listOf("машина", "авто", "audi", "lexus", "mazda")),

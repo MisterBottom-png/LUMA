@@ -46,9 +46,8 @@ class GeminiJsonValidatorTest {
                   "suggestedSpaceName": "Work",
                   "suggestedTitle": "Send manager the update",
                   "summary": "A work follow-up for manager.",
-                  "possibleMondayItem": true,
                   "suggestedNextAction": "Send manager the update",
-                  "relatedTopics": ["manager", "Monday"],
+                  "relatedTopics": ["manager"],
                   "suggestionChips": ["Work", "Tomorrow"],
                   "reminderPossible": false,
                   "reminderSuggestion": {"dueAtEpochMillis": 1783526400000, "phrase": "tomorrow"},
@@ -67,7 +66,7 @@ class GeminiJsonValidatorTest {
         assertEquals(SuggestedItemType.Task, result.suggestedType)
         assertEquals("Work", result.suggestedSpaceName)
         assertEquals("Send manager the update", result.suggestedTitle)
-        assertEquals(listOf("manager", "Monday"), result.relatedTopics)
+        assertEquals(listOf("manager"), result.relatedTopics)
         assertEquals(CaptureLifeSignal.WaitingFor, result.lifeSignal)
         assertEquals(CaptureAnalyzerSource.Gemini, result.analyzerSource)
         assertEquals(1783526400000L, result.suggestedReminderAt)
