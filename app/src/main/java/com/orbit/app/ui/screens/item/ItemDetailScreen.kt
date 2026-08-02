@@ -532,7 +532,6 @@ private fun ScheduleSheet(
     }
 }
 
-@Composable
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NotificationSheet(
