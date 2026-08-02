@@ -30,7 +30,7 @@ class GeminiJsonValidatorTest {
         val candidate = JSONObject(
             """{"content":{"parts":[
                 {"thought":true,"text":"internal reasoning"},
-                {"text":"{\\"ok\\":true}"}
+                {"text":"{\"ok\":true}"}
             ]}}""",
         )
 
