@@ -99,6 +99,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 100
 
+    env:
+      # Make avdmanager and the setup script agree on one writable AVD home.
+      ANDROID_USER_HOME: ${{ github.workspace }}/.android
+      ANDROID_AVD_HOME: ${{ github.workspace }}/.android/avd
+
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -145,6 +150,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          export PATH="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/platform-tools:$PATH"
           serial="$(adb devices | awk '/^emulator-[0-9]+[[:space:]]+device$/ { print $1; exit }')"
           if [[ -n "$serial" ]]; then
             adb -s "$serial" emu kill || true
