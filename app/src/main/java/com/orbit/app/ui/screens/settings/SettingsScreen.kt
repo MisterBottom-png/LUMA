@@ -139,6 +139,7 @@ fun SettingsScreen(
     onRestoreFileSelected: (android.net.Uri?) -> Unit,
     onConfirmRestore: () -> Unit,
     onCancelRestore: () -> Unit,
+    onResetAllData: () -> Unit,
     onAppearanceSubsectionChanged: (Boolean) -> Unit,
 ) {
     var currentSection by rememberSaveable { mutableStateOf(SettingsSection.Overview) }
@@ -316,6 +317,7 @@ fun SettingsScreen(
                             onRestoreFileSelected = onRestoreFileSelected,
                             onConfirmRestore = onConfirmRestore,
                             onCancelRestore = onCancelRestore,
+                            onResetAllData = onResetAllData,
                         )
                     }
                 }
@@ -1300,8 +1302,10 @@ private fun LocalDataSettingsSection(
     onRestoreFileSelected: (android.net.Uri?) -> Unit,
     onConfirmRestore: () -> Unit,
     onCancelRestore: () -> Unit,
+    onResetAllData: () -> Unit,
 ) {
     var showExportWarning by rememberSaveable { mutableStateOf(false) }
+    var showResetConfirmation by rememberSaveable { mutableStateOf(false) }
     val exportPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
         onResult = onExportJson,
@@ -1447,7 +1451,51 @@ private fun LocalDataSettingsSection(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text(
+                text = stringResource(R.string.settings_reset_explanation),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = { showResetConfirmation = true },
+                enabled = !localDataTools.isResetting && !localDataTools.isRestoring,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    stringResource(
+                        if (localDataTools.isResetting) {
+                            R.string.settings_resetting
+                        } else {
+                            R.string.settings_reset_local_data
+                        },
+                    ),
+                )
+            }
         }
+    }
+    if (showResetConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmation = false },
+            modifier = Modifier.calmPressHaptics(),
+            title = { Text(stringResource(R.string.settings_reset_data_title)) },
+            text = { Text(stringResource(R.string.settings_reset_data_body)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResetConfirmation = false
+                        onResetAllData()
+                    },
+                ) {
+                    Text(stringResource(R.string.settings_reset_data_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmation = false }) {
+                    Text(stringResource(R.string.settings_cancel))
+                }
+            },
+        )
     }
 }
 

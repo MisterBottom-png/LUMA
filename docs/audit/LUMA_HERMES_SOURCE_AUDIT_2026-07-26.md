@@ -84,6 +84,24 @@ Follow-up if the tokens must go: Room migration 5→6 (table rebuild for `tasks`
 
 Historical references intentionally left in place: `CHANGELOG.md`, `PROGRESS.md`, `docs/archive/`, `docs/planning/`, `docs/codex/cleanup/LUMA_CLEANUP_INVENTORY.md` (records of past changes), and `DayOfWeek.MONDAY` usages (java.time weekday, not monday.com).
 
+## Resolution status (2026-07-26, applied on `currentsource`)
+
+| ID | Status | Notes |
+|---|---|---|
+| A1 | FIXED | Notification offset and enable/disable controls were added to the reminder item detail UI (`ItemDetailViewModel.updateNotificationOffset`/`setNotificationEnabled`, `NotificationSheet` in `ItemDetailScreen`); the dead `ReminderDetailScreen`/`ReminderDetailViewModel` were deleted. |
+| A2 | FIXED | "Reset local data" added to Settings → Local data (`LocalDataToolsViewModel.resetAllData`): cancels scheduled notifications, wipes captures/notes/tasks/reminders/Brain Dumps/Spaces in a transaction, re-seeds starter Spaces, confirmation dialog. |
+| B1 | NO CHANGE (deliberate) | `ReminderTimeInterpreterTest.anEarlierExplicitTodayTimeIsNotSilentlyRolledToTomorrow` locks in the no-roll behavior. Keep as-is. |
+| B2 | FIXED | Capture-path reminder creation now reports a "notification scheduling needs attention" message when the scheduler returns no work ID. |
+| B3 | DEFERRED | Needs device verification; documented only. |
+| B4 | FIXED | Gemini-suggested `dueAtEpochMillis` must now be > 0. |
+| B5 | DEFERRED | Needs product decision on learned-memory lifecycle. |
+| B6 | FIXED | Space item counts now exclude completed reminders. |
+| B7 | DEFERRED | Low value; documented only. |
+| C1 | FIXED | API key moved from the URL query string to the `x-goog-api-key` header. |
+| C2 | PARTIAL | Home capture and reminder-detail messages were extracted to `values/strings_localization.xml` (English); et/ru translations remain backlog MVP-009. Analysis model strings (e.g., "Brain Dump", reasons) intentionally unchanged. |
+| C3 | NO CHANGE | Product choice (portrait lock). |
+| C4 | NO CHANGE | Intentional (finalized-only search). |
+
 ## Priority order
 
 1. A1 — restore reminder offset/notification editing (reconnect or fold into item detail).

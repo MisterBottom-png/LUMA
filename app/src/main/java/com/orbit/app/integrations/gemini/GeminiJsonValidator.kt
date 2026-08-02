@@ -54,7 +54,9 @@ object GeminiJsonValidator {
                 .distinct()
                 .take(MaxTopics),
             reminderPossible = extractBoolean(text, "reminderPossible") ?: false,
-            suggestedReminderAt = extractNumber(text, "dueAtEpochMillis")?.toLong(),
+            suggestedReminderAt = extractNumber(text, "dueAtEpochMillis")
+                ?.toLong()
+                ?.takeIf { it > 0L },
             reminderPhrase = extractString(text, "phrase")?.take(MaxTextFieldLength),
             lifeSignal = extractString(text, "lifeSignal").toLifeSignal(),
             confidence = confidence,

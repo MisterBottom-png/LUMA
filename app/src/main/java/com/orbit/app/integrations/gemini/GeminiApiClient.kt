@@ -82,12 +82,15 @@ class HttpGeminiApiClient : GeminiApiClient {
         }
 
         runCatching {
-            val connection = URL(endpointFor(modelId, cleanKey)).openConnection() as HttpURLConnection
+            val connection = URL(endpointFor(modelId)).openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
             connection.connectTimeout = TimeoutMillis
             connection.readTimeout = TimeoutMillis
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json")
+            // The key travels in the header instead of the URL so it cannot leak
+            // into request logs or proxies.
+            connection.setRequestProperty("x-goog-api-key", cleanKey)
             connection.outputStream.use { output ->
                 output.write(requestBody(prompt, maxOutputTokens).toByteArray(Charsets.UTF_8))
             }
@@ -110,10 +113,9 @@ class HttpGeminiApiClient : GeminiApiClient {
         }
     }
 
-    private fun endpointFor(modelId: String, apiKey: String): String {
+    private fun endpointFor(modelId: String): String {
         val encodedModel = URLEncoder.encode(modelId.trim(), "UTF-8")
-        val encodedKey = URLEncoder.encode(apiKey, "UTF-8")
-        return "$BaseUrl/$encodedModel:generateContent?key=$encodedKey"
+        return "$BaseUrl/$encodedModel:generateContent"
     }
 
     private fun requestBody(prompt: String, maxOutputTokens: Int): String = JSONObject()

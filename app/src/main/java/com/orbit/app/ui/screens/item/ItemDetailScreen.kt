@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,8 +34,10 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Spa
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -46,6 +49,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.Switch
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -76,6 +80,8 @@ import com.orbit.app.ui.components.LumaModalBottomSheet
 import com.orbit.app.ui.components.calmPressHaptics
 import com.orbit.app.ui.components.orbitScrollEdgeFade
 import com.orbit.app.ui.navigation.ItemDetailType
+import com.orbit.app.reminders.reminderOffsetLabel
+import com.orbit.app.reminders.reminderOffsetOptions
 import com.orbit.app.ui.time.OrbitTimeFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -84,7 +90,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-private enum class DetailSheet { Type, Schedule, LifeState, Space }
+private enum class DetailSheet { Type, Schedule, LifeState, Space, Notification }
 
 internal enum class ItemDetailBackAction { CancelEditing, NavigateUp }
 
@@ -140,6 +146,8 @@ fun ItemDetailScreen(
             onArchive = viewModel::archive,
             onUpdateSchedule = viewModel::updateSchedule,
             onUpdateSpace = viewModel::updateSpace,
+            onUpdateNotificationOffset = viewModel::updateNotificationOffset,
+            onSetNotificationEnabled = viewModel::setNotificationEnabled,
             onChangeType = viewModel::changeType,
             onDelete = { confirmDelete = true },
             onResumeBrainDump = { onResumeBrainDump(state.itemId) },
@@ -180,6 +188,8 @@ private fun ItemDetailContent(
     onArchive: () -> Unit,
     onUpdateSchedule: (ItemSchedule) -> Unit,
     onUpdateSpace: (Long?) -> Unit,
+    onUpdateNotificationOffset: (Long) -> Unit,
+    onSetNotificationEnabled: (Boolean) -> Unit,
     onChangeType: (ItemDetailType, Long?) -> Unit,
     onDelete: () -> Unit,
     onResumeBrainDump: () -> Unit,
@@ -267,6 +277,20 @@ private fun ItemDetailContent(
                             DetailRow(stringResource(R.string.core_item_detail_type), state.type.userLabel(), !isEditing) { openSheet = DetailSheet.Type }
                             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                             DetailRow(stringResource(R.string.core_item_detail_schedule), scheduleLabel(state, timeFormat), !isEditing) { openSheet = DetailSheet.Schedule }
+                            if (state.type == ItemDetailType.Reminder && state.notificationEnabled != null) {
+                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                                DetailRow(
+                                    stringResource(R.string.core_reminder_detail_notification),
+                                    stringResource(
+                                        if (state.notificationEnabled == true) {
+                                            R.string.core_enabled
+                                        } else {
+                                            R.string.core_disabled
+                                        },
+                                    ) + " · " + reminderOffsetLabel(state.notificationOffsetMinutes ?: 0L),
+                                    !isEditing,
+                                ) { openSheet = DetailSheet.Notification }
+                            }
                             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                             DetailRow(
                                 stringResource(R.string.core_item_detail_life_state),
@@ -378,6 +402,18 @@ private fun ItemDetailContent(
         DetailSheet.LifeState -> LifeStateSheet(state.taskStatus, { openSheet = null }) {
             openSheet = null; onSetTaskStatus(it)
         }
+        DetailSheet.Notification -> NotificationSheet(
+            offsetMinutes = state.notificationOffsetMinutes ?: 0L,
+            notificationEnabled = state.notificationEnabled ?: true,
+            onDismiss = { openSheet = null },
+            onOffsetSelected = {
+                openSheet = null
+                onUpdateNotificationOffset(it)
+            },
+            onEnabledChanged = {
+                onSetNotificationEnabled(it)
+            },
+        )
         DetailSheet.Space -> ChoiceSheet(
             title = stringResource(R.string.core_item_detail_space),
             choices = listOf(null to stringResource(R.string.core_inbox)) + state.spaces.map { it.id to it.name },
@@ -490,6 +526,59 @@ private fun ScheduleSheet(
             }
             if (state.scheduledAt != null || state.scheduledDateEpochDay != null) {
                 ListItem(headlineContent = { Text(stringResource(R.string.core_item_detail_remove_schedule)) }, modifier = Modifier.clickable { onSchedule(ItemSchedule.Unscheduled) })
+            }
+        }
+        Spacer(Modifier.navigationBarsPadding())
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NotificationSheet(
+    offsetMinutes: Long,
+    notificationEnabled: Boolean,
+    onDismiss: () -> Unit,
+    onOffsetSelected: (Long) -> Unit,
+    onEnabledChanged: (Boolean) -> Unit,
+) {
+    LumaModalBottomSheet(onDismissRequest = onDismiss) {
+        SheetTitle(stringResource(R.string.core_reminder_detail_notification))
+        ListItem(
+            headlineContent = {
+                Text(
+                    stringResource(
+                        if (notificationEnabled) {
+                            R.string.core_reminder_detail_disable_notification
+                        } else {
+                            R.string.core_reminder_detail_enable_notification
+                        },
+                    ),
+                )
+            },
+            trailingContent = {
+                Switch(checked = notificationEnabled, onCheckedChange = onEnabledChanged)
+            },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        )
+        Text(
+            stringResource(R.string.core_reminder_detail_delivery),
+            Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(
+            modifier = Modifier.padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            reminderOffsetOptions.forEach { option ->
+                val selected = option.minutes == offsetMinutes
+                FilterChip(
+                    selected = selected,
+                    onClick = { onOffsetSelected(option.minutes) },
+                    label = { Text(option.label) },
+                )
             }
         }
         Spacer(Modifier.navigationBarsPadding())

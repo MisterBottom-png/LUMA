@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.home
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.SavedStateHandle
@@ -12,9 +13,11 @@ import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.SuggestedItemType
+import com.orbit.app.R
 import com.orbit.app.data.repository.AppSettingsRepository
 import com.orbit.app.data.repository.BrainDumpRepository
 import com.orbit.app.data.repository.CaptureRepository
+import com.orbit.app.data.repository.ReminderRepository
 import com.orbit.app.data.repository.SpaceRepository
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
 import com.orbit.app.domain.analyzer.CaptureAnalysis
@@ -32,6 +35,7 @@ import com.orbit.app.domain.usecase.CaptureSuggestionLearningDecision
 import com.orbit.app.domain.usecase.RecordAiLearningEventUseCase
 import com.orbit.app.domain.usecase.LearnedRuleProposal
 import com.orbit.app.domain.usecase.ProposeLearnedRuleUseCase
+import com.orbit.app.reminders.shouldScheduleNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,6 +59,11 @@ data class CaptureSpaceOption(
     val name: String,
 )
 
+private data class ConfirmedActionResult(
+    val decision: CaptureSuggestionLearningDecision,
+    val notificationSchedulingNeedsAttention: Boolean = false,
+)
+
 data class HomeCaptureUiState(
     val inputText: String = "",
     val isAnalyzing: Boolean = false,
@@ -67,6 +76,7 @@ data class HomeCaptureUiState(
 )
 
 class HomeCaptureViewModel(
+    private val context: Context,
     private val captureRepository: CaptureRepository,
     private val brainDumpRepository: BrainDumpRepository,
     private val spaceRepository: SpaceRepository,
@@ -74,10 +84,12 @@ class HomeCaptureViewModel(
     private val aiRouter: OrbitAiRouter,
     private val confirmCaptureAction: ConfirmCaptureActionUseCase,
     private val brainDumpActions: BrainDumpActions,
+    private val reminderRepository: ReminderRepository,
     private val recordAiLearningEvent: RecordAiLearningEventUseCase,
     private val proposeLearnedRule: ProposeLearnedRuleUseCase,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
+    private fun stringResource(@androidx.annotation.StringRes resId: Int): String = context.getString(resId)
     private val _uiState = MutableStateFlow(HomeCaptureUiState())
     val uiState: StateFlow<HomeCaptureUiState> = _uiState.asStateFlow()
 
@@ -104,7 +116,7 @@ class HomeCaptureViewModel(
                 _uiState.update {
                     it.copy(
                         isAnalyzing = false,
-                        message = "I couldn't save that capture. Your text is still here.",
+                        message = stringResource(R.string.core_capture_message_save_failed),
                     )
                 }
                 return@launch
@@ -160,7 +172,7 @@ class HomeCaptureViewModel(
                             spaceOptions = spaceOptions,
                             calendarDateContextEpochDay = safeCalendarDateContext,
                         ),
-                        message = "It's safe in your Inbox. You can still choose what to do.",
+                        message = stringResource(R.string.core_capture_message_safe_in_inbox),
                     )
                 }
             }
@@ -184,7 +196,7 @@ class HomeCaptureViewModel(
             it.copy(
                 suggestion = null,
                 brainDumpHandledItemIds = emptySet(),
-                message = "Kept in Inbox.",
+                message = stringResource(R.string.core_capture_message_kept_in_inbox),
             )
         }
     }
@@ -211,14 +223,14 @@ class HomeCaptureViewModel(
                         isPerformingAction = false,
                         suggestion = null,
                         brainDumpHandledItemIds = emptySet(),
-                        message = "Capture cancelled.",
+                        message = stringResource(R.string.core_capture_message_capture_cancelled),
                     )
                 }
             }.onFailure {
                 _uiState.update {
                     it.copy(
                         isPerformingAction = false,
-                        message = "I couldn't cancel that capture. Please try again.",
+                        message = stringResource(R.string.core_capture_message_cancel_failed),
                     )
                 }
             }
@@ -241,14 +253,14 @@ class HomeCaptureViewModel(
                         isPerformingAction = false,
                         suggestion = null,
                         brainDumpHandledItemIds = emptySet(),
-                        message = "Brain Dump cancelled.",
+                        message = stringResource(R.string.core_capture_message_brain_dump_cancelled),
                     )
                 }
             }.onFailure {
                 _uiState.update {
                     it.copy(
                         isPerformingAction = false,
-                        message = "I couldn't cancel that Brain Dump. Please try again.",
+                        message = stringResource(R.string.core_capture_message_brain_dump_cancel_failed),
                     )
                 }
             }
@@ -263,7 +275,7 @@ class HomeCaptureViewModel(
                 .onFailure {
                     savedStateHandle[ActiveBrainDumpCaptureIdKey] = null
                     _uiState.update { state ->
-                        state.copy(message = "That Brain Dump is no longer waiting for review.")
+                        state.copy(message = stringResource(R.string.core_capture_message_brain_dump_gone))
                     }
                 }
         }
@@ -271,7 +283,7 @@ class HomeCaptureViewModel(
 
     fun saveNote(title: String, spaceId: Long?) {
         performConfirmedAction(
-            successMessage = "Saved as a note.",
+            successMessage = stringResource(R.string.core_capture_message_saved_note),
         ) { suggestion ->
             confirmCaptureAction.saveNote(
                 captureId = suggestion.captureId,
@@ -279,7 +291,7 @@ class HomeCaptureViewModel(
                 title = title,
                 scheduledDateEpochDay = suggestion.calendarDateContextEpochDay,
             )
-            CaptureSuggestionLearningDecision(
+            ConfirmedActionResult(CaptureSuggestionLearningDecision(
                 surface = AiSuggestionSurface.Capture,
                 userAction = "save_note",
                 finalType = SuggestedItemType.Note,
@@ -287,13 +299,13 @@ class HomeCaptureViewModel(
                 finalSpaceName = suggestion.spaceNameFor(spaceId),
                 finalTitle = title,
                 sourceText = suggestion.analysis.rawText,
-            )
+            ))
         }
     }
 
     fun createTask(title: String, dueAt: Long?, spaceId: Long?) {
         performConfirmedAction(
-            successMessage = "Task created.",
+            successMessage = stringResource(R.string.core_capture_message_task_created),
         ) { suggestion ->
             val finalSchedule = calendarTaskSchedule(
                 dueAt = dueAt,
@@ -306,7 +318,7 @@ class HomeCaptureViewModel(
                 dueAt = finalSchedule.dueAt,
                 scheduledDateEpochDay = finalSchedule.scheduledDateEpochDay,
             )
-            CaptureSuggestionLearningDecision(
+            ConfirmedActionResult(CaptureSuggestionLearningDecision(
                 surface = AiSuggestionSurface.Capture,
                 userAction = "create_task",
                 finalType = SuggestedItemType.Task,
@@ -315,7 +327,7 @@ class HomeCaptureViewModel(
                 finalTitle = title,
                 finalDueAt = dueAt,
                 sourceText = suggestion.analysis.rawText,
-            )
+            ))
         }
     }
 
@@ -326,17 +338,20 @@ class HomeCaptureViewModel(
         linkedTaskId: Long? = null,
     ) {
         performConfirmedAction(
-            successMessage = "Reminder created.",
+            successMessage = stringResource(R.string.core_capture_message_reminder_created),
             requestNotificationPermission = true,
         ) { suggestion ->
-            confirmCaptureAction.createReminder(
+            val reminderId = confirmCaptureAction.createReminder(
                 captureId = suggestion.captureId,
                 spaceId = spaceId,
                 title = title,
                 dueAt = dueAt,
                 linkedTaskId = linkedTaskId,
             )
-            CaptureSuggestionLearningDecision(
+            val schedulingNeedsAttention = reminderRepository.getById(reminderId)?.let { reminder ->
+                reminder.shouldScheduleNotification() && reminder.notificationWorkId == null
+            } ?: true
+            ConfirmedActionResult(CaptureSuggestionLearningDecision(
                 surface = AiSuggestionSurface.Capture,
                 userAction = "create_reminder",
                 finalType = SuggestedItemType.Reminder,
@@ -345,8 +360,9 @@ class HomeCaptureViewModel(
                 finalTitle = title,
                 finalDueAt = dueAt,
                 sourceText = suggestion.analysis.rawText,
-            )
-        }
+            ),
+            notificationSchedulingNeedsAttention = schedulingNeedsAttention,
+        )
     }
 
     fun saveBrainDumpItem(
@@ -358,7 +374,10 @@ class HomeCaptureViewModel(
     ) {
         require(type == SuggestedItemType.Note || type == SuggestedItemType.Task)
         val cleanTitle = title.trim().ifBlank { item.title }
-        performBrainDumpAction(item, "Saved one Brain Dump item.") { suggestion ->
+        performBrainDumpAction(
+            item,
+            stringResource(R.string.core_capture_message_saved_brain_dump_item),
+        ) { suggestion ->
             val result = when (type) {
                 SuggestedItemType.Note -> brainDumpActions.saveNote(
                     suggestion.captureId, item.id, cleanTitle, spaceId,
@@ -385,7 +404,7 @@ class HomeCaptureViewModel(
         val cleanTitle = title.trim().ifBlank { item.title }
         performBrainDumpAction(
             item = item,
-            successMessage = "Reminder created.",
+            successMessage = stringResource(R.string.core_capture_message_reminder_created),
             requestNotificationPermission = true,
         ) { suggestion ->
             brainDumpActions.saveReminder(suggestion.captureId, item.id, cleanTitle, dueAt, spaceId) to
@@ -406,7 +425,7 @@ class HomeCaptureViewModel(
     fun saveBrainDumpOriginalForLater(item: BrainDumpSuggestion) {
         performBrainDumpAction(
             item,
-            "Saved the original line for later.",
+            stringResource(R.string.core_capture_message_saved_line_for_later),
         ) { suggestion ->
             val result = brainDumpActions.saveOriginalLineForLater(suggestion.captureId, item.id)
             result to null
@@ -416,7 +435,7 @@ class HomeCaptureViewModel(
     fun skipBrainDumpItem(item: BrainDumpSuggestion) {
         performBrainDumpAction(
             item,
-            "Skipped one suggestion.",
+            stringResource(R.string.core_capture_message_skipped_suggestion),
             rejectionAction = "skip_brain_dump_item",
         ) { suggestion ->
             brainDumpActions.skip(suggestion.captureId, item.id) to null
@@ -426,7 +445,7 @@ class HomeCaptureViewModel(
     private fun performConfirmedAction(
         successMessage: String,
         requestNotificationPermission: Boolean = false,
-        action: suspend (CaptureSuggestion) -> CaptureSuggestionLearningDecision,
+        action: suspend (CaptureSuggestion) -> ConfirmedActionResult,
     ) {
         val suggestion = _uiState.value.suggestion ?: return
         if (_uiState.value.isPerformingAction) return
@@ -434,14 +453,18 @@ class HomeCaptureViewModel(
         _uiState.update { it.copy(isPerformingAction = true, message = null) }
         viewModelScope.launch {
             try {
-                val decision = action(suggestion)
-                val learningProposal = recordLearningOutcome(suggestion.learningContext(), decision)
+                val result = action(suggestion)
+                val learningProposal = recordLearningOutcome(suggestion.learningContext(), result.decision)
                 _uiState.update {
                     it.copy(
                         isPerformingAction = false,
                         suggestion = null,
                         brainDumpHandledItemIds = emptySet(),
-                        message = successMessage,
+                        message = if (result.notificationSchedulingNeedsAttention) {
+                            stringResource(R.string.core_capture_message_reminder_scheduling_attention)
+                        } else {
+                            successMessage
+                        },
                         notificationPermissionRequestPending = requestNotificationPermission,
                         learnedRuleProposal = learningProposal,
                     )
@@ -450,7 +473,7 @@ class HomeCaptureViewModel(
                 _uiState.update {
                     it.copy(
                         isPerformingAction = false,
-                        message = "That action didn't finish. Your capture is still in the Inbox.",
+                        message = stringResource(R.string.core_capture_message_action_failed),
                     )
                 }
             }
@@ -505,10 +528,10 @@ class HomeCaptureViewModel(
                             brainDumpHandledItemIds = emptySet(),
                             message = when {
                                 result.status == BrainDumpActionStatus.Missing ->
-                                    "That Brain Dump is no longer waiting for review."
+                                    stringResource(R.string.core_capture_message_brain_dump_gone)
                                 result.notificationScheduled == false ->
-                                    "Brain Dump reviewed. The reminder was saved, but notification scheduling needs attention."
-                                else -> "Brain Dump reviewed. The original capture is still saved."
+                                    stringResource(R.string.core_capture_message_brain_dump_scheduling_attention)
+                                else -> stringResource(R.string.core_capture_message_brain_dump_reviewed)
                             },
                             notificationPermissionRequestPending =
                                 requestNotificationPermission && result.reminderCreated,
@@ -519,7 +542,7 @@ class HomeCaptureViewModel(
                     _uiState.update { state -> state.copy(
                         isPerformingAction = false,
                         message = if (result.notificationScheduled == false) {
-                            "Reminder saved, but notification scheduling needs attention."
+                            stringResource(R.string.core_capture_message_reminder_scheduling_attention)
                         } else {
                             successMessage
                         },
@@ -531,7 +554,7 @@ class HomeCaptureViewModel(
                 _uiState.update {
                     it.copy(
                         isPerformingAction = false,
-                        message = "That item did not save. The original dump is still in Inbox.",
+                        message = stringResource(R.string.core_capture_message_brain_dump_item_failed),
                     )
                 }
             }
@@ -649,7 +672,7 @@ class HomeCaptureViewModel(
                     _uiState.update { it.copy(learnedRuleProposal = null) }
                 }
                 .onFailure {
-                    _uiState.update { it.copy(message = "That preference could not be saved. You can try again.") }
+                    _uiState.update { it.copy(message = stringResource(R.string.core_capture_message_preference_failed)) }
                 }
         }
     }
@@ -733,7 +756,7 @@ class HomeCaptureViewModel(
         if (!granted) {
             _uiState.update {
                 it.copy(
-                    message = "Reminder saved. Notifications are off; it is still available in Review.",
+                    message = stringResource(R.string.core_capture_message_notifications_off),
                 )
             }
         }
@@ -744,6 +767,7 @@ class HomeCaptureViewModel(
     }
 
     class Factory(
+        private val context: Context,
         private val captureRepository: CaptureRepository,
         private val brainDumpRepository: BrainDumpRepository,
         private val spaceRepository: SpaceRepository,
@@ -751,6 +775,7 @@ class HomeCaptureViewModel(
         private val aiRouter: OrbitAiRouter,
         private val confirmCaptureAction: ConfirmCaptureActionUseCase,
         private val brainDumpActions: BrainDumpActions,
+        private val reminderRepository: ReminderRepository,
         private val recordAiLearningEvent: RecordAiLearningEventUseCase,
         private val proposeLearnedRule: ProposeLearnedRuleUseCase,
         private val savedStateHandle: SavedStateHandle,
@@ -759,6 +784,7 @@ class HomeCaptureViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(HomeCaptureViewModel::class.java))
             return HomeCaptureViewModel(
+                context = context,
                 captureRepository = captureRepository,
                 brainDumpRepository = brainDumpRepository,
                 spaceRepository = spaceRepository,
@@ -766,6 +792,7 @@ class HomeCaptureViewModel(
                 aiRouter = aiRouter,
                 confirmCaptureAction = confirmCaptureAction,
                 brainDumpActions = brainDumpActions,
+                reminderRepository = reminderRepository,
                 recordAiLearningEvent = recordAiLearningEvent,
                 proposeLearnedRule = proposeLearnedRule,
                 savedStateHandle = savedStateHandle,

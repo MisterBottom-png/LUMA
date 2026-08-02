@@ -243,6 +243,6 @@ internal fun calculateSpaceItemCounts(
 
     notes.forEach { if (!it.archived) increment(it.spaceId) }
     tasks.forEach { if (it.status != TaskStatus.Archived) increment(it.spaceId) }
-    reminders.forEach { increment(it.spaceId) }
+    reminders.forEach { if (it.completedAt == null) increment(it.spaceId) }
     return counts
 }

@@ -40,6 +40,8 @@ data class ItemDetailUiState(
     val dueAt: Long? = null,
     val scheduledDateEpochDay: Long? = null,
     val scheduledAt: Long? = null,
+    val notificationOffsetMinutes: Long? = null,
+    val notificationEnabled: Boolean? = null,
     val canEditTitle: Boolean = true,
     val canEditBody: Boolean = true,
     val canComplete: Boolean = false,
@@ -172,6 +174,40 @@ class ItemDetailViewModel(
                 .onFailure {
                     _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_schedule_update_failed)) }
                 }
+        }
+    }
+
+    fun updateNotificationOffset(offsetMinutes: Long) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            runCatching {
+                container.reminderRepository.getById(itemId)?.let {
+                    container.reminderRepository.update(
+                        it.copy(notificationOffsetMinutes = offsetMinutes, updatedAt = now),
+                    )
+                }
+            }.onSuccess {
+                load(message = localized(R.string.core_item_detail_notification_updated))
+            }.onFailure {
+                _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_notification_update_failed)) }
+            }
+        }
+    }
+
+    fun setNotificationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            runCatching {
+                container.reminderRepository.getById(itemId)?.let {
+                    container.reminderRepository.update(
+                        it.copy(notificationEnabled = enabled, updatedAt = now),
+                    )
+                }
+            }.onSuccess {
+                load(message = localized(R.string.core_item_detail_notification_updated))
+            }.onFailure {
+                _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_notification_update_failed)) }
+            }
         }
     }
 
@@ -609,6 +645,8 @@ class ItemDetailViewModel(
         updatedAt = updatedAt,
         dueAt = dueAt,
         scheduledAt = dueAt,
+        notificationOffsetMinutes = notificationOffsetMinutes,
+        notificationEnabled = notificationEnabled,
         canComplete = true,
         canArchive = false,
         isComplete = completedAt != null,

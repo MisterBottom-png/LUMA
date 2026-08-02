@@ -140,6 +140,7 @@ fun OrbitApp(
                 composable(OrbitDestination.Home.route) { entry ->
                     val homeViewModel: HomeCaptureViewModel = viewModel(
                         factory = HomeCaptureViewModel.Factory(
+                            context = container.applicationContext,
                             captureRepository = container.captureRepository,
                             brainDumpRepository = container.brainDumpRepository,
                             spaceRepository = container.spaceRepository,
@@ -147,6 +148,7 @@ fun OrbitApp(
                             aiRouter = container.aiRouter,
                             confirmCaptureAction = container.confirmCaptureAction,
                             brainDumpActions = container.brainDumpActions,
+                            reminderRepository = container.reminderRepository,
                             recordAiLearningEvent = container.recordAiLearningEvent,
                             proposeLearnedRule = container.proposeLearnedRule,
                             savedStateHandle = entry.savedStateHandle,
@@ -270,6 +272,7 @@ fun OrbitApp(
                         onRestoreFileSelected = localDataToolsViewModel::restoreFileSelected,
                         onConfirmRestore = localDataToolsViewModel::confirmRestore,
                         onCancelRestore = localDataToolsViewModel::cancelRestore,
+                        onResetAllData = localDataToolsViewModel::resetAllData,
                         onAppearanceSubsectionChanged = { appearanceSubsectionOpen = it },
                     )
                 }
