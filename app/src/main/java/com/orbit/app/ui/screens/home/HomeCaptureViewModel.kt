@@ -364,6 +364,7 @@ class HomeCaptureViewModel(
             notificationSchedulingNeedsAttention = schedulingNeedsAttention,
         )
     }
+    }
 
     fun saveBrainDumpItem(
         item: BrainDumpSuggestion,
