@@ -19,11 +19,32 @@ import tomllib  # noqa: E402
 
 REQUIRED_SKILL_KEYS = {"name", "description"}
 REQUIRED_AGENT_KEYS = {"name", "description", "developer_instructions"}
+REQUIRED_SKILL_SECTIONS = {
+    "## When to use",
+    "## Do not use",
+    "## Workflow",
+    "## Verification",
+    "## Workplace privacy",
+}
+EXCLUDED_TREE_PARTS = {
+    ".git",
+    ".gradle",
+    ".idea",
+    ".kotlin",
+    ".codex-remote-attachments",
+    "_cleanup_before_luma_v4_upgrade",
+    "build",
+}
+HISTORICAL_REFERENCE_FILES = {
+    Path("docs/archive"),
+    Path("docs/codex/cleanup/LUMA_CLEANUP_INVENTORY.md"),
+}
 EXPECTED_SKILLS = {
     "luma-ai-reminder-guardian",
     "luma-android-developer",
     "luma-autopilot",
     "luma-compose-ui",
+    "luma-glass-haze-guardian",
     "luma-mvp-release-manager",
     "luma-project-cleanup",
     "luma-regression-qa",
@@ -39,6 +60,7 @@ REQUIRED_PATHS = {
     "docs/codex/WORKPLACE_PRIVACY_POLICY.md",
     "docs/codex/LUMA_PROTECTED_BEHAVIORS.md",
     "docs/codex/PROJECT_STATE.md",
+    "docs/codex/LUMA_SKILL_STACK.md",
     "docs/codex/cleanup/LUMA_CLEANUP_POLICY.md",
     "docs/codex/cleanup/LUMA_CLEANUP_REPORT.md",
     "docs/codex/cleanup/cleanup_manifest.schema.json",
@@ -49,6 +71,7 @@ REQUIRED_PATHS = {
     "scripts/codex/check_workplace_privacy.py",
     "scripts/codex/repo_cleanup_inventory.py",
     "scripts/codex/validate_luma_codex_stack.py",
+    "tests/codex/test_agent_stack_contract.py",
     "tests/codex/test_cleanup_tools.py",
     "tests/codex/test_workplace_privacy.py",
 }
@@ -83,10 +106,18 @@ def validate_json(path: Path, errors: list[str]) -> None:
         errors.append(f"{path}: invalid JSON: {exc}")
 
 
+def is_excluded(root: Path, path: Path) -> bool:
+    relative = path.relative_to(root)
+    if any(part in EXCLUDED_TREE_PARTS for part in relative.parts):
+        return True
+    return any(relative == item or item in relative.parents for item in HISTORICAL_REFERENCE_FILES)
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     errors: list[str] = []
     warnings: list[str] = []
+    agents_text = ""
 
     agents_md = root / "AGENTS.md"
     if not agents_md.exists():
@@ -133,9 +164,34 @@ def main() -> int:
             errors.append(f"{relative}: invalid skill name {name!r}")
         if len(description.strip()) < 20:
             errors.append(f"{relative}: description is too vague")
-        skill_text = path.read_text(encoding="utf-8").lower()
+        if not description.lower().startswith("use when"):
+            errors.append(f"{relative}: description must start with 'Use when'")
+        raw_skill_text = path.read_text(encoding="utf-8")
+        skill_text = raw_skill_text.lower()
         if "workplace_privacy_policy.md" not in skill_text:
             errors.append(f"{relative}: missing workplace privacy contract")
+        for section in sorted(REQUIRED_SKILL_SECTIONS):
+            if section not in raw_skill_text:
+                errors.append(f"{relative}: missing required section {section!r}")
+
+        metadata_path = path.parent / "agents" / "openai.yaml"
+        if not metadata_path.is_file():
+            errors.append(f"{relative}: missing agents/openai.yaml discovery metadata")
+        else:
+            try:
+                discovery_text = metadata_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                errors.append(f"{metadata_path.relative_to(root)}: cannot read UTF-8: {exc}")
+            else:
+                for field in ("display_name:", "short_description:", "default_prompt:"):
+                    if field not in discovery_text:
+                        errors.append(f"{metadata_path.relative_to(root)}: missing {field[:-1]}")
+                if f"${name}" not in discovery_text:
+                    errors.append(f"{metadata_path.relative_to(root)}: default prompt must reference ${name}")
+
+        for reference in re.findall(r"`(references/[A-Za-z0-9_./-]+)`", raw_skill_text):
+            if not (path.parent / reference).is_file():
+                errors.append(f"{relative}: missing linked skill reference {reference}")
 
     missing_skills = EXPECTED_SKILLS - found_skills.keys()
     extra_skills = found_skills.keys() - EXPECTED_SKILLS
@@ -143,6 +199,11 @@ def main() -> int:
         errors.append(f"Missing expected skills: {sorted(missing_skills)}")
     if extra_skills:
         warnings.append(f"Additional skills present: {sorted(extra_skills)}")
+
+    if agents_text:
+        for name in sorted(EXPECTED_SKILLS - {"luma-autopilot"}):
+            if name not in agents_text:
+                errors.append(f"AGENTS.md routing must name active specialist {name}")
 
     agents_root = root / ".codex" / "agents"
     found_agents: dict[str, Path] = {}
@@ -174,6 +235,12 @@ def main() -> int:
             warnings.append(f"{relative}: reviewer should mention untrusted repository content")
         if "never mention any coworker" not in instructions:
             errors.append(f"{relative}: reviewer must enforce zero workplace-person references")
+        if "supplied diff" not in instructions:
+            errors.append(f"{relative}: reviewer must be bounded to the supplied diff")
+        if "evidence gap" not in instructions:
+            errors.append(f"{relative}: reviewer must separate evidence gaps from findings")
+        if "parent agent owns the final" not in instructions:
+            errors.append(f"{relative}: reviewer must leave the final decision to the parent agent")
 
     missing_agents = EXPECTED_AGENTS - found_agents.keys()
     extra_agents = found_agents.keys() - EXPECTED_AGENTS
@@ -181,6 +248,15 @@ def main() -> int:
         errors.append(f"Missing expected agents: {sorted(missing_agents)}")
     if extra_agents:
         warnings.append(f"Additional agents present: {sorted(extra_agents)}")
+
+    stack_index = root / "docs" / "codex" / "LUMA_SKILL_STACK.md"
+    if not stack_index.is_file():
+        errors.append("Missing docs/codex/LUMA_SKILL_STACK.md")
+    else:
+        stack_text = stack_index.read_text(encoding="utf-8")
+        for name in sorted(EXPECTED_SKILLS | EXPECTED_AGENTS):
+            if name not in stack_text:
+                errors.append(f"docs/codex/LUMA_SKILL_STACK.md must name active stack item {name}")
 
     config_path = root / ".codex" / "config.toml"
     try:
@@ -200,7 +276,8 @@ def main() -> int:
             errors.append(f"Missing required file: {relative}")
 
     for path in root.rglob("*.json"):
-        validate_json(path, errors)
+        if not is_excluded(root, path):
+            validate_json(path, errors)
 
     path_pattern = re.compile(
         r"(?<![A-Za-z0-9_])((?:\.agents|\.codex|docs/codex|scripts/codex|tests/codex|prompts)/[A-Za-z0-9_./*-]+)"
@@ -213,6 +290,8 @@ def main() -> int:
             errors.append(f"{path.relative_to(root)}: privacy checker must run in strict mode")
 
     for path in root.rglob("*.md"):
+        if is_excluded(root, path):
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as exc:

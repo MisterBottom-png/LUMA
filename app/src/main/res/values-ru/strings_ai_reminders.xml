@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reminder_notification_channel_name">Напоминания LUMA</string>
+    <string name="reminder_notification_channel_description">Приблизительные уведомления о напоминаниях LUMA</string>
+    <string name="reminder_notification_fallback_title">Напоминание LUMA</string>
+    <string name="reminder_notification_open_luma">Нажмите, чтобы открыть LUMA</string>
+
+    <string name="reminder_offset_around_target">Примерно в заданное время</string>
+    <string name="reminder_offset_about_five_minutes">Примерно за 5 минут</string>
+    <string name="reminder_offset_about_fifteen_minutes">Примерно за 15 минут</string>
+    <string name="reminder_offset_about_thirty_minutes">Примерно за 30 минут</string>
+    <string name="reminder_offset_about_one_hour">Примерно за 1 час</string>
+    <string name="reminder_offset_about_one_day">Примерно за 1 день</string>
+    <string name="reminder_offset_about_custom_minutes">Примерно за %1$d мин.</string>
+    <string name="reminder_offset_invalid">Недопустимое смещение уведомления</string>
+</resources>

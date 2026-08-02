@@ -1,0 +1,4 @@
+interface:
+  display_name: "LUMA Compose UI"
+  short_description: "Build calm, accessible Compose interfaces"
+  default_prompt: "Use $luma-compose-ui to implement or review this bounded LUMA Compose and accessibility change."

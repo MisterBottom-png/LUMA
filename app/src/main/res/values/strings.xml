@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_default_user_label">User</string>
+    <string name="app_name" translatable="false">LUMA</string>
+
+    <string name="navigation_home">Home</string>
+    <string name="navigation_spaces">Spaces</string>
+    <string name="navigation_review">Review</string>
+    <string name="navigation_settings">Settings</string>
+    <string name="navigation_situation_ai">Situation AI</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_empty_subtitle" translatable="false"></string>
+    <string name="settings_back">Back to Settings</string>
+    <string name="settings_back_to_menu">Back to %1$s menu</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_appearance_subtitle">Theme, background, and surfaces</string>
+    <string name="settings_system_title">System</string>
+    <string name="settings_system_subtitle">Language, time, AI, and local data</string>
+
+    <string name="settings_time_title">Time</string>
+    <string name="settings_time_subtitle">Device default, 12-hour, or 24-hour</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_subtitle">Choose the language used by the app</string>
+    <string name="settings_ai_title">AI</string>
+    <string name="settings_ai_subtitle">Mode, key, models, and feature access</string>
+    <string name="settings_local_data_title">Local data</string>
+    <string name="settings_local_data_subtitle">Exports and device-held data</string>
+
+    <string name="language_system_default">System default</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_estonian" translatable="false">Eesti</string>
+    <string name="language_russian" translatable="false">Русский</string>
+    <string name="language_explanation">Language changes apply immediately. Dates and calendar formatting follow the selected language.</string>
+
+    <string name="settings_reset_appearance">Reset appearance</string>
+    <string name="settings_profile_title">Profile</string>
+    <string name="settings_profile_subtitle">Name shown in LUMA</string>
+    <string name="settings_colors_title">Colors</string>
+    <string name="settings_colors_subtitle">Theme, accent, and text</string>
+    <string name="settings_background_title">Background</string>
+    <string name="settings_background_subtitle">Preset or custom image</string>
+    <string name="settings_transparency_title">Transparency</string>
+    <string name="settings_transparency_subtitle">Background effects and surface opacity</string>
+    <string name="settings_no_name">No name set</string>
+    <string name="settings_status_custom_background">%1$s, custom background</string>
+    <string name="settings_status_preset_background">%1$s, %2$s</string>
+    <string name="settings_status_colors">%1$s, %2$s, %3$s text</string>
+    <string name="settings_status_surface_opacity">Surface opacity %1$s</string>
+    <string name="settings_status_time_ai_ready">%1$s, Gemini API ready</string>
+    <string name="settings_status_time_ai_mode">%1$s, %2$s</string>
+    <string name="settings_status_gemini_ready">Gemini API ready</string>
+    <string name="settings_status_ai_key">%1$s, key %2$s</string>
+    <string name="settings_status_key_saved">saved</string>
+    <string name="settings_status_key_not_saved">not saved</string>
+    <string name="settings_status_last_export">Last export ready</string>
+    <string name="settings_export_json">Export JSON</string>
+
+    <string name="settings_your_name">Your name</string>
+    <string name="settings_name_supporting">Shown in your greeting</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_auto_explanation">Auto follows your Android system setting.</string>
+    <string name="settings_overall_color">Overall color</string>
+    <string name="accent_ink_paper">Ink &amp; Paper</string>
+    <string name="background_ink_paper">Ink &amp; Paper</string>
+    <string name="text_neutral">Neutral</string>
+    <string name="settings_advanced_full_palette">Advanced full palette</string>
+    <string name="settings_adaptive_dimming">Adaptive dimming</string>
+    <string name="settings_manual_dimming">Manual dimming</string>
+    <string name="settings_text_color">Text color</string>
+    <string name="settings_time_format">Time format</string>
+    <string name="settings_time_explanation">Device default follows your Android time setting.</string>
+    <string name="settings_surface_preview">Surface preview</string>
+    <string name="settings_image_blur">Image blur</string>
+    <string name="settings_blur_disabled_explanation">Choose a custom image to adjust blur. Preset backgrounds are already softly rendered.</string>
+    <string name="settings_blur_explanation">Softens the selected image without blurring controls or text.</string>
+    <string name="settings_sharp">Sharp</string>
+    <string name="settings_soft">Soft</string>
+    <string name="settings_blur_medium">Medium</string>
+    <string name="settings_blur_strong">Strong</string>
+    <string name="settings_opacity_subtle">Subtle</string>
+    <string name="settings_opacity_standard">Standard</string>
+    <string name="settings_opacity_prominent">Prominent</string>
+    <string name="settings_live_glass">Live Glass</string>
+    <string name="settings_soft_glass">Soft Glass</string>
+    <string name="settings_background_dim">Background dim</string>
+    <string name="settings_dim_explanation">Darkens the background without changing surface opacity.</string>
+    <string name="settings_bright">Bright</string>
+    <string name="settings_dim">Dim</string>
+    <string name="settings_surface_opacity">Surface opacity</string>
+    <string name="settings_opacity_explanation">Controls LUMA cards, floating controls, and app-owned sheets while preserving readable content.</string>
+    <string name="settings_more_transparent">More transparent</string>
+    <string name="settings_more_solid">More solid</string>
+    <string name="settings_selected">Selected</string>
+    <string name="settings_not_selected">Not selected</string>
+    <string name="settings_custom">Custom</string>
+    <string name="settings_preset">Preset</string>
+    <string name="settings_custom_image">Custom image</string>
+    <string name="settings_custom_image_selected">Using your selected background</string>
+    <string name="settings_custom_image_available">Use an image from this device</string>
+    <string name="settings_change_image">Change image</string>
+    <string name="settings_choose_image">Choose image</string>
+    <string name="settings_remove">Remove</string>
+
+    <string name="settings_restore_title">Replace local data?</string>
+    <string name="settings_restore_summary">Restore: notes — %1$d; tasks — %2$d; reminders — %3$d; source captures — %4$d; Spaces — %5$d.\n\nReplace on this device: notes — %6$d; tasks — %7$d; reminders — %8$d; source captures — %9$d; Spaces — %10$d.\n\nApp settings and AI configuration are kept. Learning records remain where their restored source or Space still exists; links to replaced data are cleared. This cannot be undone.</string>
+    <string name="settings_restoring">Restoring…</string>
+    <string name="settings_replace_local_data">Replace local data</string>
+    <string name="settings_cancel">Cancel</string>
+    <string name="settings_export_explanation">Create a JSON export stored on this device.</string>
+    <string name="settings_exporting">Exporting…</string>
+    <string name="settings_restore_explanation">LUMA validates an export before offering full replacement. Existing data is not changed until you confirm.</string>
+    <string name="settings_validating">Validating…</string>
+    <string name="settings_choose_export">Choose export to restore</string>
+
+    <string name="settings_ai_mode">Mode</string>
+    <string name="settings_ai_mode_explanation">Local only remains the default. Gemini is optional cloud AI.</string>
+    <string name="settings_gemini_key">Gemini API key</string>
+    <string name="settings_paste_key">Paste key</string>
+    <string name="settings_key_saved">A key is saved on this device.</string>
+    <string name="settings_no_key_saved">No key saved.</string>
+    <string name="settings_saving">Saving…</string>
+    <string name="settings_save_key">Save key</string>
+    <string name="settings_testing">Testing…</string>
+    <string name="settings_test_connection">Test connection</string>
+    <string name="settings_models">Models</string>
+    <string name="settings_fast_model">Fast model</string>
+    <string name="settings_reasoning_model">Reasoning model</string>
+    <string name="settings_use_gemini_for">Use Gemini for</string>
+    <string name="settings_capture_suggestions">Capture suggestions</string>
+    <string name="settings_make_smaller">Make Smaller</string>
+    <string name="settings_brain_dump">Brain Dump</string>
+    <string name="settings_situation_ai">Situation AI</string>
+    <string name="settings_review">Review</string>
+    <string name="settings_ai_privacy_explanation">LUMA stores your data locally. Gemini API is optional cloud AI. When enabled, LUMA sends only the selected text or context needed for the requested action. Raw captures are saved locally before cloud analysis. You stay in control.</string>
+
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_auto">Auto</string>
+    <string name="time_device_default">Device default</string>
+    <string name="time_twelve_hour">12-hour</string>
+    <string name="time_twenty_four_hour">24-hour</string>
+    <string name="background_soft_dawn">Soft Dawn</string>
+    <string name="background_violet_mist">Violet Mist</string>
+    <string name="background_calm_sky">Calm Sky</string>
+    <string name="background_night_glow">Night Glow</string>
+    <string name="accent_luma_violet">LUMA violet</string>
+    <string name="accent_sage">Sage</string>
+    <string name="accent_rose">Rose</string>
+    <string name="accent_amber">Amber</string>
+    <string name="accent_ocean">Ocean</string>
+    <string name="text_default">Default</string>
+    <string name="text_ink">Ink</string>
+    <string name="text_plum">Plum</string>
+    <string name="text_forest">Forest</string>
+    <string name="text_warm_ivory">Warm ivory</string>
+    <string name="ai_local_only">Local only</string>
+    <string name="ai_gemini_api" translatable="false">Gemini API</string>
+</resources>

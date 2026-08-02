@@ -48,4 +48,29 @@ class GeminiPromptBuildersTest {
         assertTrue(prompt.contains("Europe/Tallinn"))
         assertTrue(prompt.contains("phrase and epoch must describe the same instant"))
     }
+
+    @Test
+    fun capturePromptPreservesSourceOrDominantLanguageUnlessTranslationIsRequested() {
+        val capture = "Saada отчёт завтра kell 1600"
+
+        val prompt = GeminiPromptBuilders.captureAnalysis(capture)
+
+        assertTrue(prompt.contains(capture))
+        assertTrue(prompt.contains("source language"))
+        assertTrue(prompt.contains("dominant language"))
+        assertTrue(prompt.contains("explicitly asks for translation"))
+        assertFalse(prompt.contains("calm English"))
+    }
+
+    @Test
+    fun helperPromptsDoNotForceEstonianOrRussianTextIntoEnglish() {
+        val tinyActionPrompt = GeminiPromptBuilders.tinyAction("Позвонить завтра")
+        val brainDumpPrompt = GeminiPromptBuilders.brainDump("Osta toit\nПозвонить завтра")
+
+        listOf(tinyActionPrompt, brainDumpPrompt).forEach { prompt ->
+            assertTrue(prompt.contains("source language"))
+            assertTrue(prompt.contains("explicitly asks for translation"))
+            assertFalse(prompt.contains("calm English"))
+        }
+    }
 }

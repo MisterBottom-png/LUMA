@@ -160,18 +160,22 @@ Action:
 Inspect only → report issues → do not edit
 ```
 
-## Learning Only
+## Agent-stack maintenance
 
 Trigger examples:
 
 ```text
-update learning
-what should the agents remember?
-add this to agent memory
+organize the agents and skills
+update project instructions
+review the agent stack
 ```
 
 Action:
 
 ```text
-Run luma-self-learning → update learning files only
+Inspect AGENTS.md, .agents/skills, .codex/agents, and the structural validator
+→ propose bounded changes
+→ obtain explicit approval for permanent-rule edits
+→ update source-of-truth files only
+→ validate structure and workplace privacy
 ```

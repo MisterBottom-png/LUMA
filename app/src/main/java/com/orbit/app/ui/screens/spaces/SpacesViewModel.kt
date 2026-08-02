@@ -27,16 +27,13 @@ data class SpaceContents(
 
 data class SpacesUiState(
     val spaces: List<SpaceEntity> = emptyList(),
+    val visibleSpaces: List<SpaceEntity> = emptyList(),
+    val archivedSpaces: List<SpaceEntity> = emptyList(),
+    val hiddenSpaces: List<SpaceEntity> = emptyList(),
     val selectedSpace: SpaceEntity? = null,
     val selectedContents: SpaceContents = SpaceContents(),
     val itemCounts: Map<Long, Int> = emptyMap(),
-) {
-    val visibleSpaces: List<SpaceEntity>
-        get() = spaces.filterNot { it.hidden || it.archived }.sortedBy { it.sortOrder }
-
-    val inactiveSpaces: List<SpaceEntity>
-        get() = spaces.filter { it.hidden || it.archived }.sortedBy { it.sortOrder }
-}
+)
 
 enum class SpaceItemType { Note, Task, Reminder, Capture }
 
@@ -69,8 +66,12 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
         allContents,
         selectedSpaceId,
     ) { spaces, contents, selectedId ->
+        val (visibleSpaces, archivedSpaces, hiddenSpaces) = partitionSpaces(spaces)
         SpacesUiState(
             spaces = spaces,
+            visibleSpaces = visibleSpaces,
+            archivedSpaces = archivedSpaces,
+            hiddenSpaces = hiddenSpaces,
             selectedSpace = spaces.firstOrNull { it.id == selectedId },
             selectedContents = SpaceContents(
                 notes = contents.notes.filter { it.spaceId == selectedId && !it.archived },
@@ -80,15 +81,12 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
                 reminders = contents.reminders.filter { it.spaceId == selectedId },
                 captures = emptyList(),
             ),
-            itemCounts = spaces.associate { space ->
-                space.id to (
-                    contents.notes.count { it.spaceId == space.id && !it.archived } +
-                        contents.tasks.count {
-                            it.spaceId == space.id && it.status != TaskStatus.Archived
-                        } +
-                        contents.reminders.count { it.spaceId == space.id }
-                    )
-            },
+            itemCounts = calculateSpaceItemCounts(
+                spaces = spaces,
+                notes = contents.notes,
+                tasks = contents.tasks,
+                reminders = contents.reminders,
+            ),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -211,4 +209,40 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
             return SpacesViewModel(container) as T
         }
     }
+}
+
+internal data class SpacePartition(
+    val visible: List<SpaceEntity>,
+    val archived: List<SpaceEntity>,
+    val hidden: List<SpaceEntity>,
+)
+
+internal fun partitionSpaces(spaces: List<SpaceEntity>): SpacePartition {
+    val ordered = spaces.sortedBy { it.sortOrder }
+    return SpacePartition(
+        visible = ordered.filter { !it.hidden && !it.archived },
+        archived = ordered.filter { it.archived },
+        hidden = ordered.filter { it.hidden && !it.archived },
+    )
+}
+
+internal fun calculateSpaceItemCounts(
+    spaces: List<SpaceEntity>,
+    notes: List<NoteEntity>,
+    tasks: List<TaskEntity>,
+    reminders: List<ReminderEntity>,
+): Map<Long, Int> {
+    val counts = LinkedHashMap<Long, Int>(spaces.size)
+    spaces.forEach { counts[it.id] = 0 }
+
+    fun increment(spaceId: Long?) {
+        if (spaceId != null && counts.containsKey(spaceId)) {
+            counts[spaceId] = counts.getValue(spaceId) + 1
+        }
+    }
+
+    notes.forEach { if (!it.archived) increment(it.spaceId) }
+    tasks.forEach { if (it.status != TaskStatus.Archived) increment(it.spaceId) }
+    reminders.forEach { increment(it.spaceId) }
+    return counts
 }

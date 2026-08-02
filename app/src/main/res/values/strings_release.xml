@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_export_unencrypted_title">Export readable local data?</string>
+    <string name="settings_export_unencrypted_warning">This JSON export is not encrypted. Anyone with access to the saved file can read it. Choose a trusted location.</string>
+    <string name="settings_export_choose_location">Choose location</string>
+    <string name="settings_export_complete">Export saved to the location you chose.</string>
+    <string name="settings_gemini_consent_title">Allow a Gemini request?</string>
+    <string name="settings_gemini_consent_body">When enabled, LUMA sends the text you choose and only the relevant local context needed for that action to the Google Gemini API. Your API key remains encrypted on this device. Gemini cannot change, schedule, delete, or send your data without confirmation. Switching back to Local only revokes this consent.</string>
+    <string name="settings_gemini_consent_confirm">Allow Gemini</string>
+    <string name="settings_local_learning_title">Local AI learning</string>
+    <string name="settings_local_learning_toggle">Learn from my choices</string>
+    <string name="settings_local_learning_explanation">Off by default. When enabled, LUMA stores short correction patterns and explicit learning records on this device. These records are not included in export.</string>
+    <string name="settings_clear_learning">Clear learned data</string>
+    <string name="settings_clearing_learning">Clearing learned data…</string>
+    <string name="settings_clear_learning_title">Clear all learned data?</string>
+    <string name="settings_clear_learning_body">This deletes local AI suggestion history, corrections, learned rules, and saved learning records. Notes, tasks, reminders, captures, Spaces, and settings stay.</string>
+    <string name="settings_clear_learning_confirm">Clear learned data</string>
+    <string name="settings_learning_cleared">Learned data was cleared.</string>
+    <string name="settings_learning_clear_failed">Learned data could not be cleared. Existing data was kept.</string>
+    <string name="settings_share_learning_with_gemini">Share learning with Gemini</string>
+    <string name="settings_share_learning_with_gemini_explanation">Off by default. When enabled, a small relevant preference profile may be included in optional Gemini requests.</string>
+    <string name="settings_learning_edit_rule">Edit learning preference</string>
+    <string name="settings_learning_rule">Preference</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_edit">Edit</string>
+</resources>

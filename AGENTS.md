@@ -19,6 +19,7 @@ docs/codex/mvp/LUMA_MVP_GATE.md
 docs/codex/mvp/LUMA_MVP_BACKLOG.md
 docs/codex/mvp/LUMA_MVP_VERIFICATION_POLICY.md
 docs/codex/cleanup/LUMA_CLEANUP_POLICY.md
+docs/AGENT_TOOLING.md
 ```
 
 Do not load every document for a tiny change.
@@ -62,9 +63,22 @@ Never use “looks unused” as proof.
 
 ## Controller
 
-For requests beginning with `LUMA:` or clearly concerning this application, use `luma-autopilot` as the controller.
+For requests beginning with `LUMA:` or clearly concerning this application, use `luma-autopilot` as the controller. Codex discovers it from `.agents/skills/`; Hermes reads that repository `SKILL.md` as the task playbook when needed.
 
-Use at most one primary specialist and one supporting specialist unless the task genuinely crosses boundaries. More agents and more instructions are not automatically more intelligent.
+The active agent owns engineering decisions inside these repository boundaries. Skills provide workflows and reviewers provide evidence; neither replaces the agent's judgment or the user's approval authority.
+
+Open and follow one primary specialist. Add at most one supporting specialist when a concrete cross-boundary risk is identified. More agents and more instructions are not automatically more intelligent.
+
+## Agent-stack locations
+
+- `AGENTS.md` is the portable project-policy layer shared by Hermes and Codex.
+- Canonical, version-controlled LUMA playbooks live only in `.agents/skills/<skill-name>/SKILL.md`.
+- Do not mirror skills into `.codex/skills`; duplicate names can both be discovered and drift apart.
+- Project-scoped Codex configuration lives in `.codex/config.toml`; Hermes does not consume it.
+- Codex review-only agents live in `.codex/agents/*.toml`; they do not create Hermes agents.
+- Hermes role agents are machine-local profiles outside the repository. They use this `AGENTS.md` plus the relevant repository playbook and must never be copied into the project with credentials, memories, or profile `.env` files.
+- Keep reviewers read-only and use them only for bounded, independent review work in the active runtime.
+- See `docs/AGENT_TOOLING.md` for the complete cross-tool ownership and routing map.
 
 ## Skill routing
 
@@ -72,11 +86,22 @@ Use at most one primary specialist and one supporting specialist unless the task
 repository cleanup / dead code / obsolete files  -> luma-project-cleanup
 Kotlin / Gradle / architecture / implementation  -> luma-android-developer
 Compose / Material / layout / theme / UI state   -> luma-compose-ui
+Glass / Haze / blur / translucent materials      -> luma-glass-haze-guardian
 Room / DAO / migration / export / restore / data -> luma-room-data-guardian
 AI / Gemini / reminders / dates / notifications  -> luma-ai-reminder-guardian
 MVP audit / scope / completion / readiness       -> luma-mvp-release-manager
 validation / regression / final QA               -> luma-regression-qa
 ```
+
+Implementation skills may edit within the approved task. Custom agents are independent read-only reviewers:
+
+```text
+correctness / lifecycle / concurrency / data risk -> luma_code_data_reviewer
+Compose behavior / accessibility / visual states  -> luma_ui_accessibility_reviewer
+release evidence / unsupported completion claims  -> luma_release_regression_reviewer
+```
+
+`luma-regression-qa` runs checks and gathers evidence. `luma_release_regression_reviewer` audits supplied evidence; it does not replace QA or make the final release decision.
 
 ## Product invariants
 
@@ -124,6 +149,7 @@ Use planning before coding only when the task is broad, ambiguous, high-risk, or
 - Use custom reviewers only when explicitly requested, for high-risk changes, or for final MVP/release review.
 - Delegate only independent read-heavy work. Avoid parallel write-heavy edits.
 - Keep subagent depth at one.
+- Prefer the three consolidated reviewers: `luma_code_data_reviewer`, `luma_ui_accessibility_reviewer`, and `luma_release_regression_reviewer`.
 - Keep tool output and final reports concise.
 - Do not repeatedly rescan the whole repository after the relevant code path is known.
 - Do not run the full test suite after every small edit.
@@ -137,13 +163,13 @@ Recommended human model selection:
 
 ## Questions and autonomy
 
-Proceed without questions when behavior is clear and the change is low-risk.
+Proceed without questions when behavior is clear and the change is reversible and low-risk. Choose the best supported implementation detail rather than asking the user to manage internal agent or code-structure choices.
 
 Do not make destructive, irreversible, schema-changing, security-sensitive, or product-defining choices without explicit authorization and the required approval boundary. When authorization is unclear, stop that action and report the exact decision required. If blocked, report the exact decision required rather than conducting unrelated work.
 
 ## Completion report
 
-Return only:
+For completed repository work, return only:
 
 ```text
 Result:
@@ -155,3 +181,5 @@ Remaining risk or manual check:
 ```
 
 For cleanup or MVP work, use the additional report structure defined by the activated skill.
+
+For ordinary conversation, questions about the workflow, or advice without repository work, answer naturally rather than forcing the task-report template.

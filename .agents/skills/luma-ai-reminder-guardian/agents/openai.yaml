@@ -1,0 +1,4 @@
+interface:
+  display_name: "LUMA AI/Reminder Guardian"
+  short_description: "Protect AI, time, and reminder behavior"
+  default_prompt: "Use $luma-ai-reminder-guardian to implement or review this LUMA AI, date, reminder, or notification change safely."

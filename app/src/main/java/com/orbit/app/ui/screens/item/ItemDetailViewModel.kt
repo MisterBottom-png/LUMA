@@ -1,9 +1,12 @@
 package com.orbit.app.ui.screens.item
 
+import android.content.res.Configuration
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.orbit.app.OrbitContainer
+import com.orbit.app.R
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.NoteEntity
@@ -14,6 +17,7 @@ import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.domain.ai.AiRouteSource
 import com.orbit.app.domain.analyzer.TinyActionSuggestion
 import com.orbit.app.ui.navigation.ItemDetailType
+import com.orbit.app.ui.localization.effectiveAppLocale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,6 +54,9 @@ data class ItemDetailUiState(
     val archiveUndoOperationId: Long? = null,
     val scheduleUndoOperationId: Long? = null,
     val message: String? = null,
+    val convertedToType: ItemDetailType? = null,
+    val saveCompletedAt: Long? = null,
+    val hasPendingBrainDump: Boolean = false,
 )
 
 class ItemDetailViewModel(
@@ -57,6 +64,15 @@ class ItemDetailViewModel(
     private val itemId: Long,
     private val container: OrbitContainer,
 ) : ViewModel() {
+    private var currentType = type
+    private val localizedContext by lazy {
+        val base = container.applicationContext
+        base.createConfigurationContext(
+            Configuration(base.resources.configuration).apply {
+                setLocale(effectiveAppLocale(base))
+            },
+        )
+    }
     private val _uiState = MutableStateFlow(ItemDetailUiState(type = type, itemId = itemId))
     val uiState: StateFlow<ItemDetailUiState> = _uiState.asStateFlow()
 
@@ -69,6 +85,7 @@ class ItemDetailViewModel(
         noteRepository = container.noteRepository,
         taskRepository = container.taskRepository,
     )
+    private val typeConversion = ItemTypeConversion(container.database, container.reminderScheduler)
 
     init {
         load()
@@ -78,11 +95,11 @@ class ItemDetailViewModel(
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             runCatching {
-                when (type) {
+                when (currentType) {
                     ItemDetailType.Note -> container.noteRepository.getById(itemId)?.let {
                         container.noteRepository.update(
                             it.copy(
-                                title = title.trim().ifBlank { "Untitled note" },
+                                title = title.trim(),
                                 body = body,
                                 spaceId = spaceId,
                                 updatedAt = now,
@@ -93,7 +110,7 @@ class ItemDetailViewModel(
                     ItemDetailType.Task -> container.taskRepository.getById(itemId)?.let {
                         container.taskRepository.update(
                             it.copy(
-                                title = title.trim().ifBlank { "Untitled task" },
+                                title = title.trim(),
                                 notes = body,
                                 spaceId = spaceId,
                                 updatedAt = now,
@@ -104,7 +121,7 @@ class ItemDetailViewModel(
                     ItemDetailType.Reminder -> container.reminderRepository.getById(itemId)?.let {
                         container.reminderRepository.update(
                             it.copy(
-                                title = title.trim().ifBlank { "Untitled reminder" },
+                                title = title.trim(),
                                 notes = body,
                                 spaceId = spaceId,
                                 updatedAt = now,
@@ -119,30 +136,91 @@ class ItemDetailViewModel(
                     }
                 }
             }.onSuccess {
-                load(message = "Saved.")
+                load(message = localized(R.string.core_item_detail_saved), saveCompletedAt = now)
             }.onFailure {
-                _uiState.update { state -> state.copy(message = "Could not save this item.") }
+                _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_save_failed)) }
             }
         }
     }
 
     fun updateSchedule(schedule: ItemSchedule) {
         viewModelScope.launch {
-            runCatching { scheduleActions.apply(type, itemId, schedule) }
+            if (currentType == ItemDetailType.Reminder) {
+                val timed = schedule as? ItemSchedule.Timed ?: return@launch
+                runCatching {
+                    container.reminderRepository.getById(itemId)?.let {
+                        container.reminderRepository.update(
+                            it.copy(dueAt = timed.epochMillis, updatedAt = System.currentTimeMillis()),
+                        )
+                    }
+                }.onSuccess { load(message = localized(R.string.core_item_detail_schedule_updated)) }
+                    .onFailure { load(message = localized(R.string.core_item_detail_schedule_update_failed)) }
+                return@launch
+            }
+            runCatching { scheduleActions.apply(currentType, itemId, schedule) }
                 .onSuccess { outcome ->
                     when (outcome) {
                         is ScheduleOutcome.Applied -> load(
-                            message = "Schedule updated.",
+                            message = localized(R.string.core_item_detail_schedule_updated),
                             scheduleUndoOperationId = outcome.operationId,
                         )
-                        ScheduleOutcome.Ignored -> load(message = "Schedule unchanged.")
-                        ScheduleOutcome.Missing -> load(message = "This item is no longer available.")
+                        ScheduleOutcome.Ignored -> load(message = localized(R.string.core_item_detail_schedule_unchanged))
+                        ScheduleOutcome.Missing -> load(message = localized(R.string.core_item_detail_unavailable_message))
                         ScheduleOutcome.Unsupported -> Unit
                     }
                 }
                 .onFailure {
-                    _uiState.update { state -> state.copy(message = "Could not update the schedule.") }
+                    _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_schedule_update_failed)) }
                 }
+        }
+    }
+
+    fun updateSpace(spaceId: Long?) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            runCatching {
+                when (currentType) {
+                    ItemDetailType.Note -> container.noteRepository.getById(itemId)?.let {
+                        container.noteRepository.update(it.copy(spaceId = spaceId, updatedAt = now))
+                    }
+                    ItemDetailType.Task -> container.taskRepository.getById(itemId)?.let {
+                        container.taskRepository.update(it.copy(spaceId = spaceId, updatedAt = now))
+                    }
+                    ItemDetailType.Reminder -> container.reminderRepository.getById(itemId)?.let {
+                        container.reminderRepository.update(it.copy(spaceId = spaceId, updatedAt = now))
+                    }
+                    ItemDetailType.Capture -> container.captureRepository.getById(itemId)?.let {
+                        container.captureRepository.update(it.copy(suggestedSpaceId = spaceId, updatedAt = now))
+                    }
+                }
+            }.onSuccess { load(message = localized(R.string.core_item_detail_space_updated)) }
+                .onFailure { load(message = localized(R.string.core_item_detail_space_update_failed)) }
+        }
+    }
+
+    fun restore() {
+        if (!_uiState.value.isArchived) return
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            runCatching {
+                when (currentType) {
+                    ItemDetailType.Note -> container.noteRepository.getById(itemId)?.let {
+                        container.noteRepository.update(it.copy(archived = false, updatedAt = now))
+                    }
+                    ItemDetailType.Task -> container.taskRepository.getById(itemId)?.let {
+                        container.taskRepository.update(
+                            it.copy(status = TaskStatus.Open, completedAt = null, updatedAt = now),
+                        )
+                    }
+                    ItemDetailType.Capture -> container.captureRepository.getById(itemId)?.let {
+                        container.captureRepository.update(
+                            it.copy(status = CaptureStatus.Inbox, updatedAt = now),
+                        )
+                    }
+                    ItemDetailType.Reminder -> Unit
+                }
+            }.onSuccess { load(message = localized(R.string.core_item_detail_restored)) }
+                .onFailure { load(message = localized(R.string.core_item_detail_restore_failed)) }
         }
     }
 
@@ -151,12 +229,12 @@ class ItemDetailViewModel(
             runCatching { scheduleActions.undo(operationId) }
                 .onSuccess { outcome ->
                     when (outcome) {
-                        ScheduleUndoOutcome.Restored -> load(message = "Schedule restored.")
-                        ScheduleUndoOutcome.Missing -> load(message = "This item is no longer available.")
+                        ScheduleUndoOutcome.Restored -> load(message = localized(R.string.core_item_detail_schedule_restored))
+                        ScheduleUndoOutcome.Missing -> load(message = localized(R.string.core_item_detail_unavailable_message))
                         ScheduleUndoOutcome.Stale -> messageShown(scheduleUndoOperationId = operationId)
                     }
                 }
-                .onFailure { load(message = "Could not restore the schedule.") }
+                .onFailure { load(message = localized(R.string.core_item_detail_schedule_restore_failed)) }
         }
     }
 
@@ -164,7 +242,7 @@ class ItemDetailViewModel(
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             runCatching {
-                when (type) {
+                when (currentType) {
                     ItemDetailType.Task -> container.taskRepository.getById(itemId)?.let {
                         val reopening = it.status == TaskStatus.Done
                         container.taskRepository.update(
@@ -201,15 +279,15 @@ class ItemDetailViewModel(
                     ItemDetailType.Note -> Unit
                 }
             }.onSuccess {
-                load(message = "Updated.")
+                load(message = localized(R.string.core_item_detail_updated_message))
             }.onFailure {
-                _uiState.update { state -> state.copy(message = "Could not update this item.") }
+                _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_update_failed)) }
             }
         }
     }
 
     fun setTaskStatus(status: TaskStatus) {
-        if (type != ItemDetailType.Task || status == TaskStatus.Archived) return
+        if (currentType != ItemDetailType.Task || status == TaskStatus.Archived) return
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             runCatching {
@@ -223,9 +301,9 @@ class ItemDetailViewModel(
                     )
                 }
             }.onSuccess {
-                load(message = status.statusMessage())
+                load(message = statusMessage(status))
             }.onFailure {
-                _uiState.update { state -> state.copy(message = "Could not update this item.") }
+                _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_update_failed)) }
             }
         }
     }
@@ -233,20 +311,20 @@ class ItemDetailViewModel(
     fun archive() {
         viewModelScope.launch {
             runCatching {
-                archiveUndo.archive(type, itemId)
+                archiveUndo.archive(currentType, itemId)
             }.onSuccess { outcome ->
                 when (outcome) {
                     is ArchiveOutcome.Archived -> load(
-                        message = "Archived.",
+                        message = localized(R.string.core_item_detail_archived),
                         archiveUndoOperationId = outcome.operationId,
                     )
-                    ArchiveOutcome.Missing -> load(message = "This item is no longer available.")
+                    ArchiveOutcome.Missing -> load(message = localized(R.string.core_item_detail_unavailable_message))
                     ArchiveOutcome.Ignored,
                     ArchiveOutcome.Unsupported,
                     -> Unit
                 }
             }.onFailure {
-                _uiState.update { state -> state.copy(message = "Could not archive this item.") }
+                _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_archive_failed)) }
             }
         }
     }
@@ -257,12 +335,12 @@ class ItemDetailViewModel(
                 archiveUndo.undo(operationId)
             }.onSuccess { outcome ->
                 when (outcome) {
-                    UndoOutcome.Restored -> load(message = "Restored.")
+                    UndoOutcome.Restored -> load(message = localized(R.string.core_item_detail_restored))
                     UndoOutcome.Ignored -> Unit
                     UndoOutcome.Stale -> messageShown(operationId)
                 }
             }.onFailure {
-                load(message = "Could not restore this item.")
+                load(message = localized(R.string.core_item_detail_restore_failed))
             }
         }
     }
@@ -270,7 +348,7 @@ class ItemDetailViewModel(
     fun deleteProtected() {
         viewModelScope.launch {
             runCatching {
-                when (type) {
+                when (currentType) {
                     ItemDetailType.Note -> container.noteRepository.deleteById(itemId)
                     ItemDetailType.Task -> container.taskRepository.deleteById(itemId)
                     ItemDetailType.Reminder -> container.reminderRepository.deleteById(itemId)
@@ -279,7 +357,7 @@ class ItemDetailViewModel(
             }.onSuccess {
                 _uiState.update { it.copy(closeAfterDelete = true) }
             }.onFailure {
-                _uiState.update { state -> state.copy(message = "Could not delete this item.") }
+                _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_delete_failed)) }
             }
         }
     }
@@ -290,7 +368,7 @@ class ItemDetailViewModel(
         val sourceText = state.title
             .ifBlank { state.body }
             .ifBlank { state.rawText }
-            .ifBlank { "this item" }
+            .ifBlank { localized(R.string.core_item_detail_default_source) }
         viewModelScope.launch {
             val settings = container.appSettingsRepository.settings.first()
             val routedAction = container.aiRouter.makeSmaller(sourceText, settings)
@@ -300,7 +378,7 @@ class ItemDetailViewModel(
                         sourceKey = "${state.type.name}_${state.itemId}",
                         sourceTitle = sourceText,
                         action = routedAction.action,
-                        sourceLabel = routedAction.metadata.source.tinyActionLabel(),
+                    sourceLabel = tinyActionLabel(routedAction.metadata.source),
                     ),
                     message = if (routedAction.metadata.source == com.orbit.app.domain.ai.AiRouteSource.GeminiFailedLocalUsed) {
                         routedAction.metadata.error?.userMessage
@@ -309,6 +387,28 @@ class ItemDetailViewModel(
                     },
                 )
             }
+        }
+    }
+
+    fun changeType(targetType: ItemDetailType, reminderDueAt: Long? = null) {
+        if (targetType == currentType || targetType == ItemDetailType.Capture) return
+        val dueAt = reminderDueAt ?: _uiState.value.scheduledAt
+        viewModelScope.launch {
+            runCatching { typeConversion.convert(currentType, itemId, targetType, dueAt) }
+                .onSuccess { outcome ->
+                    when (outcome) {
+                        TypeConversionOutcome.Converted -> {
+                            currentType = targetType
+                            load(message = localized(R.string.core_item_detail_type_changed), convertedToType = targetType)
+                        }
+                        TypeConversionOutcome.Conflict -> load(
+                            message = localized(R.string.core_item_detail_type_conflict),
+                        )
+                        TypeConversionOutcome.Missing -> load(message = localized(R.string.core_item_detail_unavailable_message))
+                        TypeConversionOutcome.Unsupported -> load(message = localized(R.string.core_item_detail_reminder_time_required))
+                    }
+                }
+                .onFailure { load(message = localized(R.string.core_item_detail_type_change_failed)) }
         }
     }
 
@@ -326,17 +426,17 @@ class ItemDetailViewModel(
                 container.taskRepository.insert(
                     TaskEntity(
                         title = suggestion.action.removeSuffix("."),
-                        notes = "Made smaller from: ${suggestion.sourceTitle}",
+                        notes = localized(R.string.core_item_detail_tiny_task_note, suggestion.sourceTitle),
                         spaceId = state.spaceId,
                     ),
                 )
             }.onSuccess {
-                load(message = "Tiny task created.")
+                load(message = localized(R.string.core_item_detail_tiny_task_created))
             }.onFailure {
                 _uiState.update {
                     it.copy(
                         isCreatingTinyTask = false,
-                        message = "Could not create the tiny task.",
+                        message = localized(R.string.core_item_detail_tiny_task_failed),
                     )
                 }
             }
@@ -369,14 +469,16 @@ class ItemDetailViewModel(
         message: String? = null,
         archiveUndoOperationId: Long? = null,
         scheduleUndoOperationId: Long? = null,
+        convertedToType: ItemDetailType? = null,
+        saveCompletedAt: Long? = null,
     ) {
         viewModelScope.launch {
             val spaces = container.spaceRepository.observeAll().replaySafeFirst()
                 .filterNot { it.hidden || it.archived }
-            when (type) {
+            val loaded = when (currentType) {
                 ItemDetailType.Note -> {
                     val note = container.noteRepository.getById(itemId)
-                    _uiState.value = note?.asState(
+                    note?.asState(
                         spaces,
                         message,
                         archiveUndoOperationId,
@@ -387,7 +489,7 @@ class ItemDetailViewModel(
 
                 ItemDetailType.Task -> {
                     val task = container.taskRepository.getById(itemId)
-                    _uiState.value = task?.asState(
+                    task?.asState(
                         spaces,
                         message,
                         archiveUndoOperationId,
@@ -398,22 +500,27 @@ class ItemDetailViewModel(
 
                 ItemDetailType.Reminder -> {
                     val reminder = container.reminderRepository.getById(itemId)
-                    _uiState.value = reminder?.asState(spaces, message)
+                    reminder?.asState(spaces, message)
                         ?: missingState(spaces, message)
                 }
 
                 ItemDetailType.Capture -> {
                     val capture = container.captureRepository.getById(itemId)
-                    _uiState.value = capture?.asState(spaces, message, archiveUndoOperationId)
+                    val hasPendingBrainDump = container.brainDumpRepository.getSession(itemId) != null
+                    capture?.asState(spaces, message, archiveUndoOperationId, hasPendingBrainDump)
                         ?: missingState(spaces, message)
                 }
             }
+            _uiState.value = loaded.copy(
+                convertedToType = convertedToType,
+                saveCompletedAt = saveCompletedAt,
+            )
         }
     }
 
     private fun missingState(spaces: List<SpaceEntity>, message: String?) = ItemDetailUiState(
         isLoading = false,
-        type = type,
+        type = currentType,
         itemId = itemId,
         spaces = spaces,
         isMissing = true,
@@ -436,7 +543,9 @@ class ItemDetailViewModel(
         body = body,
         spaceId = spaceId,
         spaces = spaces,
-        statusLabel = if (archived) "Archived note" else "Note",
+        statusLabel = localized(
+            if (archived) R.string.core_item_detail_archived_note else R.string.core_item_detail_type_note,
+        ),
         createdAt = createdAt,
         updatedAt = updatedAt,
         scheduledDateEpochDay = scheduledDateEpochDay,
@@ -462,12 +571,12 @@ class ItemDetailViewModel(
         body = notes,
         spaceId = spaceId,
         spaces = spaces,
-        statusLabel = status.label(),
+        statusLabel = statusLabel(status),
         createdAt = createdAt,
         updatedAt = updatedAt,
         dueAt = dueAt,
-        scheduledDateEpochDay = scheduledDateEpochDay,
         scheduledAt = dueAt,
+        scheduledDateEpochDay = scheduledDateEpochDay,
         canComplete = status != TaskStatus.Archived,
         canArchive = status != TaskStatus.Archived,
         isComplete = status == TaskStatus.Done,
@@ -489,10 +598,17 @@ class ItemDetailViewModel(
         body = notes,
         spaceId = spaceId,
         spaces = spaces,
-        statusLabel = if (completedAt == null) "Reminder" else "Completed reminder",
+        statusLabel = localized(
+            if (completedAt == null) {
+                R.string.core_item_detail_type_reminder
+            } else {
+                R.string.core_item_detail_status_completed_reminder
+            },
+        ),
         createdAt = createdAt,
         updatedAt = updatedAt,
         dueAt = dueAt,
+        scheduledAt = dueAt,
         canComplete = true,
         canArchive = false,
         isComplete = completedAt != null,
@@ -503,15 +619,16 @@ class ItemDetailViewModel(
         spaces: List<SpaceEntity>,
         message: String?,
         archiveUndoOperationId: Long?,
+        hasPendingBrainDump: Boolean,
     ) = ItemDetailUiState(
         isLoading = false,
         type = ItemDetailType.Capture,
         itemId = id,
-        title = "Capture",
+        title = localized(R.string.core_item_detail_type_capture),
         rawText = rawText,
         spaceId = suggestedSpaceId,
         spaces = spaces,
-        statusLabel = status.name,
+        statusLabel = captureStatusLabel(status),
         createdAt = createdAt,
         updatedAt = updatedAt,
         canEditTitle = false,
@@ -522,6 +639,7 @@ class ItemDetailViewModel(
         isArchived = status == CaptureStatus.Archived,
         archiveUndoOperationId = archiveUndoOperationId,
         message = message,
+        hasPendingBrainDump = hasPendingBrainDump,
     )
 
     class Factory(
@@ -535,26 +653,43 @@ class ItemDetailViewModel(
             return ItemDetailViewModel(type, itemId, container) as T
         }
     }
-}
 
-private fun AiRouteSource.tinyActionLabel(): String = when (this) {
-    AiRouteSource.Gemini -> "Suggested by Gemini"
-    AiRouteSource.Local -> "Local suggestion"
-    AiRouteSource.GeminiFailedLocalUsed -> "Local fallback"
-}
+    private fun localized(@StringRes resId: Int, vararg formatArgs: Any): String =
+        localizedContext.getString(resId, *formatArgs)
 
-private fun TaskStatus.label(): String = when (this) {
-    TaskStatus.Open -> "Task"
-    TaskStatus.Done -> "Done"
-    TaskStatus.Archived -> "Archived"
-    TaskStatus.WaitingFor -> "Waiting for"
-    TaskStatus.Someday -> "Someday"
-}
+    private fun tinyActionLabel(source: AiRouteSource): String = localized(
+        when (source) {
+            AiRouteSource.Gemini -> R.string.core_item_detail_ai_gemini
+            AiRouteSource.Local -> R.string.core_item_detail_ai_local
+            AiRouteSource.GeminiFailedLocalUsed -> R.string.core_item_detail_ai_local_fallback
+        },
+    )
 
-private fun TaskStatus.statusMessage(): String = when (this) {
-    TaskStatus.Open -> "Moved to active tasks."
-    TaskStatus.Done -> "Completed."
-    TaskStatus.WaitingFor -> "Marked as waiting for."
-    TaskStatus.Someday -> "Moved to Someday."
-    TaskStatus.Archived -> "Archived."
+    private fun statusLabel(status: TaskStatus): String = localized(
+        when (status) {
+            TaskStatus.Open -> R.string.core_item_detail_type_task
+            TaskStatus.Done -> R.string.core_item_detail_status_done
+            TaskStatus.Archived -> R.string.core_item_detail_status_archived
+            TaskStatus.WaitingFor -> R.string.core_item_detail_status_waiting_for
+            TaskStatus.Someday -> R.string.core_item_detail_status_someday
+        },
+    )
+
+    private fun captureStatusLabel(status: CaptureStatus): String = localized(
+        when (status) {
+            CaptureStatus.Inbox -> R.string.core_item_detail_status_inbox
+            CaptureStatus.Processed -> R.string.core_item_detail_status_processed
+            CaptureStatus.Archived -> R.string.core_item_detail_status_archived
+        },
+    )
+
+    private fun statusMessage(status: TaskStatus): String = localized(
+        when (status) {
+            TaskStatus.Open -> R.string.core_item_detail_active_tasks
+            TaskStatus.Done -> R.string.core_item_detail_completed
+            TaskStatus.WaitingFor -> R.string.core_item_detail_marked_waiting
+            TaskStatus.Someday -> R.string.core_item_detail_moved_someday
+            TaskStatus.Archived -> R.string.core_item_detail_archived
+        },
+    )
 }

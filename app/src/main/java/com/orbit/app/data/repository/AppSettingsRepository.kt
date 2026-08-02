@@ -13,9 +13,14 @@ import com.orbit.app.domain.model.AppAccentColor
 import com.orbit.app.domain.model.AiMode
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.model.AppTextColor
+import com.orbit.app.domain.model.AppearancePaletteMode
+import com.orbit.app.domain.model.BackgroundBlur
+import com.orbit.app.domain.model.BackgroundDimmingMode
 import com.orbit.app.domain.model.BackgroundPreset
+import com.orbit.app.domain.model.GlassPreference
 import com.orbit.app.domain.model.SettingsTimeFormatMode
 import com.orbit.app.domain.model.SettingsThemeMode
+import com.orbit.app.domain.model.GeminiConsent
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -49,13 +54,18 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             preferences[Keys.BACKGROUND_PRESET] = settings.backgroundPreset.name
             settings.customBackgroundUri?.let { preferences[Keys.CUSTOM_BACKGROUND_URI] = it }
                 ?: preferences.remove(Keys.CUSTOM_BACKGROUND_URI)
-            preferences[Keys.BACKGROUND_BLUR] = settings.backgroundBlur
+            preferences[Keys.BACKGROUND_BLUR] = settings.backgroundBlur.name
             preferences[Keys.BACKGROUND_DIM] = settings.backgroundDim
-            preferences[Keys.GLASS_STRENGTH] = settings.glassStrength
+            preferences[Keys.BACKGROUND_DIMMING_MODE] = settings.backgroundDimmingMode.name
+            preferences[Keys.GLASS_PREFERENCE] = settings.glassPreference.name
             preferences[Keys.ACCENT_COLOR] = settings.accentColor.name
+            preferences[Keys.PALETTE_MODE] = settings.paletteMode.name
             preferences[Keys.TEXT_COLOR] = settings.textColor.name
             preferences[Keys.STALE_LOOP_DAYS] = settings.staleLoopDays
             preferences[Keys.AI_MODE] = settings.aiMode.name
+            preferences[Keys.GEMINI_CONSENT_VERSION] = settings.geminiConsentVersion
+            preferences[Keys.ENABLE_LOCAL_AI_LEARNING] = settings.enableLocalAiLearning
+            preferences[Keys.SHARE_LOCAL_LEARNING_WITH_GEMINI] = settings.shareLocalLearningWithGemini
             preferences[Keys.GEMINI_FAST_MODEL_ID] = settings.geminiFastModelId
             preferences[Keys.GEMINI_REASONING_MODEL_ID] = settings.geminiReasoningModelId
             preferences[Keys.USE_GEMINI_FOR_CAPTURE] = settings.useGeminiForCapture
@@ -72,6 +82,11 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
 
     private fun toAppSettings(preferences: Preferences): AppSettings {
         val defaults = AppSettings()
+        val geminiConsentVersion = preferences[Keys.GEMINI_CONSENT_VERSION]
+            ?: defaults.geminiConsentVersion
+        val storedAiMode = preferences[Keys.AI_MODE]
+            ?.let { runCatching { AiMode.valueOf(it) }.getOrNull() }
+            ?: defaults.aiMode
         return AppSettings(
             userName = preferences[Keys.USER_NAME] ?: defaults.userName,
             themeMode = preferences[Keys.THEME_MODE]
@@ -82,21 +97,40 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 ?: defaults.timeFormatMode,
             backgroundPreset = preferences[Keys.BACKGROUND_PRESET]
                 ?.let(::backgroundPresetFromStoredValue)
+                ?.let { if (it == BackgroundPreset.SoftDawn && isLegacyDefaultAppearance(preferences)) defaults.backgroundPreset else it }
                 ?: defaults.backgroundPreset,
             customBackgroundUri = preferences[Keys.CUSTOM_BACKGROUND_URI],
-            backgroundBlur = preferences[Keys.BACKGROUND_BLUR] ?: defaults.backgroundBlur,
+            backgroundBlur = preferences[Keys.BACKGROUND_BLUR]
+                ?.let { runCatching { BackgroundBlur.valueOf(it) }.getOrNull() }
+                ?: legacyBlur(preferences[Keys.LEGACY_BACKGROUND_BLUR])
+                ?: defaults.backgroundBlur,
             backgroundDim = preferences[Keys.BACKGROUND_DIM] ?: defaults.backgroundDim,
-            glassStrength = preferences[Keys.GLASS_STRENGTH] ?: defaults.glassStrength,
+            backgroundDimmingMode = preferences[Keys.BACKGROUND_DIMMING_MODE]
+                ?.let { runCatching { BackgroundDimmingMode.valueOf(it) }.getOrNull() }
+                ?: defaults.backgroundDimmingMode,
+            glassPreference = preferences[Keys.GLASS_PREFERENCE]
+                ?.let { runCatching { GlassPreference.valueOf(it) }.getOrNull() }
+                ?: legacyGlass(preferences[Keys.LEGACY_GLASS_STRENGTH])
+                ?: defaults.glassPreference,
             accentColor = preferences[Keys.ACCENT_COLOR]
                 ?.let { runCatching { AppAccentColor.valueOf(it) }.getOrNull() }
+                ?.let { if (it == AppAccentColor.LumaViolet && isLegacyDefaultAppearance(preferences)) defaults.accentColor else it }
                 ?: defaults.accentColor,
+            paletteMode = preferences[Keys.PALETTE_MODE]
+                ?.let { runCatching { AppearancePaletteMode.valueOf(it) }.getOrNull() }
+                ?: defaults.paletteMode,
             textColor = preferences[Keys.TEXT_COLOR]
-                ?.let { runCatching { AppTextColor.valueOf(it) }.getOrNull() }
+                ?.let(::textColorFromStoredValue)
                 ?: defaults.textColor,
             staleLoopDays = preferences[Keys.STALE_LOOP_DAYS] ?: defaults.staleLoopDays,
-            aiMode = preferences[Keys.AI_MODE]
-                ?.let { runCatching { AiMode.valueOf(it) }.getOrNull() }
-                ?: defaults.aiMode,
+            aiMode = storedAiMode.takeUnless {
+                it == AiMode.GeminiApi && geminiConsentVersion < GeminiConsent.CurrentVersion
+            } ?: AiMode.LocalOnly,
+            geminiConsentVersion = geminiConsentVersion,
+            enableLocalAiLearning = preferences[Keys.ENABLE_LOCAL_AI_LEARNING]
+                ?: defaults.enableLocalAiLearning,
+            shareLocalLearningWithGemini = preferences[Keys.SHARE_LOCAL_LEARNING_WITH_GEMINI]
+                ?: defaults.shareLocalLearningWithGemini,
             geminiFastModelId = preferences[Keys.GEMINI_FAST_MODEL_ID]
                 ?.takeIf { it.isNotBlank() }
                 ?: defaults.geminiFastModelId,
@@ -121,19 +155,45 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             preset.name == value || preset.label == value
         }
 
+    private fun textColorFromStoredValue(value: String): AppTextColor? = when (value) {
+        "Default", "Ink" -> AppTextColor.Neutral
+        else -> runCatching { AppTextColor.valueOf(value) }.getOrNull()
+    }
+
+    private fun legacyBlur(value: Float?): BackgroundBlur? = value?.let { strength ->
+        BackgroundBlur.entries.minByOrNull { kotlin.math.abs(it.legacyStrength - strength) }
+    }
+
+    private fun legacyGlass(value: Float?): GlassPreference? = value?.let { strength ->
+        GlassPreference.entries.minByOrNull { kotlin.math.abs(it.legacyStrength - strength) }
+    }
+
+    private fun isLegacyDefaultAppearance(preferences: Preferences): Boolean =
+        preferences[Keys.BACKGROUND_PRESET] in setOf(null, BackgroundPreset.SoftDawn.name, BackgroundPreset.SoftDawn.label) &&
+            preferences[Keys.CUSTOM_BACKGROUND_URI] == null &&
+            preferences[Keys.ACCENT_COLOR] in setOf(null, AppAccentColor.LumaViolet.name) &&
+            preferences[Keys.TEXT_COLOR] in setOf(null, "Default")
+
     private object Keys {
         val USER_NAME = stringPreferencesKey("user_name")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val TIME_FORMAT_MODE = stringPreferencesKey("time_format_mode")
         val BACKGROUND_PRESET = stringPreferencesKey("background_preset")
         val CUSTOM_BACKGROUND_URI = stringPreferencesKey("custom_background_uri")
-        val BACKGROUND_BLUR = floatPreferencesKey("background_blur")
+        val BACKGROUND_BLUR = stringPreferencesKey("background_blur_mode")
+        val LEGACY_BACKGROUND_BLUR = floatPreferencesKey("background_blur")
         val BACKGROUND_DIM = floatPreferencesKey("background_dim")
-        val GLASS_STRENGTH = floatPreferencesKey("glass_strength")
+        val BACKGROUND_DIMMING_MODE = stringPreferencesKey("background_dimming_mode")
+        val GLASS_PREFERENCE = stringPreferencesKey("glass_preference")
+        val LEGACY_GLASS_STRENGTH = floatPreferencesKey("glass_strength")
         val ACCENT_COLOR = stringPreferencesKey("accent_color")
+        val PALETTE_MODE = stringPreferencesKey("palette_mode")
         val TEXT_COLOR = stringPreferencesKey("text_color")
         val STALE_LOOP_DAYS = intPreferencesKey("stale_loop_days")
         val AI_MODE = stringPreferencesKey("ai_mode")
+        val GEMINI_CONSENT_VERSION = intPreferencesKey("gemini_consent_version")
+        val ENABLE_LOCAL_AI_LEARNING = booleanPreferencesKey("enable_local_ai_learning")
+        val SHARE_LOCAL_LEARNING_WITH_GEMINI = booleanPreferencesKey("share_local_learning_with_gemini")
         val GEMINI_FAST_MODEL_ID = stringPreferencesKey("gemini_fast_model_id")
         val GEMINI_REASONING_MODEL_ID = stringPreferencesKey("gemini_reasoning_model_id")
         val USE_GEMINI_FOR_CAPTURE = booleanPreferencesKey("use_gemini_for_capture")

@@ -89,6 +89,33 @@ Related areas:
 - AI settings
 - Local data
 
+## Pattern: Calm Settings menu list
+
+Use when:
+A Settings index or submenu presents peer destinations with a current value or short explanation.
+
+Rules:
+- Use one coherent rounded SoftGlass group rather than a separate card for every row.
+- Give rows a consistent icon well, primary label, short secondary line, and navigation cue.
+- Keep secondary or reset actions outside the group.
+- Open a focused submenu when controls or explanatory copy would make the index dense.
+- Reuse shared typography, spacing, shape, color, surface, and motion roles.
+- Extract a shared Settings component before repeating a menu implementation inside Settings.
+
+Avoid:
+- mixed-purpose groups
+- chevrons on non-navigation controls
+- long helper copy in index rows
+- shrinking text, spacing, or touch targets to fit more controls
+- duplicating an existing destination or control nearby
+
+Related areas:
+- Settings
+- Appearance
+- Settings category indexes
+- visual hierarchy
+- accessibility
+
 ## Pattern: Local user media as appearance settings
 
 Use when:
@@ -137,6 +164,57 @@ Related areas:
 - background rendering
 - glass surfaces
 - menu scrolling
+
+## Pattern: Select glass by behavioral role
+
+Use when:
+A new translucent surface is added or an existing route is visually aligned with the app glass system.
+
+Rules:
+- Choose LiveGlass, SoftGlass, or ModalSurface from the surface's behavior before composing it.
+- Reserve LiveGlass for a bounded, fixed, high-value region backed by the shell ambient-background source.
+- Use SoftGlass for repeated, scrolling, resizing, list-heavy, and fallback content.
+- Select the route rendering policy once; do not switch material during scrolling.
+- Keep modal scrim, shape, elevation, and padding in the app-owned modal composition.
+- Process custom-image background blur when inputs change and cache the bitmap.
+
+Avoid:
+- treating translucency as proof that Haze is required
+- route-owned full-screen Haze sources
+- animated blur radius, progressive blur, or active effect resizing
+- per-frame blur for a stable background image
+
+Related areas:
+- Compose design system
+- app shell
+- Home navigation
+- list-heavy routes
+- Situation AI
+- Appearance
+
+## Pattern: Calm modal briefing hierarchy
+
+Use when:
+A modal presents several short explanatory sections plus a persistent composer or action area.
+
+Rules:
+- Keep primary briefing prose on the primary content color and use the shared comfortable body style.
+- Group peer sections into one calm reading surface with clear section spacing or subtle dividers.
+- Use typography-aligned bullets or hanging indents so wrapped lines stay aligned at larger font scales.
+- Reserve secondary content color for subtitles, provenance, and compact metadata.
+- Visually separate a fixed composer footer without moving it into the scrolling body.
+
+Avoid:
+- styling primary prose like secondary metadata
+- one equally prominent card for every short section
+- fixed-position dot bullets that drift away from the text baseline
+- letting a footer heading compete with the briefing hierarchy
+
+Related areas:
+- Situation AI
+- Ask LUMA
+- modal summaries
+- accessibility and font scaling
 
 ## Pattern: App-wide appearance palettes
 
@@ -235,3 +313,137 @@ Related areas:
 - Room repositories
 - reminders
 - undo
+
+## Pattern: Anchor compact week context to the visible week
+
+Use when:
+Adding navigation or labels to the Home weekday strip.
+
+Rules:
+- Hoist and restore the visible-week anchor independently from the selected date.
+- Move in exact seven-day increments and refresh date-backed indicators for the newly visible range.
+- Derive a split-month week's label from its middle day so the label is stable across date taps.
+- Keep the label compact, localized, and independent from detailed Calendar controls.
+
+Avoid:
+- deriving the label from the last tapped day
+- showing stale item indicators after the week changes
+- turning Home into a full calendar surface
+
+Related areas:
+- Home
+- mini calendar
+- Calendar navigation
+- accessibility
+
+## Pattern: Introduce design tokens without visual churn
+
+Use when:
+A repeated spacing rhythm or surface shape needs a shared design-system role.
+
+Rules:
+- Define a small documented scale before migrating call sites.
+- Replace only repeated values whose rendered dimensions and semantic role match the token.
+- Keep component-specific measurements local.
+- Keep circles and pills as explicit geometry exceptions.
+- Add focused value tests so later token edits are intentional and reviewable.
+
+Avoid:
+- mechanical whole-app replacement
+- changing dimensions while claiming a token-only refactor
+- forcing circles, pills, or asymmetric component geometry into generic surface roles
+
+Related areas:
+- Compose theme
+- spacing
+- surface shapes
+- visual regression prevention
+
+## Pattern: Calm motion from shared roles
+
+Use when:
+Adding motion across multiple Compose screens or interactive components.
+
+Rules:
+- Define a small ordered duration and scale vocabulary instead of screen-local magic numbers.
+- Let Android's animator duration scale remain authoritative so Remove animations is respected.
+- Animate navigation direction, meaningful content changes, and direct interaction feedback.
+- Use the same interaction source for press state and click indication so feedback matches the gesture.
+- Animate stable-key lazy items with restrained fade and placement timing.
+- Keep motion finite and verify scrolling with preset and custom backgrounds.
+- For app-wide component haptics, observe pointer changes at shared screen and modal roots without
+  consuming them, require an enabled descendant to accept the completed press, use one light
+  platform feedback role, and let the system haptic setting win.
+- Classify an accepted press with platform touch-slop and long-press thresholds so blank areas,
+  disabled controls, scrolling, dragging, long presses, and multi-touch gestures remain silent.
+
+Avoid:
+- looping decoration, large parallax, or repeated bounce
+- animating every recomposition or unchanged content
+- replacing Material control feedback with duplicate effects
+- motion that delays confirmation or important actions
+- stacking screen-local confirmation vibrations on top of shared component feedback
+- consuming parent pointer events to add haptics, which can cancel child clicks or scrolling
+
+Related areas:
+- Compose navigation
+- shared components
+- Spaces
+- Review
+- Search
+- Settings
+- accessibility
+- appearance performance
+
+## Pattern: Fixed chrome over dissolving scroll content
+
+Use when:
+A top-level screen needs a persistent heading or action row while its content scrolls beneath fixed top or bottom chrome.
+
+Rules:
+- Keep the persistent header outside the lazy list so its title and actions do not scroll away.
+- Measure the rendered header and include status-bar inset plus breathing room in the list's initial top clearance, with a safe minimum for normal font scale.
+- Fade scroll content with an alpha mask so the existing preset or custom background remains the visible treatment instead of painting a second decorative gradient.
+- Keep stable lazy-list keys and enough bottom content padding for the final item to scroll fully above floating navigation.
+- Skip offscreen compositing when neither edge needs a fade.
+- Verify light, dark, preset, and custom backgrounds plus increased font scale and scroll performance on a device.
+
+Avoid:
+- placing the heading inside the scrolling item stream
+- hardcoding clearance that overlaps wrapped header text
+- adding an opaque gradient that hides the selected background
+- fading the floating controls together with the content behind them
+
+Related areas:
+- Spaces
+- Review
+- shared navigation
+- Compose lazy lists
+- accessibility
+- appearance performance
+
+## Pattern: Convert table-backed item types as one confirmed identity move
+
+Use when:
+An existing Note, Task, or Reminder changes user-facing type while each type is stored in a separate Room table.
+
+Rules:
+- Keep the same item identifier when the destination namespace permits it.
+- Preflight destination identity conflicts and leave the source untouched on conflict.
+- Insert the destination row and delete the source row in one Room transaction.
+- Preserve title, notes, Space, creation time, life-state meaning, and compatible schedule metadata.
+- Reconcile reminder alarms and work only after the database transaction commits.
+- Require a complete date and time before committing a conversion to Reminder.
+
+Avoid:
+- insert-then-delete repository sequences without a transaction
+- scheduling reminder work before the converted row commits
+- overwriting an unrelated destination row with the same identifier
+- leaving both source and destination rows visible
+
+Related areas:
+- Item Details
+- Room
+- reminders
+- navigation
+- export/restore

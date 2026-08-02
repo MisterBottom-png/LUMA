@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.core.content.edit
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -30,10 +31,10 @@ class AndroidKeystoreGeminiApiKeyStore(context: Context) : GeminiApiKeyStore {
         val cipher = Cipher.getInstance(Transformation)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
         val encrypted = cipher.doFinal(cleanKey.toByteArray(StandardCharsets.UTF_8))
-        preferences.edit()
-            .putString(CiphertextKey, Base64.encodeToString(encrypted, Base64.NO_WRAP))
-            .putString(IvKey, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .apply()
+        preferences.edit {
+            putString(CiphertextKey, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+            putString(IvKey, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+        }
     }
 
     override suspend fun getKey(): String? {
@@ -59,10 +60,10 @@ class AndroidKeystoreGeminiApiKeyStore(context: Context) : GeminiApiKeyStore {
     override suspend fun hasKey(): Boolean = getKey() != null
 
     override suspend fun deleteKey() {
-        preferences.edit()
-            .remove(CiphertextKey)
-            .remove(IvKey)
-            .apply()
+        preferences.edit {
+            remove(CiphertextKey)
+            remove(IvKey)
+        }
     }
 
     private fun getOrCreateSecretKey(): SecretKey {

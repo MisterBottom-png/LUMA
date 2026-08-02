@@ -22,10 +22,21 @@ data class LocalSearchResult(
     val title: String,
     val snippet: String,
     val spaceName: String?,
-    val status: String,
+    val status: LocalSearchStatus,
     val timestamp: Long,
 ) {
     val key: String = "${type.routeName}_$id"
+}
+
+enum class LocalSearchStatus {
+    Note,
+    Task,
+    Reminder,
+    CompletedReminder,
+    Done,
+    Archived,
+    WaitingFor,
+    Someday,
 }
 
 class LocalSearch {
@@ -46,10 +57,10 @@ class LocalSearch {
                     LocalSearchResult(
                         type = ItemDetailType.Note,
                         id = it.id,
-                        title = it.title.ifBlank { "Untitled note" },
+                        title = it.title,
                         snippet = it.body.ifBlank { it.title },
                         spaceName = it.spaceId?.let(spacesById::get)?.name,
-                        status = if (it.archived) "Archived" else "Note",
+                        status = if (it.archived) LocalSearchStatus.Archived else LocalSearchStatus.Note,
                         timestamp = it.updatedAt,
                     )
                 }
@@ -61,8 +72,8 @@ class LocalSearch {
                     LocalSearchResult(
                         type = ItemDetailType.Task,
                         id = it.id,
-                        title = it.title.ifBlank { "Untitled task" },
-                        snippet = it.notes.ifBlank { it.status.name },
+                        title = it.title,
+                        snippet = it.notes,
                         spaceName = it.spaceId?.let(spacesById::get)?.name,
                         status = it.status.label(),
                         timestamp = it.updatedAt,
@@ -75,10 +86,14 @@ class LocalSearch {
                     LocalSearchResult(
                         type = ItemDetailType.Reminder,
                         id = it.id,
-                        title = it.title.ifBlank { "Untitled reminder" },
-                        snippet = it.notes.ifBlank { "Reminder" },
+                        title = it.title,
+                        snippet = it.notes,
                         spaceName = it.spaceId?.let(spacesById::get)?.name,
-                        status = if (it.completedAt == null) "Reminder" else "Completed reminder",
+                        status = if (it.completedAt == null) {
+                            LocalSearchStatus.Reminder
+                        } else {
+                            LocalSearchStatus.CompletedReminder
+                        },
                         timestamp = it.dueAt,
                     )
                 }
@@ -92,10 +107,10 @@ class LocalSearch {
     }
 }
 
-private fun TaskStatus.label(): String = when (this) {
-    TaskStatus.Open -> "Task"
-    TaskStatus.Done -> "Done"
-    TaskStatus.Archived -> "Archived"
-    TaskStatus.WaitingFor -> "Waiting for"
-    TaskStatus.Someday -> "Someday"
+private fun TaskStatus.label(): LocalSearchStatus = when (this) {
+    TaskStatus.Open -> LocalSearchStatus.Task
+    TaskStatus.Done -> LocalSearchStatus.Done
+    TaskStatus.Archived -> LocalSearchStatus.Archived
+    TaskStatus.WaitingFor -> LocalSearchStatus.WaitingFor
+    TaskStatus.Someday -> LocalSearchStatus.Someday
 }

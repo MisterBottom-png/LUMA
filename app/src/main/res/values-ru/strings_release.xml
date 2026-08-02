@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_export_unencrypted_title">Экспортировать локальные данные в читаемом виде?</string>
+    <string name="settings_export_unencrypted_warning">Этот экспорт JSON не зашифрован. Любой, у кого есть доступ к сохранённому файлу, сможет его прочитать. Выберите надёжное место.</string>
+    <string name="settings_export_choose_location">Выбрать место</string>
+    <string name="settings_export_complete">Экспорт сохранён в выбранном месте.</string>
+    <string name="settings_gemini_consent_title">Разрешить запрос к Gemini?</string>
+    <string name="settings_gemini_consent_body">Если функция включена, LUMA отправляет в Google Gemini API выбранный вами текст и только относящийся к действию локальный контекст. Ключ API остаётся зашифрованным на этом устройстве. Gemini не может изменять, планировать, удалять или отправлять ваши данные без подтверждения. Возврат в локальный режим отзывает это согласие.</string>
+    <string name="settings_gemini_consent_confirm">Разрешить Gemini</string>
+    <string name="settings_local_learning_title">Локальное обучение ИИ</string>
+    <string name="settings_local_learning_toggle">Учиться на моём выборе</string>
+    <string name="settings_local_learning_explanation">По умолчанию выключено. Если включить, LUMA сохраняет на этом устройстве краткие шаблоны исправлений и явные записи обучения. Эти записи не входят в экспорт.</string>
+    <string name="settings_clear_learning">Очистить изученные данные</string>
+    <string name="settings_clearing_learning">Очистка изученных данных…</string>
+    <string name="settings_clear_learning_title">Очистить все изученные данные?</string>
+    <string name="settings_clear_learning_body">Будут удалены локальная история предложений ИИ, исправления, изученные правила и сохранённые записи обучения. Заметки, задачи, напоминания, записи, пространства и настройки останутся.</string>
+    <string name="settings_clear_learning_confirm">Очистить изученные данные</string>
+    <string name="settings_learning_cleared">Изученные данные очищены.</string>
+    <string name="settings_learning_clear_failed">Не удалось очистить изученные данные. Существующие данные сохранены.</string>
+    <string name="settings_share_learning_with_gemini">Делиться обучением с Gemini</string>
+    <string name="settings_share_learning_with_gemini_explanation">По умолчанию выключено. При включении небольшой подходящий профиль предпочтений может добавляться к необязательным запросам Gemini.</string>
+    <string name="settings_learning_edit_rule">Изменить обученное предпочтение</string>
+    <string name="settings_learning_rule">Предпочтение</string>
+    <string name="settings_save">Сохранить</string>
+    <string name="settings_edit">Изменить</string>
+</resources>

@@ -3,6 +3,8 @@ package com.orbit.app.data.local
 import androidx.room.TypeConverter
 import com.orbit.app.data.local.entity.AiSuggestionOutcome
 import com.orbit.app.data.local.entity.AiSuggestionSurface
+import com.orbit.app.data.local.entity.BrainDumpItemOutcome
+import com.orbit.app.data.local.entity.BrainDumpReminderStatus
 import com.orbit.app.data.local.entity.CaptureSource
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.LearnedRuleCategory
@@ -10,6 +12,20 @@ import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.local.entity.TaskStatus
 
 class OrbitTypeConverters {
+    @TypeConverter
+    fun brainDumpItemOutcomeToString(value: BrainDumpItemOutcome): String = value.name
+
+    @TypeConverter
+    fun stringToBrainDumpItemOutcome(value: String): BrainDumpItemOutcome =
+        BrainDumpItemOutcome.valueOf(value)
+
+    @TypeConverter
+    fun brainDumpReminderStatusToString(value: BrainDumpReminderStatus): String = value.name
+
+    @TypeConverter
+    fun stringToBrainDumpReminderStatus(value: String): BrainDumpReminderStatus =
+        BrainDumpReminderStatus.valueOf(value)
+
     @TypeConverter
     fun captureStatusToString(value: CaptureStatus): String = value.name
 

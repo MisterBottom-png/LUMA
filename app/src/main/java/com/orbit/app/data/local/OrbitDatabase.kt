@@ -9,6 +9,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.orbit.app.data.local.dao.AiCorrectionHistoryDao
 import com.orbit.app.data.local.dao.AiSuggestionHistoryDao
+import com.orbit.app.data.local.dao.BrainDumpDao
 import com.orbit.app.data.local.dao.CaptureDao
 import com.orbit.app.data.local.dao.LearnedRuleDao
 import com.orbit.app.data.local.dao.NoteDao
@@ -20,6 +21,8 @@ import com.orbit.app.data.local.dao.SpaceDao
 import com.orbit.app.data.local.dao.TaskDao
 import com.orbit.app.data.local.entity.AiCorrectionHistoryEntity
 import com.orbit.app.data.local.entity.AiSuggestionHistoryEntity
+import com.orbit.app.data.local.entity.BrainDumpItemEntity
+import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.data.local.entity.NoteEntity
@@ -43,8 +46,10 @@ import com.orbit.app.data.local.entity.TaskEntity
         PersonMemoryEntity::class,
         ProjectMemoryEntity::class,
         SpaceAliasMemoryEntity::class,
+        BrainDumpSessionEntity::class,
+        BrainDumpItemEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(OrbitTypeConverters::class)
@@ -60,6 +65,7 @@ abstract class OrbitDatabase : RoomDatabase() {
     abstract fun personMemoryDao(): PersonMemoryDao
     abstract fun projectMemoryDao(): ProjectMemoryDao
     abstract fun spaceAliasMemoryDao(): SpaceAliasMemoryDao
+    abstract fun brainDumpDao(): BrainDumpDao
 
     companion object {
         private const val DATABASE_NAME = "orbit.db"
@@ -258,6 +264,60 @@ abstract class OrbitDatabase : RoomDatabase() {
             }
         }
 
+        val Migration4To5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `brain_dump_sessions` (
+                        `captureId` INTEGER NOT NULL,
+                        `analyzerSource` TEXT NOT NULL,
+                        `calendarDateContextEpochDay` INTEGER,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`captureId`),
+                        FOREIGN KEY(`captureId`) REFERENCES `captures`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_brain_dump_sessions_captureId` " +
+                        "ON `brain_dump_sessions` (`captureId`)",
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `brain_dump_items` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `captureId` INTEGER NOT NULL,
+                        `sourceKey` TEXT NOT NULL,
+                        `ordinal` INTEGER NOT NULL,
+                        `rawText` TEXT NOT NULL,
+                        `suggestedTitle` TEXT NOT NULL,
+                        `suggestedType` TEXT NOT NULL,
+                        `suggestedSpaceName` TEXT NOT NULL,
+                        `confidence` REAL NOT NULL,
+                        `tinyNextAction` TEXT NOT NULL,
+                        `reason` TEXT NOT NULL,
+                        `reminderStatus` TEXT NOT NULL,
+                        `suggestedReminderAt` INTEGER,
+                        `reminderPhrase` TEXT,
+                        `outcome` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        FOREIGN KEY(`captureId`) REFERENCES `brain_dump_sessions`(`captureId`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_brain_dump_items_captureId` " +
+                        "ON `brain_dump_items` (`captureId`)",
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_brain_dump_items_captureId_sourceKey` " +
+                        "ON `brain_dump_items` (`captureId`, `sourceKey`)",
+                )
+            }
+        }
+
         @Volatile
         private var instance: OrbitDatabase? = null
 
@@ -267,7 +327,7 @@ abstract class OrbitDatabase : RoomDatabase() {
                 OrbitDatabase::class.java,
                 DATABASE_NAME,
             )
-                .addMigrations(Migration1To2, Migration2To3, Migration3To4)
+                .addMigrations(Migration1To2, Migration2To3, Migration3To4, Migration4To5)
                 .addCallback(SeedStarterSpacesCallback)
                 .build()
                 .also { instance = it }
@@ -284,7 +344,7 @@ abstract class OrbitDatabase : RoomDatabase() {
                         (id, name, icon, colorAccent, sortOrder, hidden, archived, createdAt, updatedAt)
                         VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)
                         """.trimIndent(),
-                        arrayOf(
+                        arrayOf<Any?>(
                             space.id,
                             space.name,
                             space.icon,

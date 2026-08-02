@@ -1,0 +1,4 @@
+interface:
+  display_name: "LUMA Project Cleanup"
+  short_description: "Run reversible evidence-backed cleanup"
+  default_prompt: "Use $luma-project-cleanup to perform this bounded LUMA cleanup without changing application behavior."

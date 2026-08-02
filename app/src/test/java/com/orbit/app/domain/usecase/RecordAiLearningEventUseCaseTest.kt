@@ -17,6 +17,31 @@ import org.junit.Test
 
 class RecordAiLearningEventUseCaseTest {
     @Test
+    fun disabledLearningStoresNoHistoryOrCorrections() = runBlocking {
+        val suggestionRepo = FakeSuggestionHistoryRepository()
+        val correctionRepo = FakeCorrectionHistoryRepository()
+        val recorder = RecordAiLearningEventUseCase(
+            suggestionHistoryRepository = suggestionRepo,
+            correctionHistoryRepository = correctionRepo,
+            isLearningEnabled = { false },
+        )
+
+        val result = recorder.recordCorrected(
+            context = context(),
+            decision = CaptureSuggestionLearningDecision(
+                surface = AiSuggestionSurface.Capture,
+                userAction = "save_note",
+                finalType = SuggestedItemType.Note,
+                finalTitle = "Keep locally",
+            ),
+        )
+
+        assertEquals(0L, result)
+        assertTrue(suggestionRepo.items.isEmpty())
+        assertTrue(correctionRepo.items.isEmpty())
+    }
+
+    @Test
     fun acceptedSuggestionStoresHistoryWithoutCorrections() = runBlocking {
         val suggestionRepo = FakeSuggestionHistoryRepository()
         val correctionRepo = FakeCorrectionHistoryRepository()
@@ -76,12 +101,14 @@ class RecordAiLearningEventUseCaseTest {
             context = context(),
             userAction = "keep_brain_dump_item_in_inbox",
             surface = AiSuggestionSurface.BrainDump,
-            sourceItemId = "dump_1",
+            sourceItemId = "brain:1",
             sourceText = "car noise tomorrow",
         )
 
         assertEquals(AiSuggestionSurface.BrainDump, suggestionRepo.items.single().surface)
         assertEquals(AiSuggestionOutcome.Rejected, suggestionRepo.items.single().outcome)
+        assertEquals("brain", suggestionRepo.items.single().sourceItemType)
+        assertEquals(1L, suggestionRepo.items.single().sourceItemId)
     }
 
     private fun context() = CaptureSuggestionLearningContext(

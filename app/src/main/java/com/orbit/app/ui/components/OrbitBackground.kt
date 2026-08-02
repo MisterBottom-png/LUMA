@@ -3,7 +3,6 @@ package com.orbit.app.ui.components
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -17,7 +16,6 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -25,11 +23,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.orbit.app.domain.model.AppSettings
+import com.orbit.app.domain.model.BackgroundBlur
+import com.orbit.app.domain.model.BackgroundDimmingMode
 import com.orbit.app.domain.model.BackgroundPreset
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -37,18 +38,26 @@ import kotlinx.coroutines.withContext
 fun OrbitBackground(
     settings: AppSettings,
     modifier: Modifier = Modifier,
+    glassRenderingPolicy: GlassRenderingPolicy = GlassRenderingPolicy.LiveAllowed,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val hazeState = remember { HazeState() }
+    val hazeState = rememberHazeState()
     val palette = backgroundPalette(settings.backgroundPreset, isDark)
-    val backgroundBlur = settings.backgroundBlur.coerceIn(0f, 1f) * 16f
-    val dimAlpha = settings.backgroundDim.coerceIn(0f, 1f) * if (isDark) 0.52f else 0.20f
-    val customBackgroundBitmap = rememberCustomBackgroundBitmap(settings.customBackgroundUri)
+    val dimAlpha = backgroundDimAlpha(
+        strength = settings.backgroundDim,
+        isDark = isDark,
+        mode = settings.backgroundDimmingMode,
+    )
+    val customBackgroundBitmap = rememberCustomBackgroundBitmap(
+        uriString = settings.customBackgroundUri,
+        blur = settings.backgroundBlur,
+    )
     val visibleCustomBackground = customBackgroundBitmap.value
 
     CompositionLocalProvider(
         LocalOrbitHazeState provides hazeState,
+        LocalGlassRenderingPolicy provides glassRenderingPolicy,
         LocalOrbitAppearance provides settings,
         LocalOrbitUsesCustomBackground provides (visibleCustomBackground != null),
         LocalContentColor provides MaterialTheme.colorScheme.onBackground,
@@ -57,30 +66,21 @@ fun OrbitBackground(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .haze(hazeState),
+                    .hazeSource(hazeState),
             ) {
                 visibleCustomBackground?.let { bitmap ->
                     Image(
                         bitmap = bitmap.asImageBitmap(),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .blur(backgroundBlur.dp),
+                        modifier = Modifier.fillMaxSize(),
                     )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .drawBehind {
-                                if (dimAlpha > 0f) {
-                                    drawRect(Color.Black.copy(alpha = dimAlpha))
-                                }
-                            },
+                    CustomBackgroundContrastOverlay(
+                        isDark = isDark,
+                        dimAlpha = dimAlpha,
                     )
-                    CustomBackgroundContrastOverlay(isDark = isDark)
                 } ?: PresetBackground(
                     palette = palette,
-                    backgroundBlur = backgroundBlur,
                     dimAlpha = dimAlpha,
                 )
             }
@@ -90,7 +90,7 @@ fun OrbitBackground(
 }
 
 @Composable
-private fun CustomBackgroundContrastOverlay(isDark: Boolean) {
+private fun CustomBackgroundContrastOverlay(isDark: Boolean, dimAlpha: Float) {
     val style = customBackgroundContrastStyle(
         isDark = isDark,
         tonalColor = MaterialTheme.colorScheme.background,
@@ -99,6 +99,9 @@ private fun CustomBackgroundContrastOverlay(isDark: Boolean) {
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
+                if (dimAlpha > 0f) {
+                    drawRect(Color.Black.copy(alpha = dimAlpha))
+                }
                 drawRect(style.tonalColor.copy(alpha = style.bodyAlpha))
                 drawRect(
                     brush = Brush.verticalGradient(
@@ -136,29 +139,134 @@ internal fun customBackgroundContrastStyle(
 )
 
 @Composable
-private fun rememberCustomBackgroundBitmap(uriString: String?): State<Bitmap?> {
+private fun rememberCustomBackgroundBitmap(
+    uriString: String?,
+    blur: BackgroundBlur,
+): State<Bitmap?> {
     val context = LocalContext.current
+    val blurRadius = backgroundBlurRadius(blur)
     val bitmapState = remember(uriString) { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(uriString) {
+    LaunchedEffect(uriString, blurRadius) {
         if (uriString != null) {
             bitmapState.value = withContext(Dispatchers.IO) {
-                loadScaledBitmap(context, uriString)
+                processedBackgroundBitmap(context, uriString, blurRadius)
             }
+        } else {
+            bitmapState.value = null
         }
     }
     return bitmapState
 }
 
+internal fun backgroundBlurRadius(blur: BackgroundBlur): Int = when (blur) {
+    BackgroundBlur.None -> 0
+    BackgroundBlur.Soft -> 8
+    BackgroundBlur.Medium -> 16
+    BackgroundBlur.Strong -> MaxCachedBackgroundBlurRadius
+}
+
+internal fun backgroundDimAlpha(
+    strength: Float,
+    isDark: Boolean,
+    mode: BackgroundDimmingMode = BackgroundDimmingMode.Adaptive,
+): Float {
+    val protectedStrength = if (mode == BackgroundDimmingMode.Adaptive) {
+        maxOf(strength.coerceIn(0f, 1f), 0.22f)
+    } else {
+        strength.coerceIn(0f, 1f)
+    }
+    return protectedStrength * if (isDark) 0.64f else 0.56f
+}
+
+private fun processedBackgroundBitmap(
+    context: Context,
+    uriString: String,
+    blurRadius: Int,
+): Bitmap? {
+    val key = "$uriString#$blurRadius"
+    synchronized(processedBackgroundCache) {
+        processedBackgroundCache[key]?.let { return it }
+    }
+    val decoded = loadScaledBitmap(context, uriString) ?: return null
+    val processed = if (blurRadius == 0) decoded else decoded.boxBlur(blurRadius)
+    synchronized(processedBackgroundCache) {
+        processedBackgroundCache[key] = processed
+    }
+    return processed
+}
+
+private fun Bitmap.boxBlur(radius: Int): Bitmap {
+    val width = width
+    val height = height
+    val source = IntArray(width * height)
+    getPixels(source, 0, width, 0, 0, width, height)
+    val horizontal = IntArray(source.size)
+    val output = IntArray(source.size)
+    blurPass(source, horizontal, width, height, radius, horizontalPass = true)
+    blurPass(horizontal, output, width, height, radius, horizontalPass = false)
+    return Bitmap.createBitmap(output, width, height, Bitmap.Config.ARGB_8888)
+}
+
+private fun blurPass(
+    source: IntArray,
+    output: IntArray,
+    width: Int,
+    height: Int,
+    radius: Int,
+    horizontalPass: Boolean,
+) {
+    val outer = if (horizontalPass) height else width
+    val inner = if (horizontalPass) width else height
+    val window = radius * 2 + 1
+    repeat(outer) { outerIndex ->
+        var alpha = 0
+        var red = 0
+        var green = 0
+        var blue = 0
+        fun pixel(innerIndex: Int): Int {
+            val clamped = innerIndex.coerceIn(0, inner - 1)
+            return if (horizontalPass) {
+                source[outerIndex * width + clamped]
+            } else {
+                source[clamped * width + outerIndex]
+            }
+        }
+        for (index in -radius..radius) {
+            val color = pixel(index)
+            alpha += color ushr 24
+            red += color shr 16 and 0xFF
+            green += color shr 8 and 0xFF
+            blue += color and 0xFF
+        }
+        repeat(inner) { innerIndex ->
+            val outputIndex = if (horizontalPass) {
+                outerIndex * width + innerIndex
+            } else {
+                innerIndex * width + outerIndex
+            }
+            output[outputIndex] =
+                ((alpha / window) shl 24) or
+                ((red / window) shl 16) or
+                ((green / window) shl 8) or
+                (blue / window)
+            val outgoing = pixel(innerIndex - radius)
+            val incoming = pixel(innerIndex + radius + 1)
+            alpha += (incoming ushr 24) - (outgoing ushr 24)
+            red += (incoming shr 16 and 0xFF) - (outgoing shr 16 and 0xFF)
+            green += (incoming shr 8 and 0xFF) - (outgoing shr 8 and 0xFF)
+            blue += (incoming and 0xFF) - (outgoing and 0xFF)
+        }
+    }
+}
+
 @Composable
 private fun PresetBackground(
     palette: BackgroundPalette,
-    backgroundBlur: Float,
     dimAlpha: Float,
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .blur(backgroundBlur.dp)
             .drawBehind {
                 drawRect(
                     brush = Brush.verticalGradient(
@@ -174,7 +282,7 @@ private fun PresetBackground(
 }
 
 private fun loadScaledBitmap(context: Context, uriString: String): Bitmap? {
-    val uri = runCatching { Uri.parse(uriString) }.getOrNull() ?: return null
+    val uri = runCatching { uriString.toUri() }.getOrNull() ?: return null
     val resolver = context.contentResolver
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     runCatching {
@@ -214,6 +322,12 @@ private fun backgroundPalette(
     preset: BackgroundPreset,
     isDark: Boolean,
 ): BackgroundPalette = when (preset) {
+    BackgroundPreset.InkPaper -> if (isDark) {
+        BackgroundPalette(baseColors = listOf(Color(0xFF101311), Color(0xFF182022), Color(0xFF121716)))
+    } else {
+        BackgroundPalette(baseColors = listOf(Color(0xFFFBF9F5), Color(0xFFF2F0EA), Color(0xFFEEF2F0)))
+    }
+
     BackgroundPreset.SoftDawn -> if (isDark) {
         BackgroundPalette(
             baseColors = listOf(Color(0xFF171218), Color(0xFF251B29), Color(0xFF202125)),
@@ -256,3 +370,7 @@ private fun backgroundPalette(
 }
 
 private const val MaxCustomBackgroundDimension = 1600
+private const val MaxCachedBackgroundBlurRadius = 24
+private val processedBackgroundCache = object : LinkedHashMap<String, Bitmap>(4, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean = size > 4
+}

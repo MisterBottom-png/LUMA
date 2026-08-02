@@ -72,13 +72,20 @@ class LocalDataRestorer(
 class RoomLocalDataRestoreStore(
     private val database: OrbitDatabase,
 ) : LocalDataRestoreStore {
-    override suspend fun read() = LocalDataSnapshot(
-        spaces = database.spaceDao().observeAll().first(),
-        captures = database.captureDao().observeAll().first(),
-        notes = database.noteDao().observeAll().first(),
-        tasks = database.taskDao().observeAll().first(),
-        reminders = database.reminderDao().observeAll().first(),
-    )
+    override suspend fun read() = database.withTransaction {
+        val brainDumpSessions = database.brainDumpDao().getSessions()
+        LocalDataSnapshot(
+            spaces = database.spaceDao().observeAll().first(),
+            captures = database.captureDao().observeAll().first(),
+            notes = database.noteDao().observeAll().first(),
+            tasks = database.taskDao().observeAll().first(),
+            reminders = database.reminderDao().observeAll().first(),
+            brainDumpSessions = brainDumpSessions,
+            brainDumpItems = brainDumpSessions.flatMap { session ->
+                database.brainDumpDao().getItems(session.captureId)
+            },
+        )
+    }
 
     override suspend fun replace(snapshot: LocalDataSnapshot) {
         database.withTransaction {
@@ -86,6 +93,8 @@ class RoomLocalDataRestoreStore(
             val suggestionHistory = database.aiSuggestionHistoryDao().observeAll().first()
 
             database.reminderDao().deleteAll()
+            database.brainDumpDao().deleteAllItems()
+            database.brainDumpDao().deleteAllSessions()
             database.noteDao().deleteAll()
             database.taskDao().deleteAll()
             database.captureDao().deleteAll()
@@ -93,6 +102,8 @@ class RoomLocalDataRestoreStore(
 
             database.spaceDao().insertAll(snapshot.spaces)
             database.captureDao().insertAll(snapshot.captures)
+            database.brainDumpDao().insertSessions(snapshot.brainDumpSessions)
+            database.brainDumpDao().insertItems(snapshot.brainDumpItems)
             database.noteDao().insertAll(snapshot.notes)
             database.taskDao().insertAll(snapshot.tasks)
             database.reminderDao().insertAll(snapshot.reminders)

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reminder_notification_channel_name">LUMA meeldetuletused</string>
+    <string name="reminder_notification_channel_description">LUMA ligikaudsed meeldetuletusteavitused</string>
+    <string name="reminder_notification_fallback_title">LUMA meeldetuletus</string>
+    <string name="reminder_notification_open_luma">Puuduta LUMA avamiseks</string>
+
+    <string name="reminder_offset_around_target">Sihtaja paiku</string>
+    <string name="reminder_offset_about_five_minutes">Umbes 5 minutit varem</string>
+    <string name="reminder_offset_about_fifteen_minutes">Umbes 15 minutit varem</string>
+    <string name="reminder_offset_about_thirty_minutes">Umbes 30 minutit varem</string>
+    <string name="reminder_offset_about_one_hour">Umbes 1 tund varem</string>
+    <string name="reminder_offset_about_one_day">Umbes 1 päev varem</string>
+    <string name="reminder_offset_about_custom_minutes">Umbes %1$d minutit varem</string>
+    <string name="reminder_offset_invalid">Vigane teavituse nihe</string>
+</resources>

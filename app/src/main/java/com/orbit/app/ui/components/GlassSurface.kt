@@ -1,6 +1,8 @@
 package com.orbit.app.ui.components
 
+import android.os.Build
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -10,6 +12,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -20,32 +24,58 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.orbit.app.domain.model.AppSettings
+import com.orbit.app.ui.theme.OrbitShapes
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.ExperimentalHazeApi
+import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
 
 internal val LocalOrbitHazeState = staticCompositionLocalOf<HazeState?> { null }
+internal val LocalGlassRenderingPolicy = staticCompositionLocalOf { GlassRenderingPolicy.LiveAllowed }
 internal val LocalOrbitAppearance = staticCompositionLocalOf { AppSettings() }
 internal val LocalOrbitUsesCustomBackground = staticCompositionLocalOf { false }
+
+enum class GlassRenderingPolicy {
+    LiveAllowed,
+    SoftOnly,
+}
 
 enum class GlassSurfaceStyle {
     Standard,
     Prominent,
     Sheet,
     Subtle,
+    HomeCapture,
+    NavigationAction,
 }
 
+@OptIn(ExperimentalHazeApi::class)
 @Composable
-fun GlassSurface(
+fun LiveGlassSurface(
     modifier: Modifier = Modifier,
     shape: Shape,
     style: GlassSurfaceStyle = GlassSurfaceStyle.Standard,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val visuals = orbitGlassVisuals(style)
-    val hazeState = checkNotNull(LocalOrbitHazeState.current) {
-        "GlassSurface must be hosted inside OrbitBackground"
+    val hazeState = LocalOrbitHazeState.current
+    val liveGlassEnabled = style == GlassSurfaceStyle.Prominent && shouldRenderLiveGlass(
+        policy = LocalGlassRenderingPolicy.current,
+        platformApi = Build.VERSION.SDK_INT,
+        hasHazeSource = hazeState != null,
+    )
+
+    if (!liveGlassEnabled) {
+        SoftGlassSurface(
+            modifier = modifier,
+            shape = shape,
+            style = style,
+            shadowElevation = visuals.shadowElevation,
+            content = content,
+        )
+        return
     }
 
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
@@ -58,9 +88,18 @@ fun GlassSurface(
                     spotColor = visuals.shadowColor.copy(alpha = 0.14f),
                 )
                 .clip(shape)
-                .hazeChild(
-                    state = hazeState,
-                    style = visuals.hazeStyle,
+                .then(
+                    if (hazeState != null) {
+                        Modifier.hazeEffect(
+                            state = hazeState,
+                            style = visuals.hazeStyle,
+                        ) {
+                            inputScale = HazeInputScale.Auto
+                            progressive = null
+                        }
+                    } else {
+                        Modifier.background(visuals.fallbackColor)
+                    },
                 )
                 .border(1.dp, visuals.edge, shape),
             content = content,
@@ -72,10 +111,12 @@ fun GlassSurface(
 fun SoftGlassSurface(
     modifier: Modifier = Modifier,
     shape: Shape,
+    style: GlassSurfaceStyle = GlassSurfaceStyle.Standard,
     onClick: (() -> Unit)? = null,
-    content: @Composable () -> Unit,
+    shadowElevation: androidx.compose.ui.unit.Dp = 0.dp,
+    content: @Composable BoxScope.() -> Unit,
 ) {
-    val visuals = orbitSoftSurfaceVisuals()
+    val visuals = orbitSoftSurfaceVisuals(style)
     if (onClick == null) {
         Surface(
             modifier = modifier,
@@ -84,32 +125,74 @@ fun SoftGlassSurface(
             contentColor = MaterialTheme.colorScheme.onSurface,
             border = BorderStroke(1.dp, visuals.borderColor),
             tonalElevation = 0.dp,
-            shadowElevation = 0.dp,
-            content = content,
+            shadowElevation = shadowElevation,
+            content = { Box(content = content) },
         )
     } else {
+        val interactionSource = remember { MutableInteractionSource() }
         Surface(
             onClick = onClick,
-            modifier = modifier,
+            modifier = modifier.orbitPressFeedback(interactionSource),
             shape = shape,
             color = visuals.containerColor,
             contentColor = MaterialTheme.colorScheme.onSurface,
             border = BorderStroke(1.dp, visuals.borderColor),
             tonalElevation = 0.dp,
-            shadowElevation = 0.dp,
-            content = content,
+            shadowElevation = shadowElevation,
+            interactionSource = interactionSource,
+            content = { Box(content = content) },
         )
     }
 }
+
+@Composable
+fun ModalSurface(
+    modifier: Modifier = Modifier,
+    shape: Shape = OrbitModalDefaults.Shape,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    SoftGlassSurface(
+        modifier = modifier,
+        shape = shape,
+        style = GlassSurfaceStyle.Sheet,
+        shadowElevation = OrbitModalDefaults.Elevation,
+        content = content,
+    )
+}
+
+object OrbitModalDefaults {
+    val Shape: Shape = OrbitShapes.Modal
+    val DialogShape: Shape = OrbitShapes.Prominent
+    val Elevation = 10.dp
+    val HorizontalInset = 24.dp
+    val ContentPadding = 24.dp
+}
+
+@Composable
+internal fun orbitModalScrimColor(): Color {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    return Color.Black.copy(alpha = modalScrimAlpha(isDark))
+}
+
+internal fun modalScrimAlpha(isDark: Boolean): Float = if (isDark) 0.44f else 0.32f
+
+internal fun shouldRenderLiveGlass(
+    policy: GlassRenderingPolicy,
+    platformApi: Int,
+    hasHazeSource: Boolean,
+): Boolean = policy == GlassRenderingPolicy.LiveAllowed &&
+    platformApi >= Build.VERSION_CODES.S &&
+    hasHazeSource
 
 internal data class GlassVisuals(
     val hazeStyle: HazeStyle,
     val edge: Brush,
     val shadowColor: Color,
     val shadowElevation: androidx.compose.ui.unit.Dp,
+    val fallbackColor: Color,
 )
 
-private data class SoftSurfaceVisuals(
+internal data class SoftSurfaceVisuals(
     val containerColor: Color,
     val borderColor: Color,
 )
@@ -119,7 +202,7 @@ private data class SoftSurfaceVisuals(
 internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Standard): GlassVisuals {
     val colors = MaterialTheme.colorScheme
     val isDark = colors.background.luminance() < 0.5f
-    val glassStrength = LocalOrbitAppearance.current.glassStrength.coerceIn(0f, 1f)
+    val glassStrength = LocalOrbitAppearance.current.glassPreference.legacyStrength
     val hasCustomBackground = LocalOrbitUsesCustomBackground.current
     val tintAlpha = glassTintAlpha(
         style = style,
@@ -132,17 +215,30 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
     } else {
         Color.White.copy(alpha = tintAlpha)
     }
+    val accentTintAlpha = glassAccentTintAlpha(style = style, isDark = isDark)
+    val accentTint = Brush.linearGradient(
+        colors = listOf(
+            colors.primary.copy(alpha = accentTintAlpha),
+            colors.primary.copy(alpha = accentTintAlpha * 0.64f),
+        ),
+        start = Offset.Zero,
+        end = Offset.Infinite,
+    )
     val blurRadius = when (style) {
         GlassSurfaceStyle.Prominent -> if (isDark) 22.dp else 18.dp
         GlassSurfaceStyle.Sheet -> if (isDark) 24.dp else 20.dp
         GlassSurfaceStyle.Subtle -> if (isDark) 14.dp else 12.dp
         GlassSurfaceStyle.Standard -> if (isDark) 20.dp else 16.dp
+        GlassSurfaceStyle.HomeCapture -> if (isDark) 22.dp else 18.dp
+        GlassSurfaceStyle.NavigationAction -> if (isDark) 18.dp else 14.dp
     }
     val noiseFactor = when (style) {
         GlassSurfaceStyle.Sheet -> if (isDark) 0.040f else 0.030f
         GlassSurfaceStyle.Prominent -> if (isDark) 0.036f else 0.028f
         GlassSurfaceStyle.Subtle -> if (isDark) 0.024f else 0.018f
         GlassSurfaceStyle.Standard -> if (isDark) 0.032f else 0.024f
+        GlassSurfaceStyle.HomeCapture -> if (isDark) 0.036f else 0.028f
+        GlassSurfaceStyle.NavigationAction -> if (isDark) 0.026f else 0.020f
     }
 
     val edgeStrength = 0.55f + (glassStrength * 0.45f)
@@ -170,7 +266,10 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
     return GlassVisuals(
         hazeStyle = HazeStyle(
             backgroundColor = colors.background,
-            tint = HazeTint(tint),
+            tints = listOf(
+                HazeTint(tint),
+                HazeTint(accentTint),
+            ),
             blurRadius = blurRadius,
             noiseFactor = noiseFactor,
             fallbackTint = HazeTint(tint),
@@ -182,8 +281,20 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
             GlassSurfaceStyle.Prominent -> 8.dp
             GlassSurfaceStyle.Subtle -> 3.dp
             GlassSurfaceStyle.Standard -> 5.dp
+            GlassSurfaceStyle.HomeCapture -> 5.dp
+            GlassSurfaceStyle.NavigationAction -> 2.dp
         },
+        fallbackColor = tint,
     )
+}
+
+internal fun glassAccentTintAlpha(style: GlassSurfaceStyle, isDark: Boolean): Float = when (style) {
+    GlassSurfaceStyle.Subtle -> if (isDark) 0.045f else 0.035f
+    GlassSurfaceStyle.Standard -> if (isDark) 0.050f else 0.040f
+    GlassSurfaceStyle.Prominent -> if (isDark) 0.055f else 0.045f
+    GlassSurfaceStyle.Sheet -> if (isDark) 0.045f else 0.035f
+    GlassSurfaceStyle.HomeCapture -> if (isDark) 0.050f else 0.040f
+    GlassSurfaceStyle.NavigationAction -> if (isDark) 0.040f else 0.030f
 }
 
 internal fun glassTintAlpha(
@@ -192,55 +303,94 @@ internal fun glassTintAlpha(
     glassStrength: Float,
     hasCustomBackground: Boolean,
 ): Float {
-    val baseTintAlpha = when (style) {
-        GlassSurfaceStyle.Prominent -> 0.18f
-        GlassSurfaceStyle.Sheet -> 0.24f
-        GlassSurfaceStyle.Subtle -> 0.10f
-        GlassSurfaceStyle.Standard -> if (isDark) 0.14f else 0.13f
+    val roleAdjustment = when (style) {
+        GlassSurfaceStyle.Subtle -> -0.02f
+        GlassSurfaceStyle.Standard -> 0f
+        GlassSurfaceStyle.Prominent -> 0.04f
+        GlassSurfaceStyle.Sheet -> 0.08f
+        GlassSurfaceStyle.HomeCapture -> 0.02f
+        GlassSurfaceStyle.NavigationAction -> 0.01f
     }
-    val tintRange = when (style) {
-        GlassSurfaceStyle.Prominent -> if (isDark) 0.28f else 0.24f
-        GlassSurfaceStyle.Sheet -> if (isDark) 0.30f else 0.28f
-        GlassSurfaceStyle.Subtle -> if (isDark) 0.16f else 0.14f
-        GlassSurfaceStyle.Standard -> if (isDark) 0.24f else 0.20f
-    }
-    val customBackgroundBoost = if (hasCustomBackground) {
-        when (style) {
-            GlassSurfaceStyle.Prominent -> 0.10f
-            GlassSurfaceStyle.Sheet -> 0.06f
-            GlassSurfaceStyle.Subtle -> 0.12f
-            GlassSurfaceStyle.Standard -> 0.10f
-        }
-    } else {
-        0f
-    }
+    val themeAdjustment = if (isDark) 0.02f else 0f
+    val customBackgroundBoost = if (hasCustomBackground) 0.05f else 0f
     return (
-        baseTintAlpha +
-            (glassStrength.coerceIn(0f, 1f) * tintRange) +
+        0.04f +
+            (glassStrength.coerceIn(0f, 1f) * 0.62f) +
+            roleAdjustment +
+            themeAdjustment +
             customBackgroundBoost
-        ).coerceAtMost(0.82f)
+        ).coerceIn(0.04f, 0.82f)
 }
 
 @Composable
-private fun orbitSoftSurfaceVisuals(): SoftSurfaceVisuals {
+internal fun orbitSoftSurfaceVisuals(
+    style: GlassSurfaceStyle = GlassSurfaceStyle.Standard,
+): SoftSurfaceVisuals {
     val colors = MaterialTheme.colorScheme
     val isDark = colors.background.luminance() < 0.5f
-    val glassStrength = LocalOrbitAppearance.current.glassStrength.coerceIn(0f, 1f)
+    val glassStrength = LocalOrbitAppearance.current.glassPreference.legacyStrength
     val hasCustomBackground = LocalOrbitUsesCustomBackground.current
+    val containerAlpha = softGlassContainerAlpha(
+        style = style,
+        isDark = isDark,
+        glassStrength = glassStrength,
+        hasCustomBackground = hasCustomBackground,
+    )
     return SoftSurfaceVisuals(
-        containerColor = if (hasCustomBackground && isDark) {
-            Color(0xFF14101D).copy(alpha = 0.42f + (glassStrength * 0.12f))
-        } else if (hasCustomBackground) {
-            Color.White.copy(alpha = 0.36f + (glassStrength * 0.12f))
-        } else if (isDark) {
-            colors.surface.copy(alpha = 0.56f + (glassStrength * 0.14f))
-        } else {
-            Color.White.copy(alpha = 0.46f + (glassStrength * 0.18f))
-        },
-        borderColor = if (isDark) {
-            Color.White.copy(alpha = 0.08f + (glassStrength * 0.08f))
-        } else {
-            Color.White.copy(alpha = 0.26f + (glassStrength * 0.22f))
+        containerColor = when (style) {
+            GlassSurfaceStyle.Subtle -> colors.surfaceContainerLow
+            GlassSurfaceStyle.Standard -> colors.surfaceContainer
+            GlassSurfaceStyle.Prominent -> colors.surfaceContainerHigh
+            GlassSurfaceStyle.Sheet -> colors.surfaceContainerHigh
+            GlassSurfaceStyle.HomeCapture -> colors.surfaceContainerHigh
+            GlassSurfaceStyle.NavigationAction -> colors.primaryContainer
+        }.withAlpha(containerAlpha),
+        borderColor = when (style) {
+            GlassSurfaceStyle.Subtle -> colors.outlineVariant.copy(alpha = if (isDark) 0.22f else 0.18f)
+            GlassSurfaceStyle.HomeCapture -> colors.outlineVariant.copy(alpha = 0.56f)
+            GlassSurfaceStyle.NavigationAction -> colors.primary.copy(alpha = if (isDark) 0.16f else 0.10f)
+            else -> colors.outline
         },
     )
+}
+
+internal fun Color.withAlpha(alpha: Float): Color = copy(alpha = alpha.coerceIn(0f, 1f))
+
+internal fun softGlassContainerAlpha(
+    style: GlassSurfaceStyle,
+    isDark: Boolean,
+    glassStrength: Float,
+    hasCustomBackground: Boolean,
+): Float {
+    if (style == GlassSurfaceStyle.NavigationAction) {
+        return if (isDark) 0.84f else 0.92f
+    }
+
+    if (style == GlassSurfaceStyle.Sheet) {
+        val themeFloor = if (isDark) 0.74f else 0.70f
+        val customBackgroundBoost = if (hasCustomBackground) 0.02f else 0f
+        return (
+            themeFloor +
+                (glassStrength.coerceIn(0f, 1f) * 0.18f) +
+                customBackgroundBoost
+            ).coerceIn(0.70f, 0.94f)
+    }
+
+    val roleAdjustment = when (style) {
+        GlassSurfaceStyle.Subtle -> -0.03f
+        GlassSurfaceStyle.Standard -> 0f
+        GlassSurfaceStyle.Prominent -> 0.04f
+        GlassSurfaceStyle.Sheet -> 0f
+        GlassSurfaceStyle.HomeCapture -> 0.02f
+        GlassSurfaceStyle.NavigationAction -> 0.01f
+    }
+    val themeAdjustment = if (isDark) 0.03f else 0f
+    val customBackgroundBoost = if (hasCustomBackground) 0.04f else 0f
+    return (
+        0.08f +
+            (glassStrength.coerceIn(0f, 1f) * 0.62f) +
+            roleAdjustment +
+            themeAdjustment +
+            customBackgroundBoost
+        ).coerceIn(0.12f, 0.85f)
 }

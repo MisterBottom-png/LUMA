@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "project": "LUMA",
+  "changeNumber": 14,
+  "archiveRole": "authoritative",
+  "completedTask": "Small change 14: Support IME Send",
+  "basedOnChangeNumber": 13,
+  "createdAtUtc": "2026-07-14T22:24:21Z",
+  "sourceFileName": "LUMA-source-current.zip",
+  "backupFileName": "LUMA-source-change-014.zip",
+  "verification": {
+    "status": "partially_verified",
+    "checksPerformed": [
+      "Fetched the authoritative Drive ZIP and inspected the complete source",
+      "Confirmed change 13 as the predecessor",
+      "Configured the Ask LUMA text field with the keyboard IME Send action",
+      "Routed both the send icon and IME Send through one guarded submission helper",
+      "Kept blank, too-short, and in-flight requests blocked",
+      "Added focused unit tests for rejected and accepted shared submission paths",
+      "Ran static IME and shared-path checks",
+      "Ran strict workplace privacy checker",
+      "Validated updated ZIP integrity"
+    ],
+    "unverified": [
+      "Focused unit tests and the debug build could not run because Gradle 8.9 was not cached and services.gradle.org was unreachable",
+      "IME Send behavior was not exercised on an Android device or emulator in this environment"
+    ]
+  }
+}

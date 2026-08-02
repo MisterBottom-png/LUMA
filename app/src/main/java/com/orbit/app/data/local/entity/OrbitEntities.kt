@@ -19,6 +19,10 @@ enum class AiSuggestionSurface { Capture, BrainDump, Review, Situation, AskLuma,
 
 enum class LearnedRuleCategory { Type, Space, Person, Project, Alias, Tone, Other }
 
+enum class BrainDumpItemOutcome { Pending, Saved, KeptInInbox, Skipped }
+
+enum class BrainDumpReminderStatus { Unspecified, Resolved, NeedsClarification }
+
 @Entity(tableName = "spaces")
 data class SpaceEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -54,6 +58,61 @@ data class CaptureEntity(
     val suggestedSpaceId: Long? = null,
     val source: CaptureSource = CaptureSource.Manual,
     val linkedItemId: Long? = null,
+)
+
+@Entity(
+    tableName = "brain_dump_sessions",
+    foreignKeys = [
+        ForeignKey(
+            entity = CaptureEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["captureId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("captureId", unique = true)],
+)
+data class BrainDumpSessionEntity(
+    @PrimaryKey val captureId: Long,
+    val analyzerSource: String,
+    val calendarDateContextEpochDay: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
+)
+
+@Entity(
+    tableName = "brain_dump_items",
+    foreignKeys = [
+        ForeignKey(
+            entity = BrainDumpSessionEntity::class,
+            parentColumns = ["captureId"],
+            childColumns = ["captureId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [
+        Index("captureId"),
+        Index(value = ["captureId", "sourceKey"], unique = true),
+    ],
+)
+data class BrainDumpItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val captureId: Long,
+    val sourceKey: String,
+    val ordinal: Int,
+    val rawText: String,
+    val suggestedTitle: String,
+    val suggestedType: SuggestedItemType,
+    val suggestedSpaceName: String,
+    val confidence: Float,
+    val tinyNextAction: String,
+    val reason: String,
+    val reminderStatus: BrainDumpReminderStatus = BrainDumpReminderStatus.Unspecified,
+    val suggestedReminderAt: Long? = null,
+    val reminderPhrase: String? = null,
+    val outcome: BrainDumpItemOutcome = BrainDumpItemOutcome.Pending,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
 )
 
 @Entity(

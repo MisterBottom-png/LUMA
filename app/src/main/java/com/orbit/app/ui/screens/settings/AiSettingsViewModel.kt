@@ -3,12 +3,15 @@ package com.orbit.app.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.orbit.app.OrbitContainer
+import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.integrations.gemini.GeminiApiResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 data class AiSettingsUiState(
@@ -17,6 +20,9 @@ data class AiSettingsUiState(
     val isTestingConnection: Boolean = false,
     val connectionMessage: String? = null,
     val connectionSucceeded: Boolean? = null,
+    val isClearingLearning: Boolean = false,
+    val learningClearSucceeded: Boolean? = null,
+    val learnedRules: List<LearnedRuleEntity> = emptyList(),
 )
 
 class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
@@ -25,6 +31,11 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
 
     init {
         refreshKeyState()
+        viewModelScope.launch {
+            container.learnedRuleRepository.observeAll().collect { rules ->
+                _uiState.update { it.copy(learnedRules = rules) }
+            }
+        }
     }
 
     fun refreshKeyState() {
@@ -128,6 +139,39 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                 }
             }
         }
+    }
+
+    fun clearLearningData() {
+        if (_uiState.value.isClearingLearning) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isClearingLearning = true, learningClearSucceeded = null) }
+            runCatching {
+                container.database.withTransaction {
+                    container.database.aiCorrectionHistoryDao().deleteAll()
+                    container.database.learnedRuleDao().deleteAll()
+                    container.database.personMemoryDao().deleteAll()
+                    container.database.projectMemoryDao().deleteAll()
+                    container.database.spaceAliasMemoryDao().deleteAll()
+                    container.database.aiSuggestionHistoryDao().deleteAll()
+                }
+            }.onSuccess {
+                _uiState.update {
+                    it.copy(isClearingLearning = false, learningClearSucceeded = true)
+                }
+            }.onFailure {
+                _uiState.update {
+                    it.copy(isClearingLearning = false, learningClearSucceeded = false)
+                }
+            }
+        }
+    }
+
+    fun updateLearnedRule(rule: LearnedRuleEntity) {
+        viewModelScope.launch { container.learnedRuleRepository.update(rule) }
+    }
+
+    fun deleteLearnedRule(rule: LearnedRuleEntity) {
+        viewModelScope.launch { container.learnedRuleRepository.delete(rule) }
     }
 
     class Factory(private val container: OrbitContainer) : ViewModelProvider.Factory {

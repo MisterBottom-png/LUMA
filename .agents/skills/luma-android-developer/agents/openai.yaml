@@ -1,0 +1,4 @@
+interface:
+  display_name: "LUMA Android Developer"
+  short_description: "Implement focused Android behavior safely"
+  default_prompt: "Use $luma-android-developer to trace and implement this focused LUMA Android change with relevant tests."

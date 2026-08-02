@@ -3,6 +3,7 @@ package com.orbit.app.data.repository
 import com.orbit.app.data.local.dao.CaptureDao
 import com.orbit.app.data.local.dao.AiCorrectionHistoryDao
 import com.orbit.app.data.local.dao.AiSuggestionHistoryDao
+import com.orbit.app.data.local.dao.BrainDumpDao
 import com.orbit.app.data.local.dao.LearnedRuleDao
 import com.orbit.app.data.local.dao.NoteDao
 import com.orbit.app.data.local.dao.PersonMemoryDao
@@ -13,6 +14,8 @@ import com.orbit.app.data.local.dao.SpaceDao
 import com.orbit.app.data.local.dao.TaskDao
 import com.orbit.app.data.local.entity.AiCorrectionHistoryEntity
 import com.orbit.app.data.local.entity.AiSuggestionHistoryEntity
+import com.orbit.app.data.local.entity.BrainDumpItemEntity
+import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.data.local.entity.NoteEntity
@@ -44,6 +47,18 @@ interface ToggleableMemoryRepository<T> : ResettableRepository<T> {
 }
 
 interface CaptureRepository : EntityRepository<CaptureEntity>
+data class BrainDumpSessionData(
+    val session: BrainDumpSessionEntity,
+    val items: List<BrainDumpItemEntity>,
+)
+
+interface BrainDumpRepository {
+    fun observeSessions(): Flow<List<BrainDumpSessionEntity>>
+    suspend fun getSession(captureId: Long): BrainDumpSessionData?
+    suspend fun getAllSessions(): List<BrainDumpSessionData>
+    suspend fun createSession(session: BrainDumpSessionEntity, items: List<BrainDumpItemEntity>)
+}
+
 interface SpaceRepository : EntityRepository<SpaceEntity>
 interface NoteRepository : EntityRepository<NoteEntity>
 interface TaskRepository : EntityRepository<TaskEntity>
@@ -62,6 +77,28 @@ class RoomCaptureRepository(private val dao: CaptureDao) : CaptureRepository {
     override suspend fun update(entity: CaptureEntity) = dao.update(entity)
     override suspend fun delete(entity: CaptureEntity) = dao.delete(entity)
     override suspend fun deleteById(id: Long) = dao.deleteById(id)
+}
+
+class RoomBrainDumpRepository(private val dao: BrainDumpDao) : BrainDumpRepository {
+    override fun observeSessions() = dao.observeSessions()
+
+    override suspend fun getSession(captureId: Long): BrainDumpSessionData? {
+        val session = dao.getSession(captureId) ?: return null
+        return BrainDumpSessionData(session, dao.getItems(captureId))
+    }
+
+    override suspend fun getAllSessions(): List<BrainDumpSessionData> =
+        dao.getSessions().map { session ->
+            BrainDumpSessionData(session, dao.getItems(session.captureId))
+        }
+
+    override suspend fun createSession(
+        session: BrainDumpSessionEntity,
+        items: List<BrainDumpItemEntity>,
+    ) {
+        require(items.isNotEmpty()) { "A Brain Dump session requires at least one item" }
+        dao.insertSessionWithItems(session, items)
+    }
 }
 
 class RoomSpaceRepository(private val dao: SpaceDao) : SpaceRepository {

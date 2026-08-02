@@ -4,9 +4,13 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.orbit.app.data.local.entity.AiCorrectionHistoryEntity
 import com.orbit.app.data.local.entity.AiSuggestionHistoryEntity
+import com.orbit.app.data.local.entity.BrainDumpItemEntity
+import com.orbit.app.data.local.entity.BrainDumpItemOutcome
+import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.data.local.entity.NoteEntity
@@ -43,6 +47,60 @@ interface CaptureDao {
 
     @Query("DELETE FROM captures")
     suspend fun deleteAll()
+}
+
+@Dao
+interface BrainDumpDao {
+    @Query("SELECT * FROM brain_dump_sessions ORDER BY updatedAt DESC")
+    fun observeSessions(): Flow<List<BrainDumpSessionEntity>>
+
+    @Query("SELECT * FROM brain_dump_sessions ORDER BY updatedAt DESC")
+    suspend fun getSessions(): List<BrainDumpSessionEntity>
+
+    @Query("SELECT * FROM brain_dump_sessions WHERE captureId = :captureId")
+    suspend fun getSession(captureId: Long): BrainDumpSessionEntity?
+
+    @Query("SELECT * FROM brain_dump_items WHERE captureId = :captureId ORDER BY ordinal")
+    suspend fun getItems(captureId: Long): List<BrainDumpItemEntity>
+
+    @Query("SELECT * FROM brain_dump_items WHERE captureId = :captureId AND sourceKey = :sourceKey")
+    suspend fun getItem(captureId: Long, sourceKey: String): BrainDumpItemEntity?
+
+    @Query("SELECT COUNT(*) FROM brain_dump_items WHERE captureId = :captureId AND outcome = 'Pending'")
+    suspend fun pendingCount(captureId: Long): Int
+
+    @Insert
+    suspend fun insertSession(entity: BrainDumpSessionEntity)
+
+    @Insert
+    suspend fun insertItems(entities: List<BrainDumpItemEntity>)
+
+    @Transaction
+    suspend fun insertSessionWithItems(
+        session: BrainDumpSessionEntity,
+        items: List<BrainDumpItemEntity>,
+    ) {
+        insertSession(session)
+        insertItems(items)
+    }
+
+    @Insert
+    suspend fun insertSessions(entities: List<BrainDumpSessionEntity>)
+
+    @Update
+    suspend fun updateItem(entity: BrainDumpItemEntity)
+
+    @Query("UPDATE brain_dump_items SET outcome = :outcome, updatedAt = :updatedAt WHERE id = :itemId AND outcome = 'Pending'")
+    suspend fun markPendingItem(itemId: Long, outcome: BrainDumpItemOutcome, updatedAt: Long): Int
+
+    @Query("DELETE FROM brain_dump_sessions WHERE captureId = :captureId")
+    suspend fun deleteSession(captureId: Long)
+
+    @Query("DELETE FROM brain_dump_items")
+    suspend fun deleteAllItems()
+
+    @Query("DELETE FROM brain_dump_sessions")
+    suspend fun deleteAllSessions()
 }
 
 @Dao

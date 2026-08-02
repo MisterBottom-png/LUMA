@@ -1,0 +1,4 @@
+interface:
+  display_name: "LUMA MVP/Release Manager"
+  short_description: "Audit release readiness with current evidence"
+  default_prompt: "Use $luma-mvp-release-manager to audit or stabilize this LUMA gate with bounded, current evidence."

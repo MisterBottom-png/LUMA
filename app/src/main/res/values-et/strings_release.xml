@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_export_unencrypted_title">Kas eksportida loetavad kohalikud andmed?</string>
+    <string name="settings_export_unencrypted_warning">See JSON-eksport ei ole krüptitud. Igaüks, kellel on salvestatud failile juurdepääs, saab seda lugeda. Vali usaldusväärne asukoht.</string>
+    <string name="settings_export_choose_location">Vali asukoht</string>
+    <string name="settings_export_complete">Eksport salvestati sinu valitud asukohta.</string>
+    <string name="settings_gemini_consent_title">Kas lubada Gemini päring?</string>
+    <string name="settings_gemini_consent_body">Kui see on lubatud, saadab LUMA Google Gemini API-le sinu valitud teksti ja ainult selle toimingu jaoks vajaliku asjakohase kohaliku konteksti. Sinu API-võti jääb selles seadmes krüptituks. Gemini ei saa sinu andmeid ilma kinnituseta muuta, ajastada, kustutada ega saata. Režiimi Ainult kohalik valimine tühistab selle nõusoleku.</string>
+    <string name="settings_gemini_consent_confirm">Luba Gemini</string>
+    <string name="settings_local_learning_title">Kohalik AI õppimine</string>
+    <string name="settings_local_learning_toggle">Õpi minu valikutest</string>
+    <string name="settings_local_learning_explanation">Vaikimisi väljas. Kui see on lubatud, talletab LUMA selles seadmes lühikesi paranduste mustreid ja selgesõnalisi õppimiskirjeid. Neid kirjeid eksporti ei lisata.</string>
+    <string name="settings_clear_learning">Kustuta õpitud andmed</string>
+    <string name="settings_clearing_learning">Õpitud andmete kustutamine…</string>
+    <string name="settings_clear_learning_title">Kas kustutada kõik õpitud andmed?</string>
+    <string name="settings_clear_learning_body">See kustutab kohaliku AI soovituste ajaloo, parandused, õpitud reeglid ja salvestatud õppimiskirjed. Märkmed, ülesanded, meeldetuletused, jäädvustused, alad ja seaded jäävad alles.</string>
+    <string name="settings_clear_learning_confirm">Kustuta õpitud andmed</string>
+    <string name="settings_learning_cleared">Õpitud andmed kustutati.</string>
+    <string name="settings_learning_clear_failed">Õpitud andmeid ei saanud kustutada. Olemasolevad andmed jäid alles.</string>
+    <string name="settings_share_learning_with_gemini">Jaga õpitut Geminiga</string>
+    <string name="settings_share_learning_with_gemini_explanation">Vaikimisi väljas. Lubamisel võidakse valikulistele Gemini päringutele lisada väike asjakohane eelistuste profiil.</string>
+    <string name="settings_learning_edit_rule">Muuda õpitud eelistust</string>
+    <string name="settings_learning_rule">Eelistus</string>
+    <string name="settings_save">Salvesta</string>
+    <string name="settings_edit">Muuda</string>
+</resources>

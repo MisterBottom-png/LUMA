@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.orbit.app.OrbitContainer
+import com.orbit.app.data.export.LocalDataBackupCodec
 import com.orbit.app.data.export.LocalDataValidationException
 import com.orbit.app.data.export.LocalDataRestoreException
 import com.orbit.app.data.export.LocalRestorePlan
@@ -22,7 +23,7 @@ data class LocalDataToolsUiState(
     val isExporting: Boolean = false,
     val isPreparingRestore: Boolean = false,
     val isRestoring: Boolean = false,
-    val exportPath: String? = null,
+    val exportCompleted: Boolean = false,
     val restorePlan: LocalRestorePlan? = null,
     val restoreMessage: String? = null,
     val errorMessage: String? = null,
@@ -32,13 +33,18 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
     private val _uiState = MutableStateFlow(LocalDataToolsUiState())
     val uiState: StateFlow<LocalDataToolsUiState> = _uiState.asStateFlow()
 
-    fun exportJson() {
+    fun exportJson(destination: Uri?) {
+        if (destination == null) return
         if (_uiState.value.isExporting) return
         viewModelScope.launch {
             _uiState.update { it.copy(isExporting = true, errorMessage = null) }
-            runCatching { container.localDataExporter.exportJson() }
-                .onSuccess { file ->
-                    _uiState.value = LocalDataToolsUiState(exportPath = file.absolutePath)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    container.localDataExporter.exportJson(destination)
+                }
+            }
+                .onSuccess {
+                    _uiState.value = LocalDataToolsUiState(exportCompleted = true)
                 }
                 .onFailure {
                     _uiState.value = LocalDataToolsUiState(errorMessage = "Export could not be created.")
@@ -136,7 +142,7 @@ private fun InputStream.readRestoreText(): String {
         val read = read(buffer)
         if (read < 0) break
         total += read
-        if (total > MaxRestoreBytes) {
+        if (total > LocalDataBackupCodec.MaximumInputBytes) {
             throw LocalDataValidationException("The selected export is too large.")
         }
         output.write(buffer, 0, read)
@@ -151,5 +157,3 @@ private fun Throwable.safeRestoreMessage(): String =
         -> message?.takeIf { it.isNotBlank() }
         else -> null
     } ?: "Restore could not be completed. Existing data was kept."
-
-private const val MaxRestoreBytes = 10 * 1024 * 1024

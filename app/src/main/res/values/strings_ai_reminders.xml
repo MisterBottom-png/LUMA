@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reminder_notification_channel_name">LUMA reminders</string>
+    <string name="reminder_notification_channel_description">Approximate reminder notifications from LUMA</string>
+    <string name="reminder_notification_fallback_title">LUMA reminder</string>
+    <string name="reminder_notification_open_luma">Tap to open LUMA</string>
+
+    <string name="reminder_offset_around_target">Around target time</string>
+    <string name="reminder_offset_about_five_minutes">About 5 min before</string>
+    <string name="reminder_offset_about_fifteen_minutes">About 15 min before</string>
+    <string name="reminder_offset_about_thirty_minutes">About 30 min before</string>
+    <string name="reminder_offset_about_one_hour">About 1 hour before</string>
+    <string name="reminder_offset_about_one_day">About 1 day before</string>
+    <string name="reminder_offset_about_custom_minutes">About %1$d min before</string>
+    <string name="reminder_offset_invalid">Invalid notification offset</string>
+</resources>

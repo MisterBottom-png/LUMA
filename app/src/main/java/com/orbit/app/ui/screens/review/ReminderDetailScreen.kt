@@ -42,13 +42,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.orbit.app.R
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
-import com.orbit.app.ui.components.GlassSurface
 import com.orbit.app.ui.components.GlassSurfaceStyle
 import com.orbit.app.ui.components.SoftGlassSurface
+import com.orbit.app.ui.components.calmPressHaptics
 import com.orbit.app.reminders.reminderOffsetLabel
 import com.orbit.app.reminders.reminderOffsetOptions
 import com.orbit.app.ui.time.OrbitTimeFormat
@@ -97,7 +99,7 @@ fun ReminderDetailScreen(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.core_back),
                 tint = MaterialTheme.colorScheme.onBackground,
             )
         }
@@ -111,7 +113,7 @@ fun ReminderDetailScreen(
                 shape = MaterialTheme.shapes.extraLarge,
             ) {
                 Text(
-                    text = "This reminder is no longer available.",
+                    text = stringResource(R.string.core_reminder_detail_unavailable),
                     modifier = Modifier.padding(22.dp),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -120,7 +122,7 @@ fun ReminderDetailScreen(
 
             else -> {
                 val reminder = requireNotNull(state.reminder)
-                GlassSurface(
+                SoftGlassSurface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.extraLarge,
                     style = GlassSurfaceStyle.Prominent,
@@ -130,7 +132,7 @@ fun ReminderDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Text(
-                            text = if (reminder.completedAt == null) "Reminder" else "Reminder done",
+                            text = stringResource(if (reminder.completedAt == null) R.string.core_reminder else R.string.core_reminder_detail_done),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -141,16 +143,16 @@ fun ReminderDetailScreen(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Detail(
-                            label = "Target time",
+                            label = stringResource(R.string.core_reminder_detail_target_time),
                             value = timeFormat.formatWeekdayDateTime(reminder.dueAt),
                         )
                         Detail(
-                            label = "Notification",
+                            label = stringResource(R.string.core_reminder_detail_notification),
                             value = reminderOffsetLabel(reminder.notificationOffsetMinutes),
                         )
                         Detail(
-                            label = "Delivery",
-                            value = if (reminder.notificationEnabled) "Enabled" else "Disabled",
+                            label = stringResource(R.string.core_reminder_detail_delivery),
+                            value = stringResource(if (reminder.notificationEnabled) R.string.core_enabled else R.string.core_disabled),
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -189,17 +191,17 @@ fun ReminderDetailScreen(
                         ) {
                             Text(
                                 if (reminder.notificationEnabled) {
-                                    "Disable notification"
+                                    stringResource(R.string.core_reminder_detail_disable_notification)
                                 } else {
-                                    "Enable notification"
+                                    stringResource(R.string.core_reminder_detail_enable_notification)
                                 },
                             )
                         }
                         if (reminder.notes.isNotBlank()) {
-                            Detail(label = "Notes", value = reminder.notes)
+                            Detail(label = stringResource(R.string.core_item_detail_notes_field), value = reminder.notes)
                         }
-                        state.relatedTaskTitle?.let { Detail(label = "Related task", value = it) }
-                        state.relatedCaptureText?.let { Detail(label = "Original capture", value = it) }
+                        state.relatedTaskTitle?.let { Detail(label = stringResource(R.string.core_reminder_detail_related_task), value = it) }
+                        state.relatedCaptureText?.let { Detail(label = stringResource(R.string.core_reminder_detail_original_capture), value = it) }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -210,7 +212,7 @@ fun ReminderDetailScreen(
                                 enabled = reminder.completedAt == null,
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("Mark done")
+                                Text(stringResource(R.string.core_reminder_detail_mark_done))
                             }
                             OutlinedButton(
                                 onClick = {
@@ -223,14 +225,14 @@ fun ReminderDetailScreen(
                                 },
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("Reschedule")
+                                Text(stringResource(R.string.core_reminder_detail_reschedule))
                             }
                         }
                         OutlinedButton(
                             onClick = { confirmDelete = true },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Delete reminder")
+                            Text(stringResource(R.string.core_reminder_detail_delete))
                         }
                     }
                 }
@@ -240,8 +242,9 @@ fun ReminderDetailScreen(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete reminder?") },
-            text = { Text("This removes the reminder from local storage and cancels its notification.") },
+            modifier = Modifier.calmPressHaptics(),
+            title = { Text(stringResource(R.string.core_reminder_detail_delete_title)) },
+            text = { Text(stringResource(R.string.core_reminder_detail_delete_message)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -249,12 +252,12 @@ fun ReminderDetailScreen(
                         viewModel.delete()
                     },
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.core_action_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.core_action_cancel))
                 }
             },
         )

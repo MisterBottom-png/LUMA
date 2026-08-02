@@ -72,8 +72,8 @@ class CustomBackgroundContrastTest {
         )
 
         assertTrue(customNavigationAlpha > presetNavigationAlpha)
-        assertTrue(customNavigationAlpha in 0.25f..0.40f)
-        assertTrue(customCaptureAlpha in 0.40f..0.55f)
+        assertTrue(customNavigationAlpha in 0.52f..0.55f)
+        assertTrue(customCaptureAlpha in 0.55f..0.60f)
     }
 
     @Test
@@ -86,7 +86,7 @@ class CustomBackgroundContrastTest {
                 hasCustomBackground = true,
             )
 
-            assertTrue(alpha <= 0.60f)
+            assertTrue(alpha <= 0.82f)
         }
     }
 }

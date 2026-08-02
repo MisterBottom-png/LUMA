@@ -6,20 +6,24 @@ import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.StringRes
 import androidx.navigation.NavController
+import com.orbit.app.R
 import com.orbit.app.domain.calendar.CalendarEntryId
 import com.orbit.app.domain.calendar.CalendarItemType
+import com.orbit.app.ui.screens.review.ReviewItem
+import com.orbit.app.ui.screens.review.ReviewItemType
 import java.time.LocalDate
 
 enum class OrbitDestination(
     val route: String,
-    val contentDescription: String,
+    @param:StringRes val contentDescriptionRes: Int,
     val icon: ImageVector,
 ) {
-    Home("home", "Home", Icons.Rounded.Home),
-    Spaces("spaces", "Spaces", Icons.Rounded.GridView),
-    Review("review", "Review", Icons.AutoMirrored.Rounded.FactCheck),
-    Settings("settings", "Settings", Icons.Rounded.Settings),
+    Home("home", R.string.navigation_home, Icons.Rounded.Home),
+    Spaces("spaces", R.string.navigation_spaces, Icons.Rounded.GridView),
+    Review("review", R.string.navigation_review, Icons.AutoMirrored.Rounded.FactCheck),
+    Settings("settings", R.string.navigation_settings, Icons.Rounded.Settings),
 }
 
 object ReminderDestination {
@@ -57,6 +61,10 @@ object CalendarCaptureContext {
     fun date(epochDay: Long?): LocalDate? = epochDay?.let {
         runCatching { LocalDate.ofEpochDay(it) }.getOrNull()
     }
+}
+
+object BrainDumpResumeContext {
+    const val CaptureIdKey = "brainDumpResumeCaptureId"
 }
 
 data class CalendarNavigationRequest(
@@ -98,6 +106,13 @@ fun NavController.returnHomeWithCalendarCaptureDate(date: LocalDate): Boolean {
     return popBackStack(OrbitDestination.Home.route, inclusive = false)
 }
 
+fun NavController.returnHomeToResumeBrainDump(captureId: Long): Boolean {
+    require(captureId > 0L)
+    getBackStackEntry(OrbitDestination.Home.route)
+        .savedStateHandle[BrainDumpResumeContext.CaptureIdKey] = captureId
+    return popBackStack(OrbitDestination.Home.route, inclusive = false)
+}
+
 fun CalendarEntryId.toItemDetailRoute(): String = ItemDetailDestination.route(
     type = when (sourceType) {
         CalendarItemType.Note -> ItemDetailType.Note
@@ -105,6 +120,15 @@ fun CalendarEntryId.toItemDetailRoute(): String = ItemDetailDestination.route(
         CalendarItemType.Reminder -> ItemDetailType.Reminder
     },
     itemId = sourceItemId,
+)
+
+fun ReviewItem.toItemDetailRoute(): String = ItemDetailDestination.route(
+    type = when (type) {
+        ReviewItemType.Task -> ItemDetailType.Task
+        ReviewItemType.Capture -> ItemDetailType.Capture
+        ReviewItemType.Reminder -> ItemDetailType.Reminder
+    },
+    itemId = id,
 )
 
 fun String.toItemDetailTypeOrNull(): ItemDetailType? =
