@@ -9,15 +9,11 @@ plugins {
 }
 
 val releaseStoreFile = providers.environmentVariable("LUMA_RELEASE_STORE_FILE")
-val releaseStorePassword = providers.environmentVariable("LUMA_RELEASE_STORE_PASSWORD")
 val releaseKeyAlias = providers.environmentVariable("LUMA_RELEASE_KEY_ALIAS")
-val releaseKeyPassword = providers.environmentVariable("LUMA_RELEASE_KEY_PASSWORD")
-val hasReleaseSigning = listOf(
-    releaseStoreFile,
-    releaseStorePassword,
-    releaseKeyAlias,
-    releaseKeyPassword,
-).all { it.isPresent }
+val hasReleaseSigning = releaseStoreFile.isPresent &&
+    releaseKeyAlias.isPresent &&
+    System.getenv("LUMA_RELEASE_STORE_PASSWORD") != null &&
+    System.getenv("LUMA_RELEASE_KEY_PASSWORD") != null
 
 android {
     namespace = "com.orbit.app"
@@ -38,9 +34,9 @@ android {
         if (hasReleaseSigning) {
             create("release") {
                 storeFile = file(releaseStoreFile.get())
-                storePassword = releaseStorePassword.get()
+                storePassword = System.getenv("LUMA_RELEASE_STORE_PASSWORD").orEmpty()
                 keyAlias = releaseKeyAlias.get()
-                keyPassword = releaseKeyPassword.get()
+                keyPassword = System.getenv("LUMA_RELEASE_KEY_PASSWORD").orEmpty()
             }
         }
     }
