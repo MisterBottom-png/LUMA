@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.graphicsLayer
 import android.animation.ValueAnimator
+import android.os.Build
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -275,7 +276,13 @@ internal fun reviewContextRefreshDelayMillis(now: LocalDateTime): Long {
 
 @Composable
 private fun MiddayBreathingSpace() {
-    val motionEnabled = remember { ValueAnimator.getDurationScale() > 0f }
+    val motionEnabled = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ValueAnimator.getDurationScale() > 0f
+        } else {
+            true
+        }
+    }
     var inhaling by remember { mutableStateOf(false) }
     LaunchedEffect(motionEnabled) {
         if (motionEnabled) {
