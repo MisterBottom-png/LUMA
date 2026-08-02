@@ -78,6 +78,17 @@ import com.orbit.app.ui.time.OrbitTimeFormat
 import com.orbit.app.ui.theme.OrbitMotion
 import java.time.Instant
 import java.time.LocalDate
+
+/**
+ * Backdrop alpha used when Review draws a local surface behind its content.
+ * Custom backgrounds get strong protection in both modes; preset backgrounds
+ * keep a quieter backdrop. Contract covered by [ReviewContrastTest].
+ */
+internal fun reviewBackdropAlpha(hasCustomBackground: Boolean, isDark: Boolean): Float = when {
+    hasCustomBackground -> 0.96f
+    isDark -> 0.78f
+    else -> 0.74f
+}
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlinx.coroutines.delay
