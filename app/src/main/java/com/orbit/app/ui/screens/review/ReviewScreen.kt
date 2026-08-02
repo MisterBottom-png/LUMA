@@ -78,6 +78,9 @@ import com.orbit.app.ui.time.OrbitTimeFormat
 import com.orbit.app.ui.theme.OrbitMotion
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import kotlinx.coroutines.delay
 
 /**
  * Backdrop alpha used when Review draws a local surface behind its content.
@@ -89,9 +92,6 @@ internal fun reviewBackdropAlpha(hasCustomBackground: Boolean, isDark: Boolean):
     isDark -> 0.78f
     else -> 0.74f
 }
-import java.time.LocalDateTime
-import java.time.ZoneId
-import kotlinx.coroutines.delay
 
 internal enum class ReviewPeriod {
     Morning,
