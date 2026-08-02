@@ -144,7 +144,7 @@ class LocalSearchTest {
             ),
         )
 
-        assertEquals("Someday", results.single().status)
+        assertEquals(LocalSearchStatus.Someday, results.single().status)
     }
 
     @Test

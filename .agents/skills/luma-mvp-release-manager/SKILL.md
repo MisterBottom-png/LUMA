@@ -1,94 +1,52 @@
 ---
 name: luma-mvp-release-manager
-description: Audit, finish, stabilize, or approve the LUMA initial MVP through verification-first status, bounded blocker repair, scope protection, and a clear pass, partial, or blocked result.
+description: Use when auditing, stabilizing, or approving the LUMA MVP or a later release through current evidence, bounded blocker repair, scope protection, and explicit readiness status.
 ---
 
-# LUMA MVP Release Manager
+# LUMA MVP and Release Manager
+
+## When to use
+
+- Initial-MVP audit, repair batching, final QA, or readiness claims.
+- Later release audits that need protected-behavior evidence and blocker classification.
+- Reconciliation of current source/results with stale or contradictory status documents.
+
+## Do not use
+
+- Ordinary feature implementation or small fixes.
+- To treat backlog entries, old screenshots, or previous PASS claims as current proof.
+- To add feature ideas while evaluating readiness.
 
 ## Preconditions
 
-Read `docs/codex/PROJECT_STATE.md`. If the cleanup baseline is not complete, stop MVP work and activate `luma-project-cleanup` in a separate run.
+Read `docs/codex/PROJECT_STATE.md`. For initial-MVP work, also read the relevant files under `docs/codex/mvp/` and `docs/codex/LUMA_PROTECTED_BEHAVIORS.md`. If the required privacy purge or cleanup baseline is incomplete, stop release work and route that gate separately.
 
-## Canonical sources
+## Workflow
 
-```text
-docs/codex/mvp/LUMA_MVP_GATE.md
-docs/codex/mvp/LUMA_MVP_BACKLOG.md
-docs/codex/mvp/LUMA_MVP_VERIFICATION_POLICY.md
-docs/codex/LUMA_PROTECTED_BEHAVIORS.md
-docs/codex/PROJECT_STATE.md
-```
+1. Define the exact gate or release claim being evaluated.
+2. Build a requirement-to-evidence table using current source, tests, build output, and reproducible behavior.
+3. Classify each relevant area as `verified`, `partial`, `broken`, `missing`, `unknown`, or `not applicable`.
+4. Separate automated evidence, source inspection, physical-device evidence, and manual gaps.
+5. In audit mode, do not edit application code; identify the first coherent blocker batch.
+6. In repair mode, work on one named blocker batch with only the needed implementation specialist, then stop.
+7. Run `luma-regression-qa` for affected behavior and use the read-only release reviewer only when an independent final audit adds value.
+8. Update project evidence only with current, reproducible results; preserve historical evidence in its proper record.
 
-## Verification-first rule
+## Scope control
 
-A backlog entry or previously completed claim is not current evidence.
+- Do not rebuild verified behavior because documentation is uncertain.
+- Do not combine unrelated blockers into one implementation batch.
+- During initial MVP work, defer post-MVP expansion unless required to restore a core flow.
+- A partial manual evidence gap does not become PASS merely because automated checks are green.
 
-Classify each relevant area as:
+## Verification
 
-```text
-verified
-partial
-broken
-missing
-unknown
-not applicable
-```
+- Every readiness claim maps to current evidence.
+- Core data safety, confirmation, fallback, scheduling, navigation, and visibility invariants are addressed where applicable.
+- Pre-existing failures, regressions, blockers, and evidence gaps are distinct.
+- The final status is exactly one of `MVP PASS`, `MVP PARTIAL`, `MVP BLOCKED`, `RELEASE PASS`, `RELEASE PARTIAL`, or `RELEASE BLOCKED`, matching the evaluated gate.
+- The next action, if any, is one coherent batch.
 
-Do not rebuild working behavior merely because old documentation is uncertain.
-
-## Two distinct task modes
-
-### Audit mode
-
-- Do not edit application code.
-- Verify the gate using source, tests, build output, and reproducible behavior.
-- Update evidence and identify the first coherent blocker batch.
-
-### Repair mode
-
-- Work on one named blocker batch only.
-- Activate only necessary implementation skills.
-- Preserve verified behavior.
-- Run targeted validation and affected protected-behavior checks.
-- Update the backlog and project state with evidence.
-- Stop before the next unrelated batch.
-
-## MVP boundaries
-
-During initial MVP completion, defer unless required to restore a broken core flow:
-
-- advanced learning memory;
-- backlinks and related-thought graphs;
-- automatic duplicate merging;
-- people/project profiling;
-- broad pattern insights;
-- external calendar sync;
-- backend/accounts/cloud sync;
-- large Situation AI expansion.
-
-## Final status
-
-Use exactly one:
-
-```text
-MVP PASS
-MVP PARTIAL
-MVP BLOCKED
-```
-
-Report:
-
-```text
-MVP status:
-Verified areas:
-Blockers fixed:
-Blockers remaining:
-Validation:
-Protected behavior checked:
-Manual device checks:
-Next single batch:
-```
 ## Workplace privacy
 
-Read `docs/codex/WORKPLACE_PRIVACY_POLICY.md`. Never mention any coworker or workplace-associated person in repository-controlled or generated content. Use generic role labels only. If an identifier is found, cite only its location and category; do not quote it. Review changed output before completion and run `python scripts/codex/check_workplace_privacy.py --strict` after text-bearing changes and before completion.
-
+Read `docs/codex/WORKPLACE_PRIVACY_POLICY.md` before text-bearing work. Never repeat protected identity values; use generic role labels. Run `python scripts/codex/check_workplace_privacy.py --strict` after text-bearing changes and before completion, then semantically review the changed text.

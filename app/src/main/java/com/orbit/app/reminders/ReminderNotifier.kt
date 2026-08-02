@@ -13,6 +13,7 @@ import com.orbit.app.MainActivity
 import com.orbit.app.OrbitApplication
 import com.orbit.app.R
 import com.orbit.app.data.local.OrbitDatabase
+import com.orbit.app.data.local.entity.ReminderEntity
 
 object ReminderNotifier {
     suspend fun showReminderNotification(
@@ -28,7 +29,10 @@ object ReminderNotifier {
             ?: OrbitDatabase.getInstance(appContext).reminderDao().getById(reminderId)
             ?: return false
 
-        if (!reminder.matchesScheduledNotificationTime(expectedNotificationTime)) return false
+        val notificationRequestCode = reminder.currentNotificationRequestCode(
+            expectedNotificationTime = expectedNotificationTime,
+            requestReminderId = reminderId,
+        ) ?: return false
 
         ReminderNotifications.createChannel(appContext)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -48,19 +52,22 @@ object ReminderNotifier {
         }
         val pendingIntent = PendingIntent.getActivity(
             appContext,
-            reminderNotificationRequestCode(reminderId),
+            notificationRequestCode,
             openLumaIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val title = reminder.title.ifBlank { "LUMA reminder" }
+        val title = reminder.title.ifBlank {
+            appContext.getString(R.string.reminder_notification_fallback_title)
+        }
         val notes = reminder.notes
+        val openLumaText = appContext.getString(R.string.reminder_notification_open_luma)
         val notification = NotificationCompat.Builder(
             appContext,
             ReminderNotifications.CHANNEL_ID,
         )
             .setSmallIcon(R.drawable.ic_luma_notification)
             .setContentTitle(title)
-            .setContentText(notes.ifBlank { "Tap to open LUMA" })
+            .setContentText(notes.ifBlank { openLumaText })
             .setStyle(NotificationCompat.BigTextStyle().bigText(notes.ifBlank { title }))
             .setContentIntent(pendingIntent)
             .setWhen(reminder.dueAt)
@@ -71,12 +78,18 @@ object ReminderNotifier {
 
         return try {
             NotificationManagerCompat.from(appContext)
-                .notify(reminderNotificationRequestCode(reminderId), notification)
+                .notify(notificationRequestCode, notification)
             true
         } catch (_: SecurityException) {
             false
         }
     }
 }
+
+internal fun ReminderEntity.currentNotificationRequestCode(
+    expectedNotificationTime: Long,
+    requestReminderId: Long = id,
+): Int? = reminderNotificationRequestCode(requestReminderId)
+    .takeIf { matchesScheduledNotificationTime(expectedNotificationTime) }
 
 internal fun reminderNotificationRequestCode(reminderId: Long): Int = reminderId.hashCode()

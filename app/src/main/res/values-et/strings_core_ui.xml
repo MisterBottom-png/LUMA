@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_back">Tagasi</string>
+    <string name="core_add">Lisa</string>
+    <string name="core_clear">Tühjenda</string>
+    <string name="core_today">Täna</string>
+    <string name="core_tomorrow">Homme</string>
+    <string name="core_choose_date">Vali kuupäev</string>
+    <string name="core_mark_complete">Märgi lõpetatuks</string>
+    <string name="core_selected">valitud</string>
+    <string name="core_has_scheduled_items">sisaldab ajastatud üksusi</string>
+    <string name="core_note">Märge</string>
+    <string name="core_task">Ülesanne</string>
+    <string name="core_reminder">Meeldetuletus</string>
+    <string name="core_capture">Sisestus</string>
+    <string name="core_completed">Lõpetatud</string>
+    <string name="core_completed_reminder">Lõpetatud meeldetuletus</string>
+    <string name="core_done">Tehtud</string>
+    <string name="core_archived">Arhiveeritud</string>
+    <string name="core_waiting_for">Ootel</string>
+    <string name="core_someday">Kunagi</string>
+    <string name="core_untitled_note">Pealkirjata märge</string>
+    <string name="core_untitled_task">Pealkirjata ülesanne</string>
+    <string name="core_untitled_reminder">Pealkirjata meeldetuletus</string>
+    <string name="core_sources">Allikad</string>
+
+    <string name="core_home_good_morning">Tere hommikust</string>
+    <string name="core_home_good_afternoon">Tere päevast</string>
+    <string name="core_home_good_evening">Tere õhtust</string>
+    <string name="core_home_adding_for_date">Lisad kuupäevale %1$s</string>
+    <string name="core_home_show_previous_week">Näita eelmist nädalat</string>
+    <string name="core_home_show_next_week">Näita järgmist nädalat</string>
+    <string name="core_home_week_number">%1$d. nädal</string>
+    <string name="core_home_save_and_analyze">Salvesta ja analüüsi sisestust</string>
+    <string name="core_home_analyzing_capture">Sisestuse analüüsimine</string>
+    <string name="core_home_capture_input">Sisestuse tekst</string>
+    <string name="core_home_capture_placeholder">Kirjuta midagi…</string>
+
+    <string name="core_calendar_title">Kalender</string>
+    <string name="core_calendar_previous_month">Eelmine kuu</string>
+    <string name="core_calendar_next_month">Järgmine kuu</string>
+    <string name="core_calendar_previous_day">Eelmine päev</string>
+    <string name="core_calendar_next_day">Järgmine päev</string>
+    <string name="core_calendar_show_previous_month">Näita eelmist kuud</string>
+    <string name="core_calendar_show_next_month">Näita järgmist kuud</string>
+    <string name="core_calendar_show_previous_day">Näita eelmist päeva</string>
+    <string name="core_calendar_show_next_day">Näita järgmist päeva</string>
+    <string name="core_calendar_day">Päev</string>
+    <string name="core_calendar_month">Kuu</string>
+    <string name="core_calendar_add_for_day">Lisa sellele päevale</string>
+    <string name="core_calendar_outside_current_month">väljaspool praegust kuud</string>
+    <string name="core_calendar_any_time">Kindla ajata</string>
+    <string name="core_calendar_timeline">Ajajoon</string>
+    <string name="core_calendar_nothing_scheduled">Sellele päevale pole midagi ajastatud.</string>
+    <string name="core_calendar_loading_day">Päeva kuvamine…</string>
+    <string name="core_calendar_no_timed_items_today">Täna pole kindlale kellaajale määratud üksusi.</string>
+    <string name="core_calendar_notifications_off">Teavitused on väljas</string>
+    <string name="core_calendar_notification_timing_unavailable">Teavituse aeg pole saadaval</string>
+    <string name="core_calendar_notification_at_target">Teavitus umbes sihtajal</string>
+    <plurals name="core_calendar_notification_minutes_before">
+        <item quantity="one">Teavitus umbes %1$d minut enne</item>
+        <item quantity="other">Teavitus umbes %1$d minutit enne</item>
+    </plurals>
+
+    <string name="core_search_title">Otsi</string>
+    <string name="core_search_local_data">Otsi kohalikest andmetest</string>
+    <string name="core_search_include_archived">Kaasa arhiveeritud</string>
+    <string name="core_search_minimum_query">Sisesta vähemalt kaks märki.</string>
+    <string name="core_search_empty">Siit ei leitud veel midagi.</string>
+    <string name="core_source_row_accessibility">%1$s: %2$s. Ava</string>
+    <string name="core_source_row_accessibility_with_date">%1$s: %2$s, %3$s. Ava</string>
+    <string name="core_open_item_type">Ava: %1$s</string>
+
+    <string name="core_situation_title">Olukorra AI</string>
+    <string name="core_situation_subtitle">Kohalik vaade sellele, mis vajab sinu tähelepanu</string>
+    <string name="core_situation_close">Sulge olukorra AI</string>
+    <string name="core_situation_ask_luma">Küsi LUMAlt</string>
+    <string name="core_situation_ask_placeholder">Küsi oma kohalike üksuste kohta</string>
+    <string name="core_situation_generating_answer">Vastuse koostamine</string>
+    <string name="core_situation_send_question">Saada küsimus</string>
+    <string name="core_situation_answered_by_gemini">Gemini vastus kohalike allikate põhjal</string>
+    <string name="core_situation_local_answer">Kohalik vastus</string>
+    <string name="core_situation_where_am_i">Kus ma praegu olen?</string>
+    <string name="core_situation_what_matters">Mis on oluline?</string>
+    <string name="core_situation_what_is_stuck">Mis on takerdunud?</string>
+
+    <string name="core_review_title">Ülevaade</string>
+    <string name="core_review_subtitle">Rahulik vahepeatus. Siin pole miski hinnang.</string>
+    <string name="core_review_midday_title">Lase päeval hingata.</string>
+    <string name="core_review_midday_subtitle">Praegu pole siin vaja midagi sorteerida.</string>
+    <string name="core_review_breathe_in">Hinga sisse</string>
+    <string name="core_review_breathe_out">Hinga välja</string>
+    <string name="core_review_breathe_gently">Hinga rahulikult</string>
+    <string name="core_review_weekly_title">Nädala ülevaade</string>
+    <string name="core_review_weekly_subtitle">Liigu omas tempos</string>
+    <string name="core_review_look_back">Tagasivaade</string>
+    <string name="core_review_look_back_subtitle">Leebe pilk möödunud nädalale</string>
+    <string name="core_review_loose_ends">Lahtised otsad</string>
+    <string name="core_review_loose_ends_subtitle">Asjad, mis võivad sinu tähelepanu oodata</string>
+    <string name="core_review_look_ahead">Ettevaade</string>
+    <string name="core_review_look_ahead_subtitle">Kerge pilk ettepoole, mitte kohustus</string>
+    <string name="core_review_page_position">%1$s · %2$d/%3$d</string>
+    <string name="core_review_weekly_fallback">Seda nädalat võib märgata ilma seda mõõtmata.</string>
+    <string name="core_review_local_sources_considered">Arvestatud kohalikud allikad</string>
+    <string name="core_review_open_loops">Lahtised otsad</string>
+    <string name="core_review_quiet_for_a_while">Mõnda aega vaiksed</string>
+    <string name="core_review_waiting">Ootel</string>
+    <string name="core_review_loose_ends_message">Võid need siia jätta ja naasta, kui see tundub kasulik.</string>
+    <string name="core_review_due_today">Tähtaeg täna</string>
+    <string name="core_review_possible_carry_forwards">Võimalik edasi kanda</string>
+    <string name="core_review_look_ahead_message">See leht ei nõua ühtegi otsust.</string>
+    <string name="core_review_morning_review">Hommikune ülevaade</string>
+    <string name="core_review_morning_scan">Hommikune pilk</string>
+    <string name="core_review_morning_scan_subtitle">Vaata päeva kuju ja alusta rahulikult</string>
+    <string name="core_review_recent_inbox_captures">Hiljutised sisendkausta sisestused</string>
+    <string name="core_review_one_small_place">Üks väike koht alustamiseks</string>
+    <string name="core_review_evening_review">Õhtune ülevaade</string>
+    <string name="core_review_evening_subtitle">Lõpeta, mida saad; kanna ülejäänu edasi ilma surveta</string>
+    <string name="core_review_unresolved_captures">Lahendamata sisestused</string>
+    <string name="core_review_done_today">Täna tehtud</string>
+    <string name="core_review_carry_forward">Kanna edasi</string>
+    <string name="core_review_choose_day_or_smaller">Vali uus päev või tee järgmine samm väiksemaks.</string>
+    <string name="core_review_reschedule_if_relevant">Ajasta uuesti, kui see on endiselt oluline.</string>
+    <string name="core_review_keep_unscheduled">Jäta ajastamata</string>
+    <string name="core_review_open_loops_subtitle">Tee iga ootel üksuse kohta leebe ja kaalutletud otsus</string>
+    <string name="core_review_no_open_loops">Ükski lahtine ots ei vaja otsust.</string>
+    <string name="core_review_stale_loops">Seisma jäänud otsad</string>
+    <string name="core_review_waiting_for_subtitle">Edasi lükatud ülesanded, mis ootavad välist vastust</string>
+    <string name="core_review_someday_subtitle">Rahulikud ideed, mitte kiireloomulised ülesanded</string>
+    <string name="core_review_close_open_loops">Sulge lahtised otsad</string>
+    <string name="core_review_sort_open_loops">Korrasta lahtisi otsi</string>
+    <string name="core_review_show_all_open_loops">Näita kõiki lahtisi otsi</string>
+    <string name="core_review_show_fewer_open_loops">Näita vähem lahtisi otsi</string>
+    <string name="core_review_clear">Ülevaade on korras</string>
+    <string name="core_review_reason_open_task">Vajab ülevaatamist, sest ülesanne on endiselt avatud.</string>
+    <string name="core_review_reason_brain_dump">Mõtete korrastuses on soovitusi, mis ootavad otsust.</string>
+    <string name="core_review_reason_unfinalized_capture">Vajab ülevaatamist, sest sisestus pole lõpetatud ega kõrvale jäetud.</string>
+    <string name="core_review_task_action_explanation">Aktiivsena hoidmine jätab ülesande avatuks; Kunagi lükkab selle edasi; Tehtud lõpetab; arhiivimine peidab.</string>
+    <string name="core_review_brain_dump_action_explanation">Jätkamine avab ülejäänud soovitused ega loo juba käsitletud üksusi uuesti.</string>
+    <string name="core_review_capture_action_explanation">Kinnitamine loob ühe ülesande; kõrvalejätmine ei loo üksust; arhiivimine paneb allika kõrvale.</string>
+    <string name="core_review_keep_active">Hoia aktiivsena</string>
+    <string name="core_review_mark_task_done">Märgi ülesanne tehtuks</string>
+    <string name="core_review_defer_to_someday">Lükka Kunagi-loendisse</string>
+    <string name="core_review_resume_brain_dump">Jätka mõtete korrastamist</string>
+    <string name="core_review_confirm_as_someday">Kinnita Kunagi-ülesandena</string>
+    <string name="core_review_dismiss_capture">Jäta sisestus kõrvale</string>
+    <string name="core_review_archive_task">Arhiveeri ülesanne</string>
+    <string name="core_review_archive_source">Arhiveeri allikas</string>
+    <string name="core_review_make_smaller">Tee väiksemaks</string>
+    <string name="core_review_suggested_by_gemini">Gemini soovitus</string>
+    <string name="core_review_local_suggestion">Kohalik soovitus</string>
+    <string name="core_review_local_fallback">Kohalik varuvariant</string>
+
+    <plurals name="core_review_due_count">
+        <item quantity="one">%1$d täna tähtajaga</item>
+        <item quantity="other">%1$d täna tähtajaga</item>
+    </plurals>
+    <plurals name="core_review_recent_capture_count">
+        <item quantity="one">%1$d hiljutine sisestus</item>
+        <item quantity="other">%1$d hiljutist sisestust</item>
+    </plurals>
+    <plurals name="core_review_waiting_count">
+        <item quantity="one">%1$d ootel</item>
+        <item quantity="other">%1$d ootel</item>
+    </plurals>
+    <plurals name="core_review_unresolved_capture_count">
+        <item quantity="one">%1$d lahendamata sisestus</item>
+        <item quantity="other">%1$d lahendamata sisestust</item>
+    </plurals>
+    <plurals name="core_review_done_today_count">
+        <item quantity="one">%1$d täna tehtud</item>
+        <item quantity="other">%1$d täna tehtud</item>
+    </plurals>
+    <plurals name="core_review_carry_forward_count">
+        <item quantity="one">%1$d edasi kanda</item>
+        <item quantity="other">%1$d edasi kanda</item>
+    </plurals>
+    <plurals name="core_review_pending_decisions">
+        <item quantity="one">%1$d üksus vajab veel ülevaatamise otsust</item>
+        <item quantity="other">%1$d üksust vajab veel ülevaatamise otsust</item>
+    </plurals>
+    <plurals name="core_review_more_waiting">
+        <item quantity="one">%1$d järgmine ootab järgmist väikest ringi.</item>
+        <item quantity="other">%1$d järgmist ootab järgmist väikest ringi.</item>
+    </plurals>
+    <plurals name="core_review_quiet_days_or_more">
+        <item quantity="one">Vaikne vähemalt %1$d päeva</item>
+        <item quantity="other">Vaikne vähemalt %1$d päeva</item>
+    </plurals>
+    <plurals name="core_review_no_update_days">
+        <item quantity="one">Vajab ülevaatamist: %1$d päeva jooksul pole uuendust.</item>
+        <item quantity="other">Vajab ülevaatamist: %1$d päeva jooksul pole uuendust.</item>
+    </plurals>
+    <string name="core_learning_save_title">Kas salvestada õpitud eelistus?</string>
+    <string name="core_learning_save_body">Tegid selle paranduse mitu korda: %1$s</string>
+    <string name="core_learning_save_confirm">Salvesta eelistus</string>
+    <string name="core_learning_not_now">Mitte praegu</string>
+</resources>

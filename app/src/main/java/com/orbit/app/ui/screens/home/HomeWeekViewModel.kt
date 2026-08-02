@@ -22,13 +22,23 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class HomeWeekUiState(
     val today: LocalDate,
     val selectedDate: LocalDate,
+    val visibleWeekDate: LocalDate,
     val datesWithItems: Set<LocalDate> = emptySet(),
+)
+
+data class HomeDateAccessibilityLabels(
+    val today: String,
+    val selected: String,
+    val hasScheduledItems: String,
+    val separator: String,
 )
 
 class HomeWeekViewModel internal constructor(
@@ -39,27 +49,36 @@ class HomeWeekViewModel internal constructor(
     observationDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) : ViewModel() {
     private val today = todayProvider()
+    private val restoredSelectedDate = restoredDate(savedStateHandle[SelectedDateKey]) ?: today
     private val _uiState = MutableStateFlow(
         HomeWeekUiState(
             today = today,
-            selectedDate = restoredDate(savedStateHandle[SelectedDateKey]) ?: today,
+            selectedDate = restoredSelectedDate,
+            visibleWeekDate = restoredDate(savedStateHandle[VisibleWeekDateKey]) ?: restoredSelectedDate,
         ),
     )
     val uiState: StateFlow<HomeWeekUiState> = _uiState.asStateFlow()
 
     init {
         persistSelectedDate(_uiState.value.selectedDate)
-        val range = CalendarDateRange(
-            startDate = today.minusDays(6),
-            endDateExclusive = today.plusDays(7),
-            zoneId = zoneId,
-        )
+        persistVisibleWeekDate(_uiState.value.visibleWeekDate)
         viewModelScope.launch(observationDispatcher) {
-            calendarRepository.observeRange(range).collectLatest { entries ->
-                _uiState.update { state ->
-                    state.copy(datesWithItems = entries.calendarDates(zoneId))
+            _uiState
+                .map { it.visibleWeekDate }
+                .distinctUntilChanged()
+                .collectLatest { visibleWeekDate ->
+                    calendarRepository.observeRange(
+                        CalendarDateRange(
+                            startDate = visibleWeekDate.minusDays(6),
+                            endDateExclusive = visibleWeekDate.plusDays(7),
+                            zoneId = zoneId,
+                        ),
+                    ).collectLatest { entries ->
+                        _uiState.update { state ->
+                            state.copy(datesWithItems = entries.calendarDates(zoneId))
+                        }
+                    }
                 }
-            }
         }
     }
 
@@ -68,8 +87,20 @@ class HomeWeekViewModel internal constructor(
         persistSelectedDate(date)
     }
 
+    fun moveVisibleWeek(weekOffset: Int) {
+        if (weekOffset == 0) return
+        _uiState.update { state ->
+            state.copy(visibleWeekDate = state.visibleWeekDate.plusWeeks(weekOffset.toLong()))
+        }
+        persistVisibleWeekDate(_uiState.value.visibleWeekDate)
+    }
+
     private fun persistSelectedDate(date: LocalDate) {
         savedStateHandle[SelectedDateKey] = date.toEpochDay()
+    }
+
+    private fun persistVisibleWeekDate(date: LocalDate) {
+        savedStateHandle[VisibleWeekDateKey] = date.toEpochDay()
     }
 
     class Factory(
@@ -87,6 +118,7 @@ class HomeWeekViewModel internal constructor(
 
     private companion object {
         const val SelectedDateKey = "home.week.selectedDate"
+        const val VisibleWeekDateKey = "home.week.visibleDate"
     }
 }
 
@@ -100,18 +132,33 @@ internal fun homeWeekDates(today: LocalDate, locale: Locale): List<LocalDate> {
 internal fun homeWeekdayLabel(date: LocalDate, locale: Locale): String =
     date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, locale)
 
+internal fun homeVisibleWeekMonth(dates: List<LocalDate>, locale: Locale): String {
+    require(dates.size == 7)
+    val monthName = dates[dates.lastIndex / 2].month.getDisplayName(
+        java.time.format.TextStyle.FULL_STANDALONE,
+        locale,
+    )
+    return if (locale.language in setOf("et", "ru")) monthName.lowercase(locale) else monthName
+}
+
+internal fun homeVisibleWeekNumber(dates: List<LocalDate>, locale: Locale): Int {
+    require(dates.size == 7)
+    return dates[dates.lastIndex / 2].get(WeekFields.of(locale).weekOfWeekBasedYear())
+}
+
 internal fun homeDateContentDescription(
     date: LocalDate,
     locale: Locale,
     isToday: Boolean,
     isSelected: Boolean,
     hasItems: Boolean,
+    labels: HomeDateAccessibilityLabels,
 ): String = buildList {
-    if (isToday) add("Today")
+    if (isToday) add(labels.today)
     add(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale).format(date))
-    if (isSelected) add("selected")
-    if (hasItems) add("has scheduled items")
-}.joinToString(", ")
+    if (isSelected) add(labels.selected)
+    if (hasItems) add(labels.hasScheduledItems)
+}.joinToString(labels.separator)
 
 internal fun List<CalendarEntry>.calendarDates(zoneId: ZoneId): Set<LocalDate> = mapTo(linkedSetOf()) { entry ->
     entry.calendarDate(zoneId)

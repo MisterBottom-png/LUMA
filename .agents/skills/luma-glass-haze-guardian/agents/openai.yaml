@@ -1,0 +1,4 @@
+interface:
+  display_name: "LUMA Glass/Haze Guardian"
+  short_description: "Review and implement consistent LUMA glass"
+  default_prompt: "Use $luma-glass-haze-guardian to review this LUMA glass or Haze change and recommend the smallest consistent implementation."

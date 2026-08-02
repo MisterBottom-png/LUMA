@@ -3,6 +3,7 @@ package com.orbit.app.domain.ai
 import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.analyzer.CaptureAnalyzer
 import com.orbit.app.domain.analyzer.LocalReviewAnalyzer
+import com.orbit.app.domain.analyzer.localGuidanceLocale
 import com.orbit.app.domain.analyzer.ReminderTimeStatus
 import com.orbit.app.domain.model.AiMode
 import com.orbit.app.domain.model.AppSettings
@@ -16,6 +17,7 @@ import com.orbit.app.integrations.gemini.SourceLinkedPromptBuilders
 import com.orbit.app.integrations.gemini.geminiError
 import com.orbit.app.integrations.gemini.GeminiApiErrorKind
 import com.orbit.app.security.GeminiApiKeyStore
+import java.util.Locale
 
 enum class AiRouteSource {
     Local,
@@ -45,6 +47,7 @@ class OrbitAiRouter(
     private val geminiApiClient: GeminiApiClient,
     private val geminiApiKeyStore: GeminiApiKeyStore,
     private val learningProfileProvider: LearningProfileProvider = EmptyLearningProfileProvider,
+    private val locale: () -> Locale = { Locale.ENGLISH },
 ) {
     suspend fun analyzeCapture(
         rawText: String,
@@ -54,6 +57,7 @@ class OrbitAiRouter(
         val local = { fallback(rawText, null) }
         val localAnalysis = localCaptureAnalyzer.analyze(rawText)
         val useBrainDumpGemini = localAnalysis.brainDumpItems.isNotEmpty() &&
+            localAnalysis.brainDumpItems.size <= MaxGeminiBrainDumpItems &&
             settings.canUseGemini(settings.useGeminiForBrainDump)
         val useCaptureGemini = settings.canUseGemini(settings.useGeminiForCapture)
         if (!useBrainDumpGemini && !useCaptureGemini) {
@@ -140,6 +144,7 @@ class OrbitAiRouter(
                 modelId = settings.geminiReasoningModelId,
                 prompt = GeminiPromptBuilders.brainDump(
                     rawText = rawText,
+                    sourceFragments = localAnalysis.brainDumpItems,
                     allowedSpaces = allowedSpaces,
                     learningProfile = learningProfileProvider.profileFor(rawText),
                 ),
@@ -150,6 +155,7 @@ class OrbitAiRouter(
                 val items = GeminiJsonValidator.brainDumpSuggestions(
                     text = result.text,
                     allowedSpaces = allowedSpaces,
+                    expectedItems = localAnalysis.brainDumpItems,
                 )
                 if (items != null) {
                     RoutedCaptureAnalysis(
@@ -179,7 +185,7 @@ class OrbitAiRouter(
     suspend fun makeSmaller(text: String, settings: AppSettings): RoutedTinyAction {
         val localAction = { error: GeminiApiError? ->
             RoutedTinyAction(
-                action = LocalReviewAnalyzer.makeSmallerText(text),
+                action = LocalReviewAnalyzer.makeSmallerText(text, locale()),
                 metadata = AiRouteMetadata(
                     source = if (error == null) AiRouteSource.Local else AiRouteSource.GeminiFailedLocalUsed,
                     cloudUsed = false,
@@ -223,30 +229,11 @@ class OrbitAiRouter(
     suspend fun askLuma(
         question: String,
         sources: List<AiSourceItem>,
-        settings: AppSettings,
     ): SourceLinkedAnswer {
         if (sources.isEmpty()) return noDataAnswer()
-        if (!settings.canUseGemini(settings.useGeminiForSituation)) {
-            return localAnswer(question, sources)
-        }
-        val apiKey = geminiApiKeyStore.getKey() ?: return localAnswer(question, sources)
-        return when (
-            val result = geminiApiClient.generateJson(
-                apiKey = apiKey,
-                modelId = settings.geminiReasoningModelId,
-                prompt = SourceLinkedPromptBuilders.askLuma(
-                    question = question,
-                    sources = sources,
-                    learningProfile = learningProfileProvider.profileFor(question),
-                ),
-                maxOutputTokens = 320,
-            )
-        ) {
-            is GeminiApiResult.Success ->
-                SourceLinkedGeminiValidator.answer(result.text, sources) ?: localAnswer(question, sources)
-
-            is GeminiApiResult.Failure -> localAnswer(question, sources)
-        }
+        // V1 keeps factual answers deterministic. Gemini is not allowed to add facts or state;
+        // source-backed wording can be reintroduced only behind a validator that proves this.
+        return localAnswer(question, sources)
     }
 
     suspend fun summarizeSituation(
@@ -327,7 +314,7 @@ class OrbitAiRouter(
                     )
                 } else {
                     RoutedTinyAction(
-                        action = LocalReviewAnalyzer.makeSmallerText(sourceText),
+                        action = LocalReviewAnalyzer.makeSmallerText(sourceText, locale()),
                         metadata = AiRouteMetadata(
                             source = AiRouteSource.GeminiFailedLocalUsed,
                             cloudUsed = false,
@@ -338,7 +325,7 @@ class OrbitAiRouter(
             }
 
             is GeminiApiResult.Failure -> RoutedTinyAction(
-                action = LocalReviewAnalyzer.makeSmallerText(sourceText),
+                action = LocalReviewAnalyzer.makeSmallerText(sourceText, locale()),
                 metadata = AiRouteMetadata(
                     source = AiRouteSource.GeminiFailedLocalUsed,
                     cloudUsed = false,
@@ -368,6 +355,10 @@ class OrbitAiRouter(
     private fun AppSettings.canUseGemini(featureEnabled: Boolean): Boolean =
         aiMode == AiMode.GeminiApi && featureEnabled
 
+    private companion object {
+        const val MaxGeminiBrainDumpItems = 20
+    }
+
     private fun CaptureAnalysis.routedLocal(): RoutedCaptureAnalysis =
         RoutedCaptureAnalysis(
             analysis = copy(analyzerSource = com.orbit.app.domain.analyzer.CaptureAnalyzerSource.Local),
@@ -376,7 +367,7 @@ class OrbitAiRouter(
 
     private fun noDataAnswer(): SourceLinkedAnswer =
         SourceLinkedAnswer(
-            answer = "No data found.",
+            answer = noDataMessage(locale()),
             sourceItemIds = emptyList(),
             sourceItems = emptyList(),
             fromGemini = false,
@@ -385,16 +376,20 @@ class OrbitAiRouter(
     private fun localAnswer(question: String, sources: List<AiSourceItem>): SourceLinkedAnswer {
         val top = sources.take(3)
         val answer = if (top.isEmpty()) {
-            "No data found."
+            noDataMessage(localGuidanceLocale(question, locale()))
         } else {
-            buildString {
-                append("Based on local items, ")
-                append(top.joinToString { it.title })
-                append(".")
-                if (question.contains("stuck", ignoreCase = true)) {
-                    append(" Check the first waiting or open item.")
-                }
+            val lower = question.lowercase()
+            val englishPrefix = when {
+                "overdue" in lower || "late" in lower -> "These matching local items are overdue: "
+                listOf("stuck", "blocked", "waiting").any(lower::contains) -> "These local items are marked Waiting For: "
+                listOf("completed", "complete", "done", "finished").any(lower::contains) -> "These matching local items are completed: "
+                listOf("due", "upcoming", "today", "soon").any(lower::contains) -> "These local items have upcoming dates: "
+                listOf("recent", "recently", "latest", "new", "captured").any(lower::contains) -> "These local items were updated recently: "
+                else -> "These local items match your question: "
             }
+            val prefix = localizedLocalAnswerPrefix(question)
+                ?: englishPrefix
+            prefix + top.joinToString { it.title } + "."
         }
         return SourceLinkedAnswer(
             answer = answer,
@@ -407,4 +402,18 @@ class OrbitAiRouter(
     private fun List<AiSourceItem>.toProfileQuery(prefix: String): String =
         (listOf(prefix) + take(8).flatMap { item -> listOf(item.title, item.snippet, item.spaceName.orEmpty()) })
             .joinToString(" ")
+
+    private fun noDataMessage(locale: Locale): String = when (locale.language) {
+        "et" -> "Andmeid ei leitud."
+        "ru" -> "Данные не найдены."
+        else -> "No data found."
+    }
+
+    private fun localizedLocalAnswerPrefix(question: String): String? = when (
+        localGuidanceLocale(question, locale()).language
+    ) {
+        "et" -> "Need kohalikud üksused vastavad teie küsimusele: "
+        "ru" -> "Эти локальные элементы соответствуют вашему вопросу: "
+        else -> null
+    }
 }

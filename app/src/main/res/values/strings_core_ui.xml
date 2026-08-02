@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared core UI language -->
+    <string name="core_back">Back</string>
+    <string name="core_add">Add</string>
+    <string name="core_clear">Clear</string>
+    <string name="core_today">Today</string>
+    <string name="core_tomorrow">Tomorrow</string>
+    <string name="core_choose_date">Choose date</string>
+    <string name="core_mark_complete">Mark complete</string>
+    <string name="core_selected">selected</string>
+    <string name="core_has_scheduled_items">has scheduled items</string>
+    <string name="core_note">Note</string>
+    <string name="core_task">Task</string>
+    <string name="core_reminder">Reminder</string>
+    <string name="core_capture">Capture</string>
+    <string name="core_completed">Completed</string>
+    <string name="core_completed_reminder">Completed reminder</string>
+    <string name="core_done">Done</string>
+    <string name="core_archived">Archived</string>
+    <string name="core_waiting_for">Waiting for</string>
+    <string name="core_someday">Someday</string>
+    <string name="core_untitled_note">Untitled note</string>
+    <string name="core_untitled_task">Untitled task</string>
+    <string name="core_untitled_reminder">Untitled reminder</string>
+    <string name="core_sources">Sources</string>
+    <string name="core_accessibility_separator" translatable="false">, </string>
+    <string name="core_metadata_separator" translatable="false"> · </string>
+    <string name="core_metadata_dot_separator" translatable="false"> · </string>
+    <string name="core_metadata_pipe_separator" translatable="false"> | </string>
+
+    <!-- Home -->
+    <string name="core_home_good_morning">Good morning</string>
+    <string name="core_home_good_afternoon">Good afternoon</string>
+    <string name="core_home_good_evening">Good evening</string>
+    <string name="core_home_adding_for_date">Adding for %1$s</string>
+    <string name="core_home_show_previous_week">Show previous week</string>
+    <string name="core_home_show_next_week">Show next week</string>
+    <string name="core_home_week_number">Week %1$d</string>
+    <string name="core_home_save_and_analyze">Save and analyze capture</string>
+    <string name="core_home_analyzing_capture">Analyzing capture</string>
+    <string name="core_home_capture_input">Capture text</string>
+    <string name="core_home_capture_placeholder">Type anything…</string>
+
+    <!-- Calendar -->
+    <string name="core_calendar_title">Calendar</string>
+    <string name="core_calendar_previous_month">Previous month</string>
+    <string name="core_calendar_next_month">Next month</string>
+    <string name="core_calendar_previous_day">Previous day</string>
+    <string name="core_calendar_next_day">Next day</string>
+    <string name="core_calendar_show_previous_month">Show previous month</string>
+    <string name="core_calendar_show_next_month">Show next month</string>
+    <string name="core_calendar_show_previous_day">Show previous day</string>
+    <string name="core_calendar_show_next_day">Show next day</string>
+    <string name="core_calendar_day">Day</string>
+    <string name="core_calendar_month">Month</string>
+    <string name="core_calendar_add_for_day">Add for this day</string>
+    <string name="core_calendar_outside_current_month">outside current month</string>
+    <string name="core_calendar_any_time">Any time</string>
+    <string name="core_calendar_timeline">Timeline</string>
+    <string name="core_calendar_nothing_scheduled">Nothing is scheduled for this day.</string>
+    <string name="core_calendar_loading_day">Bringing this day into view…</string>
+    <string name="core_calendar_no_timed_items_today">No items are set for a specific time today.</string>
+    <string name="core_calendar_notifications_off">Notifications off</string>
+    <string name="core_calendar_notification_timing_unavailable">Notification timing unavailable</string>
+    <string name="core_calendar_notification_at_target">Notification around target time</string>
+    <plurals name="core_calendar_notification_minutes_before">
+        <item quantity="one">Notification about %1$d minute before</item>
+        <item quantity="other">Notification about %1$d minutes before</item>
+    </plurals>
+
+    <!-- Search and source rows -->
+    <string name="core_search_title">Search</string>
+    <string name="core_search_local_data">Search local data</string>
+    <string name="core_search_include_archived">Include archived</string>
+    <string name="core_search_minimum_query">Type at least two characters.</string>
+    <string name="core_search_empty">Nothing found here yet.</string>
+    <string name="core_source_row_accessibility">%1$s: %2$s. Open</string>
+    <string name="core_source_row_accessibility_with_date">%1$s: %2$s, %3$s. Open</string>
+    <string name="core_open_item_type">Open %1$s</string>
+
+    <!-- Situation AI -->
+    <string name="core_situation_title">Situation AI</string>
+    <string name="core_situation_subtitle">A local view of what needs your attention</string>
+    <string name="core_situation_close">Close Situation AI</string>
+    <string name="core_situation_ask_luma">Ask LUMA</string>
+    <string name="core_situation_ask_placeholder">Ask about your local items</string>
+    <string name="core_situation_generating_answer">Generating answer</string>
+    <string name="core_situation_send_question">Send question</string>
+    <string name="core_situation_answered_by_gemini">Answered by Gemini from local sources</string>
+    <string name="core_situation_local_answer">Local answer</string>
+    <string name="core_situation_where_am_i">Where am I right now?</string>
+    <string name="core_situation_what_matters">What matters?</string>
+    <string name="core_situation_what_is_stuck">What is stuck?</string>
+
+    <!-- Review -->
+    <string name="core_review_title">Review</string>
+    <string name="core_review_subtitle">A quiet check-in. Nothing here is a score.</string>
+    <string name="core_review_midday_title">Let the day breathe.</string>
+    <string name="core_review_midday_subtitle">Nothing needs sorting here right now.</string>
+    <string name="core_review_breathe_in">Breathe in</string>
+    <string name="core_review_breathe_out">Breathe out</string>
+    <string name="core_review_breathe_gently">Take a gentle breath</string>
+    <string name="core_review_weekly_title">Weekly review</string>
+    <string name="core_review_weekly_subtitle">Swipe through at your own pace</string>
+    <string name="core_review_look_back">Look back</string>
+    <string name="core_review_look_back_subtitle">A gentle view of what the week held</string>
+    <string name="core_review_loose_ends">Loose ends</string>
+    <string name="core_review_loose_ends_subtitle">Things that can wait for your attention</string>
+    <string name="core_review_look_ahead">Look ahead</string>
+    <string name="core_review_look_ahead_subtitle">A light preview, not a commitment</string>
+    <string name="core_review_page_position">%1$s · %2$d of %3$d</string>
+    <string name="core_review_weekly_fallback">This week can be noticed without being measured.</string>
+    <string name="core_review_local_sources_considered">Local sources considered</string>
+    <string name="core_review_open_loops">Open loops</string>
+    <string name="core_review_quiet_for_a_while">Quiet for a while</string>
+    <string name="core_review_waiting">Waiting</string>
+    <string name="core_review_loose_ends_message">You can leave these here and return when it feels useful.</string>
+    <string name="core_review_due_today">Due today</string>
+    <string name="core_review_possible_carry_forwards">Possible carry-forwards</string>
+    <string name="core_review_look_ahead_message">Nothing on this page asks for a decision.</string>
+    <string name="core_review_morning_review">Morning review</string>
+    <string name="core_review_morning_scan">Morning scan</string>
+    <string name="core_review_morning_scan_subtitle">See the shape of today, then begin gently</string>
+    <string name="core_review_recent_inbox_captures">Recent inbox captures</string>
+    <string name="core_review_one_small_place">One small place to start</string>
+    <string name="core_review_evening_review">Evening review</string>
+    <string name="core_review_evening_subtitle">Close what you can; carry the rest without pressure</string>
+    <string name="core_review_unresolved_captures">Unresolved captures</string>
+    <string name="core_review_done_today">Done today</string>
+    <string name="core_review_carry_forward">Carry forward</string>
+    <string name="core_review_choose_day_or_smaller">Choose a new day, or make the next step smaller.</string>
+    <string name="core_review_reschedule_if_relevant">Reschedule when this still matters.</string>
+    <string name="core_review_keep_unscheduled">Keep unscheduled</string>
+    <string name="core_review_open_loops_subtitle">Give each pending item a kind, deliberate decision</string>
+    <string name="core_review_no_open_loops">No open loops need a decision.</string>
+    <string name="core_review_stale_loops">Stale loops</string>
+    <string name="core_review_waiting_for_subtitle">Deferred tasks waiting on an external response</string>
+    <string name="core_review_someday_subtitle">Quiet ideas, not urgent tasks</string>
+    <string name="core_review_close_open_loops">Close open loops</string>
+    <string name="core_review_sort_open_loops">Sort open loops</string>
+    <string name="core_review_show_all_open_loops">Show all open loops</string>
+    <string name="core_review_show_fewer_open_loops">Show fewer open loops</string>
+    <string name="core_review_clear">Review clear</string>
+    <string name="core_review_reason_open_task">Needs review because this task is still open.</string>
+    <string name="core_review_reason_brain_dump">This Brain Dump has suggestions waiting for a decision.</string>
+    <string name="core_review_reason_unfinalized_capture">Needs review because this capture is not finalized or dismissed.</string>
+    <string name="core_review_task_action_explanation">Keep active leaves it open; Someday defers it; Done completes it; Archive hides it.</string>
+    <string name="core_review_brain_dump_action_explanation">Resume continues with the remaining suggestions without recreating handled items.</string>
+    <string name="core_review_capture_action_explanation">Confirm creates one task; Dismiss creates no item; Archive stores the source away.</string>
+    <string name="core_review_keep_active">Keep active</string>
+    <string name="core_review_mark_task_done">Mark task done</string>
+    <string name="core_review_defer_to_someday">Defer to Someday</string>
+    <string name="core_review_resume_brain_dump">Resume Brain Dump</string>
+    <string name="core_review_confirm_as_someday">Confirm as Someday task</string>
+    <string name="core_review_dismiss_capture">Dismiss capture</string>
+    <string name="core_review_archive_task">Archive task</string>
+    <string name="core_review_archive_source">Archive source</string>
+    <string name="core_review_make_smaller">Make smaller</string>
+    <string name="core_review_suggested_by_gemini">Suggested by Gemini</string>
+    <string name="core_review_local_suggestion">Local suggestion</string>
+    <string name="core_review_local_fallback">Local fallback</string>
+
+    <plurals name="core_review_due_count">
+        <item quantity="one">%1$d due</item>
+        <item quantity="other">%1$d due</item>
+    </plurals>
+    <plurals name="core_review_recent_capture_count">
+        <item quantity="one">%1$d recent capture</item>
+        <item quantity="other">%1$d recent captures</item>
+    </plurals>
+    <plurals name="core_review_waiting_count">
+        <item quantity="one">%1$d waiting</item>
+        <item quantity="other">%1$d waiting</item>
+    </plurals>
+    <plurals name="core_review_unresolved_capture_count">
+        <item quantity="one">%1$d unresolved capture</item>
+        <item quantity="other">%1$d unresolved captures</item>
+    </plurals>
+    <plurals name="core_review_done_today_count">
+        <item quantity="one">%1$d done today</item>
+        <item quantity="other">%1$d done today</item>
+    </plurals>
+    <plurals name="core_review_carry_forward_count">
+        <item quantity="one">%1$d to carry forward</item>
+        <item quantity="other">%1$d to carry forward</item>
+    </plurals>
+    <plurals name="core_review_pending_decisions">
+        <item quantity="one">%1$d item still needs a review decision</item>
+        <item quantity="other">%1$d items still need a review decision</item>
+    </plurals>
+    <plurals name="core_review_more_waiting">
+        <item quantity="one">%1$d more will wait for the next small pass.</item>
+        <item quantity="other">%1$d more will wait for the next small pass.</item>
+    </plurals>
+    <plurals name="core_review_quiet_days_or_more">
+        <item quantity="one">Quiet for %1$d day or more</item>
+        <item quantity="other">Quiet for %1$d days or more</item>
+    </plurals>
+    <plurals name="core_review_no_update_days">
+        <item quantity="one">Needs review: no update for %1$d day.</item>
+        <item quantity="other">Needs review: no update for %1$d days.</item>
+    </plurals>
+    <string name="core_learning_save_title">Save a learning preference?</string>
+    <string name="core_learning_save_body">You made this correction more than once: %1$s</string>
+    <string name="core_learning_save_confirm">Save preference</string>
+    <string name="core_learning_not_now">Not now</string>
+</resources>

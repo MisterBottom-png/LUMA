@@ -22,6 +22,8 @@ GENERIC_VALUES = {
     "manager", "reviewer", "stakeholder", "team member", "operator", "administrator",
     "customer", "test user", "user", "team", "anonymous", "redacted", "unknown", "maintainer",
     "phase", "gate",
+    # Generic UI labels (not person identifiers)
+    "name", "personal", "nimi", "isiklik",
 }
 TECHNICAL_PROPER_NOUNS = {
     "android", "codex", "compose", "gemini", "git", "gradle", "java", "json", "kotlin", "luma",

@@ -7,6 +7,7 @@ import androidx.navigation.compose.DialogNavigator
 import androidx.navigation.compose.composable
 import androidx.navigation.createGraph
 import androidx.navigation.navArgument
+import androidx.lifecycle.ViewModelStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.time.LocalDate
@@ -80,6 +81,7 @@ class CalendarNavigationInstrumentedTest {
     private fun calendarNavController(): NavHostController {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         return NavHostController(context).apply {
+            setViewModelStore(ViewModelStore())
             navigatorProvider.addNavigator(ComposeNavigator())
             navigatorProvider.addNavigator(DialogNavigator())
             graph = createGraph(startDestination = OrbitDestination.Home.route) {

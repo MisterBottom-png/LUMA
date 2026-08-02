@@ -1,6 +1,9 @@
 package com.orbit.app.data.export
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.BrainDumpItemEntity
+import com.orbit.app.data.local.entity.BrainDumpSessionEntity
+import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
@@ -17,6 +20,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalDataRestoreTest {
+    @Test
+    fun versionThreeRoundTripPreservesPendingBrainDumpProgress() {
+        val capture = CaptureEntity(id = 1, rawText = "first\nsecond")
+        val snapshot = LocalDataSnapshot(
+            spaces = emptyList(),
+            captures = listOf(capture),
+            notes = emptyList(),
+            tasks = emptyList(),
+            reminders = emptyList(),
+            brainDumpSessions = listOf(BrainDumpSessionEntity(captureId = capture.id, analyzerSource = "Local")),
+            brainDumpItems = listOf(
+                BrainDumpItemEntity(
+                    id = 1,
+                    captureId = capture.id,
+                    sourceKey = "brain:1",
+                    ordinal = 1,
+                    rawText = "first",
+                    suggestedTitle = "First",
+                    suggestedType = SuggestedItemType.Note,
+                    suggestedSpaceName = "Inbox",
+                    confidence = 0.7f,
+                    tinyNextAction = "Keep it small",
+                    reason = "A note is safest.",
+                ),
+            ),
+        )
+
+        assertEquals(snapshot, LocalDataBackupCodec.decode(LocalDataBackupCodec.encode(snapshot, 1L)))
+    }
     @Test
     fun validExportRoundTripPreservesSupportedDataAndRelationships() {
         val original = completeSnapshot()
@@ -41,6 +73,23 @@ class LocalDataRestoreTest {
     }
 
     @Test
+    fun encodingClearsDanglingOptionalCaptureLink() {
+        val capture = CaptureEntity(
+            id = 1,
+            rawText = "Source material",
+            status = CaptureStatus.Processed,
+            linkedItemId = 99,
+        )
+        val snapshot = emptySnapshot().copy(captures = listOf(capture))
+
+        val decoded = LocalDataBackupCodec.decode(
+            LocalDataBackupCodec.encode(snapshot, exportedAt = 1L),
+        )
+
+        assertNull(decoded.captures.single().linkedItemId)
+    }
+
+    @Test
     fun emptyExportIsSupported() {
         val decoded = LocalDataBackupCodec.decode(
             LocalDataBackupCodec.encode(emptySnapshot(), exportedAt = 1L),
@@ -59,6 +108,29 @@ class LocalDataRestoreTest {
         }
         assertEquals(0, store.readCount)
         assertEquals(0, store.replaceCount)
+    }
+
+    @Test
+    fun oversizedExportFailsBeforeJsonParsing() {
+        val oversized = "x".repeat(LocalDataBackupCodec.MaximumInputBytes + 1)
+
+        val exception = assertThrows(LocalDataValidationException::class.java) {
+            LocalDataBackupCodec.decode(oversized)
+        }
+
+        assertTrue(exception.message.orEmpty().contains("too large"))
+    }
+
+    @Test
+    fun excessivelyNestedExportFailsBeforeJsonParsing() {
+        val nested = "[".repeat(LocalDataBackupCodec.MaximumStructureDepth + 1) +
+            "]".repeat(LocalDataBackupCodec.MaximumStructureDepth + 1)
+
+        val exception = assertThrows(LocalDataValidationException::class.java) {
+            LocalDataBackupCodec.decode(nested)
+        }
+
+        assertTrue(exception.message.orEmpty().contains("nested too deeply"))
     }
 
     @Test

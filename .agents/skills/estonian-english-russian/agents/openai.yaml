@@ -1,0 +1,4 @@
+interface:
+  display_name: "Estonian, English & Russian"
+  short_description: "Write, translate, and explain three languages"
+  default_prompt: "Use $estonian-english-russian to translate, proofread, or explain text in Estonian, English, or Russian."

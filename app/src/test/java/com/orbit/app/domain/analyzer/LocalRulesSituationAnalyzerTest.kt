@@ -7,6 +7,7 @@ import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskStatus
 import java.util.concurrent.TimeUnit
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,7 +17,7 @@ class LocalRulesSituationAnalyzerTest {
     private val now = 1_800_000_000_000L
 
     @Test
-    fun `summarises every local source and prioritises overdue reminders`() {
+    fun `surfaces a few grounded items instead of database counts`() {
         val result = analyzer.analyze(
             snapshot(
                 captures = listOf(CaptureEntity(id = 1, rawText = "Sort trip ideas", createdAt = now)),
@@ -28,11 +29,14 @@ class LocalRulesSituationAnalyzerTest {
             ),
         )
 
-        assertTrue(result.whereYouAre.contains("1 inbox capture"))
-        assertTrue(result.whereYouAre.contains("1 active task"))
-        assertTrue(result.whereYouAre.contains("1 reminder"))
-        assertTrue(result.whereYouAre.contains("1 note"))
-        assertEquals("Overdue reminder: Call the dentist", result.nextAction)
+        assertTrue(result.whereYouAre.contains("Call the dentist"))
+        assertTrue(result.whereYouAre.contains("overdue", ignoreCase = true))
+        assertTrue(result.whatMatters.size <= 3)
+        assertTrue(result.whatMatters.all { line ->
+            listOf("Overdue", "Due soon", "Recently captured", "Recently updated").any(line::startsWith)
+        })
+        assertTrue(result.nextAction.startsWith("Overdue reminder: Call the dentist"))
+        assertTrue("reminder:4" in result.sourceItemIds)
     }
 
     @Test
@@ -67,8 +71,53 @@ class LocalRulesSituationAnalyzerTest {
 
         assertTrue(result.whatMatters.single().contains("Nothing urgent"))
         assertTrue(result.whatIsStuck.single().contains("No waiting-for"))
-        assertTrue(result.nextAction.contains("real pause"))
+        assertEquals("No local item needs a next step right now.", result.nextAction)
         assertEquals("There is no obvious local noise to clear right now.", result.clearNoiseSuggestion)
+    }
+
+    @Test
+    fun `excludes completed archived and processed items`() {
+        val result = analyzer.analyze(
+            snapshot(
+                captures = listOf(
+                    CaptureEntity(id = 1, rawText = "Processed source", status = CaptureStatus.Processed, createdAt = now),
+                    CaptureEntity(id = 2, rawText = "Archived source", status = CaptureStatus.Archived, createdAt = now),
+                ),
+                notes = listOf(NoteEntity(id = 3, title = "Archived note", body = "", archived = true)),
+                tasks = listOf(
+                    TaskEntity(id = 4, title = "Done task", status = TaskStatus.Done, completedAt = now),
+                    TaskEntity(id = 5, title = "Archived task", status = TaskStatus.Archived),
+                ),
+                reminders = listOf(ReminderEntity(id = 6, title = "Completed reminder", dueAt = now - 1, completedAt = now)),
+            ),
+        )
+
+        assertEquals("No active local item needs immediate attention right now.", result.whereYouAre)
+        assertTrue(result.sourceItemIds.isEmpty())
+        assertTrue(result.whatMatters.single().startsWith("Nothing urgent"))
+    }
+
+    @Test
+    fun `estonian local guidance uses the selected locale`() {
+        val result = LocalRulesSituationAnalyzer(
+            locale = { Locale.forLanguageTag("et") },
+        ).analyze(snapshot())
+
+        assertEquals("Ükski kohalik asi ei vaja praegu kohe tähelepanu.", result.whereYouAre)
+        assertTrue(result.whatMatters.single().startsWith("Praegu"))
+        assertTrue(result.clearNoiseSuggestion.startsWith("Praegu"))
+    }
+
+    @Test
+    fun `russian local guidance preserves source text without translating it`() {
+        val source = "Keep this exact title"
+        val result = LocalRulesSituationAnalyzer(
+            locale = { Locale.forLanguageTag("ru") },
+        ).analyze(snapshot(captures = listOf(CaptureEntity(id = 1, rawText = source, createdAt = now))))
+
+        assertTrue(result.whatMatters.single().startsWith("Недавно сохранено"))
+        assertTrue(result.whatMatters.single().contains(source))
+        assertTrue(result.clearNoiseSuggestion.startsWith("Начните"))
     }
 
     private fun snapshot(

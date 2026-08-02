@@ -4,6 +4,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -67,6 +68,73 @@ class ReminderTimeInterpreterTest {
 
         assertEquals(ReminderTimeStatus.Unspecified, result.status)
         assertNull(result.epochMillis)
+    }
+
+    @Test
+    fun embeddedFourDigitNumberWithoutTimeContextIsNotAssumedToBeATime() {
+        val result = interpretReminderTime("Budget reference 1600 euros", now, zone)
+
+        assertEquals(ReminderTimeStatus.Unspecified, result.status)
+        assertNull(result.epochMillis)
+    }
+
+    @Test
+    fun estonianRulePackResolvesCompactTimeAndPreservesDateLanguage() {
+        val result = interpretReminderTime(
+            rawText = "Tuleta mulle meelde homme kell 1600",
+            now = now,
+            zoneId = zone,
+            locale = Locale.forLanguageTag("et"),
+        )
+        val local = Instant.ofEpochMilli(requireNotNull(result.epochMillis)).atZone(zone)
+
+        assertEquals(ReminderTimeStatus.Resolved, result.status)
+        assertEquals(LocalDate.of(2026, 7, 15), local.toLocalDate())
+        assertEquals(LocalTime.of(16, 0), local.toLocalTime())
+        assertEquals("16:00 homme", result.phrase)
+    }
+
+    @Test
+    fun russianRulePackResolvesTwentyFourHourTimeAndPreservesDateLanguage() {
+        val result = interpretReminderTime(
+            rawText = "Напомни мне завтра в 16:00",
+            now = now,
+            zoneId = zone,
+            locale = Locale.forLanguageTag("ru"),
+        )
+        val local = Instant.ofEpochMilli(requireNotNull(result.epochMillis)).atZone(zone)
+
+        assertEquals(ReminderTimeStatus.Resolved, result.status)
+        assertEquals(LocalDate.of(2026, 7, 15), local.toLocalDate())
+        assertEquals(LocalTime.of(16, 0), local.toLocalTime())
+        assertEquals("16:00 завтра", result.phrase)
+    }
+
+    @Test
+    fun mixedLanguageReminderUsesSignalsWithoutTranslatingTheMatchedDatePhrase() {
+        val result = interpretReminderTime(
+            rawText = "Напомни tomorrow kell 1600",
+            now = now,
+            zoneId = zone,
+            locale = Locale.forLanguageTag("et"),
+        )
+
+        assertEquals(ReminderTimeStatus.Resolved, result.status)
+        assertEquals("16:00 tomorrow", result.phrase)
+    }
+
+    @Test
+    fun localizedNamedDayPeriodResolvesWithoutChangingTwentyFourHourOutput() {
+        val result = interpretReminderTime(
+            rawText = "tomorrow at 10 in the morning",
+            now = now,
+            zoneId = zone,
+            locale = Locale.ENGLISH,
+        )
+        val local = Instant.ofEpochMilli(requireNotNull(result.epochMillis)).atZone(zone)
+
+        assertEquals(LocalTime.of(10, 0), local.toLocalTime())
+        assertEquals("10:00 tomorrow", result.phrase)
     }
 
     private fun assertLocal(capture: String, date: LocalDate, time: LocalTime) {

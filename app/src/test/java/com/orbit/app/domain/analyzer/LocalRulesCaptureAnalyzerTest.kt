@@ -2,8 +2,10 @@ package com.orbit.app.domain.analyzer
 
 import com.orbit.app.data.local.entity.SuggestedItemType
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -31,7 +33,6 @@ class LocalRulesCaptureAnalyzerTest {
             "stakeholder" to "Work",
             "data governance" to "Work",
             "change management" to "Work",
-            "Monday" to "Work",
             "car" to "Car",
             "Audi" to "Car",
             "Lexus" to "Car",
@@ -85,22 +86,6 @@ class LocalRulesCaptureAnalyzerTest {
     }
 
     @Test
-    fun workTaskCanBeSuggestedAsMondayItem() {
-        val result = analyzer.analyze("Call manager")
-
-        assertTrue(result.possibleMondayItem)
-        assertEquals("Work", result.suggestedSpaceName)
-        assertEquals(SuggestedItemType.Task, result.suggestedType)
-    }
-
-    @Test
-    fun mondaySignalMarksPossibleMondayItem() {
-        val result = analyzer.analyze("Monday planning notes")
-
-        assertTrue(result.possibleMondayItem)
-    }
-
-    @Test
     fun rawTextIsPreservedExactly() {
         val rawText = "  Call manager tomorrow.  \n"
 
@@ -124,7 +109,6 @@ class LocalRulesCaptureAnalyzerTest {
         assertEquals(CaptureConfidence.Low, result.confidenceLevel)
         assertTrue(result.typeReason.isNotBlank())
         assertTrue(result.spaceReason.isNotBlank())
-        assertFalse(result.possibleMondayItem)
         assertFalse(result.reminderPossible)
     }
 
@@ -141,6 +125,70 @@ class LocalRulesCaptureAnalyzerTest {
     fun signalsOnlyMatchCompleteWords() {
         val result = analyzer.analyze("A callback about masking tape")
 
+        assertEquals(SuggestedItemType.Note, result.suggestedType)
+    }
+
+    @Test
+    fun estonianRulesClassifyReminderAndInflectedLifeAreaWords() {
+        val localeAnalyzer = LocalRulesCaptureAnalyzer(
+            now = { Instant.parse("2026-07-14T10:00:00Z") },
+            zoneId = { ZoneId.of("Europe/Tallinn") },
+            locale = { Locale.forLanguageTag("et") },
+        )
+
+        val reminder = localeAnalyzer.analyze("Tuleta mulle meelde homme kell 1600")
+        val task = localeAnalyzer.analyze("Osta koerale toit homme kell 1800")
+
+        assertEquals(SuggestedItemType.Reminder, reminder.suggestedType)
+        assertEquals(ReminderTimeStatus.Resolved, reminder.reminderTimeStatus)
+        assertEquals("16:00 homme", reminder.reminderPhrase)
+        assertEquals(SuggestedItemType.Task, task.suggestedType)
+        assertEquals("Dog", task.suggestedSpaceName)
+    }
+
+    @Test
+    fun russianRulesClassifyReminderAndTaskWithoutEnglishSignals() {
+        val localeAnalyzer = LocalRulesCaptureAnalyzer(
+            now = { Instant.parse("2026-07-14T10:00:00Z") },
+            zoneId = { ZoneId.of("Europe/Tallinn") },
+            locale = { Locale.forLanguageTag("ru") },
+        )
+
+        val reminder = localeAnalyzer.analyze("Напомни мне завтра в 16:00")
+        val task = localeAnalyzer.analyze("Купить корм собаке завтра в 1800")
+
+        assertEquals(SuggestedItemType.Reminder, reminder.suggestedType)
+        assertEquals(ReminderTimeStatus.Resolved, reminder.reminderTimeStatus)
+        assertEquals("16:00 завтра", reminder.reminderPhrase)
+        assertEquals(SuggestedItemType.Task, task.suggestedType)
+        assertEquals("Dog", task.suggestedSpaceName)
+    }
+
+    @Test
+    fun mixedLanguageCaptureCombinesDetectedRulePacks() {
+        val localeAnalyzer = LocalRulesCaptureAnalyzer(
+            now = { Instant.parse("2026-07-14T10:00:00Z") },
+            zoneId = { ZoneId.of("Europe/Tallinn") },
+            locale = { Locale.forLanguageTag("et") },
+        )
+
+        val result = localeAnalyzer.analyze("Saada report tomorrow at 1600")
+
+        assertEquals(SuggestedItemType.Task, result.suggestedType)
+        assertEquals(ReminderTimeStatus.Resolved, result.reminderTimeStatus)
+        assertEquals("16:00 tomorrow", result.reminderPhrase)
+    }
+
+    @Test
+    fun ordinaryEmbeddedNumberIsNotAFalsePositiveReminder() {
+        val localeAnalyzer = LocalRulesCaptureAnalyzer(
+            locale = { Locale.forLanguageTag("et") },
+        )
+
+        val result = localeAnalyzer.analyze("Eelarve 1600 eurot")
+
+        assertFalse(result.reminderPossible)
+        assertEquals(ReminderTimeStatus.Unspecified, result.reminderTimeStatus)
         assertEquals(SuggestedItemType.Note, result.suggestedType)
     }
 
@@ -172,5 +220,54 @@ class LocalRulesCaptureAnalyzerTest {
         assertEquals("Money", result.brainDumpItems[3].suggestedSpaceName)
         assertEquals("Learning", result.brainDumpItems[4].suggestedSpaceName)
         assertTrue(result.brainDumpItems.all { it.tinyNextAction.isNotBlank() })
+    }
+
+    @Test
+    fun brainDumpKeepsShortDuplicateFragmentsStableAndPreservesReminderIntent() {
+        val result = analyzer.analyze("x\nx\nremind me tomorrow at 1600")
+
+        assertEquals(listOf("brain:1", "brain:2", "brain:3"), result.brainDumpItems.map { it.id })
+        assertEquals(listOf("x", "x", "remind me tomorrow at 1600"), result.brainDumpItems.map { it.rawText })
+        assertEquals(SuggestedItemType.Reminder, result.brainDumpItems.last().suggestedType)
+        assertEquals(ReminderTimeStatus.Resolved, result.brainDumpItems.last().reminderTimeStatus)
+        assertTrue(result.brainDumpItems.last().suggestedReminderAt != null)
+    }
+
+    @Test
+    fun brainDumpTaskForNextMonthGetsAnEditableDueDate() {
+        val zone = ZoneId.of("Europe/Tallinn")
+        val fixedAnalyzer = LocalRulesCaptureAnalyzer(
+            now = { Instant.parse("2026-07-14T10:00:00Z") },
+            zoneId = { zone },
+        )
+
+        val item = fixedAnalyzer
+            .analyze("first item\ntesting brain dump task for next month")
+            .brainDumpItems
+            .last()
+        val dueAt = Instant.ofEpochMilli(requireNotNull(item.suggestedReminderAt)).atZone(zone)
+
+        assertEquals(SuggestedItemType.Task, item.suggestedType)
+        assertEquals(LocalDate.of(2026, 8, 14), dueAt.toLocalDate())
+        assertEquals(LocalTime.of(23, 59), dueAt.toLocalTime())
+    }
+
+    @Test
+    fun brainDumpTaskForNextMonthAt1500KeepsBothDateAndTime() {
+        val zone = ZoneId.of("Europe/Tallinn")
+        val fixedAnalyzer = LocalRulesCaptureAnalyzer(
+            now = { Instant.parse("2026-07-14T10:00:00Z") },
+            zoneId = { zone },
+        )
+
+        val item = fixedAnalyzer
+            .analyze("first item\ntesting brain dump task for next month at 1500")
+            .brainDumpItems
+            .last()
+        val dueAt = Instant.ofEpochMilli(requireNotNull(item.suggestedReminderAt)).atZone(zone)
+
+        assertEquals(SuggestedItemType.Task, item.suggestedType)
+        assertEquals(LocalDate.of(2026, 8, 14), dueAt.toLocalDate())
+        assertEquals(LocalTime.of(15, 0), dueAt.toLocalTime())
     }
 }

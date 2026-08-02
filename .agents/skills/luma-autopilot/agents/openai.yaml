@@ -1,0 +1,4 @@
+interface:
+  display_name: "LUMA Autopilot"
+  short_description: "Route and complete bounded LUMA work"
+  default_prompt: "Use $luma-autopilot to own this LUMA request, select the smallest relevant workflow, and finish it within project safeguards."

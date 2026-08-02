@@ -1,0 +1,173 @@
+name: Android release verification
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+  schedule:
+    - cron: '23 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: Run the scheduled API 36 Macrobenchmark smoke checks
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ANDROID_API_LEVEL: '36'
+  LUMA_AVD_NAME: luma_api_36
+  LUMA_PACKAGE_NAME: com.orbit.app
+
+jobs:
+  fast-release-gates:
+    name: Fast release gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Enable Gradle wrapper
+        shell: bash
+        run: chmod +x ./gradlew
+
+      - name: Run clean JVM, lint, instrumentation-build, and release gates
+        shell: bash
+        run: >-
+          ./gradlew --no-daemon --stacktrace clean
+          :app:testDebugUnitTest
+          :app:testReleaseUnitTest
+          :app:lintRelease
+          :app:assembleDebugAndroidTest
+          :app:assembleRelease
+          :app:bundleRelease
+
+      - name: Verify release manifests and artifacts
+        shell: pwsh
+        run: >-
+          ./scripts/verify-release.ps1
+          -RepoRoot $PWD
+          -SkipBuild
+          -RequiredTargetSdk $env:ANDROID_API_LEVEL
+          -ExpectedPackageName $env:LUMA_PACKAGE_NAME
+          -RequireBaselineProfiles
+
+      - name: Check workplace privacy policy
+        shell: bash
+        run: python scripts/codex/check_workplace_privacy.py --strict
+
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-release-evidence
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+            app/build/reports/tests/**
+            app/build/reports/lint-results-release.*
+            artifacts/release/**
+
+  api-36-emulator:
+    name: API 36 emulator verification
+    needs: fast-release-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+
+    env:
+      # Make avdmanager and the setup script agree on one writable AVD home.
+      ANDROID_USER_HOME: ${{ github.workspace }}/.android
+      ANDROID_AVD_HOME: ${{ github.workspace }}/.android/avd
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Enable Gradle wrapper and KVM access
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 0666 /dev/kvm
+          fi
+
+      - name: Provision, boot, test, and inspect on API 36
+        shell: pwsh
+        run: >-
+          ./scripts/run-device-verification.ps1
+          -RepoRoot $PWD
+          -ApiLevel $env:ANDROID_API_LEVEL
+          -AvdName $env:LUMA_AVD_NAME
+          -PackageName $env:LUMA_PACKAGE_NAME
+          -EmulatorGraphics swiftshader_indirect
+          -AcceptLicenses
+          -Headless
+          -GenerateBaselineProfile
+
+      - name: Run scheduled Macrobenchmark smoke checks
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_benchmarks) }}
+        shell: bash
+        run: ./gradlew --no-daemon --stacktrace :macrobenchmark:connectedBenchmarkAndroidTest
+
+      - name: Stop emulator
+        if: always()
+        shell: bash
+        run: |
+          export PATH="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/platform-tools:$PATH"
+          serial="$(adb devices | awk '/^emulator-[0-9]+[[:space:]]+device$/ { print $1; exit }')"
+          if [[ -n "$serial" ]]; then
+            adb -s "$serial" emu kill || true
+          fi
+
+      - name: Upload emulator and device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-36-emulator-evidence
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/device-verification/**
+            artifacts/release/**
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/benchmark/*.apk
+            app/build/reports/androidTests/**
+            macrobenchmark/build/outputs/androidTest-results/**
+            macrobenchmark/build/reports/androidTests/**

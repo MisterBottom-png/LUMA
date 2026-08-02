@@ -1,172 +1,141 @@
 package com.orbit.app.ui.screens.situation
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.automirrored.rounded.FactCheck
-import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.CleaningServices
-import androidx.compose.material.icons.rounded.Lightbulb
-import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.orbit.app.R
 import com.orbit.app.domain.ai.AiSourceItem
 import com.orbit.app.domain.ai.SourceLinkedAnswer
-import com.orbit.app.domain.analyzer.SituationAnalysis
-import com.orbit.app.ui.components.GlassSurface
-import com.orbit.app.ui.components.GlassSurfaceStyle
+import com.orbit.app.ui.components.LumaModalBottomSheet
 import com.orbit.app.ui.components.SourceRow
+import com.orbit.app.ui.components.calmPressHaptics
+import com.orbit.app.ui.components.userVisibleLabel
+import com.orbit.app.ui.theme.OrbitShapes
+import com.orbit.app.ui.theme.OrbitSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SituationAiSheet(
     uiState: SituationAiUiState,
     onDismiss: () -> Unit,
-    onPanelSelected: (SituationPanel) -> Unit,
-    onOpenReview: () -> Unit,
     onSourceSelected: (AiSourceItem) -> Unit,
     onAskQueryChanged: (String) -> Unit,
     onAskLuma: () -> Unit,
 ) {
-    ModalBottomSheet(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetPaneTitle = stringResource(R.string.core_situation_title)
+    LumaModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        dragHandle = null,
-        scrimColor = Color.Black.copy(alpha = 0.18f),
+        sheetState = sheetState,
+        surfaceModifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(0.92f)
+            .semantics { paneTitle = sheetPaneTitle }
+            .calmPressHaptics(),
     ) {
-        GlassSurface(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 360.dp, max = 780.dp),
-            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            style = GlassSurfaceStyle.Sheet,
+                .navigationBarsPadding(),
         ) {
-            Column(
+            SheetHeader(
+                onDismiss = onDismiss,
+                modifier = Modifier.padding(
+                    start = OrbitSpacing.ExtraLarge,
+                    top = 18.dp,
+                    end = OrbitSpacing.ExtraLarge,
+                ),
+            )
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding(),
+                    .weight(1f),
+                contentPadding = PaddingValues(
+                    start = OrbitSpacing.ExtraLarge,
+                    top = OrbitSpacing.Large,
+                    end = OrbitSpacing.ExtraLarge,
+                    bottom = OrbitSpacing.ExtraLarge,
+                ),
+                verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Medium),
             ) {
-                SheetHeader(
-                    onDismiss = onDismiss,
-                    modifier = Modifier.padding(
-                        start = 24.dp,
-                        top = 18.dp,
-                        end = 24.dp,
-                    ),
-                )
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        start = 24.dp,
-                        top = 18.dp,
-                        end = 24.dp,
-                        bottom = 28.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
-                ) {
-                    if (uiState.isLoading || uiState.analysis == null) {
+                if (uiState.isLoading || uiState.analysis == null) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 48.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else {
+                    val analysis = uiState.analysis
+                    item {
+                        BriefingSurface(
+                            whereYouAre = analysis.whereYouAre,
+                            whatMatters = analysis.whatMatters,
+                            whatIsStuck = analysis.whatIsStuck,
+                        )
+                    }
+                    uiState.askAnswer?.let { answer ->
                         item {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 48.dp),
-                                horizontalArrangement = Arrangement.Center,
-                            ) {
-                                CircularProgressIndicator()
-                            }
-                        }
-                    } else {
-                        val analysis = uiState.analysis
-                        item {
-                            AnswerSection(
-                                title = "Where am I right now?",
-                                lines = listOf(uiState.sourceSummary?.rightNow ?: analysis.whereYouAre),
-                            )
-                        }
-                        item {
-                            AnswerSection(
-                                title = "What matters?",
-                                lines = listOfNotNull(uiState.sourceSummary?.whatMatters).ifEmpty { analysis.whatMatters },
-                            )
-                        }
-                        item {
-                            AnswerSection(
-                                title = "What is stuck?",
-                                lines = listOfNotNull(uiState.sourceSummary?.stuck).ifEmpty { analysis.whatIsStuck },
-                            )
-                        }
-                        item {
-                            NextActionCard(uiState.sourceSummary?.nextTinyStep ?: analysis.nextAction)
-                        }
-                        uiState.sourceSummary?.takeIf { it.sourceItems.isNotEmpty() }?.let { summary ->
-                            item {
-                                SourceList(
-                                    title = if (summary.fromGemini) "Sources for Gemini summary" else "Local sources",
-                                    sources = summary.sourceItems,
-                                    onSourceSelected = onSourceSelected,
-                                )
-                            }
-                        }
-                        uiState.selectedPanel?.let { panel ->
-                            item {
-                                SelectedPanelCard(panel = panel, analysis = analysis)
-                            }
-                        }
-                        item {
-                            SituationActions(
-                                selectedPanel = uiState.selectedPanel,
-                                onPanelSelected = onPanelSelected,
-                                onOpenReview = onOpenReview,
-                            )
-                        }
-                        item {
-                            AskLumaSection(
-                                query = uiState.askQuery,
-                                answer = uiState.askAnswer,
-                                isAsking = uiState.isAsking,
-                                onQueryChanged = onAskQueryChanged,
-                                onAsk = onAskLuma,
+                            AskLumaAnswer(
+                                answer = answer,
                                 onSourceSelected = onSourceSelected,
                             )
                         }
                     }
                 }
+            }
+            if (!uiState.isLoading && uiState.analysis != null) {
+                AskLumaSection(
+                    query = uiState.askQuery,
+                    isAsking = uiState.isAsking,
+                    onQueryChanged = onAskQueryChanged,
+                    onAsk = onAskLuma,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -175,32 +144,63 @@ fun SituationAiSheet(
 @Composable
 private fun AskLumaSection(
     query: String,
-    answer: SourceLinkedAnswer?,
     isAsking: Boolean,
     onQueryChanged: (String) -> Unit,
     onAsk: () -> Unit,
-    onSourceSelected: (AiSourceItem) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f))
+            .padding(
+                horizontal = OrbitSpacing.ExtraLarge,
+                vertical = OrbitSpacing.Large,
+            ),
+        verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Small),
+    ) {
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f),
+        )
         Text(
-            text = "Ask LUMA",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+            text = stringResource(R.string.core_situation_ask_luma),
+            modifier = Modifier.semantics { heading() },
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         val composerState = askComposerState(query = query, isAsking = isAsking)
-        OutlinedTextField(
+        val generatingAnswerDescription = stringResource(
+            R.string.core_situation_generating_answer,
+        )
+        TextField(
             value = query,
             onValueChange = onQueryChanged,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Ask about local items") },
+            textStyle = MaterialTheme.typography.bodyLarge,
+            placeholder = {
+                Text(
+                    text = stringResource(R.string.core_situation_ask_placeholder),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            },
             minLines = 1,
             maxLines = 3,
+            shape = OrbitShapes.Standard,
+            colors = TextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f),
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(
                 onSend = { submitAskIfEnabled(composerState, onAsk) },
             ),
             trailingIcon = {
-                IconButton(
+                FilledTonalIconButton(
                     onClick = { submitAskIfEnabled(composerState, onAsk) },
                     enabled = composerState.sendEnabled,
                     modifier = Modifier.size(48.dp),
@@ -209,33 +209,59 @@ private fun AskLumaSection(
                         CircularProgressIndicator(
                             modifier = Modifier
                                 .size(20.dp)
-                                .semantics { contentDescription = "Generating answer" },
+                                .semantics {
+                                    contentDescription = generatingAnswerDescription
+                                },
                             strokeWidth = 2.dp,
                         )
                     } else {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.Send,
-                            contentDescription = "Send question",
+                            contentDescription = stringResource(
+                                R.string.core_situation_send_question,
+                            ),
                         )
                     }
                 }
             },
         )
-        answer?.let {
+    }
+}
+
+@Composable
+private fun AskLumaAnswer(
+    answer: SourceLinkedAnswer,
+    onSourceSelected: (AiSourceItem) -> Unit,
+) {
+    Surface(
+        shape = OrbitShapes.Standard,
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(OrbitSpacing.Large),
+            verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Small),
+        ) {
             Text(
-                text = if (it.fromGemini) "Answered by Gemini from local sources" else "Local answer",
+                text = stringResource(
+                    if (answer.fromGemini) {
+                        R.string.core_situation_answered_by_gemini
+                    } else {
+                        R.string.core_situation_local_answer
+                    },
+                ),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = it.answer,
-                style = MaterialTheme.typography.bodyMedium,
+                text = answer.answer,
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            if (it.sourceItems.isNotEmpty()) {
+            if (answer.sourceItems.isNotEmpty()) {
                 SourceList(
-                    title = "Sources",
-                    sources = it.sourceItems,
+                    title = stringResource(R.string.core_sources),
+                    sources = answer.sourceItems,
                     onSourceSelected = onSourceSelected,
                 )
             }
@@ -271,12 +297,13 @@ private fun SourceList(
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(
             text = title,
+            modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         sources.forEach { source ->
             SourceRow(
-                title = source.title,
+                title = source.userVisibleLabel(),
                 itemType = source.type,
                 onClick = { onSourceSelected(source) },
             )
@@ -291,55 +318,111 @@ private fun SheetHeader(
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
-        Icon(
-            imageVector = Icons.Rounded.AutoAwesome,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-        )
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = OrbitSpacing.Medium),
+            verticalArrangement = Arrangement.spacedBy(OrbitSpacing.ExtraSmall),
         ) {
             Text(
-                text = "Situation AI",
-                style = MaterialTheme.typography.headlineSmall,
+                text = stringResource(R.string.core_situation_title),
+                modifier = Modifier.semantics { heading() },
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "A local view of what needs your attention",
+                text = stringResource(R.string.core_situation_subtitle),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(onClick = onDismiss) {
-            Icon(Icons.Rounded.Close, contentDescription = "Close Situation AI")
+            Icon(
+                Icons.Rounded.Close,
+                contentDescription = stringResource(R.string.core_situation_close),
+            )
         }
     }
 }
 
 @Composable
-private fun AnswerSection(title: String, lines: List<String>) {
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+private fun BriefingSurface(
+    whereYouAre: String,
+    whatMatters: List<String>,
+    whatIsStuck: List<String>,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = OrbitShapes.Standard,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.36f)),
+    ) {
+        Column {
+            BriefingSection(
+                title = stringResource(R.string.core_situation_where_am_i),
+                lines = listOf(whereYouAre),
+            )
+            BriefingDivider()
+            BriefingSection(
+                title = stringResource(R.string.core_situation_what_matters),
+                lines = whatMatters,
+            )
+            BriefingDivider()
+            BriefingSection(
+                title = stringResource(R.string.core_situation_what_is_stuck),
+                lines = whatIsStuck,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BriefingSection(title: String, lines: List<String>) {
+    Column(
+        modifier = Modifier.padding(
+            horizontal = OrbitSpacing.Large,
+            vertical = 18.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Small),
+    ) {
         Text(
             text = title,
+            modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         lines.forEach { line ->
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(OrbitSpacing.Small),
+                verticalAlignment = Alignment.Top,
+            ) {
                 Text(
-                    text = "-",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "\u2022",
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
                     text = line,
                     modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
         }
@@ -347,131 +430,9 @@ private fun AnswerSection(title: String, lines: List<String>) {
 }
 
 @Composable
-private fun NextActionCard(nextAction: String) {
-    GlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        style = GlassSurfaceStyle.Prominent,
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowForward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = "What should I do next?",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-            Text(
-                text = nextAction,
-                modifier = Modifier.padding(top = 10.dp),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SelectedPanelCard(panel: SituationPanel, analysis: SituationAnalysis) {
-    val (title, lines) = when (panel) {
-        SituationPanel.NextAction -> "Next action" to listOf(analysis.nextAction)
-        SituationPanel.OpenLoops -> "Open loops" to analysis.openLoops
-        SituationPanel.TinyPlan -> "Tiny plan" to analysis.tinyPlan.mapIndexed { index, step ->
-            "${index + 1}. $step"
-        }
-        SituationPanel.ClearNoise -> "Clear noise" to listOf(analysis.clearNoiseSuggestion)
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        lines.forEach { line ->
-            Text(
-                text = line,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun SituationActions(
-    selectedPanel: SituationPanel?,
-    onPanelSelected: (SituationPanel) -> Unit,
-    onOpenReview: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Text(
-            text = "Actions",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            SituationActionChip(
-                label = "Show next action",
-                icon = Icons.Rounded.Lightbulb,
-                selected = selectedPanel == SituationPanel.NextAction,
-                onClick = { onPanelSelected(SituationPanel.NextAction) },
-            )
-            SituationActionChip(
-                label = "Review open loops",
-                icon = Icons.AutoMirrored.Rounded.FormatListBulleted,
-                selected = selectedPanel == SituationPanel.OpenLoops,
-                onClick = { onPanelSelected(SituationPanel.OpenLoops) },
-            )
-            SituationActionChip(
-                label = "Make tiny plan",
-                icon = Icons.Rounded.Route,
-                selected = selectedPanel == SituationPanel.TinyPlan,
-                onClick = { onPanelSelected(SituationPanel.TinyPlan) },
-            )
-            SituationActionChip(
-                label = "Clear noise",
-                icon = Icons.Rounded.CleaningServices,
-                selected = selectedPanel == SituationPanel.ClearNoise,
-                onClick = { onPanelSelected(SituationPanel.ClearNoise) },
-            )
-            SituationActionChip(
-                label = "Open review",
-                icon = Icons.AutoMirrored.Rounded.FactCheck,
-                selected = false,
-                onClick = onOpenReview,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SituationActionChip(
-    label: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
+private fun BriefingDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = OrbitSpacing.Large),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f),
     )
 }

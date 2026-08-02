@@ -80,7 +80,17 @@ class CalendarMonthGridTest {
             locale = Locale.US,
         )
         val cell = grid.weeks.flatten().single { it.date == today }
-        val description = calendarMonthCellContentDescription(cell, Locale.US)
+        val description = calendarMonthCellContentDescription(
+            cell = cell,
+            locale = Locale.US,
+            labels = CalendarMonthCellAccessibilityLabels(
+                today = "Today",
+                selected = "selected",
+                outsideCurrentMonth = "outside current month",
+                hasScheduledItems = "has scheduled items",
+                separator = ", ",
+            ),
+        )
 
         assertTrue(cell.isToday)
         assertTrue(cell.isSelected)

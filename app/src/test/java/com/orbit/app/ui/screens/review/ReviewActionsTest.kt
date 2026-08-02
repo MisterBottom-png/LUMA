@@ -14,6 +14,9 @@ import com.orbit.app.data.repository.TaskRepository
 import com.orbit.app.domain.analyzer.ReviewLoop
 import com.orbit.app.domain.analyzer.ReviewLoopType
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
+import com.orbit.app.ui.screens.item.ItemScheduleActions
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -104,18 +107,94 @@ class ReviewActionsTest {
         assertEquals(TaskStatus.Archived, tasks.getById(archiveId)?.status)
     }
 
+    @Test
+    fun carryForwardTaskActionsReuseDateOnlySchedulingAndCompletion() = runBlocking {
+        val captures = FakeCaptureRepository()
+        val tasks = FakeTaskRepository()
+        val reminders = FakeReminderRepository()
+        val zoneId = ZoneId.of("Europe/Tallinn")
+        val today = LocalDate.of(2026, 7, 15)
+        val actions = actions(captures, tasks, reminders, now = 500L, zoneId = zoneId, today = today)
+        val taskId = tasks.insert(TaskEntity(title = "Carry this", dueAt = 100L))
+        val item = ReviewItem(taskId, ReviewItemType.Task, "Carry this", 100L)
+
+        actions.carryForwardTomorrow(item)
+        assertEquals(today.plusDays(1).toEpochDay(), tasks.getById(taskId)?.scheduledDateEpochDay)
+        assertNull(tasks.getById(taskId)?.dueAt)
+
+        actions.keepUnscheduled(item)
+        assertNull(tasks.getById(taskId)?.scheduledDateEpochDay)
+        assertNull(tasks.getById(taskId)?.dueAt)
+
+        actions.completeCarryForward(item)
+        assertEquals(TaskStatus.Done, tasks.getById(taskId)?.status)
+        assertEquals(500L, tasks.getById(taskId)?.completedAt)
+    }
+
+    @Test
+    fun carryForwardReminderPreservesLocalTimeOffsetAndUsesRepositoryUpdate() = runBlocking {
+        val captures = FakeCaptureRepository()
+        val tasks = FakeTaskRepository()
+        val reminders = FakeReminderRepository()
+        val zoneId = ZoneId.of("Europe/Tallinn")
+        val original = LocalDate.of(2026, 7, 14).atTime(9, 30).atZone(zoneId).toInstant().toEpochMilli()
+        val reminderId = reminders.insert(
+            ReminderEntity(
+                title = "Carry reminder",
+                dueAt = original,
+                notificationOffsetMinutes = 45,
+            ),
+        )
+        val actions = actions(
+            captures,
+            tasks,
+            reminders,
+            now = 600L,
+            zoneId = zoneId,
+            today = LocalDate.of(2026, 7, 15),
+        )
+        val item = ReviewItem(reminderId, ReviewItemType.Reminder, "Carry reminder", original)
+        val selectedDate = LocalDate.of(2026, 7, 20)
+
+        actions.carryForwardToDate(item, selectedDate.toEpochDay())
+
+        val rescheduled = reminders.getById(reminderId)!!
+        assertEquals(
+            selectedDate.atTime(9, 30).atZone(zoneId).toInstant().toEpochMilli(),
+            rescheduled.dueAt,
+        )
+        assertEquals(45L, rescheduled.notificationOffsetMinutes)
+        assertEquals(1, reminders.updateCount)
+
+        actions.completeCarryForward(item)
+        assertEquals(600L, reminders.getById(reminderId)?.completedAt)
+        assertEquals(2, reminders.updateCount)
+    }
+
     private fun actions(
         captures: FakeCaptureRepository,
         tasks: FakeTaskRepository,
+        reminders: FakeReminderRepository = FakeReminderRepository(),
         now: Long = 10L,
+        zoneId: ZoneId = ZoneId.of("UTC"),
+        today: LocalDate = LocalDate.of(2026, 7, 15),
     ): ReviewActions {
         val confirm = ConfirmCaptureActionUseCase(
             captureRepository = captures,
             noteRepository = UnusedNoteRepository(),
             taskRepository = tasks,
-            reminderRepository = UnusedReminderRepository(),
+            reminderRepository = reminders,
         )
-        return ReviewActions(captures, tasks, confirm) { now }
+        return ReviewActions(
+            captureRepository = captures,
+            taskRepository = tasks,
+            reminderRepository = reminders,
+            confirmCaptureAction = confirm,
+            scheduleActions = ItemScheduleActions(UnusedNoteRepository(), tasks) { now },
+            now = { now },
+            zoneId = zoneId,
+            today = { today },
+        )
     }
 }
 
@@ -163,6 +242,30 @@ private class FakeTaskRepository : TaskRepository {
     }
 }
 
+private class FakeReminderRepository : ReminderRepository {
+    val entities = linkedMapOf<Long, ReminderEntity>()
+    var updateCount = 0
+    private var nextId = 1L
+
+    override fun observeAll(): Flow<List<ReminderEntity>> = flowOf(entities.values.toList())
+    override suspend fun getById(id: Long): ReminderEntity? = entities[id]
+    override suspend fun insert(entity: ReminderEntity): Long =
+        (entity.id.takeIf { it != 0L } ?: nextId++).also { entities[it] = entity.copy(id = it) }
+
+    override suspend fun update(entity: ReminderEntity) {
+        updateCount += 1
+        entities[entity.id] = entity
+    }
+
+    override suspend fun delete(entity: ReminderEntity) {
+        entities.remove(entity.id)
+    }
+
+    override suspend fun deleteById(id: Long) {
+        entities.remove(id)
+    }
+}
+
 private abstract class UnusedReviewRepository<T> : EntityRepository<T> {
     override fun observeAll(): Flow<List<T>> = flowOf(emptyList())
     override suspend fun getById(id: Long): T? = null
@@ -173,5 +276,3 @@ private abstract class UnusedReviewRepository<T> : EntityRepository<T> {
 }
 
 private class UnusedNoteRepository : UnusedReviewRepository<NoteEntity>(), NoteRepository
-private class UnusedReminderRepository :
-    UnusedReviewRepository<ReminderEntity>(), ReminderRepository

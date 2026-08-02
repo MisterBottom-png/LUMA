@@ -1,0 +1,4 @@
+interface:
+  display_name: "LUMA Regression QA"
+  short_description: "Gather focused regression evidence"
+  default_prompt: "Use $luma-regression-qa to validate this LUMA change and distinguish defects from evidence gaps."

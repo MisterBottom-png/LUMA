@@ -1,5 +1,6 @@
 package com.orbit.app.reminders
 
+import com.orbit.app.R
 import com.orbit.app.data.local.dao.ReminderDao
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.repository.RoomReminderRepository
@@ -16,6 +17,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReminderSchedulingTest {
+    @Test
+    fun reminderOffsetsUseLocalizedApproximateDeliveryLabels() {
+        assertEquals(
+            listOf(
+                R.string.reminder_offset_around_target,
+                R.string.reminder_offset_about_five_minutes,
+                R.string.reminder_offset_about_fifteen_minutes,
+                R.string.reminder_offset_about_thirty_minutes,
+                R.string.reminder_offset_about_one_hour,
+                R.string.reminder_offset_about_one_day,
+            ),
+            reminderOffsetOptions.map(ReminderOffsetOption::labelResId),
+        )
+    }
+
     @Test
     fun localSixteenHundredTargetIsPersistedAndScheduledAsTheSameInstant() = runBlocking {
         val zone = ZoneId.of("Europe/Tallinn")
@@ -115,6 +131,20 @@ class ReminderSchedulingTest {
             reminder.copy(completedAt = 1L)
                 .matchesScheduledNotificationTime(originalNotificationTime),
         )
+    }
+
+    @Test
+    fun alarmAndWorkerDeliveryAttemptsShareIdentityAndStaleTimeGuard() {
+        val current = reminder().copy(id = 42L)
+        val expectedNotificationTime = requireNotNull(current.notificationTimeMillis())
+
+        val alarmDeliveryId = current.currentNotificationRequestCode(expectedNotificationTime)
+        val workerDeliveryId = current.currentNotificationRequestCode(expectedNotificationTime)
+        val editedReminder = current.copy(notificationOffsetMinutes = 15L)
+
+        assertEquals(reminderNotificationRequestCode(42L), alarmDeliveryId)
+        assertEquals(alarmDeliveryId, workerDeliveryId)
+        assertNull(editedReminder.currentNotificationRequestCode(expectedNotificationTime))
     }
 
     @Test

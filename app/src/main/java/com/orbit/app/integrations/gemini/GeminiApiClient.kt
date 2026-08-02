@@ -56,11 +56,13 @@ class HttpGeminiApiClient : GeminiApiClient {
             apiKey = apiKey,
             modelId = modelId,
             prompt = """Return exactly this JSON: {"ok": true}""",
-            maxOutputTokens = 32,
+            // Reasoning-capable models may spend initial tokens on hidden thought parts
+            // before returning the compact JSON acknowledgement.
+            maxOutputTokens = 128,
         ).let { result ->
             when (result) {
                 is GeminiApiResult.Success -> {
-                    if (GeminiJsonValidator.isConnectionOk(result.text)) result
+                    if (GeminiJsonValidator.isConnectionJson(result.text)) result
                     else GeminiApiResult.Failure(geminiError(GeminiApiErrorKind.InvalidResponse))
                 }
 
@@ -80,12 +82,15 @@ class HttpGeminiApiClient : GeminiApiClient {
         }
 
         runCatching {
-            val connection = URL(endpointFor(modelId, cleanKey)).openConnection() as HttpURLConnection
+            val connection = URL(endpointFor(modelId)).openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
             connection.connectTimeout = TimeoutMillis
             connection.readTimeout = TimeoutMillis
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json")
+            // The key travels in the header instead of the URL so it cannot leak
+            // into request logs or proxies.
+            connection.setRequestProperty("x-goog-api-key", cleanKey)
             connection.outputStream.use { output ->
                 output.write(requestBody(prompt, maxOutputTokens).toByteArray(Charsets.UTF_8))
             }
@@ -108,10 +113,9 @@ class HttpGeminiApiClient : GeminiApiClient {
         }
     }
 
-    private fun endpointFor(modelId: String, apiKey: String): String {
+    private fun endpointFor(modelId: String): String {
         val encodedModel = URLEncoder.encode(modelId.trim(), "UTF-8")
-        val encodedKey = URLEncoder.encode(apiKey, "UTF-8")
-        return "$BaseUrl/$encodedModel:generateContent?key=$encodedKey"
+        return "$BaseUrl/$encodedModel:generateContent"
     }
 
     private fun requestBody(prompt: String, maxOutputTokens: Int): String = JSONObject()
@@ -150,13 +154,7 @@ class HttpGeminiApiClient : GeminiApiClient {
             return GeminiApiResult.Failure(geminiError(GeminiApiErrorKind.SafetyBlocked))
         }
 
-        val text = candidate
-            .optJSONObject("content")
-            ?.optJSONArray("parts")
-            ?.optJSONObject(0)
-            ?.optString("text")
-            ?.trim()
-            .orEmpty()
+        val text = extractGeminiResponseText(candidate).orEmpty()
 
         return if (text.isNotBlank()) {
             GeminiApiResult.Success(text = text, modelId = modelId)
@@ -184,6 +182,17 @@ class HttpGeminiApiClient : GeminiApiClient {
         const val BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models"
         const val TimeoutMillis = 15_000
     }
+}
+
+internal fun extractGeminiResponseText(candidate: JSONObject): String? {
+    val parts = candidate.optJSONObject("content")?.optJSONArray("parts") ?: return null
+    for (index in parts.length() - 1 downTo 0) {
+        val part = parts.optJSONObject(index) ?: continue
+        if (part.optBoolean("thought", false)) continue
+        val text = part.optString("text").trim()
+        if (text.isNotBlank()) return text
+    }
+    return null
 }
 
 fun geminiError(kind: GeminiApiErrorKind): GeminiApiError {

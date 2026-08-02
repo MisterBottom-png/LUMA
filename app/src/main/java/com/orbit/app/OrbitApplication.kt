@@ -7,6 +7,7 @@ import com.orbit.app.data.export.LocalReminderRestoreReconciler
 import com.orbit.app.data.export.RoomLocalDataRestoreStore
 import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.repository.AppSettingsRepository
+import com.orbit.app.data.repository.BrainDumpRepository
 import com.orbit.app.data.repository.AiCorrectionHistoryRepository
 import com.orbit.app.data.repository.AiSuggestionHistoryRepository
 import com.orbit.app.data.repository.CaptureRepository
@@ -19,6 +20,7 @@ import com.orbit.app.data.repository.ProjectMemoryRepository
 import com.orbit.app.data.repository.ReminderRepository
 import com.orbit.app.data.repository.RoomAiCorrectionHistoryRepository
 import com.orbit.app.data.repository.RoomAiSuggestionHistoryRepository
+import com.orbit.app.data.repository.RoomBrainDumpRepository
 import com.orbit.app.data.repository.RoomCaptureRepository
 import com.orbit.app.data.repository.RoomCalendarRepository
 import com.orbit.app.data.repository.RoomLearnedRuleRepository
@@ -39,7 +41,9 @@ import com.orbit.app.domain.analyzer.LocalRulesCaptureAnalyzer
 import com.orbit.app.domain.analyzer.LocalRulesSituationAnalyzer
 import com.orbit.app.domain.analyzer.SituationAnalyzer
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
+import com.orbit.app.domain.usecase.BrainDumpActions
 import com.orbit.app.domain.usecase.RecordAiLearningEventUseCase
+import com.orbit.app.domain.usecase.ProposeLearnedRuleUseCase
 import com.orbit.app.integrations.gemini.GeminiApiClient
 import com.orbit.app.integrations.gemini.HttpGeminiApiClient
 import com.orbit.app.reminders.ReminderScheduler
@@ -47,10 +51,12 @@ import com.orbit.app.reminders.ReminderNotifications
 import com.orbit.app.reminders.WorkManagerReminderScheduler
 import com.orbit.app.security.AndroidKeystoreGeminiApiKeyStore
 import com.orbit.app.security.GeminiApiKeyStore
+import com.orbit.app.ui.localization.effectiveAppLocale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class OrbitApplication : Application() {
     lateinit var container: OrbitContainer
@@ -81,6 +87,9 @@ class OrbitContainer(application: Application) {
     val captureRepository: CaptureRepository by lazy {
         RoomCaptureRepository(database.captureDao())
     }
+    val brainDumpRepository: BrainDumpRepository by lazy {
+        RoomBrainDumpRepository(database.brainDumpDao())
+    }
     val spaceRepository: SpaceRepository by lazy {
         RoomSpaceRepository(database.spaceDao())
     }
@@ -94,10 +103,10 @@ class OrbitContainer(application: Application) {
         DataStoreAppSettingsRepository(application)
     }
     val captureAnalyzer: CaptureAnalyzer by lazy {
-        LocalRulesCaptureAnalyzer()
+        LocalRulesCaptureAnalyzer(locale = { effectiveAppLocale(applicationContext) })
     }
     val situationAnalyzer: SituationAnalyzer by lazy {
-        LocalRulesSituationAnalyzer()
+        LocalRulesSituationAnalyzer(locale = { effectiveAppLocale(applicationContext) })
     }
     val geminiApiKeyStore: GeminiApiKeyStore by lazy {
         AndroidKeystoreGeminiApiKeyStore(application)
@@ -144,6 +153,11 @@ class OrbitContainer(application: Application) {
             spaceRepository = spaceRepository,
             spaceAliasMemoryRepository = spaceAliasMemoryRepository,
             correctionHistoryRepository = aiCorrectionHistoryRepository,
+            isLearningEnabled = {
+                appSettingsRepository.settings.first().let { settings ->
+                    settings.enableLocalAiLearning && settings.shareLocalLearningWithGemini
+                }
+            },
         )
     }
     val aiRouter: OrbitAiRouter by lazy {
@@ -152,6 +166,7 @@ class OrbitContainer(application: Application) {
             geminiApiClient = geminiApiClient,
             geminiApiKeyStore = geminiApiKeyStore,
             learningProfileProvider = learningProfileProvider,
+            locale = { effectiveAppLocale(applicationContext) },
         )
     }
     val confirmCaptureAction: ConfirmCaptureActionUseCase by lazy {
@@ -162,10 +177,23 @@ class OrbitContainer(application: Application) {
             reminderRepository = reminderRepository,
         )
     }
+    val brainDumpActions: BrainDumpActions by lazy {
+        BrainDumpActions(database, reminderScheduler)
+    }
     val recordAiLearningEvent: RecordAiLearningEventUseCase by lazy {
         RecordAiLearningEventUseCase(
             suggestionHistoryRepository = aiSuggestionHistoryRepository,
             correctionHistoryRepository = aiCorrectionHistoryRepository,
+            isLearningEnabled = {
+                appSettingsRepository.settings.first().enableLocalAiLearning
+            },
+        )
+    }
+    val proposeLearnedRule: ProposeLearnedRuleUseCase by lazy {
+        ProposeLearnedRuleUseCase(
+            correctionHistoryRepository = aiCorrectionHistoryRepository,
+            learnedRuleRepository = learnedRuleRepository,
+            isLearningEnabled = { appSettingsRepository.settings.first().enableLocalAiLearning },
         )
     }
     val localDataExporter: LocalDataExporter by lazy {
@@ -176,6 +204,7 @@ class OrbitContainer(application: Application) {
             taskRepository = taskRepository,
             reminderRepository = reminderRepository,
             spaceRepository = spaceRepository,
+            brainDumpRepository = brainDumpRepository,
         )
     }
     val localDataRestorer: LocalDataRestorer by lazy {

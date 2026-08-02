@@ -1,16 +1,13 @@
 package com.orbit.app.data.export
 
 import android.content.Context
-import android.os.Environment
+import android.net.Uri
 import com.orbit.app.data.repository.CaptureRepository
+import com.orbit.app.data.repository.BrainDumpRepository
 import com.orbit.app.data.repository.NoteRepository
 import com.orbit.app.data.repository.ReminderRepository
 import com.orbit.app.data.repository.SpaceRepository
 import com.orbit.app.data.repository.TaskRepository
-import java.io.File
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.flow.first
 
 class LocalDataExporter(
@@ -20,9 +17,11 @@ class LocalDataExporter(
     private val taskRepository: TaskRepository,
     private val reminderRepository: ReminderRepository,
     private val spaceRepository: SpaceRepository,
+    private val brainDumpRepository: BrainDumpRepository,
 ) {
-    suspend fun exportJson(): File {
+    suspend fun exportJson(destination: Uri) {
         val exportedAt = System.currentTimeMillis()
+        val brainDumpSessions = brainDumpRepository.getAllSessions()
         val payload = LocalDataBackupCodec.encode(
             snapshot = LocalDataSnapshot(
                 spaces = spaceRepository.observeAll().first(),
@@ -30,20 +29,24 @@ class LocalDataExporter(
                 notes = noteRepository.observeAll().first(),
                 tasks = taskRepository.observeAll().first(),
                 reminders = reminderRepository.observeAll().first(),
+                brainDumpSessions = brainDumpSessions.map { it.session },
+                brainDumpItems = brainDumpSessions.flatMap { it.items },
             ),
             exportedAt = exportedAt,
         )
 
-        val directory = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
-            ?: File(context.filesDir, "exports")
-        if (!directory.exists()) directory.mkdirs()
-
-        val file = File(directory, "luma-export-${exportedAt.exportStamp()}.json")
-        file.writeText(payload)
-        return file
+        val resolver = context.contentResolver
+        try {
+            val output = requireNotNull(resolver.openOutputStream(destination, "wt")) {
+                "The selected export destination could not be opened."
+            }
+            output.bufferedWriter(Charsets.UTF_8).use { writer ->
+                writer.write(payload)
+                writer.flush()
+            }
+        } catch (exception: Exception) {
+            runCatching { resolver.delete(destination, null, null) }
+            throw exception
+        }
     }
-
-    private fun Long.exportStamp(): String = Instant.ofEpochMilli(this)
-        .atZone(ZoneId.systemDefault())
-        .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
 }

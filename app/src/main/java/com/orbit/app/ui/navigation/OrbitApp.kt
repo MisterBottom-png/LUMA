@@ -1,9 +1,19 @@
 package com.orbit.app.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -15,16 +25,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.orbit.app.ui.components.FloatingBottomNavigation
+import com.orbit.app.ui.components.GlassRenderingPolicy
 import com.orbit.app.ui.components.OrbitBackground
+import com.orbit.app.ui.components.calmPressHaptics
 import com.orbit.app.ui.screens.calendar.CalendarScreen
 import com.orbit.app.ui.screens.calendar.CalendarViewModel
 import com.orbit.app.ui.screens.home.HomeScreen
@@ -33,8 +50,6 @@ import com.orbit.app.ui.screens.item.ItemDetailScreen
 import com.orbit.app.ui.screens.item.ItemDetailViewModel
 import com.orbit.app.ui.screens.review.ReviewScreen
 import com.orbit.app.ui.screens.review.ReviewViewModel
-import com.orbit.app.ui.screens.review.ReminderDetailScreen
-import com.orbit.app.ui.screens.review.ReminderDetailViewModel
 import com.orbit.app.ui.screens.search.SearchScreen
 import com.orbit.app.ui.screens.search.SearchViewModel
 import com.orbit.app.ui.screens.settings.AiSettingsViewModel
@@ -48,12 +63,16 @@ import com.orbit.app.OrbitContainer
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.ui.screens.home.HomeCaptureViewModel
 import com.orbit.app.ui.time.currentOrbitTimeFormat
+import com.orbit.app.ui.theme.OrbitMotion
+import com.orbit.app.ui.localization.AppLanguage
 
 @Composable
 fun OrbitApp(
     container: OrbitContainer,
     settings: AppSettings,
     onSettingsChanged: (AppSettings) -> Unit,
+    applicationLanguage: AppLanguage,
+    onApplicationLanguageChanged: (AppLanguage) -> Unit,
     reminderToOpen: Long?,
     onReminderOpened: () -> Unit,
 ) {
@@ -62,11 +81,18 @@ fun OrbitApp(
     val selectedRoute = backStackEntry?.destination?.route
     var showSituationAi by rememberSaveable { mutableStateOf(false) }
     var restoreSituationAiFocus by rememberSaveable { mutableStateOf(false) }
+    var appearanceSubsectionOpen by rememberSaveable { mutableStateOf(false) }
     val situationAiFocusRequester = remember { FocusRequester() }
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
+    val contentMaxWidth = portraitContentMaxWidth(LocalConfiguration.current.screenWidthDp.dp)
     val imeVisible = with(LocalDensity.current) {
         WindowInsets.ime.getBottom(this) > 0
     }
+    val showBottomNavigation = shouldShowFloatingBottomNavigation(
+        imeVisible = imeVisible,
+        selectedRoute = selectedRoute,
+        appearanceSubsectionOpen = appearanceSubsectionOpen,
+    )
 
     LaunchedEffect(reminderToOpen) {
         reminderToOpen?.let { reminderId ->
@@ -84,22 +110,48 @@ fun OrbitApp(
         }
     }
 
-    OrbitBackground(settings = settings) {
-        Box(modifier = Modifier.fillMaxSize()) {
+    LaunchedEffect(selectedRoute) {
+        if (selectedRoute != OrbitDestination.Settings.route) {
+            appearanceSubsectionOpen = false
+        }
+    }
+
+    OrbitBackground(
+        settings = settings,
+        glassRenderingPolicy = glassRenderingPolicyForRoute(selectedRoute),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .calmPressHaptics(),
+        ) {
             NavHost(
                 navController = navController,
                 startDestination = OrbitDestination.Home.route,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .widthIn(max = contentMaxWidth)
+                    .fillMaxSize()
+                    .align(Alignment.TopCenter),
+                enterTransition = { orbitEnterTransition() },
+                exitTransition = { orbitExitTransition() },
+                popEnterTransition = { orbitPopEnterTransition() },
+                popExitTransition = { orbitPopExitTransition() },
             ) {
                 composable(OrbitDestination.Home.route) { entry ->
                     val homeViewModel: HomeCaptureViewModel = viewModel(
                         factory = HomeCaptureViewModel.Factory(
+                            context = container.applicationContext,
                             captureRepository = container.captureRepository,
+                            brainDumpRepository = container.brainDumpRepository,
                             spaceRepository = container.spaceRepository,
                             appSettingsRepository = container.appSettingsRepository,
                             aiRouter = container.aiRouter,
                             confirmCaptureAction = container.confirmCaptureAction,
+                            brainDumpActions = container.brainDumpActions,
+                            reminderRepository = container.reminderRepository,
                             recordAiLearningEvent = container.recordAiLearningEvent,
+                            proposeLearnedRule = container.proposeLearnedRule,
+                            savedStateHandle = entry.savedStateHandle,
                         ),
                     )
                     val homeWeekViewModel: HomeWeekViewModel = viewModel(
@@ -109,6 +161,15 @@ fun OrbitApp(
                     val calendarCaptureEpochDay by entry.savedStateHandle
                         .getStateFlow<Long?>(CalendarCaptureContext.EpochDayKey, null)
                         .collectAsStateWithLifecycle()
+                    val brainDumpResumeCaptureId by entry.savedStateHandle
+                        .getStateFlow<Long?>(BrainDumpResumeContext.CaptureIdKey, null)
+                        .collectAsStateWithLifecycle()
+                    LaunchedEffect(brainDumpResumeCaptureId) {
+                        brainDumpResumeCaptureId?.let { captureId ->
+                            homeViewModel.resumeBrainDump(captureId)
+                            entry.savedStateHandle[BrainDumpResumeContext.CaptureIdKey] = null
+                        }
+                    }
                     HomeScreen(
                         viewModel = homeViewModel,
                         weekUiState = homeWeekUiState,
@@ -120,6 +181,7 @@ fun OrbitApp(
                             homeWeekViewModel.selectDate(date)
                             navController.navigateToCalendar(date)
                         },
+                        onVisibleWeekChanged = homeWeekViewModel::moveVisibleWeek,
                         userName = settings.userName,
                         timeFormat = timeFormat,
                     )
@@ -158,16 +220,30 @@ fun OrbitApp(
                     ReviewScreen(
                         uiState = reviewUiState,
                         timeFormat = timeFormat,
-                        onReminderSelected = { reminderId ->
-                            navController.navigate(ReminderDestination.route(reminderId))
+                        onReviewItemSelected = { item ->
+                            navController.navigate(item.toItemDetailRoute()) {
+                                launchSingleTop = true
+                            }
                         },
                         onKeepTaskActive = reviewViewModel::keepTaskActive,
-                        onConfirmCapture = reviewViewModel::confirmCapture,
+                        onConfirmCapture = { loop ->
+                            if (loop.hasPendingBrainDump) {
+                                navController.returnHomeToResumeBrainDump(loop.id)
+                            } else {
+                                reviewViewModel.confirmCapture(loop)
+                            }
+                        },
                         onArchive = reviewViewModel::archive,
                         onCompleteTask = reviewViewModel::completeTask,
                         onDeferTask = reviewViewModel::deferTask,
                         onDismissCapture = reviewViewModel::dismissCapture,
                         onMakeSmaller = reviewViewModel::makeSmaller,
+                        onCarryForwardTomorrow = reviewViewModel::carryForwardTomorrow,
+                        onCarryForwardToDate = reviewViewModel::carryForwardToDate,
+                        onKeepCarryForwardUnscheduled =
+                            reviewViewModel::keepCarryForwardUnscheduled,
+                        onCompleteCarryForward = reviewViewModel::completeCarryForward,
+                        onWeeklyLookBackVisible = reviewViewModel::loadWeeklySummary,
                     )
                 }
                 composable(OrbitDestination.Settings.route) {
@@ -182,15 +258,22 @@ fun OrbitApp(
                     SettingsScreen(
                         settings = settings,
                         onSettingsChanged = onSettingsChanged,
+                        applicationLanguage = applicationLanguage,
+                        onApplicationLanguageChanged = onApplicationLanguageChanged,
                         aiSettings = aiSettingsUiState,
                         onSaveGeminiKey = aiSettingsViewModel::saveKey,
                         onDeleteGeminiKey = aiSettingsViewModel::deleteKey,
+                        onClearAiLearningData = aiSettingsViewModel::clearLearningData,
+                        onUpdateLearnedRule = aiSettingsViewModel::updateLearnedRule,
+                        onDeleteLearnedRule = aiSettingsViewModel::deleteLearnedRule,
                         onTestGeminiConnection = aiSettingsViewModel::testConnection,
                         localDataTools = localDataToolsUiState,
                         onExportJson = localDataToolsViewModel::exportJson,
                         onRestoreFileSelected = localDataToolsViewModel::restoreFileSelected,
                         onConfirmRestore = localDataToolsViewModel::confirmRestore,
                         onCancelRestore = localDataToolsViewModel::cancelRestore,
+                        onResetAllData = localDataToolsViewModel::resetAllData,
+                        onAppearanceSubsectionChanged = { appearanceSubsectionOpen = it },
                     )
                 }
                 composable(
@@ -253,20 +336,24 @@ fun OrbitApp(
                     val reminderId = entry.arguments
                         ?.getLong(ReminderDestination.ReminderIdArgument)
                         ?: return@composable
-                    val reminderDetailViewModel: ReminderDetailViewModel = viewModel(
-                        key = "reminder_$reminderId",
-                        factory = ReminderDetailViewModel.Factory(
-                            reminderId = reminderId,
-                            reminderRepository = container.reminderRepository,
-                            captureRepository = container.captureRepository,
-                            taskRepository = container.taskRepository,
+                    val itemDetailViewModel: ItemDetailViewModel = viewModel(
+                        key = "item_reminder_$reminderId",
+                        factory = ItemDetailViewModel.Factory(
+                            type = ItemDetailType.Reminder,
+                            itemId = reminderId,
+                            container = container,
                         ),
                     )
-                    ReminderDetailScreen(
-                        viewModel = reminderDetailViewModel,
+                    ItemDetailScreen(
+                        viewModel = itemDetailViewModel,
                         timeFormat = timeFormat,
                         onBack = { navController.popBackStack() },
-                        onDeleted = { navController.popBackStack() },
+                        onTypeChanged = { changedType, changedId ->
+                            navController.replaceCurrentItemDetail(entry, changedType, changedId)
+                        },
+                        onResumeBrainDump = { captureId ->
+                            navController.returnHomeToResumeBrainDump(captureId)
+                        },
                     )
                 }
                 composable(
@@ -299,11 +386,30 @@ fun OrbitApp(
                         viewModel = itemDetailViewModel,
                         timeFormat = timeFormat,
                         onBack = { navController.popBackStack() },
+                        onTypeChanged = { changedType, changedId ->
+                            navController.replaceCurrentItemDetail(entry, changedType, changedId)
+                        },
+                        onResumeBrainDump = { captureId ->
+                            navController.returnHomeToResumeBrainDump(captureId)
+                        },
                     )
                 }
             }
 
-            if (!imeVisible && selectedRoute != CalendarDestination.Route) {
+            AnimatedVisibility(
+                visible = showBottomNavigation,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = fadeIn(tween(OrbitMotion.StandardDurationMillis)) +
+                    slideInVertically(
+                        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                        initialOffsetY = { it / 3 },
+                    ),
+                exit = fadeOut(tween(OrbitMotion.QuickDurationMillis)) +
+                    slideOutVertically(
+                        animationSpec = tween(OrbitMotion.StandardDurationMillis),
+                        targetOffsetY = { it / 3 },
+                    ),
+            ) {
                 FloatingBottomNavigation(
                     selectedRoute = selectedRoute,
                     onDestinationSelected = { destination ->
@@ -317,7 +423,6 @@ fun OrbitApp(
                     },
                     onSituationAiSelected = { showSituationAi = true },
                     situationAiFocusRequester = situationAiFocusRequester,
-                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
 
@@ -329,22 +434,10 @@ fun OrbitApp(
                 SituationAiSheet(
                     uiState = situationUiState,
                     onDismiss = {
-                        situationViewModel.clearPanel()
                         restoreSituationAiFocus = true
                         showSituationAi = false
                     },
-                    onPanelSelected = situationViewModel::show,
-                    onOpenReview = {
-                        situationViewModel.clearPanel()
-                        showSituationAi = false
-                        navController.navigate(OrbitDestination.Review.route) {
-                            launchSingleTop = true
-                            restoreState = true
-                            popUpTo(OrbitDestination.Home.route) { saveState = true }
-                        }
-                    },
                     onSourceSelected = { source ->
-                        situationViewModel.clearPanel()
                         showSituationAi = false
                         navController.navigate(ItemDetailDestination.route(source.type, source.itemId)) {
                             launchSingleTop = true
@@ -357,6 +450,105 @@ fun OrbitApp(
         }
     }
 }
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitEnterTransition(): EnterTransition {
+    val direction = navigationSlideDirection(
+        initialRoute = initialState.destination.route,
+        targetRoute = targetState.destination.route,
+    )
+    return slideIntoContainer(
+        towards = direction,
+        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+        initialOffset = { it / 7 },
+    ) + fadeIn(tween(OrbitMotion.StandardDurationMillis))
+}
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitExitTransition(): ExitTransition {
+    val direction = navigationSlideDirection(
+        initialRoute = initialState.destination.route,
+        targetRoute = targetState.destination.route,
+    )
+    return slideOutOfContainer(
+        towards = direction,
+        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+        targetOffset = { it / 10 },
+    ) + fadeOut(tween(OrbitMotion.StandardDurationMillis))
+}
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitPopEnterTransition(): EnterTransition =
+    slideIntoContainer(
+        towards = AnimatedContentTransitionScope.SlideDirection.Right,
+        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+        initialOffset = { it / 7 },
+    ) + fadeIn(tween(OrbitMotion.StandardDurationMillis))
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitPopExitTransition(): ExitTransition =
+    slideOutOfContainer(
+        towards = AnimatedContentTransitionScope.SlideDirection.Right,
+        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+        targetOffset = { it / 10 },
+    ) + fadeOut(tween(OrbitMotion.StandardDurationMillis))
+
+private fun navigationSlideDirection(
+    initialRoute: String?,
+    targetRoute: String?,
+): AnimatedContentTransitionScope.SlideDirection {
+    val topLevelRoutes = listOf(
+        OrbitDestination.Home.route,
+        OrbitDestination.Spaces.route,
+        OrbitDestination.Review.route,
+        OrbitDestination.Settings.route,
+    )
+    val initialIndex = topLevelRoutes.indexOf(initialRoute)
+    val targetIndex = topLevelRoutes.indexOf(targetRoute)
+    return if (initialIndex >= 0 && targetIndex >= 0 && targetIndex < initialIndex) {
+        AnimatedContentTransitionScope.SlideDirection.Right
+    } else {
+        AnimatedContentTransitionScope.SlideDirection.Left
+    }
+}
+
+internal fun shouldShowFloatingBottomNavigation(
+    imeVisible: Boolean,
+    selectedRoute: String?,
+    appearanceSubsectionOpen: Boolean,
+): Boolean = !imeVisible &&
+    selectedRoute != CalendarDestination.Route &&
+    selectedRoute != SearchDestination.Route &&
+    selectedRoute != ItemDetailDestination.Route &&
+    selectedRoute != ReminderDestination.Route &&
+    !appearanceSubsectionOpen
+
+internal fun portraitContentMaxWidth(availableWidth: Dp): Dp = when {
+    availableWidth < 600.dp -> availableWidth
+    availableWidth < 840.dp -> 720.dp
+    else -> 840.dp
+}.coerceAtMost(availableWidth)
+
+private fun NavController.replaceCurrentItemDetail(
+    entry: NavBackStackEntry,
+    type: ItemDetailType,
+    itemId: Long,
+) {
+    navigate(ItemDetailDestination.route(type, itemId)) {
+        popUpTo(entry.destination.id) { inclusive = true }
+        launchSingleTop = true
+    }
+}
+
+internal fun glassRenderingPolicyForRoute(selectedRoute: String?): GlassRenderingPolicy =
+    when (selectedRoute) {
+        OrbitDestination.Home.route,
+        OrbitDestination.Spaces.route,
+        OrbitDestination.Review.route,
+        OrbitDestination.Settings.route,
+        -> GlassRenderingPolicy.LiveAllowed
+
+        else -> GlassRenderingPolicy.SoftOnly
+    }
+
+internal fun shouldEnableHazeCapture(selectedRoute: String?): Boolean =
+    glassRenderingPolicyForRoute(selectedRoute) == GlassRenderingPolicy.LiveAllowed
 
 private fun com.orbit.app.ui.screens.spaces.SpaceItemReference.route(): String {
     val detailType = when (type) {

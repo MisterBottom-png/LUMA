@@ -119,7 +119,7 @@ class ConfirmCaptureActionUseCase(
         spaceId: Long?,
     ): Long = taskRepository.insert(
         TaskEntity(
-            title = title.trim().ifBlank { "Untitled task" },
+            title = title.trim().ifBlank { notes.toNoteTitle() },
             notes = notes,
             spaceId = spaceId,
         ),
@@ -159,5 +159,5 @@ class ConfirmCaptureActionUseCase(
     }
 
     private fun String.toNoteTitle(): String =
-        lineSequence().firstOrNull().orEmpty().trim().ifBlank { "Untitled note" }.take(80)
+        lineSequence().firstOrNull().orEmpty().trim().take(80)
 }

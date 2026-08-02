@@ -4,6 +4,10 @@
 .kotlin/
 .idea/
 local.properties
+keystore.properties
+signing.properties
+*.jks
+*.keystore
 build/
 app/build/
 captures/
@@ -12,3 +16,8 @@ captures/
 orbit-debug.apk
 apk-server*.log
 tmpfiles-page*.html
+_cleanup_before_luma_v4_upgrade/
+.codex-remote-attachments/
+
+__pycache__/
+*.pyc

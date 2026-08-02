@@ -29,6 +29,14 @@ data class CalendarMonthGrid(
     val weeks: List<List<CalendarMonthCell>>,
 )
 
+data class CalendarMonthCellAccessibilityLabels(
+    val today: String,
+    val selected: String,
+    val outsideCurrentMonth: String,
+    val hasScheduledItems: String,
+    val separator: String,
+)
+
 fun buildCalendarMonthGrid(
     visibleMonth: YearMonth,
     selectedDate: LocalDate,
@@ -67,13 +75,17 @@ fun buildCalendarMonthGrid(
     )
 }
 
-fun calendarMonthCellContentDescription(cell: CalendarMonthCell, locale: Locale): String = buildList {
-    if (cell.isToday) add("Today")
+fun calendarMonthCellContentDescription(
+    cell: CalendarMonthCell,
+    locale: Locale,
+    labels: CalendarMonthCellAccessibilityLabels,
+): String = buildList {
+    if (cell.isToday) add(labels.today)
     add(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale).format(cell.date))
-    if (cell.isSelected) add("selected")
-    if (!cell.isInVisibleMonth) add("outside current month")
-    if (cell.hasItems) add("has scheduled items")
-}.joinToString(", ")
+    if (cell.isSelected) add(labels.selected)
+    if (!cell.isInVisibleMonth) add(labels.outsideCurrentMonth)
+    if (cell.hasItems) add(labels.hasScheduledItems)
+}.joinToString(labels.separator)
 
 private fun daysFrom(first: DayOfWeek, target: DayOfWeek): Int =
     (DaysPerWeek + target.value - first.value) % DaysPerWeek

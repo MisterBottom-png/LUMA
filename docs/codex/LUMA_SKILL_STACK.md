@@ -1,69 +1,69 @@
-# LUMA Skill Stack
+# LUMA Codex-side agent and skill stack
 
-## Stack shape
+This document describes the repository-discovered Codex side of the cross-tool setup. Hermes uses external profiles plus `AGENTS.md` and reads these canonical playbooks as project documents when needed. See `../AGENT_TOOLING.md` for the complete boundary.
+
+## Source of truth
+
+```text
+AGENTS.md                    permanent repository laws and routing
+.agents/skills/              canonical version-controlled LUMA playbooks
+.codex/config.toml           project-scoped Codex defaults
+.codex/agents/               optional read-only Codex reviewers
+docs/codex/                  product, safety, cleanup, and verification contracts
+scripts/codex/               structural, privacy, and cleanup validation
+```
+
+Do not create a `.codex/skills` mirror. Codex discovers repository skills from `.agents/skills`, and duplicate skill names are not merged. Hermes profiles are separate machine-local runtime agents and are not represented by `.codex/agents/`.
+
+## Workflow
 
 ```text
 User request
-  ↓
-AGENTS.md permanent laws
-  ↓
-luma-autopilot controller
-  ↓
-1-2 specialist skills
-  ↓
-reviewer agents when useful
-  ↓
-luma-regression-qa
-  ↓
-luma-self-learning for medium/large tasks
+  -> AGENTS.md
+  -> luma-autopilot
+  -> one primary specialist
+  -> one supporting specialist only when required
+  -> bounded reviewer when risk warrants it
+  -> luma-regression-qa for meaningful final validation
 ```
 
-## Skill principle
+The active agent owns decisions and execution. Skills are operational playbooks. Custom agents are independent read-only reviewers. The user remains the approval authority for consequential choices.
 
-Use the smallest number of skills needed.
+## Active skills
 
-Do not activate every skill because a task vaguely smells like software. That is how context becomes soup.
+| Skill | Responsibility |
+|---|---|
+| `luma-autopilot` | Route requests and enforce project gates. |
+| `luma-android-developer` | Kotlin, Gradle, architecture, navigation, and app behavior. |
+| `luma-compose-ui` | Compose, Material 3, layout, theme, state, and accessibility. |
+| `luma-glass-haze-guardian` | Glass roles, Haze, blur, contrast, and performance. |
+| `luma-room-data-guardian` | Room, repositories, migrations, persistence, export, restore, and reset. |
+| `luma-ai-reminder-guardian` | Gemini, structured AI output, dates, reminders, notifications, and timezones. |
+| `luma-project-cleanup` | Evidence-backed, behavior-preserving repository cleanup. |
+| `luma-mvp-release-manager` | MVP and later-release evidence, readiness, and bounded blocker repair. |
+| `luma-regression-qa` | Focused validation, protected behavior, and regression evidence. |
 
-## Skill list
+## Active reviewers
+
+| Reviewer | Use for |
+|---|---|
+| `luma_code_data_reviewer` | Correctness, lifecycle, concurrency, Room, persistence, and data-loss risk. |
+| `luma_ui_accessibility_reviewer` | Compose behavior, themes, layout, navigation, and accessibility. |
+| `luma_release_regression_reviewer` | MVP/release evidence, protected behaviors, and unsupported completion claims. |
+
+Reviewers are read-only. Do not use them for ordinary small changes or let multiple agents edit the same files.
+
+`luma-regression-qa` executes validation and gathers evidence. `luma_release_regression_reviewer` audits the supplied evidence and completion claim. Neither reviewer nor skill replaces the implementing agent's final judgment.
+
+Every skill carries optional discovery metadata at `agents/openai.yaml`. Bulky or trigger-specific procedures belong under the skill's `references/` directory and are loaded only when needed.
+
+## Validation
+
+Run:
 
 ```text
-luma-autopilot                controller/router
-luma-feature-intake           feature discovery and brief creation
-luma-android-developer        Android/Kotlin implementation
-luma-compose-ui               Compose UI and Material 3
-luma-room-data-guardian       Room/data/export/restore/reset
-luma-ai-behavior-guardian     Gemini/AI behavior and trust boundaries
-luma-reminder-time-guardian   date/time/reminder parsing and notification offsets
-luma-regression-qa            validation and regression evidence
-luma-docs-package-maintainer  docs and package upkeep
-luma-mvp-release-manager      MVP readiness and release scope
-luma-skill-governance         skill safety, import, and duplication review
-luma-self-learning            controlled project learning
+python scripts/codex/validate_luma_codex_stack.py
+python scripts/codex/check_workplace_privacy.py --strict
 ```
 
-## Reviewer agents
-
-```text
-luma_ux_reviewer
-luma_risk_reviewer
-luma_regression_reviewer
-luma_memory_guardian
-luma_android_architect
-luma_ai_behavior_reviewer
-luma_accessibility_reviewer
-luma_docs_reviewer
-luma_release_reviewer
-```
-
-## External skills
-
-Recommended official Android skills are external, not bundled:
-
-```text
-android-cli
-edge-to-edge
-navigation-3
-testing-setup
-r8-analyzer
-android-intent-security
-```
+The structural validator defines the expected active skill and reviewer names.
