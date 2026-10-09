@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.orbit.app.domain.model.AppSettings
+import com.orbit.app.domain.model.GlassEffect
 import com.orbit.app.ui.theme.OrbitShapes
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.ExperimentalHazeApi
@@ -50,6 +51,9 @@ enum class GlassSurfaceStyle {
     HomeCapture,
     HomeNavigation,
     NavigationAction,
+
+    /** The bottom bar: near-solid so scrolling content never mixes with its labels. */
+    NavigationBar,
 }
 
 @OptIn(ExperimentalHazeApi::class)
@@ -236,6 +240,7 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
         GlassSurfaceStyle.HomeCapture -> if (isDark) 22.dp else 18.dp
         GlassSurfaceStyle.HomeNavigation -> if (isDark) 14.dp else 12.dp
         GlassSurfaceStyle.NavigationAction -> if (isDark) 18.dp else 14.dp
+        GlassSurfaceStyle.NavigationBar -> if (isDark) 12.dp else 10.dp
     }
     val noiseFactor = when (style) {
         GlassSurfaceStyle.Sheet -> if (isDark) 0.040f else 0.030f
@@ -245,6 +250,7 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
         GlassSurfaceStyle.HomeCapture -> if (isDark) 0.036f else 0.028f
         GlassSurfaceStyle.HomeNavigation -> if (isDark) 0.024f else 0.018f
         GlassSurfaceStyle.NavigationAction -> if (isDark) 0.026f else 0.020f
+        GlassSurfaceStyle.NavigationBar -> if (isDark) 0.020f else 0.016f
     }
 
     val edgeStrength = 0.55f + (glassStrength * 0.45f)
@@ -290,6 +296,7 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
             GlassSurfaceStyle.HomeCapture -> 5.dp
             GlassSurfaceStyle.HomeNavigation -> 3.dp
             GlassSurfaceStyle.NavigationAction -> 2.dp
+            GlassSurfaceStyle.NavigationBar -> 4.dp
         },
         fallbackColor = tint,
     )
@@ -303,6 +310,7 @@ internal fun glassAccentTintAlpha(style: GlassSurfaceStyle, isDark: Boolean): Fl
     GlassSurfaceStyle.HomeCapture -> if (isDark) 0.050f else 0.040f
     GlassSurfaceStyle.HomeNavigation -> if (isDark) 0.045f else 0.035f
     GlassSurfaceStyle.NavigationAction -> if (isDark) 0.040f else 0.030f
+    GlassSurfaceStyle.NavigationBar -> if (isDark) 0.045f else 0.035f
 }
 
 internal fun glassTintAlpha(
@@ -319,6 +327,7 @@ internal fun glassTintAlpha(
         GlassSurfaceStyle.HomeCapture -> 0.02f
         GlassSurfaceStyle.HomeNavigation -> -0.01f
         GlassSurfaceStyle.NavigationAction -> 0.01f
+        GlassSurfaceStyle.NavigationBar -> 0.20f
     }
     val themeAdjustment = if (isDark) 0.02f else 0f
     val customBackgroundBoost = if (hasCustomBackground) 0.05f else 0f
@@ -344,7 +353,9 @@ internal fun orbitSoftSurfaceVisuals(
         isDark = isDark,
         glassStrength = glassStrength,
         hasCustomBackground = hasCustomBackground,
-    )
+    ).let { alpha ->
+        if (LocalOrbitAppearance.current.glassEffect == GlassEffect.Off) solidSurfaceAlpha(alpha) else alpha
+    }
     return SoftSurfaceVisuals(
         containerColor = when (style) {
             GlassSurfaceStyle.Subtle -> colors.surfaceContainerLow
@@ -354,16 +365,27 @@ internal fun orbitSoftSurfaceVisuals(
             GlassSurfaceStyle.HomeCapture -> colors.surfaceContainerHigh
             GlassSurfaceStyle.HomeNavigation -> colors.surfaceContainerHigh
             GlassSurfaceStyle.NavigationAction -> colors.primaryContainer
+            GlassSurfaceStyle.NavigationBar -> colors.surfaceContainerHigh
         }.withAlpha(containerAlpha),
         borderColor = when (style) {
             GlassSurfaceStyle.Subtle -> colors.outlineVariant.copy(alpha = if (isDark) 0.22f else 0.18f)
             GlassSurfaceStyle.HomeCapture -> colors.outlineVariant.copy(alpha = 0.56f)
             GlassSurfaceStyle.HomeNavigation -> colors.outlineVariant.copy(alpha = if (isDark) 0.22f else 0.18f)
             GlassSurfaceStyle.NavigationAction -> colors.primary.copy(alpha = if (isDark) 0.16f else 0.10f)
+            GlassSurfaceStyle.NavigationBar -> colors.outlineVariant.copy(alpha = if (isDark) 0.30f else 0.24f)
             else -> colors.outline
         },
     )
 }
+
+/** Glass effect "Off": surfaces become solid enough that nothing shows through. */
+internal fun solidSurfaceAlpha(alpha: Float): Float = maxOf(alpha, SolidSurfaceAlpha)
+
+internal const val SolidSurfaceAlpha = 0.97f
+
+/** Strong is the only level that may draw live blur; Soft and Off never do. */
+internal fun glassRenderingPolicyFor(effect: GlassEffect, routePolicy: GlassRenderingPolicy): GlassRenderingPolicy =
+    if (effect == GlassEffect.Strong) routePolicy else GlassRenderingPolicy.SoftOnly
 
 internal fun Color.withAlpha(alpha: Float): Color = copy(alpha = alpha.coerceIn(0f, 1f))
 
@@ -375,6 +397,11 @@ internal fun softGlassContainerAlpha(
 ): Float {
     if (style == GlassSurfaceStyle.NavigationAction) {
         return if (isDark) 0.84f else 0.92f
+    }
+
+    if (style == GlassSurfaceStyle.NavigationBar) {
+        val customBackgroundBoost = if (hasCustomBackground) 0.03f else 0f
+        return ((if (isDark) 0.88f else 0.92f) + customBackgroundBoost).coerceAtMost(0.96f)
     }
 
     if (style == GlassSurfaceStyle.Sheet) {
@@ -416,6 +443,7 @@ internal fun softGlassContainerAlpha(
         GlassSurfaceStyle.HomeCapture -> 0.02f
         GlassSurfaceStyle.HomeNavigation -> -0.01f
         GlassSurfaceStyle.NavigationAction -> 0.01f
+        GlassSurfaceStyle.NavigationBar -> 0.20f
     }
     val themeAdjustment = if (isDark) 0.03f else 0f
     val customBackgroundBoost = if (hasCustomBackground) 0.04f else 0f

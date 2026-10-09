@@ -88,19 +88,18 @@ class TutorialSpaceSetupViewModel(
         viewModelScope.launch(workerDispatcher) {
             val result = runCatching {
                 val now = System.currentTimeMillis()
-                templates.forEachIndexed { index, template ->
-                    spaceRepository.insert(StarterSpaces.spaceFor(template, sortOrder = index, now = now))
-                }
-                customNames.forEachIndexed { index, name ->
-                    spaceRepository.insert(
-                        StarterSpaces.spaceFor(
-                            template = CustomSpaceTemplate,
-                            name = name,
-                            sortOrder = templates.size + index,
-                            now = now,
-                        ),
+                val starters = templates.mapIndexed { index, template ->
+                    StarterSpaces.spaceFor(template, sortOrder = index, now = now)
+                } + customNames.mapIndexed { index, name ->
+                    StarterSpaces.spaceFor(
+                        template = CustomSpaceTemplate,
+                        name = name,
+                        sortOrder = templates.size + index,
+                        now = now,
                     )
                 }
+                // All or nothing, and a replayed guide never duplicates an existing Space.
+                spaceRepository.insertStarterSpaces(starters)
             }
             withContext(uiDispatcher) {
                 result.onSuccess {

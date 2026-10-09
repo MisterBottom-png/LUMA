@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -38,6 +39,11 @@ internal enum class SystemMenuSection(
 ) {
     Time(R.string.settings_time_title, R.string.settings_time_subtitle, Icons.Filled.AccessTime),
     Language(R.string.settings_language_title, R.string.settings_language_subtitle, Icons.Filled.Language),
+    CaptureReminders(
+        R.string.settings_capture_reminders_title,
+        R.string.settings_capture_reminders_subtitle,
+        Icons.Filled.Notifications,
+    ),
     Ai(R.string.settings_ai_title, R.string.settings_ai_subtitle, Icons.Filled.AutoAwesome),
     LocalData(R.string.settings_local_data_title, R.string.settings_local_data_subtitle, Icons.Filled.Storage),
 }
@@ -71,6 +77,13 @@ internal fun SystemMenuCard(
                 title = stringResource(SystemMenuSection.Language.titleRes),
                 status = stringResource(applicationLanguage.labelRes()),
                 onClick = { onSectionSelected(SystemMenuSection.Language) },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
+            SettingsMenuRow(
+                icon = SystemMenuSection.CaptureReminders.icon,
+                title = stringResource(SystemMenuSection.CaptureReminders.titleRes),
+                status = stringResource(rememberReminderCapabilityStatus().state.statusRes()),
+                onClick = { onSectionSelected(SystemMenuSection.CaptureReminders) },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
             SettingsMenuRow(

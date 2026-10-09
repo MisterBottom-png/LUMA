@@ -1,10 +1,27 @@
 package com.orbit.app.ui.navigation
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BottomNavigationVisibilityTest {
+    @Test
+    fun barHoldsHomeSpacesCalendarReviewInThatOrder_andSettingsLivesOutsideIt() {
+        assertEquals(
+            listOf(
+                OrbitDestination.Home,
+                OrbitDestination.Spaces,
+                OrbitDestination.Calendar,
+                OrbitDestination.Review,
+            ),
+            OrbitDestination.bottomBar,
+        )
+        assertFalse(OrbitDestination.Settings.inBottomBar)
+        assertEquals(CalendarDestination.BaseRoute, OrbitDestination.Calendar.navigationRoute)
+        assertEquals(CalendarDestination.Route, OrbitDestination.Calendar.route)
+    }
+
     @Test
     fun topLevelScreens_allowLiveGlassForTheFixedBottomNavigation() {
         assertTrue(shouldEnableHazeCapture(OrbitDestination.Home.route))
@@ -22,8 +39,27 @@ class BottomNavigationVisibilityTest {
     }
 
     @Test
-    fun appearanceIndex_keepsBottomNavigationVisible() {
-        assertTrue(
+    fun tabs_showTheBar_includingCalendar() {
+        listOf(
+            OrbitDestination.Home.route,
+            OrbitDestination.Spaces.route,
+            CalendarDestination.Route,
+            OrbitDestination.Review.route,
+        ).forEach { route ->
+            assertTrue(
+                route,
+                shouldShowFloatingBottomNavigation(
+                    imeVisible = false,
+                    selectedRoute = route,
+                    appearanceSubsectionOpen = false,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun settings_hidesTheBar() {
+        assertFalse(
             shouldShowFloatingBottomNavigation(
                 imeVisible = false,
                 selectedRoute = OrbitDestination.Settings.route,
@@ -34,46 +70,23 @@ class BottomNavigationVisibilityTest {
 
     @Test
     fun search_hidesBottomNavigationWithOrWithoutTheKeyboard() {
-        assertFalse(
-            shouldShowFloatingBottomNavigation(
-                imeVisible = false,
-                selectedRoute = SearchDestination.Route,
-                appearanceSubsectionOpen = false,
-            ),
-        )
-        assertFalse(
-            shouldShowFloatingBottomNavigation(
-                imeVisible = true,
-                selectedRoute = SearchDestination.Route,
-                appearanceSubsectionOpen = false,
-            ),
-        )
+        listOf(false, true).forEach { imeVisible ->
+            assertFalse(
+                shouldShowFloatingBottomNavigation(
+                    imeVisible = imeVisible,
+                    selectedRoute = SearchDestination.Route,
+                    appearanceSubsectionOpen = false,
+                ),
+            )
+        }
     }
 
     @Test
-    fun settingsSubsection_hidesBottomNavigationUntilReturn() {
-        assertFalse(
-            shouldShowFloatingBottomNavigation(
-                imeVisible = false,
-                selectedRoute = OrbitDestination.Settings.route,
-                appearanceSubsectionOpen = true,
-            ),
-        )
-        assertTrue(
-            shouldShowFloatingBottomNavigation(
-                imeVisible = false,
-                selectedRoute = OrbitDestination.Settings.route,
-                appearanceSubsectionOpen = false,
-            ),
-        )
-    }
-
-    @Test
-    fun existingImeAndCalendarRulesRemainProtected() {
+    fun keyboardAndDetailScreens_hideTheBar() {
         assertFalse(
             shouldShowFloatingBottomNavigation(
                 imeVisible = true,
-                selectedRoute = OrbitDestination.Settings.route,
+                selectedRoute = OrbitDestination.Home.route,
                 appearanceSubsectionOpen = false,
             ),
         )
@@ -88,20 +101,6 @@ class BottomNavigationVisibilityTest {
             shouldShowFloatingBottomNavigation(
                 imeVisible = false,
                 selectedRoute = ReminderDestination.Route,
-                appearanceSubsectionOpen = false,
-            ),
-        )
-        assertTrue(
-            shouldShowFloatingBottomNavigation(
-                imeVisible = false,
-                selectedRoute = OrbitDestination.Home.route,
-                appearanceSubsectionOpen = false,
-            ),
-        )
-        assertFalse(
-            shouldShowFloatingBottomNavigation(
-                imeVisible = false,
-                selectedRoute = CalendarDestination.Route,
                 appearanceSubsectionOpen = false,
             ),
         )

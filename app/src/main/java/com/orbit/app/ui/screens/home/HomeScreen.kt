@@ -50,6 +50,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +64,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.AlertDialog
@@ -93,6 +97,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.ContextCompat
 import com.orbit.app.R
@@ -121,6 +126,8 @@ fun HomeScreen(
     onVisibleWeekChanged: (Int) -> Unit,
     userName: String,
     timeFormat: OrbitTimeFormat,
+    onOpenSettings: () -> Unit = {},
+    focusCaptureOnOpen: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -232,35 +239,23 @@ fun HomeScreen(
                         translationY = headerTranslationY
                     },
             ) {
-                Text(
-                    text = stringResource(greetingResFor(LocalTime.now().hour)),
-                    style = HomeTypography.greeting,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = userName.ifBlank { stringResource(R.string.home_default_user_label) },
-                    style = HomeTypography.userName,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                HomeHeader(
+                    greeting = homeGreeting(LocalTime.now().hour, userName),
+                    onOpenSettings = onOpenSettings,
                 )
 
-                Spacer(modifier = Modifier.height(OrbitSpacing.ExtraLarge))
-                Surface(
+                Spacer(modifier = Modifier.height(OrbitSpacing.Large))
+                SoftGlassSurface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(homeWeekCardHeightFor(fontScale)),
-                    shape = RoundedCornerShape(32.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp,
+                    shape = RoundedCornerShape(28.dp),
+                    style = com.orbit.app.ui.components.GlassSurfaceStyle.Standard,
                 ) {
                     Column(
                         modifier = Modifier.padding(
                             horizontal = OrbitSpacing.Comfortable,
-                            vertical = OrbitSpacing.Comfortable,
+                            vertical = OrbitSpacing.Medium,
                         ),
                         verticalArrangement = Arrangement.Center,
                     ) {
@@ -312,6 +307,7 @@ fun HomeScreen(
                     },
                     height = captureCardHeight,
                     imeVisible = imeVisible,
+                    requestFocusOnOpen = focusCaptureOnOpen,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth(),
@@ -597,9 +593,15 @@ private fun CaptureCard(
     onAnalyze: () -> Unit,
     height: Dp,
     imeVisible: Boolean,
+    requestFocusOnOpen: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val isProcessing = processingState.isInProgress
+    val focusRequester = remember { FocusRequester() }
+    // Focus once per visit to Home, only when the user asked for it in Settings.
+    LaunchedEffect(requestFocusOnOpen) {
+        if (requestFocusOnOpen) runCatching { focusRequester.requestFocus() }
+    }
     val processingStatusRes = processingState.statusLabelRes()
     SoftGlassSurface(
         modifier = modifier
@@ -618,6 +620,7 @@ private fun CaptureCard(
                 onTextChanged = onTextChanged,
                 modifier = Modifier
                     .fillMaxSize()
+                    .focusRequester(focusRequester)
                     .padding(
                         end = CaptureTextActionClearance,
                         bottom = if (isProcessing) 34.dp else 0.dp,
@@ -643,7 +646,7 @@ private fun CaptureCard(
                         R.string.core_home_save_and_analyze
                     },
                 ),
-                emphasized = true,
+                emphasized = text.isNotBlank() || isProcessing,
                 enabled = text.isNotBlank() && !isProcessing,
                 onClick = onAnalyze,
                 modifier = Modifier.align(
@@ -675,6 +678,8 @@ private fun CaptureTextField(
     modifier: Modifier = Modifier,
 ) {
     val captureInputDescription = stringResource(R.string.core_home_capture_input)
+    // A different gentle hint each visit; never animated while the user reads it.
+    val hintRes = rememberSaveable { CaptureHints.random() }
     BasicTextField(
         value = text,
         onValueChange = onTextChanged,
@@ -690,7 +695,7 @@ private fun CaptureTextField(
             Box {
                 if (text.isEmpty()) {
                     Text(
-                        text = stringResource(R.string.core_home_capture_placeholder),
+                        text = stringResource(hintRes),
                         style = HomeTypography.capturePlaceholder,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -747,11 +752,68 @@ private fun CaptureActionButton(
     }
 }
 
+private val CaptureHints = listOf(
+    R.string.core_home_capture_placeholder,
+    R.string.home_capture_hint_remind,
+    R.string.home_capture_hint_dump,
+    R.string.home_capture_hint_small,
+)
+
+/** "Good afternoon, Name" on one line, or just the greeting when no name is set. */
+@Composable
+private fun homeGreeting(hour: Int, userName: String): String {
+    val name = userName.trim()
+    return if (name.isEmpty()) {
+        stringResource(greetingResFor(hour))
+    } else {
+        stringResource(namedGreetingResFor(hour), name)
+    }
+}
+
+@Composable
+private fun HomeHeader(
+    greeting: String,
+    onOpenSettings: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = greeting,
+            modifier = Modifier
+                .weight(1f)
+                .semantics { heading() },
+            style = HomeTypography.userName.copy(fontSize = 28.sp, lineHeight = 34.sp),
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        IconButton(
+            onClick = onOpenSettings,
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Settings,
+                contentDescription = stringResource(R.string.home_open_settings),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @StringRes
-private fun greetingResFor(hour: Int): Int = when (hour) {
+internal fun greetingResFor(hour: Int): Int = when (hour) {
     in 5..11 -> R.string.core_home_good_morning
     in 12..16 -> R.string.core_home_good_afternoon
     else -> R.string.core_home_good_evening
+}
+
+@StringRes
+internal fun namedGreetingResFor(hour: Int): Int = when (hour) {
+    in 5..11 -> R.string.home_greeting_morning_named
+    in 12..16 -> R.string.home_greeting_afternoon_named
+    else -> R.string.home_greeting_evening_named
 }
 
 private fun captureCardHeightFor(
@@ -791,9 +853,9 @@ private fun estimatedCaptureLineCount(text: String): Int = text
         )
     }
 
-private val HomeWeekCardHeight = 156.dp
-private val HomeDayCapsuleMaxWidth = 56.dp
-private val HomeDayCapsuleHeight = 76.dp
+private val HomeWeekCardHeight = 128.dp
+private val HomeDayCapsuleMaxWidth = 52.dp
+private val HomeDayCapsuleHeight = 64.dp
 private val HomeWeekCardScaledContentGrowth = 112.dp
 private val HomeCaptureGap = 28.dp
 private val CalendarCaptureContextBannerActionMinimumHeight = 48.dp
@@ -818,10 +880,8 @@ private fun homeMinimumContentHeightFor(
     hasCalendarCaptureContext: Boolean,
 ): Dp =
     26.dp +
-        (24.dp * fontScale) +
-        2.dp +
-        (44.dp * fontScale) +
-        OrbitSpacing.ExtraLarge +
+        maxOf(48.dp, 40.dp * fontScale) +
+        OrbitSpacing.Large +
         homeWeekCardHeightFor(fontScale) +
         (if (hasCalendarCaptureContext) calendarCaptureContextBannerMinimumHeightFor(fontScale) else 0.dp) +
         (if (imeVisible) OrbitSpacing.Large else HomeCaptureGap) +

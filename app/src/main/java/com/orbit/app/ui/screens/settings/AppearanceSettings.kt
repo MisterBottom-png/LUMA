@@ -73,6 +73,7 @@ import com.orbit.app.domain.model.AppearancePaletteMode
 import com.orbit.app.domain.model.BackgroundBlur
 import com.orbit.app.domain.model.BackgroundDimmingMode
 import com.orbit.app.domain.model.BackgroundPreset
+import com.orbit.app.domain.model.GlassEffect
 import com.orbit.app.domain.model.GlassPreference
 import com.orbit.app.domain.model.SettingsThemeMode
 import com.orbit.app.domain.model.withDefaultAppearance
@@ -548,6 +549,26 @@ private fun AppearanceGlassSection(
         title = stringResource(R.string.settings_surface_preview),
     )
     AppearanceCard {
+        SettingsGroup(title = stringResource(R.string.settings_glass_effect)) {
+            val effects = GlassEffect.entries
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                effects.forEachIndexed { index, effect ->
+                    SegmentedButton(
+                        selected = settings.glassEffect == effect,
+                        onClick = { onSettingsChanged(settings.copy(glassEffect = effect)) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = effects.size),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(effect.labelRes()))
+                    }
+                }
+            }
+            Text(
+                text = stringResource(R.string.settings_glass_effect_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         SettingsGroup(title = stringResource(R.string.settings_image_blur)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BackgroundBlur.entries.forEach { choice ->

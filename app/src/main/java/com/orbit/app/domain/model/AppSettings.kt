@@ -59,6 +59,12 @@ enum class GlassPreference(val label: String, val legacyStrength: Float) {
 
 enum class BackgroundDimmingMode { Adaptive, Manual }
 
+/**
+ * How much glass LUMA draws. Strong allows live blur where Android supports it,
+ * Soft keeps translucent surfaces without live blur, Off uses solid surfaces.
+ */
+enum class GlassEffect { Strong, Soft, Off }
+
 enum class AiMode(val label: String) {
     LocalOnly("Local only"),
     GeminiApi("Gemini API"),
@@ -83,6 +89,7 @@ data class AppSettings(
     val backgroundDim: Float = 0.12f,
     val backgroundDimmingMode: BackgroundDimmingMode = BackgroundDimmingMode.Adaptive,
     val glassPreference: GlassPreference = GlassPreference.Standard,
+    val glassEffect: GlassEffect = GlassEffect.Strong,
     val accentColor: AppAccentColor = AppAccentColor.InkPaper,
     val paletteMode: AppearancePaletteMode = AppearancePaletteMode.Standard,
     val textColor: AppTextColor = AppTextColor.Neutral,
@@ -118,6 +125,7 @@ fun AppSettings.withDefaultAppearance(): AppSettings {
         backgroundDim = defaults.backgroundDim,
         backgroundDimmingMode = defaults.backgroundDimmingMode,
         glassPreference = defaults.glassPreference,
+        glassEffect = defaults.glassEffect,
         accentColor = defaults.accentColor,
         paletteMode = defaults.paletteMode,
         textColor = defaults.textColor,

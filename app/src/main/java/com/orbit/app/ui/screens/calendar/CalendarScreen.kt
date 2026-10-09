@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -27,7 +28,6 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Add
@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import com.orbit.app.R
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.GlassSurfaceStyle
+import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.domain.calendar.CalendarEntryId
 import com.orbit.app.ui.theme.OrbitShapes
 import com.orbit.app.ui.theme.OrbitSpacing
@@ -79,7 +80,6 @@ import java.util.Locale
 @Composable
 fun CalendarScreen(
     uiState: CalendarUiState,
-    onBack: () -> Unit,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
     onPreviousMonth: () -> Unit,
@@ -121,6 +121,8 @@ fun CalendarScreen(
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
+            // Leaves room for the tab bar that floats over Calendar.
+            .padding(bottom = OrbitBottomNavigationDefaults.ContainerHeight)
             .padding(horizontal = 20.dp, vertical = 12.dp)
             .semantics { paneTitle = calendarTitle },
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -129,15 +131,6 @@ fun CalendarScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.size(48.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = stringResource(R.string.core_back),
-                )
-            }
             Text(
                 text = calendarTitle,
                 modifier = Modifier
@@ -147,8 +140,11 @@ fun CalendarScreen(
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            TextButton(onClick = onToday) {
-                Text(stringResource(R.string.core_today))
+            // Calendar is a tab now: no back arrow, and "Today" only when it would move.
+            if (isAwayFromToday(uiState)) {
+                TextButton(onClick = onToday, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.core_today))
+                }
             }
         }
 
@@ -537,4 +533,10 @@ internal fun calendarSwipeDateDelta(horizontalDrag: Float, threshold: Float): Lo
     horizontalDrag >= threshold -> -1L
     horizontalDrag <= -threshold -> 1L
     else -> 0L
+}
+
+internal fun isAwayFromToday(uiState: CalendarUiState): Boolean = when (uiState.activeView) {
+    CalendarViewMode.Day -> uiState.selectedDate != uiState.today
+    CalendarViewMode.Month ->
+        uiState.visibleMonth != java.time.YearMonth.from(uiState.today) || uiState.selectedDate != uiState.today
 }

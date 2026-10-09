@@ -47,6 +47,17 @@ class CalendarNavigationInstrumentedTest {
     }
 
     @Test
+    fun calendarIsATab_backFromCalendarOpenedElsewhereReturnsHome() = onMainThread {
+        val controller = calendarNavController()
+        controller.navigate(ItemDetailRoute)
+
+        controller.navigateToCalendar(LocalDate.of(2026, 8, 3))
+
+        assertTrue(controller.popBackStack())
+        assertEquals(OrbitDestination.Home.route, controller.currentDestination?.route)
+    }
+
+    @Test
     fun addForDay_returnsHomeWithSelectedDateContext() = onMainThread {
         val controller = calendarNavController()
         val date = LocalDate.of(2026, 9, 12)

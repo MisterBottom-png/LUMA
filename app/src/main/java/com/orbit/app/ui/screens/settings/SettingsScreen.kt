@@ -105,6 +105,7 @@ fun SettingsScreen(
     onRetryReminderSetup: () -> Unit,
     onOpenFirstTimeGuide: () -> Unit,
     onSettingsSubsectionChanged: (Boolean) -> Unit,
+    onClose: () -> Unit = {},
 ) {
     var currentSection by rememberSaveable { mutableStateOf(SettingsSection.Overview) }
     var appearanceSubsection by rememberSaveable {
@@ -269,6 +270,11 @@ fun SettingsScreen(
                             )
                         }
 
+                        SystemMenuSection.CaptureReminders -> CaptureAndRemindersSection(
+                            settings = settings,
+                            onSettingsChanged = onSettingsChanged,
+                        )
+
                         SystemMenuSection.Ai -> AiSettingsCard(
                             settings = settings,
                             onSettingsChanged = onSettingsChanged,
@@ -333,7 +339,9 @@ fun SettingsScreen(
 
                 else -> SettingsHeader(
                     section = section,
-                    onBack = { currentSection = SettingsSection.Overview },
+                    onBack = {
+                        if (section == SettingsSection.Overview) onClose() else currentSection = SettingsSection.Overview
+                    },
                 )
             }
         }
@@ -352,16 +360,15 @@ private fun SettingsHeader(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (section != SettingsSection.Overview) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.settings_back),
-                    tint = MaterialTheme.colorScheme.onBackground,
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
+        // Settings lives outside the tab bar, so the overview gets a way back too.
+        IconButton(onClick = onBack) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.settings_back),
+                tint = MaterialTheme.colorScheme.onBackground,
+            )
         }
+        Spacer(modifier = Modifier.width(8.dp))
         Column {
             Text(
                 text = stringResource(section.titleRes),

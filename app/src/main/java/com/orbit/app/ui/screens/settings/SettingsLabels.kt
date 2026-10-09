@@ -7,6 +7,7 @@ import com.orbit.app.domain.model.AppAccentColor
 import com.orbit.app.domain.model.AppTextColor
 import com.orbit.app.domain.model.BackgroundBlur
 import com.orbit.app.domain.model.BackgroundPreset
+import com.orbit.app.domain.model.GlassEffect
 import com.orbit.app.domain.model.GlassPreference
 import com.orbit.app.domain.model.SettingsTimeFormatMode
 import com.orbit.app.domain.model.SettingsThemeMode
@@ -73,6 +74,13 @@ internal fun BackgroundBlur.labelRes(): Int = when (this) {
     BackgroundBlur.Soft -> R.string.settings_soft
     BackgroundBlur.Medium -> R.string.settings_blur_medium
     BackgroundBlur.Strong -> R.string.settings_blur_strong
+}
+
+@StringRes
+internal fun GlassEffect.labelRes(): Int = when (this) {
+    GlassEffect.Strong -> R.string.settings_glass_effect_strong
+    GlassEffect.Soft -> R.string.settings_glass_effect_soft
+    GlassEffect.Off -> R.string.settings_glass_effect_off
 }
 
 @StringRes

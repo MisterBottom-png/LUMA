@@ -2,6 +2,7 @@ package com.orbit.app.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FactCheck
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
@@ -17,14 +18,31 @@ import com.orbit.app.ui.screens.review.ReviewItemType
 import java.time.LocalDate
 
 enum class OrbitDestination(
+    /** Route pattern as registered in the NavHost (what the back stack reports). */
     val route: String,
     @param:StringRes val contentDescriptionRes: Int,
     val icon: ImageVector,
+    /** Main tabs in the bottom bar; Settings is reached from Home's top-right corner. */
+    val inBottomBar: Boolean,
+    /** Concrete route used to navigate (patterns with optional arguments resolve here). */
+    val navigationRoute: String = route,
 ) {
-    Home("home", R.string.navigation_home, Icons.Rounded.Home),
-    Spaces("spaces", R.string.navigation_spaces, Icons.Rounded.GridView),
-    Review("review", R.string.navigation_review, Icons.AutoMirrored.Rounded.FactCheck),
-    Settings("settings", R.string.navigation_settings, Icons.Rounded.Settings),
+    Home("home", R.string.navigation_home, Icons.Rounded.Home, inBottomBar = true),
+    Spaces("spaces", R.string.navigation_spaces, Icons.Rounded.GridView, inBottomBar = true),
+    Calendar(
+        CalendarDestination.Route,
+        R.string.navigation_calendar,
+        Icons.Rounded.CalendarMonth,
+        inBottomBar = true,
+        navigationRoute = CalendarDestination.BaseRoute,
+    ),
+    Review("review", R.string.navigation_review, Icons.AutoMirrored.Rounded.FactCheck, inBottomBar = true),
+    Settings("settings", R.string.navigation_settings, Icons.Rounded.Settings, inBottomBar = false),
+    ;
+
+    companion object {
+        val bottomBar: List<OrbitDestination> get() = entries.filter { it.inBottomBar }
+    }
 }
 
 object FirstTimeTutorialDestination {
@@ -119,6 +137,9 @@ object CalendarDestination {
 fun NavController.navigateToCalendar(date: LocalDate? = null) {
     val request = CalendarDestination.navigationRequest(date)
     navigate(request.route) {
+        // Calendar is a top-level tab: opening it for a date replaces any earlier
+        // Calendar entry instead of stacking another screen above Home.
+        popUpTo(OrbitDestination.Home.route)
         launchSingleTop = request.launchSingleTop
     }
 }

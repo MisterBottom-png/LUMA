@@ -38,7 +38,6 @@ class CalendarScreenAccessibilityTest {
                                 visibleMonth = YearMonth.from(today),
                                 activeView = CalendarViewMode.Day,
                             ),
-                            onBack = {},
                             onPreviousDay = {},
                             onNextDay = {},
                             onPreviousMonth = {},

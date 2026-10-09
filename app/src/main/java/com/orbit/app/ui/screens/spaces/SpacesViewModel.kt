@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.orbit.app.OrbitContainer
 import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.DuplicateSpaceNameException
+import com.orbit.app.data.local.SpaceNames
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskStatus
@@ -172,14 +174,18 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
         if (cleanName.isEmpty() || !canUseSpaceName(cleanName, uiState.value.spaces)) return
         viewModelScope.launch {
             val nextOrder = (uiState.value.spaces.maxOfOrNull { it.sortOrder } ?: -1) + 1
-            container.spaceRepository.insert(
-                SpaceEntity(
-                    name = cleanName,
-                    icon = icon,
-                    colorAccent = colorAccent,
-                    sortOrder = nextOrder,
-                ),
-            )
+            try {
+                container.spaceRepository.insert(
+                    SpaceEntity(
+                        name = cleanName,
+                        icon = icon,
+                        colorAccent = colorAccent,
+                        sortOrder = nextOrder,
+                    ),
+                )
+            } catch (_: DuplicateSpaceNameException) {
+                // Another tap created the same Space first; the existing one stays.
+            }
         }
     }
 
@@ -271,7 +277,11 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
     ) {
         viewModelScope.launch {
             container.spaceRepository.getById(spaceId)?.let { stored ->
-                container.spaceRepository.update(transform(stored))
+                try {
+                    container.spaceRepository.update(transform(stored))
+                } catch (_: DuplicateSpaceNameException) {
+                    // The editor already blocks taken names; a race keeps the stored name.
+                }
             }
         }
     }
@@ -329,9 +339,9 @@ internal fun hasUnfiledFinalizedItems(
     tasks.any { it.spaceId == null && it.status != TaskStatus.Archived } ||
     reminders.any { it.spaceId == null }
 
-internal fun cleanSpaceName(value: String): String = value.trim().replace(Regex("\\s+"), " ")
+internal fun cleanSpaceName(value: String): String = SpaceNames.clean(value)
 
-internal fun normalizeSpaceName(value: String): String = cleanSpaceName(value).lowercase(Locale.ROOT)
+internal fun normalizeSpaceName(value: String): String = SpaceNames.normalize(value)
 
 internal fun canUseSpaceName(
     candidate: String,

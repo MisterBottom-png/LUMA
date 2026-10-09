@@ -12,6 +12,7 @@ import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.domain.model.AppSettings
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -26,7 +27,13 @@ class LocalDataViewModel(private val container: OrbitContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val reminders = container.reminderRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val settings: StateFlow<AppSettings?> = container.appSettingsRepository.settings
+    private val settingsWriter = DebouncedSettingsWriter(viewModelScope, container.appSettingsRepository)
+
+    /** Stored settings with any not-yet-written change on top, so controls never jump back. */
+    val settings: StateFlow<AppSettings?> = combine(
+        container.appSettingsRepository.settings,
+        settingsWriter.overlay,
+    ) { stored, unsaved -> unsaved ?: stored }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun insertCapture(entity: CaptureEntity) = viewModelScope.launch {
@@ -89,11 +96,12 @@ class LocalDataViewModel(private val container: OrbitContainer) : ViewModel() {
         container.reminderRepository.deleteById(id)
     }
 
-    fun updateSettings(settings: AppSettings) = viewModelScope.launch {
-        container.appSettingsRepository.update(settings)
+    fun updateSettings(settings: AppSettings) {
+        settingsWriter.submit(settings)
     }
 
     fun resetSettings() = viewModelScope.launch {
+        settingsWriter.discardPending()
         container.appSettingsRepository.reset()
     }
 

@@ -27,6 +27,7 @@ import com.orbit.app.data.local.entity.PersonMemoryEntity
 import com.orbit.app.data.local.entity.ProjectMemoryEntity
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.ReminderLabelCrossRef
+import com.orbit.app.data.local.DuplicateSpaceNameException
 import com.orbit.app.data.local.entity.SpaceAliasMemoryEntity
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
@@ -68,6 +69,22 @@ interface BrainDumpRepository {
 }
 
 interface SpaceRepository : EntityRepository<SpaceEntity> {
+    /**
+     * Adds Spaces chosen during setup, skipping names already in use. Returns how
+     * many were added. Room does this in one transaction.
+     */
+    suspend fun insertStarterSpaces(entities: List<SpaceEntity>): Int {
+        var inserted = 0
+        entities.forEach { entity ->
+            try {
+                insert(entity)
+                inserted++
+            } catch (_: DuplicateSpaceNameException) {
+            }
+        }
+        return inserted
+    }
+
     suspend fun swapSortOrder(firstId: Long, secondId: Long, updatedAt: Long) {
         val first = getById(firstId) ?: return
         val second = getById(secondId) ?: return
@@ -137,8 +154,9 @@ class RoomBrainDumpRepository(private val dao: BrainDumpDao) : BrainDumpReposito
 class RoomSpaceRepository(private val dao: SpaceDao) : SpaceRepository {
     override fun observeAll() = dao.observeAll()
     override suspend fun getById(id: Long) = dao.getById(id)
-    override suspend fun insert(entity: SpaceEntity) = dao.insert(entity)
-    override suspend fun update(entity: SpaceEntity) = dao.update(entity)
+    override suspend fun insert(entity: SpaceEntity) = dao.insertWithUniqueName(entity)
+    override suspend fun update(entity: SpaceEntity) = dao.updateWithUniqueName(entity)
+    override suspend fun insertStarterSpaces(entities: List<SpaceEntity>) = dao.insertAllSkippingTakenNames(entities)
     override suspend fun swapSortOrder(firstId: Long, secondId: Long, updatedAt: Long) =
         dao.swapSortOrder(firstId, secondId, updatedAt)
     override suspend fun delete(entity: SpaceEntity) = dao.delete(entity)

@@ -88,9 +88,7 @@ fun OrbitApp(
     val selectedRoute = backStackEntry?.destination?.route
     var showSituationAi by rememberSaveable { mutableStateOf(false) }
     var situationAiQuestion by rememberSaveable { mutableStateOf<String?>(null) }
-    var restoreSituationAiFocus by rememberSaveable { mutableStateOf(false) }
     var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
-    val situationAiFocusRequester = remember { FocusRequester() }
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
     val contentMaxWidth = portraitContentMaxWidth(LocalConfiguration.current.screenWidthDp.dp)
     val imeVisible = with(LocalDensity.current) {
@@ -117,13 +115,6 @@ fun OrbitApp(
                 launchSingleTop = true
             }
             onOpenReviewHandled()
-        }
-    }
-
-    LaunchedEffect(showSituationAi, imeVisible, restoreSituationAiFocus) {
-        if (!showSituationAi && !imeVisible && restoreSituationAiFocus) {
-            situationAiFocusRequester.requestFocus()
-            restoreSituationAiFocus = false
         }
     }
 
@@ -238,6 +229,12 @@ fun OrbitApp(
                         onVisibleWeekChanged = homeWeekViewModel::moveVisibleWeek,
                         userName = settings.userName,
                         timeFormat = timeFormat,
+                        onOpenSettings = {
+                            navController.navigate(OrbitDestination.Settings.route) {
+                                launchSingleTop = true
+                            }
+                        },
+                        focusCaptureOnOpen = settings.focusCaptureOnOpen,
                     )
                 }
                 composable(OrbitDestination.Spaces.route) {
@@ -419,6 +416,7 @@ fun OrbitApp(
                             }
                         },
                         onSettingsSubsectionChanged = { settingsSubsectionOpen = it },
+                        onClose = { navController.popBackStack() },
                     )
                 }
                 composable(
@@ -437,7 +435,6 @@ fun OrbitApp(
                     val calendarUiState by calendarViewModel.uiState.collectAsStateWithLifecycle()
                     CalendarScreen(
                         uiState = calendarUiState,
-                        onBack = { navController.popBackStack() },
                         onPreviousDay = calendarViewModel::showPreviousDay,
                         onNextDay = calendarViewModel::showNextDay,
                         onPreviousMonth = calendarViewModel::showPreviousMonth,
@@ -558,7 +555,7 @@ fun OrbitApp(
                 FloatingBottomNavigation(
                     selectedRoute = selectedRoute,
                     onDestinationSelected = { destination ->
-                        navController.navigate(destination.route) {
+                        navController.navigate(destination.navigationRoute) {
                             launchSingleTop = true
                             restoreState = true
                             popUpTo(OrbitDestination.Home.route) {
@@ -566,8 +563,6 @@ fun OrbitApp(
                             }
                         }
                     },
-                    onSituationAiSelected = { showSituationAi = true },
-                    situationAiFocusRequester = situationAiFocusRequester,
                 )
             }
 
@@ -585,7 +580,6 @@ fun OrbitApp(
                 SituationAiSheet(
                     uiState = situationUiState,
                     onDismiss = {
-                        restoreSituationAiFocus = true
                         showSituationAi = false
                     },
                     onSourceSelected = { source ->
@@ -644,12 +638,7 @@ private fun navigationSlideDirection(
     initialRoute: String?,
     targetRoute: String?,
 ): AnimatedContentTransitionScope.SlideDirection {
-    val topLevelRoutes = listOf(
-        OrbitDestination.Home.route,
-        OrbitDestination.Spaces.route,
-        OrbitDestination.Review.route,
-        OrbitDestination.Settings.route,
-    )
+    val topLevelRoutes = OrbitDestination.bottomBar.map { it.route } + OrbitDestination.Settings.route
     val initialIndex = topLevelRoutes.indexOf(initialRoute)
     val targetIndex = topLevelRoutes.indexOf(targetRoute)
     return if (initialIndex >= 0 && targetIndex >= 0 && targetIndex < initialIndex) {
@@ -665,7 +654,7 @@ internal fun shouldShowFloatingBottomNavigation(
     appearanceSubsectionOpen: Boolean,
 ): Boolean = !imeVisible &&
     selectedRoute != FirstTimeTutorialDestination.Route &&
-    selectedRoute != CalendarDestination.Route &&
+    selectedRoute != OrbitDestination.Settings.route &&
     selectedRoute != SearchDestination.Route &&
     selectedRoute != ItemDetailDestination.Route &&
     selectedRoute != ReminderDestination.Route &&

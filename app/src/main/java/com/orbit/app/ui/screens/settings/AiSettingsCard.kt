@@ -443,14 +443,8 @@ private fun AiSettingsDetailsCard(
                         onSettingsChanged(settings.copy(useGeminiForBrainDump = enabled))
                     },
                 )
-                AiFeatureSwitch(
-                    title = stringResource(R.string.settings_situation_ai),
-                    checked = settings.useGeminiForSituation,
-                    enabled = canUseGeminiFeatures,
-                    onCheckedChange = { enabled ->
-                        onSettingsChanged(settings.copy(useGeminiForSituation = enabled))
-                    },
-                )
+                // No "Situation" switch: Ask LUMA answers locally from the user's own items,
+                // so a Gemini toggle there would promise something that never happens.
                 AiFeatureSwitch(
                     title = stringResource(R.string.settings_review),
                     checked = settings.useGeminiForReview,

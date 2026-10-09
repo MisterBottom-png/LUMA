@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -85,12 +86,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.toColorInt
+import com.orbit.app.data.local.SpaceNames
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.R
 import com.orbit.app.ui.components.ModalSurface
@@ -230,9 +235,14 @@ fun SpacesScreen(
     if (showCreateDialog) {
         SpaceEditorDialog(
             space = null,
+            existingSpaces = uiState.spaces,
             onDismiss = { showCreateDialog = false },
             onConfirm = { name, icon, accent ->
                 onCreateSpace(name, icon, accent)
+                showCreateDialog = false
+            },
+            onRestoreExisting = { spaceId ->
+                onRestoreSpace(spaceId)
                 showCreateDialog = false
             },
         )
@@ -241,11 +251,13 @@ fun SpacesScreen(
     editingSpace?.let { space ->
         SpaceEditorDialog(
             space = space,
+            existingSpaces = uiState.spaces,
             onDismiss = { editingSpace = null },
             onConfirm = { name, icon, accent ->
                 onUpdateSpace(space.id, name, icon, accent)
                 editingSpace = null
             },
+            onRestoreExisting = null,
         )
     }
 
@@ -1042,8 +1054,10 @@ private fun SpaceFeedRow(
 @Composable
 private fun SpaceEditorDialog(
     space: SpaceEntity?,
+    existingSpaces: List<SpaceEntity>,
     onDismiss: () -> Unit,
     onConfirm: (String, String, String) -> Unit,
+    onRestoreExisting: ((Long) -> Unit)?,
 ) {
     var name by rememberSaveable(space?.id) { mutableStateOf(space?.name.orEmpty()) }
     var icon by rememberSaveable(space?.id) { mutableStateOf(space?.icon ?: "folder") }
@@ -1075,13 +1089,38 @@ private fun SpaceEditorDialog(
                         .padding(top = 18.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
+                    val conflict = SpaceNames.conflict(name, existingSpaces, excludingSpaceId = space?.id)
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         label = { Text(stringResource(R.string.core_name)) },
+                        isError = conflict != null,
+                        supportingText = conflict?.let { existing ->
+                            {
+                                Text(
+                                    text = stringResource(
+                                        when {
+                                            existing.archived -> R.string.spaces_name_taken_archived
+                                            existing.hidden -> R.string.spaces_name_taken_hidden
+                                            else -> R.string.spaces_name_taken
+                                        },
+                                        existing.name,
+                                    ),
+                                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                                )
+                            }
+                        },
                     )
+                    if (conflict != null && (conflict.archived || conflict.hidden) && onRestoreExisting != null) {
+                        TextButton(
+                            onClick = { onRestoreExisting(conflict.id) },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.core_restore))
+                        }
+                    }
                     Text(
                         text = stringResource(R.string.core_icon),
                         modifier = Modifier.padding(top = 18.dp, bottom = 8.dp),
@@ -1165,7 +1204,8 @@ private fun SpaceEditorDialog(
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.core_cancel)) }
                     TextButton(
                         onClick = { onConfirm(name, icon, accent) },
-                        enabled = name.isNotBlank(),
+                        enabled = name.isNotBlank() &&
+                            SpaceNames.conflict(name, existingSpaces, excludingSpaceId = space?.id) == null,
                     ) {
                         Text(stringResource(if (space == null) R.string.core_create else R.string.core_save))
                     }

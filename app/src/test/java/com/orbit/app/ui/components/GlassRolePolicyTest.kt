@@ -61,10 +61,29 @@ class GlassRolePolicyTest {
     }
 
     @Test
+    fun navigationBarStaysNearlySolidAtEveryGlassStrength() {
+        listOf(false, true).forEach { isDark ->
+            listOf(false, true).forEach { custom ->
+                listOf(0f, 0.5f, 1f).forEach { strength ->
+                    val alpha = softGlassContainerAlpha(
+                        style = GlassSurfaceStyle.NavigationBar,
+                        isDark = isDark,
+                        glassStrength = strength,
+                        hasCustomBackground = custom,
+                    )
+                    assertTrue("alpha=$alpha", alpha in 0.85f..0.96f)
+                }
+            }
+        }
+    }
+
+    @Test
     fun surfaceOpacityProducesAVisibleRangeWithoutBecomingOpaque() {
         GlassSurfaceStyle.entries
             .filterNot {
-                it == GlassSurfaceStyle.Sheet || it == GlassSurfaceStyle.NavigationAction
+                it == GlassSurfaceStyle.Sheet ||
+                    it == GlassSurfaceStyle.NavigationAction ||
+                    it == GlassSurfaceStyle.NavigationBar
             }
             .forEach { style ->
             val transparent = softGlassContainerAlpha(

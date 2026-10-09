@@ -17,6 +17,7 @@ import com.orbit.app.domain.model.AppearancePaletteMode
 import com.orbit.app.domain.model.BackgroundBlur
 import com.orbit.app.domain.model.BackgroundDimmingMode
 import com.orbit.app.domain.model.BackgroundPreset
+import com.orbit.app.domain.model.GlassEffect
 import com.orbit.app.domain.model.GlassPreference
 import com.orbit.app.domain.model.SettingsTimeFormatMode
 import com.orbit.app.domain.model.SettingsThemeMode
@@ -77,6 +78,7 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             preferences[Keys.BACKGROUND_DIM] = settings.backgroundDim
             preferences[Keys.BACKGROUND_DIMMING_MODE] = settings.backgroundDimmingMode.name
             preferences[Keys.GLASS_PREFERENCE] = settings.glassPreference.name
+            preferences[Keys.GLASS_EFFECT] = settings.glassEffect.name
             preferences[Keys.ACCENT_COLOR] = settings.accentColor.name
             preferences[Keys.PALETTE_MODE] = settings.paletteMode.name
             preferences[Keys.TEXT_COLOR] = settings.textColor.name
@@ -135,6 +137,9 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 ?.let { runCatching { GlassPreference.valueOf(it) }.getOrNull() }
                 ?: legacyGlass(preferences[Keys.LEGACY_GLASS_STRENGTH])
                 ?: defaults.glassPreference,
+            glassEffect = preferences[Keys.GLASS_EFFECT]
+                ?.let { runCatching { GlassEffect.valueOf(it) }.getOrNull() }
+                ?: defaults.glassEffect,
             accentColor = preferences[Keys.ACCENT_COLOR]
                 ?.let { runCatching { AppAccentColor.valueOf(it) }.getOrNull() }
                 ?.let { if (it == AppAccentColor.LumaViolet && isLegacyDefaultAppearance(preferences)) defaults.accentColor else it }
@@ -215,6 +220,7 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
         val BACKGROUND_DIM = floatPreferencesKey("background_dim")
         val BACKGROUND_DIMMING_MODE = stringPreferencesKey("background_dimming_mode")
         val GLASS_PREFERENCE = stringPreferencesKey("glass_preference")
+        val GLASS_EFFECT = stringPreferencesKey("glass_effect")
         val LEGACY_GLASS_STRENGTH = floatPreferencesKey("glass_strength")
         val ACCENT_COLOR = stringPreferencesKey("accent_color")
         val PALETTE_MODE = stringPreferencesKey("palette_mode")

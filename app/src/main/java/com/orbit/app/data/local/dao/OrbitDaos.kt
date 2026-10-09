@@ -1,5 +1,7 @@
 package com.orbit.app.data.local.dao
 
+import com.orbit.app.data.local.DuplicateSpaceNameException
+import com.orbit.app.data.local.SpaceNames
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -152,6 +154,47 @@ interface SpaceDao {
 
     @Query("SELECT * FROM spaces WHERE id = :id")
     suspend fun getById(id: Long): SpaceEntity?
+
+    @Query("SELECT * FROM spaces ORDER BY sortOrder, id")
+    suspend fun getAll(): List<SpaceEntity>
+
+    /** Checks and inserts in one transaction so two quick creates cannot both win. */
+    @Transaction
+    suspend fun insertWithUniqueName(entity: SpaceEntity): Long {
+        require(SpaceNames.clean(entity.name).isNotEmpty()) { "A Space name cannot be blank" }
+        SpaceNames.conflict(entity.name, getAll())?.let { throw DuplicateSpaceNameException(it) }
+        return insert(entity.copy(name = SpaceNames.clean(entity.name)))
+    }
+
+    /**
+     * Only a real rename is checked, so archiving or hiding a Space restored from an
+     * older backup that already holds duplicate names never fails.
+     */
+    @Transaction
+    suspend fun updateWithUniqueName(entity: SpaceEntity) {
+        val stored = getById(entity.id)
+        val renamed = stored == null || SpaceNames.normalize(stored.name) != SpaceNames.normalize(entity.name)
+        if (renamed) {
+            require(SpaceNames.clean(entity.name).isNotEmpty()) { "A Space name cannot be blank" }
+            SpaceNames.conflict(entity.name, getAll(), excludingSpaceId = entity.id)
+                ?.let { throw DuplicateSpaceNameException(it) }
+        }
+        update(if (renamed) entity.copy(name = SpaceNames.clean(entity.name)) else entity)
+    }
+
+    /** Starter Spaces in one transaction; names already in use are skipped, not duplicated. */
+    @Transaction
+    suspend fun insertAllSkippingTakenNames(entities: List<SpaceEntity>): Int {
+        val known = getAll().toMutableList()
+        var inserted = 0
+        entities.forEach { entity ->
+            if (SpaceNames.clean(entity.name).isEmpty() || SpaceNames.conflict(entity.name, known) != null) return@forEach
+            val clean = entity.copy(name = SpaceNames.clean(entity.name))
+            known += clean.copy(id = insert(clean))
+            inserted++
+        }
+        return inserted
+    }
 
     @Insert
     suspend fun insert(entity: SpaceEntity): Long

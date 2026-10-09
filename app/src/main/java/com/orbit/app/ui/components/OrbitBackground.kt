@@ -57,7 +57,7 @@ fun OrbitBackground(
 
     CompositionLocalProvider(
         LocalOrbitHazeState provides hazeState,
-        LocalGlassRenderingPolicy provides glassRenderingPolicy,
+        LocalGlassRenderingPolicy provides glassRenderingPolicyFor(settings.glassEffect, glassRenderingPolicy),
         LocalOrbitAppearance provides settings,
         LocalOrbitUsesCustomBackground provides (visibleCustomBackground != null),
         LocalContentColor provides MaterialTheme.colorScheme.onBackground,
