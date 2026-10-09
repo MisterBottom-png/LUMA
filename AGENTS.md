@@ -12,6 +12,7 @@ Read only what the current task needs:
 
 ```text
 docs/codex/LUMA_PRODUCT_RULES.md
+docs/codex/LUMA_VISUAL_SYSTEM.md
 docs/codex/WORKPLACE_PRIVACY_POLICY.md
 docs/codex/LUMA_PROTECTED_BEHAVIORS.md
 docs/codex/PROJECT_STATE.md

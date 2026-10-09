@@ -1,5 +1,8 @@
 package com.orbit.app.ui.screens.home
 
+import kotlinx.coroutines.launch
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.Animatable
 import android.Manifest
 import com.orbit.app.ui.components.rememberReducedMotion
 import androidx.compose.runtime.mutableStateOf
@@ -94,6 +97,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -163,6 +167,11 @@ fun HomeScreen(
     val view = LocalView.current
     val reduceMotion = rememberReducedMotion()
     var savedConfirmationVisible by remember { mutableStateOf(false) }
+    // The send moment: the sent words lift a little and fade, so letting go is something
+    // you see, not just an empty box.
+    var pendingSentText by remember { mutableStateOf("") }
+    var sentGhostText by remember { mutableStateOf<String?>(null) }
+    val sentGhostProgress = remember { Animatable(0f) }
     val messageText = uiState.message?.takeIf { it != HomeMessage.Saved }?.let { stringResource(it.textRes) }
     val voiceAvailable = remember(context) { VoiceCapture.isAvailable(context) }
     val voicePrompt = stringResource(R.string.home_voice_prompt)
@@ -191,6 +200,18 @@ fun HomeScreen(
             },
         )
         if (calendarDateContext != null) onCalendarDateContextConsumed()
+        if (!reduceMotion && pendingSentText.isNotBlank()) {
+            sentGhostText = pendingSentText
+            launch {
+                sentGhostProgress.snapTo(0f)
+                sentGhostProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 340, easing = FastOutLinearInEasing),
+                )
+                sentGhostText = null
+            }
+        }
+        pendingSentText = ""
         savedConfirmationVisible = true
         viewModel.messageShown()
         kotlinx.coroutines.delay(SavedConfirmationMillis)
@@ -314,6 +335,7 @@ fun HomeScreen(
                     processingState = uiState.processingState,
                     onTextChanged = viewModel::onInputChanged,
                     onAnalyze = {
+                        pendingSentText = uiState.inputText
                         viewModel.send(calendarDateContext?.toEpochDay())
                     },
                     height = captureCardHeight,
@@ -325,6 +347,25 @@ fun HomeScreen(
                         .align(Alignment.TopCenter)
                         .fillMaxWidth(),
                 )
+                sentGhostText?.let { ghost ->
+                    val lift = with(LocalDensity.current) { 28.dp.toPx() }
+                    Text(
+                        text = ghost,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(start = 24.dp, top = 24.dp, end = 96.dp)
+                            .graphicsLayer {
+                                val p = sentGhostProgress.value
+                                alpha = 1f - p
+                                translationY = -lift * p
+                            }
+                            .clearAndSetSemantics {},
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
 
             SavedConfirmation(visible = savedConfirmationVisible, reduceMotion = reduceMotion)

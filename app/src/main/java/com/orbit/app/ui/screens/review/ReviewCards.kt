@@ -1,5 +1,7 @@
 package com.orbit.app.ui.screens.review
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -7,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -66,37 +67,50 @@ internal fun AskLumaCard(onAsk: (AskLumaPrompt?) -> Unit) {
         shape = RoundedCornerShape(26.dp),
         style = GlassSurfaceStyle.Prominent,
     ) {
+        // Title, one main question, then the other questions on a single scrolling line,
+        // instead of a stack of five buttons.
         Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Rounded.AutoAwesome,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
+            Column(modifier = Modifier.padding(horizontal = 18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.review_ask_title),
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .semantics { heading() },
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
                 Text(
-                    text = stringResource(R.string.review_ask_title),
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .semantics { heading() },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    text = stringResource(R.string.review_ask_subtitle),
+                    modifier = Modifier.padding(top = 2.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             FilledTonalButton(
                 onClick = { onAsk(AskLumaPrompt.WhatNow) },
                 modifier = Modifier
+                    .padding(horizontal = 18.dp)
                     .fillMaxWidth()
                     .heightIn(min = 52.dp),
             ) {
                 Text(stringResource(AskLumaPrompt.WhatNow.labelRes))
             }
-            FlowRow(
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 18.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 AskLumaPrompt.entries.drop(1).forEach { prompt ->
                     AssistChip(
@@ -105,11 +119,6 @@ internal fun AskLumaCard(onAsk: (AskLumaPrompt?) -> Unit) {
                     )
                 }
             }
-            Text(
-                text = stringResource(R.string.review_ask_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

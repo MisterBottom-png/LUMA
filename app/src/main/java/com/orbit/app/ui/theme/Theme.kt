@@ -93,6 +93,8 @@ private fun ColorScheme.withPersonalColors(
         if (isDark) 0.35f else 0.45f,
     )
     val fullPalette = paletteMode == AppearancePaletteMode.FullPalette
+    // A mid-tone of the accent for tinting dark surfaces (the dark "primary" is very light).
+    val tint = if (isDark) accent.primaryContainer.compositeOver(surface) else accent.primary
     return copy(
         primary = accent.primary, onPrimary = accent.onPrimary,
         primaryContainer = accent.primaryContainer, onPrimaryContainer = accent.onPrimaryContainer,
@@ -106,8 +108,20 @@ private fun ColorScheme.withPersonalColors(
         onTertiaryContainer = if (fullPalette) accent.onSecondaryContainer else accent.onPrimaryContainer,
         surfaceTint = accent.primary,
         onBackground = text.primary, onSurface = text.primary, onSurfaceVariant = text.secondary,
+        // Tinted neutrals: surfaces lean a few percent toward the accent, so a violet theme
+        // never shows green-grey cards (and a sage theme never shows violet-grey ones).
+        surface = surface.tintedBy(tint, isDark),
+        surfaceContainerLowest = surfaceContainerLowest.tintedBy(tint, isDark),
+        surfaceContainerLow = surfaceContainerLow.tintedBy(tint, isDark),
+        surfaceContainer = surfaceContainer.tintedBy(tint, isDark),
+        surfaceContainerHigh = surfaceContainerHigh.tintedBy(tint, isDark),
+        surfaceContainerHighest = surfaceContainerHighest.tintedBy(tint, isDark),
     )
 }
+
+private fun Color.tintedBy(tint: Color, isDark: Boolean): Color =
+    lerp(this, tint, if (isDark) 0.08f else 0.025f)
+
 
 private data class AccentPalette(
     val primary: Color, val onPrimary: Color, val primaryContainer: Color, val onPrimaryContainer: Color,
