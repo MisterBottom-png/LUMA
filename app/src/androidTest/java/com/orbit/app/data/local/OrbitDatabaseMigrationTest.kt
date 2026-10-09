@@ -46,9 +46,9 @@ class OrbitDatabaseMigrationTest {
     }
 
     @Test
-    fun everySupportedStartingVersionMigratesToSixWithoutCaptureLoss() {
-        (1..5).forEach { startVersion ->
-            val databaseName = "orbit-migration-$startVersion-to-6"
+    fun everySupportedStartingVersionMigratesToCurrentWithoutCaptureLoss() {
+        (1 until CURRENT_VERSION).forEach { startVersion ->
+            val databaseName = "orbit-migration-$startVersion-to-current"
             helper.createDatabase(databaseName, startVersion).apply {
                 insertCapture(id = startVersion.toLong(), rawText = "Version $startVersion source")
                 close()
@@ -56,7 +56,7 @@ class OrbitDatabaseMigrationTest {
 
             val migrated = helper.runMigrationsAndValidate(
                 databaseName,
-                6,
+                CURRENT_VERSION,
                 true,
                 *migrationsFrom(startVersion),
             )
@@ -229,6 +229,7 @@ class OrbitDatabaseMigrationTest {
         const val TEST_DATABASE_3_TO_4 = "orbit-migration-3-to-4"
         const val TEST_DATABASE_4_TO_5 = "orbit-migration-4-to-5"
         const val TEST_DATABASE_5_TO_6 = "orbit-migration-5-to-6"
+        const val CURRENT_VERSION = 7
 
         fun androidx.sqlite.db.SupportSQLiteDatabase.insertCapture(id: Long, rawText: String) {
             execSQL(
@@ -242,28 +243,8 @@ class OrbitDatabaseMigrationTest {
             )
         }
 
-        fun migrationsFrom(startVersion: Int): Array<Migration> = when (startVersion) {
-            1 -> arrayOf(
-                OrbitDatabase.Migration1To2,
-                OrbitDatabase.Migration2To3,
-                OrbitDatabase.Migration3To4,
-                OrbitDatabase.Migration4To5,
-                OrbitDatabase.Migration5To6,
-            )
-            2 -> arrayOf(
-                OrbitDatabase.Migration2To3,
-                OrbitDatabase.Migration3To4,
-                OrbitDatabase.Migration4To5,
-                OrbitDatabase.Migration5To6,
-            )
-            3 -> arrayOf(
-                OrbitDatabase.Migration3To4,
-                OrbitDatabase.Migration4To5,
-                OrbitDatabase.Migration5To6,
-            )
-            4 -> arrayOf(OrbitDatabase.Migration4To5, OrbitDatabase.Migration5To6)
-            5 -> arrayOf(OrbitDatabase.Migration5To6)
-            else -> error("Unsupported start version")
-        }
+        /** Every production migration from [startVersion] up to the current version. */
+        fun migrationsFrom(startVersion: Int): Array<Migration> =
+            OrbitDatabase.AllMigrations.filter { it.startVersion >= startVersion }.toTypedArray()
     }
 }

@@ -31,6 +31,7 @@ import com.orbit.app.data.local.entity.SpaceAliasMemoryEntity
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskLabelCrossRef
+import com.orbit.app.reminders.ReminderDeliveryPolicy
 import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.reminders.shouldScheduleNotification
 import kotlinx.coroutines.flow.Flow
@@ -99,8 +100,14 @@ interface SpaceAliasMemoryRepository : ToggleableMemoryRepository<SpaceAliasMemo
 class RoomCaptureRepository(private val dao: CaptureDao) : CaptureRepository {
     override fun observeAll() = dao.observeAll()
     override suspend fun getById(id: Long) = dao.getById(id)
-    override suspend fun insert(entity: CaptureEntity) = dao.insert(entity)
-    override suspend fun update(entity: CaptureEntity) = dao.update(entity)
+    override suspend fun insert(entity: CaptureEntity): Long {
+        require(entity.rawText.isNotBlank()) { "A capture cannot be blank" }
+        return dao.insert(entity)
+    }
+    override suspend fun update(entity: CaptureEntity) {
+        require(entity.rawText.isNotBlank()) { "A capture cannot be blank" }
+        dao.update(entity)
+    }
     override suspend fun delete(entity: CaptureEntity) = dao.delete(entity)
     override suspend fun deleteById(id: Long) = dao.deleteById(id)
 }
@@ -196,12 +203,14 @@ class RoomTaskRepository(private val dao: TaskDao) : TaskRepository {
 }
 
 private fun NoteEntity.requireValidSchedule(): NoteEntity = apply {
+    require(title.isNotBlank()) { "A note needs a title" }
     require(scheduledDateEpochDay == null || scheduledAt == null) {
         "A note cannot be both date-only and timed"
     }
 }
 
 private fun TaskEntity.requireValidSchedule(): TaskEntity = apply {
+    require(title.isNotBlank()) { "A task needs a title" }
     require(scheduledDateEpochDay == null || dueAt == null) {
         "A task cannot be both date-only and timed"
     }
@@ -215,27 +224,54 @@ class RoomReminderRepository(
     override suspend fun getById(id: Long) = dao.getById(id)
 
     override suspend fun insert(entity: ReminderEntity): Long {
-        val id = dao.insert(entity)
-        val stored = entity.copy(id = id)
+        val stored = entity.copy(id = 0L, notificationWorkId = null, deliveredNotificationAt = null)
+            .requireValidReminder()
+        val id = dao.insert(stored)
         if (stored.shouldScheduleNotification()) {
-            val workId = runCatching { scheduler.schedule(stored) }.getOrNull()
-            dao.update(stored.copy(notificationWorkId = workId))
+            val token = runCatching { scheduler.schedule(stored.copy(id = id)) }.getOrNull()
+            dao.updateNotificationWorkId(id, token)
         }
         return id
     }
 
+    /**
+     * Saves the reminder and touches its alarm only when the notification timing,
+     * enablement or completion changed. Moving a reminder to another Space, renaming
+     * it or adding labels therefore never re-arms it, and a past time is never
+     * scheduled again (see ReminderDeliveryPolicy).
+     */
     override suspend fun update(entity: ReminderEntity) {
         require(entity.id != 0L) { "A stored reminder is required" }
-        dao.update(entity)
-        if (entity.shouldScheduleNotification()) {
-            val workId = runCatching { scheduler.reschedule(entity) }.getOrNull()
-            dao.update(entity.copy(notificationWorkId = workId))
-        } else {
-            runCatching { scheduler.cancel(entity.id) }
-            if (entity.notificationWorkId != null) {
-                dao.update(entity.copy(notificationWorkId = null))
-            }
+        val previous = dao.getById(entity.id)
+        val timingEdited = previous != null && (
+            previous.dueAt != entity.dueAt ||
+                previous.notificationOffsetMinutes != entity.notificationOffsetMinutes
+            )
+        val normalized = entity
+            .copy(
+                // A new time supersedes an earlier snooze.
+                snoozedUntil = if (timingEdited && entity.snoozedUntil == previous?.snoozedUntil) {
+                    null
+                } else {
+                    entity.snoozedUntil
+                },
+                // Delivery bookkeeping is owned by the delivery paths, not by editors.
+                deliveredNotificationAt = previous?.deliveredNotificationAt ?: entity.deliveredNotificationAt,
+                notificationWorkId = previous?.notificationWorkId ?: entity.notificationWorkId,
+            )
+            .requireValidReminder()
+        dao.update(normalized)
+
+        if (!normalized.shouldScheduleNotification()) {
+            runCatching { scheduler.cancel(normalized.id) }
+            if (normalized.notificationWorkId != null) dao.updateNotificationWorkId(normalized.id, null)
+            return
         }
+        val unchanged = previous != null &&
+            ReminderDeliveryPolicy.schedulingKey(previous) == ReminderDeliveryPolicy.schedulingKey(normalized)
+        if (unchanged) return
+        val token = runCatching { scheduler.reschedule(normalized) }.getOrNull()
+        dao.updateNotificationWorkId(normalized.id, token)
     }
 
     override suspend fun delete(entity: ReminderEntity) {
@@ -247,6 +283,11 @@ class RoomReminderRepository(
         runCatching { scheduler.cancel(id) }
         dao.deleteById(id)
     }
+}
+
+private fun ReminderEntity.requireValidReminder(): ReminderEntity = apply {
+    require(title.isNotBlank()) { "A reminder needs a title" }
+    require(dueAt > 0L) { "A reminder needs a valid time" }
 }
 
 class RoomAiSuggestionHistoryRepository(

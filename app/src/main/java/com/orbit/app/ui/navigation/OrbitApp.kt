@@ -77,6 +77,8 @@ fun OrbitApp(
     onApplicationLanguageChanged: (AppLanguage) -> Unit,
     reminderToOpen: Long?,
     onReminderOpened: () -> Unit,
+    openReviewRequested: Boolean = false,
+    onOpenReviewHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -102,6 +104,15 @@ fun OrbitApp(
                 launchSingleTop = true
             }
             onReminderOpened()
+        }
+    }
+
+    LaunchedEffect(openReviewRequested) {
+        if (openReviewRequested) {
+            navController.navigate(OrbitDestination.Review.route) {
+                launchSingleTop = true
+            }
+            onOpenReviewHandled()
         }
     }
 
@@ -379,6 +390,7 @@ fun OrbitApp(
                         onConfirmRestore = localDataToolsViewModel::confirmRestore,
                         onCancelRestore = localDataToolsViewModel::cancelRestore,
                         onResetAllData = localDataToolsViewModel::resetAllData,
+                        onRetryReminderSetup = localDataToolsViewModel::retryReminderSetup,
                         onOpenFirstTimeGuide = {
                             navController.navigate(
                                 FirstTimeTutorialDestination.route(isReplay = true),

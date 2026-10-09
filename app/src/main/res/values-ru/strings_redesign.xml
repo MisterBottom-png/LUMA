@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_item_detail_title_required">Чтобы сохранить, добавьте название.</string>
+    <string name="reminder_notification_action_done">Готово</string>
+    <string name="reminder_notification_action_snooze">Отложить на 15 мин</string>
+    <string name="reminder_notification_missed_body">Пропущено. Срок был %1$s.</string>
+    <string name="reminder_notification_missed_summary_body">Они ждут вас в обзоре.</string>
+    <plurals name="reminder_notification_missed_summary_title">
+        <item quantity="one">%d напоминание пропущено</item>
+        <item quantity="few">%d напоминания пропущено</item>
+        <item quantity="many">%d напоминаний пропущено</item>
+        <item quantity="other">%d напоминания пропущено</item>
+    </plurals>
+    <string name="settings_export_unverified">Резервную копию не удалось проверить, поэтому ничего не записано. Данные на этом телефоне не изменены.</string>
+    <string name="settings_retry_reminder_setup">Настроить напоминания заново</string>
+    <string name="settings_reminder_setup_restored">Напоминания снова настроены на этом телефоне.</string>
+    <string name="settings_reminder_setup_still_failing">Некоторые напоминания всё ещё не удалось настроить. Ваши записи в сохранности; проверьте настройки уведомлений и попробуйте снова.</string>
+    <string name="settings_gemini_error_model_not_found">Gemini не знает такую модель. Проверьте название модели в настройках ИИ. Локальный режим продолжит работать.</string>
+    <string name="core_capture_not_now_keep">Не сейчас – оставить во Входящих</string>
+</resources>

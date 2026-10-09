@@ -7,10 +7,14 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.orbit.app.OrbitContainer
 import com.orbit.app.data.export.LocalDataBackupCodec
+import com.orbit.app.data.export.LocalDataExportVerificationException
 import com.orbit.app.data.export.LocalDataValidationException
 import com.orbit.app.data.export.LocalRestorePlan
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import com.orbit.app.reminders.ReminderDeliveryPath
+import com.orbit.app.reminders.ReminderNotifier
+import com.orbit.app.reminders.reconcileReminders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,14 +33,22 @@ data class LocalDataToolsUiState(
     val restorePlan: LocalRestorePlan? = null,
     val restoreMessage: LocalDataToolsMessage? = null,
     val errorMessage: LocalDataToolsMessage? = null,
-)
+    val isRetryingReminderSetup: Boolean = false,
+) {
+    /** A restore finished but reminders could not all be set up on this phone. */
+    val canRetryReminderSetup: Boolean
+        get() = (restoreMessage as? LocalDataToolsMessage.RestoreCompleted)?.needsReminderDeviceCheck == true
+}
 
 sealed interface LocalDataToolsMessage {
     data object ExportFailed : LocalDataToolsMessage
+    data object ExportUnverified : LocalDataToolsMessage
     data object RestoreFileInvalid : LocalDataToolsMessage
     data object RestoreFailed : LocalDataToolsMessage
     data object ResetCompleted : LocalDataToolsMessage
     data object ResetFailed : LocalDataToolsMessage
+    data object ReminderSetupRestored : LocalDataToolsMessage
+    data object ReminderSetupStillFailing : LocalDataToolsMessage
     data class RestoreCompleted(
         val visibleItemCount: Int,
         val needsReminderDeviceCheck: Boolean,
@@ -75,9 +87,13 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
                 .onSuccess {
                     _uiState.value = LocalDataToolsUiState(exportCompleted = true)
                 }
-                .onFailure {
+                .onFailure { failure ->
                     _uiState.value = LocalDataToolsUiState(
-                        errorMessage = LocalDataToolsMessage.ExportFailed,
+                        errorMessage = if (failure is LocalDataExportVerificationException) {
+                            LocalDataToolsMessage.ExportUnverified
+                        } else {
+                            LocalDataToolsMessage.ExportFailed
+                        },
                     )
                 }
         }
@@ -187,6 +203,43 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
                         errorMessage = LocalDataToolsMessage.ResetFailed,
                     )
                 }
+            }
+        }
+    }
+
+    /** Recovery action after a restore whose reminder setup did not fully succeed. */
+    fun retryReminderSetup() {
+        if (_uiState.value.isRetryingReminderSetup) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRetryingReminderSetup = true) }
+            val failures = runCatching {
+                withContext(Dispatchers.IO) {
+                    reconcileReminders(
+                        dao = container.database.reminderDao(),
+                        scheduler = container.reminderScheduler,
+                        now = System.currentTimeMillis(),
+                        deliver = { id, time, missed ->
+                            ReminderNotifier.showReminderNotification(
+                                context = container.applicationContext,
+                                reminderId = id,
+                                expectedNotificationTime = time,
+                                deliveredBy = ReminderDeliveryPath.Reconcile,
+                                missed = missed,
+                            )
+                        },
+                        deliverSummary = { ReminderNotifier.showMissedSummary(container.applicationContext, it) },
+                    ).failures
+                }
+            }.getOrElse { 1 }
+            _uiState.update {
+                it.copy(
+                    isRetryingReminderSetup = false,
+                    restoreMessage = if (failures == 0) {
+                        LocalDataToolsMessage.ReminderSetupRestored
+                    } else {
+                        LocalDataToolsMessage.ReminderSetupStillFailing
+                    },
+                )
             }
         }
     }

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_item_detail_title_required">Salvestamiseks lisa pealkiri.</string>
+    <string name="reminder_notification_action_done">Tehtud</string>
+    <string name="reminder_notification_action_snooze">Lükka 15 min edasi</string>
+    <string name="reminder_notification_missed_body">Jäi vahele. Aeg oli %1$s.</string>
+    <string name="reminder_notification_missed_summary_body">Need ootavad sind ülevaates.</string>
+    <plurals name="reminder_notification_missed_summary_title">
+        <item quantity="one">%d meeldetuletus jäi vahele</item>
+        <item quantity="other">%d meeldetuletust jäi vahele</item>
+    </plurals>
+    <string name="settings_export_unverified">Varukoopiat ei õnnestunud kontrollida, seega midagi ei kirjutatud. Andmed selles telefonis on muutmata.</string>
+    <string name="settings_retry_reminder_setup">Seadista meeldetuletused uuesti</string>
+    <string name="settings_reminder_setup_restored">Meeldetuletused on selles telefonis taas seadistatud.</string>
+    <string name="settings_reminder_setup_still_failing">Mõnda meeldetuletust ei õnnestunud ikka seadistada. Sinu kirjed on alles; kontrolli teavituste sätteid ja proovi uuesti.</string>
+    <string name="settings_gemini_error_model_not_found">Gemini ei tunne seda mudeli nime. Kontrolli mudelit AI sätetes. Kohalik režiim töötab edasi.</string>
+    <string name="core_capture_not_now_keep">Mitte praegu – jäta sisendkausta</string>
+</resources>

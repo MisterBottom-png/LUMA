@@ -58,8 +58,14 @@ internal fun reminderNotificationTimeMillis(
     return notificationTime.takeIf { it > 0L }
 }
 
+/**
+ * The instant the reminder notification should appear: a snooze wins over the
+ * reminder target time minus its notification offset. Must stay in sync with
+ * the SQL in `ReminderDao.claimDelivery`.
+ */
 internal fun ReminderEntity.notificationTimeMillis(): Long? =
-    reminderNotificationTimeMillis(dueAt, notificationOffsetMinutes)
+    snoozedUntil?.takeIf { it > 0L }
+        ?: reminderNotificationTimeMillis(dueAt, notificationOffsetMinutes)
 
 internal fun ReminderEntity.shouldScheduleNotification(): Boolean =
     notificationEnabled && completedAt == null && notificationTimeMillis() != null

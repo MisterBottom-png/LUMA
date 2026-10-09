@@ -17,6 +17,7 @@ class ReminderNotificationWorker(
             context = applicationContext,
             reminderId = reminderId,
             expectedNotificationTime = notificationTime,
+            deliveredBy = ReminderDeliveryPath.Worker,
         )
         return Result.success()
     }

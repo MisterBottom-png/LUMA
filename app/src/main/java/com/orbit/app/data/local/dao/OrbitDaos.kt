@@ -339,6 +339,44 @@ interface ReminderDao {
 
     @Query("DELETE FROM reminders")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM reminders")
+    suspend fun getAll(): List<ReminderEntity>
+
+    /** Stores the scheduling token without touching user-visible fields such as updatedAt. */
+    @Query("UPDATE reminders SET notificationWorkId = :workId WHERE id = :id")
+    suspend fun updateNotificationWorkId(id: Long, workId: String?)
+
+    /**
+     * Atomically claims delivery of [notificationTime] for one reminder. Returns 1 for
+     * the first caller (alarm or worker) and 0 for every later or stale attempt, so a
+     * reminder is shown at most once per scheduled time.
+     */
+    @Query(
+        """
+        UPDATE reminders SET deliveredNotificationAt = :notificationTime
+        WHERE id = :id
+          AND completedAt IS NULL
+          AND notificationEnabled = 1
+          AND (deliveredNotificationAt IS NULL OR deliveredNotificationAt != :notificationTime)
+          AND COALESCE(snoozedUntil, dueAt - (notificationOffsetMinutes * 60000)) = :notificationTime
+        """,
+    )
+    suspend fun claimDelivery(id: Long, notificationTime: Long): Int
+
+    /** Releases a claim when the notification could not actually be posted. */
+    @Query(
+        "UPDATE reminders SET deliveredNotificationAt = NULL " +
+            "WHERE id = :id AND deliveredNotificationAt = :notificationTime",
+    )
+    suspend fun releaseDelivery(id: Long, notificationTime: Long)
+
+    /** Marks a past notification time as handled so it never rings (restore, old misses). */
+    @Query(
+        "UPDATE reminders SET deliveredNotificationAt = :notificationTime, notificationWorkId = NULL " +
+            "WHERE id = :id",
+    )
+    suspend fun markHandled(id: Long, notificationTime: Long)
 }
 
 @Dao

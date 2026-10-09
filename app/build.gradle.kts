@@ -75,6 +75,13 @@ android {
     }
 
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    // Robolectric-backed JVM tests read the exported Room schemas as assets so
+    // migrations, restore and reminder delivery can be verified without a device.
+    sourceSets.getByName("test").assets.srcDir("$projectDir/schemas")
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 baselineProfile {
@@ -123,6 +130,11 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.json)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+    testImplementation(libs.androidx.room.testing)
+    testImplementation(libs.androidx.work.testing)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

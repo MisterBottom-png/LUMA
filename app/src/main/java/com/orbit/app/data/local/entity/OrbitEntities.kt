@@ -177,8 +177,8 @@ data class TaskEntity(
     val updatedAt: Long = createdAt,
     val completedAt: Long? = null,
     val staleAfterDays: Int? = null,
-    // Legacy column: the monday.com integration was removed. Retained so the
-    // Room v5 schema stays unchanged and older exports still decode.
+    // Legacy column: the monday.com integration was removed. Retained so
+    // existing databases keep their schema and older exports still decode.
     @Deprecated("Retained only for legacy data compatibility; never written.")
     val mondayItemId: String? = null,
     val scheduledDateEpochDay: Long? = null,
@@ -222,6 +222,12 @@ data class ReminderEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = createdAt,
     val completedAt: Long? = null,
+    // Device-local delivery state (Room v7). Not part of exports: a restore
+    // marks past reminders as handled instead of ringing them again.
+    /** Notification time that has already been shown; the first delivery path wins. */
+    val deliveredNotificationAt: Long? = null,
+    /** When set, replaces the computed notification time until the reminder is edited. */
+    val snoozedUntil: Long? = null,
 )
 
 @Entity(

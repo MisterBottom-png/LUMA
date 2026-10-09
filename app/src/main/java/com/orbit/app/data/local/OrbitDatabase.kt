@@ -58,7 +58,7 @@ import com.orbit.app.data.local.entity.TaskLabelCrossRef
         TaskLabelCrossRef::class,
         ReminderLabelCrossRef::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(OrbitTypeConverters::class)
@@ -393,6 +393,34 @@ abstract class OrbitDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds device-local reminder delivery state. Reminders whose notification
+         * time has already passed are marked as delivered so that an upgrade never
+         * rings an old reminder a second time.
+         */
+        val Migration6To7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `deliveredNotificationAt` INTEGER")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `snoozedUntil` INTEGER")
+                db.execSQL(
+                    """
+                    UPDATE `reminders`
+                    SET `deliveredNotificationAt` = `dueAt` - (`notificationOffsetMinutes` * 60000)
+                    WHERE `dueAt` - (`notificationOffsetMinutes` * 60000) <= (CAST(strftime('%s','now') AS INTEGER) * 1000)
+                    """.trimIndent(),
+                )
+            }
+        }
+
+        val AllMigrations: Array<Migration> = arrayOf(
+            Migration1To2,
+            Migration2To3,
+            Migration3To4,
+            Migration4To5,
+            Migration5To6,
+            Migration6To7,
+        )
+
         @Volatile
         private var instance: OrbitDatabase? = null
 
@@ -402,13 +430,7 @@ abstract class OrbitDatabase : RoomDatabase() {
                 OrbitDatabase::class.java,
                 DATABASE_NAME,
             )
-                .addMigrations(
-                    Migration1To2,
-                    Migration2To3,
-                    Migration3To4,
-                    Migration4To5,
-                    Migration5To6,
-                )
+                .addMigrations(*AllMigrations)
                 .build()
                 .also { instance = it }
         }

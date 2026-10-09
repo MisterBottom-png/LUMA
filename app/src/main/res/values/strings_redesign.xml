@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_item_detail_title_required">Add a title to save this.</string>
+    <string name="reminder_notification_action_done">Done</string>
+    <string name="reminder_notification_action_snooze">Snooze 15 min</string>
+    <string name="reminder_notification_missed_body">Missed earlier. It was due %1$s.</string>
+    <string name="reminder_notification_missed_summary_body">They are waiting for you in Review.</string>
+    <plurals name="reminder_notification_missed_summary_title">
+        <item quantity="one">%d reminder was missed</item>
+        <item quantity="other">%d reminders were missed</item>
+    </plurals>
+    <string name="settings_export_unverified">The backup could not be verified, so nothing was written. Your data on this phone is unchanged.</string>
+    <string name="settings_retry_reminder_setup">Set up reminders again</string>
+    <string name="settings_reminder_setup_restored">Reminders are set up on this phone again.</string>
+    <string name="settings_reminder_setup_still_failing">Some reminders still could not be set up. Your items are safe; check notification settings and try again.</string>
+    <string name="settings_gemini_error_model_not_found">Gemini does not recognise this model name. Check the model in AI settings. Local mode still works.</string>
+    <string name="core_capture_not_now_keep">Not now – keep it in Inbox</string>
+</resources>

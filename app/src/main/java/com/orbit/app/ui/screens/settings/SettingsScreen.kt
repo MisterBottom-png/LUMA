@@ -102,6 +102,7 @@ fun SettingsScreen(
     onConfirmRestore: () -> Unit,
     onCancelRestore: () -> Unit,
     onResetAllData: () -> Unit,
+    onRetryReminderSetup: () -> Unit,
     onOpenFirstTimeGuide: () -> Unit,
     onSettingsSubsectionChanged: (Boolean) -> Unit,
 ) {
@@ -289,6 +290,7 @@ fun SettingsScreen(
                             onConfirmRestore = onConfirmRestore,
                             onCancelRestore = onCancelRestore,
                             onResetAllData = onResetAllData,
+                            onRetryReminderSetup = onRetryReminderSetup,
                         )
                     }
                 }

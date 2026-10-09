@@ -4,7 +4,9 @@ import androidx.room.withTransaction
 import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.local.dao.ReminderDao
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.reminders.ReminderDeliveryPolicy
 import com.orbit.app.reminders.ReminderScheduler
+import com.orbit.app.reminders.notificationTimeMillis
 import com.orbit.app.reminders.shouldScheduleNotification
 import kotlinx.coroutines.flow.first
 
@@ -139,7 +141,13 @@ class RoomLocalDataRestoreStore(
 class LocalReminderRestoreReconciler(
     private val scheduler: ReminderScheduler,
     private val reminderDao: ReminderDao,
+    private val now: () -> Long = System::currentTimeMillis,
 ) : ReminderRestoreReconciler {
+    /**
+     * Cancels alarms of the replaced data and arms only reminders whose notification
+     * time is still ahead. Restored reminders in the past are marked handled so a
+     * restore can never set off a burst of historical reminders.
+     */
     override suspend fun reconcile(
         previousReminderIds: Set<Long>,
         restoredReminders: List<ReminderEntity>,
@@ -148,21 +156,24 @@ class LocalReminderRestoreReconciler(
         (previousReminderIds + restoredReminders.map { it.id }).forEach { reminderId ->
             if (runCatching { scheduler.cancel(reminderId) }.isFailure) reconciled = false
         }
-        restoredReminders.forEach { reminder ->
-            val safeReminder = reminder.copy(notificationWorkId = null)
-            val workId = if (safeReminder.shouldScheduleNotification()) {
-                runCatching { scheduler.schedule(safeReminder) }
-                    .onFailure { reconciled = false }
-                    .getOrNull()
-            } else {
-                null
+        val currentTime = now()
+        restoredReminders.forEach { restored ->
+            val reminder = restored.copy(notificationWorkId = null, deliveredNotificationAt = null, snoozedUntil = null)
+            val outcome = runCatching {
+                val notificationTime = reminder.notificationTimeMillis()
+                when {
+                    !reminder.shouldScheduleNotification() || notificationTime == null ->
+                        reminderDao.updateNotificationWorkId(reminder.id, null)
+                    ReminderDeliveryPolicy.scheduleTime(reminder, currentTime) == null ->
+                        reminderDao.markHandled(reminder.id, notificationTime)
+                    else -> {
+                        val token = scheduler.schedule(reminder)
+                        reminderDao.updateNotificationWorkId(reminder.id, token)
+                        if (token == null) reconciled = false
+                    }
+                }
             }
-            if (runCatching {
-                    reminderDao.update(safeReminder.copy(notificationWorkId = workId))
-                }.isFailure
-            ) {
-                reconciled = false
-            }
+            if (outcome.isFailure) reconciled = false
         }
         return reconciled
     }

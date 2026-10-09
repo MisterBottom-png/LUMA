@@ -394,6 +394,36 @@ private class FakeReminderDao : ReminderDao {
         publish()
     }
 
+    override suspend fun getAll(): List<ReminderEntity> = reminders.values.toList()
+
+    override suspend fun updateNotificationWorkId(id: Long, workId: String?) {
+        reminders[id]?.let { reminders[id] = it.copy(notificationWorkId = workId) }
+        publish()
+    }
+
+    override suspend fun claimDelivery(id: Long, notificationTime: Long): Int {
+        val reminder = reminders[id] ?: return 0
+        if (!reminder.matchesScheduledNotificationTime(notificationTime)) return 0
+        if (reminder.deliveredNotificationAt == notificationTime) return 0
+        reminders[id] = reminder.copy(deliveredNotificationAt = notificationTime)
+        publish()
+        return 1
+    }
+
+    override suspend fun releaseDelivery(id: Long, notificationTime: Long) {
+        reminders[id]?.takeIf { it.deliveredNotificationAt == notificationTime }?.let {
+            reminders[id] = it.copy(deliveredNotificationAt = null)
+        }
+        publish()
+    }
+
+    override suspend fun markHandled(id: Long, notificationTime: Long) {
+        reminders[id]?.let {
+            reminders[id] = it.copy(deliveredNotificationAt = notificationTime, notificationWorkId = null)
+        }
+        publish()
+    }
+
     override suspend fun deleteById(id: Long) {
         reminders.remove(id)
         publish()

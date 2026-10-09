@@ -36,6 +36,7 @@ internal fun LocalDataSettingsSection(
     onConfirmRestore: () -> Unit,
     onCancelRestore: () -> Unit,
     onResetAllData: () -> Unit,
+    onRetryReminderSetup: () -> Unit = {},
 ) {
     var showExportWarning by rememberSaveable { mutableStateOf(false) }
     var showResetConfirmation by rememberSaveable { mutableStateOf(false) }
@@ -184,6 +185,15 @@ internal fun LocalDataSettingsSection(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
+            if (localDataTools.canRetryReminderSetup) {
+                OutlinedButton(
+                    onClick = onRetryReminderSetup,
+                    enabled = !localDataTools.isRetryingReminderSetup,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.settings_retry_reminder_setup))
+                }
+            }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Text(
                 text = stringResource(R.string.settings_reset_explanation),
@@ -235,10 +245,13 @@ internal fun LocalDataSettingsSection(
 @Composable
 private fun LocalDataToolsMessage.localizedText(): String = when (this) {
     LocalDataToolsMessage.ExportFailed -> stringResource(R.string.settings_export_failed)
+    LocalDataToolsMessage.ExportUnverified -> stringResource(R.string.settings_export_unverified)
     LocalDataToolsMessage.RestoreFileInvalid -> stringResource(R.string.settings_restore_file_invalid)
     LocalDataToolsMessage.RestoreFailed -> stringResource(R.string.settings_restore_failed)
     LocalDataToolsMessage.ResetCompleted -> stringResource(R.string.settings_reset_complete)
     LocalDataToolsMessage.ResetFailed -> stringResource(R.string.settings_reset_failed)
+    LocalDataToolsMessage.ReminderSetupRestored -> stringResource(R.string.settings_reminder_setup_restored)
+    LocalDataToolsMessage.ReminderSetupStillFailing -> stringResource(R.string.settings_reminder_setup_still_failing)
     is LocalDataToolsMessage.RestoreCompleted -> pluralStringResource(
         id = if (needsReminderDeviceCheck) {
             R.plurals.settings_restore_complete_device_check
