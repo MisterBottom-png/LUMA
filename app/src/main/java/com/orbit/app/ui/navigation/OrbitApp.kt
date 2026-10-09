@@ -1,5 +1,9 @@
 package com.orbit.app.ui.navigation
 
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
@@ -41,7 +45,6 @@ import androidx.navigation.compose.rememberNavController
 import com.orbit.app.ui.components.FloatingBottomNavigation
 import com.orbit.app.ui.components.GlassRenderingPolicy
 import com.orbit.app.ui.components.OrbitBackground
-import com.orbit.app.ui.components.calmPressHaptics
 import com.orbit.app.ui.screens.calendar.CalendarScreen
 import com.orbit.app.ui.screens.calendar.CalendarViewModel
 import com.orbit.app.ui.screens.home.HomeScreen
@@ -156,10 +159,10 @@ fun OrbitApp(
         settings = settings,
         glassRenderingPolicy = glassRenderingPolicyForRoute(selectedRoute),
     ) {
+        // No haptic on every tap: haptics are kept for meaningful moments (send, done, undo),
+        // so they still mean something when they happen.
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .calmPressHaptics(),
+            modifier = Modifier.fillMaxSize(),
         ) {
             NavHost(
                 navController = navController,
@@ -644,43 +647,73 @@ fun OrbitApp(
     }
 }
 
+/*
+ * Tabs use a quiet "fade through": the old screen fades out quickly, the new one fades in
+ * and settles from 98% scale. Nothing slides sideways between tabs, because tabs are
+ * siblings, not a sequence. Pushed screens (Settings, item details) slide a short way in
+ * with a decelerating curve and leave faster than they arrive.
+ */
+private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+private val EmphasizedAccelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+private const val FadeThroughOutMillis = 90
+private const val FadeThroughInMillis = 220
+private const val PushInMillis = 380
+private const val PushOutMillis = 200
+
+private fun isTabSwitch(initialRoute: String?, targetRoute: String?): Boolean {
+    val tabs = OrbitDestination.bottomBar.map { it.route }
+    return initialRoute in tabs && targetRoute in tabs
+}
+
+private fun fadeThroughIn(): EnterTransition =
+    fadeIn(tween(FadeThroughInMillis, delayMillis = FadeThroughOutMillis, easing = LinearOutSlowInEasing)) +
+        scaleIn(
+            animationSpec = tween(FadeThroughInMillis, delayMillis = FadeThroughOutMillis, easing = EmphasizedDecelerate),
+            initialScale = 0.98f,
+        )
+
+private fun fadeThroughOut(): ExitTransition =
+    fadeOut(tween(FadeThroughOutMillis, easing = FastOutLinearInEasing))
+
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitEnterTransition(): EnterTransition {
-    val direction = navigationSlideDirection(
-        initialRoute = initialState.destination.route,
-        targetRoute = targetState.destination.route,
-    )
+    val from = initialState.destination.route
+    val to = targetState.destination.route
+    if (isTabSwitch(from, to)) return fadeThroughIn()
     return slideIntoContainer(
-        towards = direction,
-        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-        initialOffset = { it / 7 },
-    ) + fadeIn(tween(OrbitMotion.StandardDurationMillis))
+        towards = navigationSlideDirection(initialRoute = from, targetRoute = to),
+        animationSpec = tween(PushInMillis, easing = EmphasizedDecelerate),
+        initialOffset = { it / 10 },
+    ) + fadeIn(tween(OrbitMotion.StandardDurationMillis, easing = LinearOutSlowInEasing))
 }
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitExitTransition(): ExitTransition {
-    val direction = navigationSlideDirection(
-        initialRoute = initialState.destination.route,
-        targetRoute = targetState.destination.route,
-    )
+    val from = initialState.destination.route
+    val to = targetState.destination.route
+    if (isTabSwitch(from, to)) return fadeThroughOut()
     return slideOutOfContainer(
-        towards = direction,
-        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-        targetOffset = { it / 10 },
-    ) + fadeOut(tween(OrbitMotion.StandardDurationMillis))
+        towards = navigationSlideDirection(initialRoute = from, targetRoute = to),
+        animationSpec = tween(PushOutMillis, easing = EmphasizedAccelerate),
+        targetOffset = { it / 16 },
+    ) + fadeOut(tween(PushOutMillis, easing = FastOutLinearInEasing))
 }
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitPopEnterTransition(): EnterTransition =
-    slideIntoContainer(
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitPopEnterTransition(): EnterTransition {
+    if (isTabSwitch(initialState.destination.route, targetState.destination.route)) return fadeThroughIn()
+    return slideIntoContainer(
         towards = AnimatedContentTransitionScope.SlideDirection.Right,
-        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-        initialOffset = { it / 7 },
-    ) + fadeIn(tween(OrbitMotion.StandardDurationMillis))
+        animationSpec = tween(PushInMillis, easing = EmphasizedDecelerate),
+        initialOffset = { it / 16 },
+    ) + fadeIn(tween(OrbitMotion.StandardDurationMillis, easing = LinearOutSlowInEasing))
+}
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitPopExitTransition(): ExitTransition =
-    slideOutOfContainer(
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.orbitPopExitTransition(): ExitTransition {
+    if (isTabSwitch(initialState.destination.route, targetState.destination.route)) return fadeThroughOut()
+    return slideOutOfContainer(
         towards = AnimatedContentTransitionScope.SlideDirection.Right,
-        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+        animationSpec = tween(PushOutMillis, easing = EmphasizedAccelerate),
         targetOffset = { it / 10 },
-    ) + fadeOut(tween(OrbitMotion.StandardDurationMillis))
+    ) + fadeOut(tween(PushOutMillis, easing = FastOutLinearInEasing))
+}
 
 private fun navigationSlideDirection(
     initialRoute: String?,

@@ -41,7 +41,19 @@ object OrbitMotion {
     const val StandardDurationMillis = 220
     const val EmphasizedDurationMillis = 320
 
-    const val PressedScale = 0.975f
+    const val PressedScale = 0.97f
+
+    /*
+     * Springs from the Material 3 "standard" motion scheme: no overshoot, so routine actions
+     * never bounce. Spatial springs move things; effects springs fade colour and opacity.
+     */
+    const val SpatialDamping = 0.9f
+    const val SpatialFastStiffness = 1400f
+    const val SpatialDefaultStiffness = 700f
+    const val SpatialSlowStiffness = 300f
+    const val EffectsDamping = 1f
+    const val EffectsFastStiffness = 3800f
+    const val EffectsDefaultStiffness = 1600f
 }
 
 object OrbitStateLayer {

@@ -7,6 +7,8 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.lerp
 import com.orbit.app.domain.model.AppAccentColor
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.model.AppTextColor
@@ -83,13 +85,26 @@ private fun ColorScheme.withPersonalColors(
 ): ColorScheme {
     val accent = accentPalette(accentColor, isDark)
     val text = textPalette(textColor, isDark, onSurface)
+    // One accent. In the standard palette the secondary and tertiary roles are quiet,
+    // tinted neutrals of the same accent, so no second colour (peach, brown, pink) appears.
+    val quietContainer = lerp(
+        surfaceContainerHighest,
+        accent.primaryContainer.compositeOver(surfaceContainerHighest),
+        if (isDark) 0.35f else 0.45f,
+    )
+    val fullPalette = paletteMode == AppearancePaletteMode.FullPalette
     return copy(
         primary = accent.primary, onPrimary = accent.onPrimary,
         primaryContainer = accent.primaryContainer, onPrimaryContainer = accent.onPrimaryContainer,
-        secondary = if (paletteMode == AppearancePaletteMode.FullPalette) accent.secondary else secondary,
-        onSecondary = if (paletteMode == AppearancePaletteMode.FullPalette) accent.onSecondary else onSecondary,
-        secondaryContainer = if (paletteMode == AppearancePaletteMode.FullPalette) accent.secondaryContainer else secondaryContainer,
-        onSecondaryContainer = if (paletteMode == AppearancePaletteMode.FullPalette) accent.onSecondaryContainer else onSecondaryContainer,
+        secondary = if (fullPalette) accent.secondary else accent.primary,
+        onSecondary = if (fullPalette) accent.onSecondary else accent.onPrimary,
+        secondaryContainer = if (fullPalette) accent.secondaryContainer else quietContainer,
+        onSecondaryContainer = if (fullPalette) accent.onSecondaryContainer else accent.onPrimaryContainer,
+        tertiary = if (fullPalette) accent.secondary else accent.primary,
+        onTertiary = if (fullPalette) accent.onSecondary else accent.onPrimary,
+        tertiaryContainer = if (fullPalette) accent.secondaryContainer else quietContainer,
+        onTertiaryContainer = if (fullPalette) accent.onSecondaryContainer else accent.onPrimaryContainer,
+        surfaceTint = accent.primary,
         onBackground = text.primary, onSurface = text.primary, onSurfaceVariant = text.secondary,
     )
 }

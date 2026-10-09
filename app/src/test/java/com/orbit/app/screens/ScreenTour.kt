@@ -75,6 +75,11 @@ abstract class ScreenTour(private val theme: String) {
         File(dir, "$theme-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
+    private fun back() = step("back") {
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+    }
+
     private fun tapTab(label: String) = step("tab $label") {
         val nodes = compose.onAllNodesWithText(label)
         val bar = nodes.fetchSemanticsNodes().withIndex().maxBy { it.value.boundsInRoot.bottom }.index
@@ -115,6 +120,22 @@ abstract class ScreenTour(private val theme: String) {
         shot("07-settings")
         step("appearance") { compose.onNodeWithText("Appearance", substring = true).performClick() }
         shot("08-appearance")
+
+        // Same screens in the violet look (accent + background), closer to a personalised phone.
+        step("colors") { compose.onNodeWithText("Colors").performClick(); compose.waitForIdle() }
+        step("violet accent") { compose.onAllNodesWithText("Tallele violet", substring = true)[0].performClick() }
+        shot("09-colors-violet")
+        back()
+        step("background") { compose.onNodeWithText("Background").performClick(); compose.waitForIdle() }
+        step("violet mist") { compose.onAllNodesWithText("Violet Mist", substring = true)[0].performClick() }
+        back()
+        back()
+        back()
+        shot("10-violet-home")
+        tapTab("Spaces")
+        shot("11-violet-spaces")
+        tapTab("Review")
+        shot("12-violet-review")
 
         outDir?.let { dir ->
             File(dir, "$theme-problems.txt").writeText(problems.joinToString("\n").ifEmpty { "none" })

@@ -1,7 +1,7 @@
 package com.orbit.app.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
@@ -28,14 +28,12 @@ fun Modifier.orbitPressFeedback(
     clipShape: Shape? = null,
 ): Modifier {
     val pressed by interactionSource.collectIsPressedAsState()
+    // A spring, so a quick tap that releases mid-press turns around smoothly.
     val scale by animateFloatAsState(
         targetValue = if (enabled && pressed) OrbitMotion.PressedScale else 1f,
-        animationSpec = tween(
-            durationMillis = if (pressed) {
-                OrbitMotion.QuickDurationMillis
-            } else {
-                OrbitMotion.StandardDurationMillis
-            },
+        animationSpec = spring(
+            dampingRatio = OrbitMotion.SpatialDamping,
+            stiffness = if (pressed) OrbitMotion.SpatialFastStiffness else OrbitMotion.SpatialDefaultStiffness,
         ),
         label = "LUMA press feedback",
     )

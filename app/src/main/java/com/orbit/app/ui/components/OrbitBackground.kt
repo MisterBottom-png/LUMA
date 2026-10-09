@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -81,7 +82,11 @@ fun OrbitBackground(
                     )
                 } ?: PresetBackground(
                     palette = palette,
-                    dimAlpha = dimAlpha,
+                    accent = MaterialTheme.colorScheme.primary,
+                    isDark = isDark,
+                    // Built-in backgrounds are already calm; a forced dim only turns them grey.
+                    // Dimming stays for photos, and for presets when the person set it by hand.
+                    dimAlpha = if (settings.backgroundDimmingMode == BackgroundDimmingMode.Manual) dimAlpha else 0f,
                 )
             }
             content()
@@ -262,6 +267,8 @@ private fun blurPass(
 @Composable
 private fun PresetBackground(
     palette: BackgroundPalette,
+    accent: Color,
+    isDark: Boolean,
     dimAlpha: Float,
 ) {
     Box(
@@ -272,6 +279,23 @@ private fun PresetBackground(
                     brush = Brush.verticalGradient(
                         palette.baseColors,
                         endY = size.height,
+                    ),
+                )
+                // Two very soft light pools. Glass needs gentle variation behind it to read
+                // as glass; on a flat fill it reads as grey.
+                val accentAlpha = if (isDark) 0.16f else 0.10f
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(accent.copy(alpha = accentAlpha), Color.Transparent),
+                        center = Offset(size.width * 0.92f, size.height * 0.10f),
+                        radius = size.maxDimension * 0.62f,
+                    ),
+                )
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(palette.bloom.copy(alpha = if (isDark) 0.20f else 0.55f), Color.Transparent),
+                        center = Offset(size.width * 0.05f, size.height * 0.78f),
+                        radius = size.maxDimension * 0.55f,
                     ),
                 )
                 if (dimAlpha > 0f) {
@@ -316,6 +340,8 @@ private fun calculateSampleSize(width: Int, height: Int): Int {
 
 private data class BackgroundPalette(
     val baseColors: List<Color>,
+    /** A second, warmer or cooler light pool that keeps the page from looking flat. */
+    val bloom: Color,
 )
 
 private fun backgroundPalette(
@@ -323,48 +349,56 @@ private fun backgroundPalette(
     isDark: Boolean,
 ): BackgroundPalette = when (preset) {
     BackgroundPreset.InkPaper -> if (isDark) {
-        BackgroundPalette(baseColors = listOf(Color(0xFF101311), Color(0xFF182022), Color(0xFF121716)))
+        BackgroundPalette(baseColors = listOf(Color(0xFF101311), Color(0xFF151B1C), Color(0xFF111615)), bloom = Color(0xFF2F4A4E))
     } else {
-        BackgroundPalette(baseColors = listOf(Color(0xFFFBF9F5), Color(0xFFF2F0EA), Color(0xFFEEF2F0)))
+        BackgroundPalette(baseColors = listOf(Color(0xFFFCFBF8), Color(0xFFF6F4EF), Color(0xFFF1F3F1)), bloom = Color(0xFFE6EEEC))
     }
 
     BackgroundPreset.SoftDawn -> if (isDark) {
         BackgroundPalette(
-            baseColors = listOf(Color(0xFF171218), Color(0xFF251B29), Color(0xFF202125)),
+            baseColors = listOf(Color(0xFF151116), Color(0xFF1E1722), Color(0xFF1A1A1F)),
+            bloom = Color(0xFF5A3A4A),
         )
     } else {
         BackgroundPalette(
-            baseColors = listOf(Color(0xFFFFF8F4), Color(0xFFF6EDF7), Color(0xFFF5F1EC)),
+            baseColors = listOf(Color(0xFFFFFAF7), Color(0xFFF9F2F8), Color(0xFFF7F3EE)),
+            bloom = Color(0xFFFBE3D8),
         )
     }
 
     BackgroundPreset.VioletMist -> if (isDark) {
         BackgroundPalette(
-            baseColors = listOf(Color(0xFF15111D), Color(0xFF241A34), Color(0xFF181827)),
+            baseColors = listOf(Color(0xFF13101A), Color(0xFF1C1628), Color(0xFF151520)),
+            bloom = Color(0xFF3E2F66),
         )
     } else {
         BackgroundPalette(
-            baseColors = listOf(Color(0xFFFBF8FF), Color(0xFFEFE8FA), Color(0xFFF4EEFA)),
+            baseColors = listOf(Color(0xFFFCFAFF), Color(0xFFF4F0FB), Color(0xFFF6F2FA)),
+            bloom = Color(0xFFE6DDFA),
         )
     }
 
     BackgroundPreset.CalmSky -> if (isDark) {
         BackgroundPalette(
-            baseColors = listOf(Color(0xFF10181D), Color(0xFF15262D), Color(0xFF17202B)),
+            baseColors = listOf(Color(0xFF0F161A), Color(0xFF132027), Color(0xFF141C25)),
+            bloom = Color(0xFF244656),
         )
     } else {
         BackgroundPalette(
-            baseColors = listOf(Color(0xFFF6FBFD), Color(0xFFE7F3F7), Color(0xFFEBF0FA)),
+            baseColors = listOf(Color(0xFFF8FCFD), Color(0xFFEEF6F9), Color(0xFFF0F3FA)),
+            bloom = Color(0xFFDCEDF4),
         )
     }
 
     BackgroundPreset.NightOrbit -> if (isDark) {
         BackgroundPalette(
-            baseColors = listOf(Color(0xFF0B0C16), Color(0xFF15172B), Color(0xFF101A25)),
+            baseColors = listOf(Color(0xFF0B0C16), Color(0xFF121427), Color(0xFF0F1722)),
+            bloom = Color(0xFF26305E),
         )
     } else {
         BackgroundPalette(
-            baseColors = listOf(Color(0xFFF5F5FC), Color(0xFFE8E9F6), Color(0xFFE9F0F4)),
+            baseColors = listOf(Color(0xFFF7F7FD), Color(0xFFEEEFF8), Color(0xFFEEF3F6)),
+            bloom = Color(0xFFDDE2F6),
         )
     }
 }

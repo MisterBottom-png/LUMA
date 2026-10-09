@@ -86,12 +86,7 @@ fun LiveGlassSurface(
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         Box(
             modifier = modifier
-                .shadow(
-                    elevation = visuals.shadowElevation,
-                    shape = shape,
-                    ambientColor = visuals.shadowColor.copy(alpha = 0.10f),
-                    spotColor = visuals.shadowColor.copy(alpha = 0.14f),
-                )
+                .orbitSoftShadow(visuals.shadowElevation, shape, visuals.shadowColor)
                 .clip(shape)
                 .then(
                     if (hazeState != null) {
@@ -122,35 +117,90 @@ fun SoftGlassSurface(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val visuals = orbitSoftSurfaceVisuals(style)
+    // Only the floating layer (bar, capture box, sheets) casts a shadow; content cards
+    // stay flat so no grey shadow shows through their translucent fill.
+    val elevation = maxOf(shadowElevation, visuals.floatingElevation)
+    val shadowed = modifier.orbitSoftShadow(elevation, shape, visuals.shadowColor)
     if (onClick == null) {
         Surface(
-            modifier = modifier,
+            modifier = shadowed,
             shape = shape,
             color = visuals.containerColor,
             contentColor = MaterialTheme.colorScheme.onSurface,
-            border = BorderStroke(1.dp, visuals.borderColor),
+            border = BorderStroke(1.dp, visuals.edge),
             tonalElevation = 0.dp,
-            shadowElevation = shadowElevation,
+            shadowElevation = 0.dp,
             content = { Box(content = content) },
         )
     } else {
         val interactionSource = remember { MutableInteractionSource() }
         Surface(
             onClick = onClick,
-            modifier = modifier.orbitPressFeedback(
+            modifier = shadowed.orbitPressFeedback(
                 interactionSource = interactionSource,
                 clipShape = shape,
             ),
             shape = shape,
             color = visuals.containerColor,
             contentColor = MaterialTheme.colorScheme.onSurface,
-            border = BorderStroke(1.dp, visuals.borderColor),
+            border = BorderStroke(1.dp, visuals.edge),
             tonalElevation = 0.dp,
-            shadowElevation = shadowElevation,
+            shadowElevation = 0.dp,
             interactionSource = interactionSource,
             content = { Box(content = content) },
         )
     }
+}
+
+/**
+ * A soft, low, tinted shadow. Large blur with low opacity reads as light; a small dark
+ * shadow reads as a box drawn on paper.
+ */
+internal fun Modifier.orbitSoftShadow(
+    elevation: androidx.compose.ui.unit.Dp,
+    shape: Shape,
+    color: Color,
+): Modifier = if (elevation <= 0.dp) {
+    this
+} else {
+    shadow(
+        elevation = elevation,
+        shape = shape,
+        clip = false,
+        ambientColor = color.copy(alpha = color.alpha * 0.55f),
+        spotColor = color,
+    )
+}
+
+/**
+ * One edge for every surface: a hairline lit from above. Light theme fades from a white
+ * highlight to a faint ink line at the bottom; dark theme from a soft white to almost nothing.
+ * It replaces solid grey outlines, which make glass read as a form field.
+ */
+@Composable
+internal fun orbitGlassEdgeBrush(strength: Float = 1f): Brush {
+    val colors = MaterialTheme.colorScheme
+    val isDark = colors.background.luminance() < 0.5f
+    return glassEdgeBrush(isDark = isDark, ink = colors.onSurface, strength = strength)
+}
+
+internal fun glassEdgeBrush(isDark: Boolean, ink: Color, strength: Float = 1f): Brush {
+    val k = strength.coerceIn(0f, 1f)
+    return Brush.verticalGradient(
+        colors = if (isDark) {
+            listOf(
+                Color.White.copy(alpha = 0.16f * k),
+                Color.White.copy(alpha = 0.06f * k),
+                Color.White.copy(alpha = 0.03f * k),
+            )
+        } else {
+            listOf(
+                Color.White.copy(alpha = 0.95f * k),
+                Color.White.copy(alpha = 0.55f * k),
+                ink.copy(alpha = 0.07f * k),
+            )
+        },
+    )
 }
 
 @Composable
@@ -202,8 +252,27 @@ internal data class GlassVisuals(
 
 internal data class SoftSurfaceVisuals(
     val containerColor: Color,
-    val borderColor: Color,
+    val edge: Brush,
+    val shadowColor: Color,
+    val floatingElevation: androidx.compose.ui.unit.Dp,
 )
+
+/** Tinted, low-opacity shadow colour shared by every floating surface. */
+internal fun orbitShadowColor(isDark: Boolean): Color =
+    if (isDark) Color.Black.copy(alpha = 0.42f) else Color(0xFF2A2638).copy(alpha = 0.10f)
+
+/** Elevation is reserved for the floating layer; content cards sit flat on the background. */
+internal fun floatingElevationFor(style: GlassSurfaceStyle): androidx.compose.ui.unit.Dp = when (style) {
+    GlassSurfaceStyle.NavigationBar -> 14.dp
+    GlassSurfaceStyle.Sheet -> 18.dp
+    GlassSurfaceStyle.HomeCapture -> 10.dp
+    GlassSurfaceStyle.NavigationAction -> 6.dp
+    GlassSurfaceStyle.Prominent,
+    GlassSurfaceStyle.Standard,
+    GlassSurfaceStyle.Subtle,
+    GlassSurfaceStyle.HomeNavigation,
+    -> 0.dp
+}
 
 /** Shared visual recipe so every floating glass surface reads as one material. */
 @Composable
@@ -253,26 +322,10 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
         GlassSurfaceStyle.NavigationBar -> if (isDark) 0.020f else 0.016f
     }
 
-    val edgeStrength = 0.55f + (glassStrength * 0.45f)
-
-    val edge = Brush.linearGradient(
-        colors = if (isDark) {
-            listOf(
-                Color.White.copy(alpha = 0.30f * edgeStrength),
-                Color.White.copy(alpha = 0.10f * edgeStrength),
-                Color.Transparent,
-                Color.Transparent,
-            )
-        } else {
-            listOf(
-                Color.White.copy(alpha = 0.58f * edgeStrength),
-                Color.White.copy(alpha = 0.18f * edgeStrength),
-                Color.Transparent,
-                Color.Transparent,
-            )
-        },
-        start = Offset.Zero,
-        end = Offset.Infinite,
+    val edge = glassEdgeBrush(
+        isDark = isDark,
+        ink = colors.onSurface,
+        strength = 0.70f + (glassStrength * 0.30f),
     )
 
     return GlassVisuals(
@@ -287,17 +340,8 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
             fallbackTint = HazeTint(tint),
         ),
         edge = edge,
-        shadowColor = if (isDark) Color(0xFF08050F) else Color(0xFF706586),
-        shadowElevation = when (style) {
-            GlassSurfaceStyle.Sheet -> 10.dp
-            GlassSurfaceStyle.Prominent -> 8.dp
-            GlassSurfaceStyle.Subtle -> 3.dp
-            GlassSurfaceStyle.Standard -> 5.dp
-            GlassSurfaceStyle.HomeCapture -> 5.dp
-            GlassSurfaceStyle.HomeNavigation -> 3.dp
-            GlassSurfaceStyle.NavigationAction -> 2.dp
-            GlassSurfaceStyle.NavigationBar -> 4.dp
-        },
+        shadowColor = orbitShadowColor(isDark),
+        shadowElevation = floatingElevationFor(style),
         fallbackColor = tint,
     )
 }
@@ -356,25 +400,34 @@ internal fun orbitSoftSurfaceVisuals(
     ).let { alpha ->
         if (LocalOrbitAppearance.current.glassEffect == GlassEffect.Off) solidSurfaceAlpha(alpha) else alpha
     }
-    return SoftSurfaceVisuals(
-        containerColor = when (style) {
+    // Light theme: surfaces are lighter than the page (frosted white), never greyer.
+    // Dark theme: surfaces step up in tone instead of using shadows.
+    val container = if (isDark) {
+        when (style) {
             GlassSurfaceStyle.Subtle -> colors.surfaceContainerLow
             GlassSurfaceStyle.Standard -> colors.surfaceContainer
-            GlassSurfaceStyle.Prominent -> colors.surfaceContainerHigh
-            GlassSurfaceStyle.Sheet -> colors.surfaceContainerHigh
-            GlassSurfaceStyle.HomeCapture -> colors.surfaceContainerHigh
-            GlassSurfaceStyle.HomeNavigation -> colors.surfaceContainerHigh
             GlassSurfaceStyle.NavigationAction -> colors.primaryContainer
-            GlassSurfaceStyle.NavigationBar -> colors.surfaceContainerHigh
-        }.withAlpha(containerAlpha),
-        borderColor = when (style) {
-            GlassSurfaceStyle.Subtle -> colors.outlineVariant.copy(alpha = if (isDark) 0.22f else 0.18f)
-            GlassSurfaceStyle.HomeCapture -> colors.outlineVariant.copy(alpha = 0.56f)
-            GlassSurfaceStyle.HomeNavigation -> colors.outlineVariant.copy(alpha = if (isDark) 0.22f else 0.18f)
-            GlassSurfaceStyle.NavigationAction -> colors.primary.copy(alpha = if (isDark) 0.16f else 0.10f)
-            GlassSurfaceStyle.NavigationBar -> colors.outlineVariant.copy(alpha = if (isDark) 0.30f else 0.24f)
-            else -> colors.outline
-        },
+            else -> colors.surfaceContainerHigh
+        }
+    } else {
+        when (style) {
+            GlassSurfaceStyle.NavigationAction -> colors.primaryContainer
+            else -> colors.surfaceContainerLowest
+        }
+    }
+    return SoftSurfaceVisuals(
+        containerColor = container.withAlpha(containerAlpha),
+        edge = glassEdgeBrush(
+            isDark = isDark,
+            ink = colors.onSurface,
+            strength = when (style) {
+                GlassSurfaceStyle.Subtle, GlassSurfaceStyle.HomeNavigation -> 0.7f
+                GlassSurfaceStyle.NavigationAction -> 0.5f
+                else -> 1f
+            },
+        ),
+        shadowColor = orbitShadowColor(isDark),
+        floatingElevation = floatingElevationFor(style),
     )
 }
 
