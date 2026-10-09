@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.review
 
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -113,7 +113,9 @@ internal fun ToSortRow(
             ) {
                 when (item.state) {
                     ToSortState.Suggested -> {
-                        Button(onClick = onAccept, modifier = Modifier.heightIn(min = 48.dp)) {
+                        // Tonal, not filled: a list of cards each with a solid accent button
+                        // reads as a row of alarms. The accent stays for the screen's one action.
+                        FilledTonalButton(onClick = onAccept, modifier = Modifier.heightIn(min = 48.dp)) {
                             Text(stringResource(acceptLabelRes(item.suggestedType)))
                         }
                         TextButton(onClick = onChange, modifier = Modifier.heightIn(min = 48.dp)) {
