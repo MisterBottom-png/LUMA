@@ -17,6 +17,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.orbit.app.capture.NewThought
+import com.orbit.app.data.local.AiHistoryRetention
 import com.orbit.app.capture.SharedText
 import com.orbit.app.domain.model.SettingsThemeMode
 import com.orbit.app.ui.LocalDataViewModel
@@ -47,6 +48,8 @@ class MainActivity : AppCompatActivity() {
             val container = (application as OrbitApplication).container
             container.applicationScope.launch {
                 runCatching { container.captureInbox.analyzePending() }
+                // Old AI history holds snippets of past thoughts; keep only recent history.
+                runCatching { AiHistoryRetention.prune(container.database) }
             }
         }
         enableEdgeToEdge()

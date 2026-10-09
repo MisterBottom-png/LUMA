@@ -9,7 +9,7 @@
     <string name="settings_gemini_consent_confirm">Luba Gemini</string>
     <string name="settings_local_learning_title">Kohalik AI õppimine</string>
     <string name="settings_local_learning_toggle">Õpi minu valikutest</string>
-    <string name="settings_local_learning_explanation">Vaikimisi väljas. Kui see on lubatud, talletab LUMA selles seadmes lühikesi paranduste mustreid ja selgesõnalisi õppimiskirjeid. Neid kirjeid eksporti ei lisata.</string>
+    <string name="settings_local_learning_explanation">Vaikimisi väljas. Kui see on lubatud, talletab LUMA selles seadmes lühikesi paranduste mustreid ja selgesõnalisi õppimiskirjeid. Õpitud reeglid lisatakse varukoopiasse. Nende aluseks olev paranduste ajalugu jääb sellesse seadmesse ja seda hoitakse 90 päeva.</string>
     <string name="settings_clear_learning">Kustuta õpitud andmed</string>
     <string name="settings_clearing_learning">Õpitud andmete kustutamine…</string>
     <string name="settings_clear_learning_title">Kas kustutada kõik õpitud andmed?</string>

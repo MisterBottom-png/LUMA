@@ -9,7 +9,7 @@
     <string name="settings_gemini_consent_confirm">Allow Gemini</string>
     <string name="settings_local_learning_title">Local AI learning</string>
     <string name="settings_local_learning_toggle">Learn from my choices</string>
-    <string name="settings_local_learning_explanation">Off by default. When enabled, LUMA stores short correction patterns and explicit learning records on this device. These records are not included in export.</string>
+    <string name="settings_local_learning_explanation">Off by default. When enabled, LUMA stores short correction patterns and explicit learning records on this device. Learned rules are included in your backup. The correction history behind them stays on this device and is kept for 90 days.</string>
     <string name="settings_clear_learning">Clear learned data</string>
     <string name="settings_clearing_learning">Clearing learned data…</string>
     <string name="settings_clear_learning_title">Clear all learned data?</string>

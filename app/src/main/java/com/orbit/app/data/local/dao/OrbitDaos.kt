@@ -482,6 +482,9 @@ interface AiSuggestionHistoryDao {
 
     @Query("DELETE FROM ai_suggestion_history")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM ai_suggestion_history WHERE createdAt < :cutoff")
+    suspend fun deleteOlderThan(cutoff: Long): Int
 }
 
 @Dao
@@ -503,6 +506,9 @@ interface AiCorrectionHistoryDao {
 
     @Query("DELETE FROM ai_correction_history WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM ai_correction_history WHERE createdAt < :cutoff")
+    suspend fun deleteOlderThan(cutoff: Long): Int
 
     @Query("DELETE FROM ai_correction_history")
     suspend fun deleteAll()

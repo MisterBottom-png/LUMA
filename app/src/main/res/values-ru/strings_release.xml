@@ -9,7 +9,7 @@
     <string name="settings_gemini_consent_confirm">Разрешить Gemini</string>
     <string name="settings_local_learning_title">Локальное обучение ИИ</string>
     <string name="settings_local_learning_toggle">Учиться на моём выборе</string>
-    <string name="settings_local_learning_explanation">По умолчанию выключено. Если включить, LUMA сохраняет на этом устройстве краткие шаблоны исправлений и явные записи обучения. Эти записи не входят в экспорт.</string>
+    <string name="settings_local_learning_explanation">По умолчанию выключено. Если включить, LUMA сохраняет на этом устройстве краткие шаблоны исправлений и явные записи обучения. Изученные правила входят в резервную копию. История исправлений, на которой они основаны, остаётся на этом устройстве и хранится 90 дней.</string>
     <string name="settings_clear_learning">Очистить изученные данные</string>
     <string name="settings_clearing_learning">Очистка изученных данных…</string>
     <string name="settings_clear_learning_title">Очистить все изученные данные?</string>
