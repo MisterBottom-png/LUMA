@@ -12,7 +12,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createComposeRule
+import com.orbit.app.testing.JvmComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
@@ -29,7 +29,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class FloatingBottomNavigationJvmTest {
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = JvmComposeRule()
 
     @Test
     fun fourLabelledTabs_calendarSelectedByItsRoute_andClicksReportTheDestination() {

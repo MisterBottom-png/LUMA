@@ -11,7 +11,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
-import androidx.compose.ui.test.junit4.createComposeRule
+import com.orbit.app.testing.JvmComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -30,7 +30,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ReviewScreenJvmTest {
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = JvmComposeRule()
 
     private fun setReview(state: ReviewUiState, fontScale: Float = 1f, onAccept: (ToSortItem) -> Unit = {}, onChange: (ToSortItem) -> Unit = {}) {
         composeRule.setContent {

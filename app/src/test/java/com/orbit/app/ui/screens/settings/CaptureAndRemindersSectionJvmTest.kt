@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
-import androidx.compose.ui.test.junit4.createComposeRule
+import com.orbit.app.testing.JvmComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -20,7 +20,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class CaptureAndRemindersSectionJvmTest {
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = JvmComposeRule()
 
     @Test
     fun rowsToggleTheirOwnSettingOnly_andDeliveryStatusIsShown() {
