@@ -16,16 +16,17 @@ enum class ReminderRepeat(val storageToken: String) {
     Monthly("monthly"),
     ;
 
-    /** The day after [date] on which this repeat falls. */
-    internal fun nextDate(date: LocalDate, anchor: LocalDate): LocalDate = when (this) {
+    /**
+     * The day after [date] on which this repeat falls. Monthly repeats use
+     * [dayOfMonth] (the day the user chose), so the 31st becomes the 30th or 28th
+     * only in shorter months and returns to the 31st afterwards.
+     */
+    internal fun nextDate(date: LocalDate, dayOfMonth: Int): LocalDate = when (this) {
         Daily -> date.plusDays(1)
         Weekdays -> generateSequence(date.plusDays(1)) { it.plusDays(1) }
             .first { it.dayOfWeek != DayOfWeek.SATURDAY && it.dayOfWeek != DayOfWeek.SUNDAY }
         Weekly -> date.plusWeeks(1)
-        // Counted from the anchor so the 31st becomes the 30th or 28th only where needed.
-        Monthly -> generateSequence(1L) { it + 1 }
-            .map { anchor.plusMonths(it) }
-            .first { it.isAfter(date) }
+        Monthly -> date.plusMonths(1).let { next -> next.withDayOfMonth(minOf(dayOfMonth, next.lengthOfMonth())) }
     }
 
     companion object {
@@ -34,13 +35,14 @@ enum class ReminderRepeat(val storageToken: String) {
 }
 
 /**
- * The stored repeat: "weekly@08:30". The time is the one the user chose, kept apart
+ * The stored repeat: "weekly@08:30", "monthly@08:30/31". The time is the one the user chose, kept apart
  * from dueAt so a daylight-saving jump on one night never shifts later occurrences.
  * A token this version does not understand is kept as-is and acts as "no repeat".
  */
-data class RepeatSpec(val rule: ReminderRepeat, val timeOfDay: LocalTime?) {
+data class RepeatSpec(val rule: ReminderRepeat, val timeOfDay: LocalTime?, val dayOfMonth: Int? = null) {
     fun toStorage(): String =
-        rule.storageToken + (timeOfDay?.let { "@" + it.format(TimeFormat) } ?: "")
+        rule.storageToken + (timeOfDay?.let { "@" + it.format(TimeFormat) } ?: "") +
+            (dayOfMonth?.takeIf { rule == ReminderRepeat.Monthly }?.let { "/$it" } ?: "")
 
     companion object {
         private val TimeFormat = DateTimeFormatter.ofPattern("HH:mm")
@@ -49,13 +51,21 @@ data class RepeatSpec(val rule: ReminderRepeat, val timeOfDay: LocalTime?) {
             if (token.isNullOrBlank()) return null
             val rule = ReminderRepeat.entries.firstOrNull { it.storageToken == token.substringBefore('@') }
                 ?: return null
-            val time = token.substringAfter('@', "").takeIf { it.isNotEmpty() }
+            val details = token.substringAfter('@', "")
+            val time = details.substringBefore('/').takeIf { it.isNotEmpty() }
                 ?.let { runCatching { LocalTime.parse(it, TimeFormat) }.getOrNull() }
-            return RepeatSpec(rule, time)
+            val day = details.substringAfter('/', "").toIntOrNull()?.takeIf { it in 1..31 }
+            return RepeatSpec(rule, time, day)
         }
 
-        fun forReminder(rule: ReminderRepeat, dueAt: Long, zoneId: ZoneId): RepeatSpec =
-            RepeatSpec(rule, Instant.ofEpochMilli(dueAt).atZone(zoneId).toLocalTime().withSecond(0).withNano(0))
+        fun forReminder(rule: ReminderRepeat, dueAt: Long, zoneId: ZoneId): RepeatSpec {
+            val local = Instant.ofEpochMilli(dueAt).atZone(zoneId)
+            return RepeatSpec(
+                rule = rule,
+                timeOfDay = local.toLocalTime().withSecond(0).withNano(0),
+                dayOfMonth = local.dayOfMonth.takeIf { rule == ReminderRepeat.Monthly },
+            )
+        }
     }
 }
 
@@ -69,10 +79,10 @@ object ReminderRepeats {
         val spec = RepeatSpec.parse(reminder.repeatRule) ?: return null
         val current = Instant.ofEpochMilli(reminder.dueAt).atZone(zoneId)
         val time = spec.timeOfDay ?: current.toLocalTime()
-        val anchor = current.toLocalDate()
-        var date = anchor
+        val dayOfMonth = spec.dayOfMonth ?: current.dayOfMonth
+        var date = current.toLocalDate()
         repeat(MaxSteps) {
-            date = spec.rule.nextDate(date, anchor)
+            date = spec.rule.nextDate(date, dayOfMonth)
             // A time skipped by a spring-forward jump moves forward for that day only.
             val candidate = date.atTime(time).atZone(zoneId).toInstant().toEpochMilli()
             if (candidate > now && candidate > reminder.dueAt) return candidate
@@ -107,7 +117,9 @@ object ReminderRepeats {
         val newTime = Instant.ofEpochMilli(updated.dueAt).atZone(zoneId)
         val chosen = spec.timeOfDay ?: return updated.copy(repeatRule = RepeatSpec.forReminder(spec.rule, updated.dueAt, zoneId).toStorage())
         val chosenOnThatDay = newTime.toLocalDate().atTime(chosen).atZone(zoneId)
-        val keepsChosenTime = chosenOnThatDay.toInstant() == newTime.toInstant()
+        val keepsChosenDay = spec.dayOfMonth == null ||
+            newTime.dayOfMonth == minOf(spec.dayOfMonth, newTime.toLocalDate().lengthOfMonth())
+        val keepsChosenTime = chosenOnThatDay.toInstant() == newTime.toInstant() && keepsChosenDay
         return if (keepsChosenTime) updated else updated.copy(repeatRule = RepeatSpec.forReminder(spec.rule, updated.dueAt, zoneId).toStorage())
     }
 }

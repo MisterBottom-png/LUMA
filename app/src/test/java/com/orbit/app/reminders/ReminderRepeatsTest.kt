@@ -30,6 +30,21 @@ class ReminderRepeatsTest {
     }
 
     @Test
+    fun monthlyOnThe31stReturnsToThe31stAfterAShortMonth() {
+        val jan31 = reminder(LocalDateTime.of(2027, 1, 31, 9, 0), null)
+            .copy(repeatRule = RepeatSpec.forReminder(ReminderRepeat.Monthly, millis(LocalDateTime.of(2027, 1, 31, 9, 0)), zone).toStorage())
+        assertEquals("monthly@09:00/31", jan31.repeatRule)
+        val feb = ReminderRepeats.markDone(jan31, jan31.dueAt + 1, zone)
+        val storedFeb = ReminderRepeats.reanchored(jan31, feb, zone)
+        assertEquals("monthly@09:00/31", storedFeb.repeatRule)
+        val mar = ReminderRepeats.markDone(storedFeb, storedFeb.dueAt + 1, zone)
+        val apr = ReminderRepeats.markDone(mar, mar.dueAt + 1, zone)
+        assertEquals(LocalDate.of(2027, 2, 28), local(feb.dueAt).toLocalDate())
+        assertEquals(LocalDate.of(2027, 3, 31), local(mar.dueAt).toLocalDate())
+        assertEquals(LocalDate.of(2027, 4, 30), local(apr.dueAt).toLocalDate())
+    }
+
+    @Test
     fun monthlyFromTheLastDayUsesTheLastDayOfShorterMonths() {
         val jan31 = LocalDateTime.of(2027, 1, 31, 9, 0)
         val next = local(ReminderRepeats.nextOccurrence(reminder(jan31, ReminderRepeat.Monthly), millis(jan31) + 1, zone)!!)
@@ -86,6 +101,7 @@ class ReminderRepeatsTest {
     @Test
     fun storedTokensParseToleratingOldAndUnknownForms() {
         assertEquals(RepeatSpec(ReminderRepeat.Weekly, null), RepeatSpec.parse("weekly"))
+        assertEquals(RepeatSpec(ReminderRepeat.Monthly, LocalTime.of(7, 5), 31), RepeatSpec.parse("monthly@07:05/31"))
         assertEquals(ReminderRepeat.Monthly, ReminderRepeat.fromStorage("monthly@07:05"))
         assertEquals(RepeatSpec(ReminderRepeat.Daily, null), RepeatSpec.parse("daily@25:99"))
         assertNull(RepeatSpec.parse("fortnightly"))
