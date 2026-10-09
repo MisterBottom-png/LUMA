@@ -121,4 +121,12 @@
     <string name="spaces_name_taken">Sul on juba ruum nimega „%1$s”.</string>
     <string name="spaces_name_taken_archived">„%1$s” on arhiveeritud. Kas taastad selle, selle asemel et teise teha?</string>
     <string name="spaces_name_taken_hidden">„%1$s” on peidetud. Kas näitad seda uuesti, selle asemel et teise teha?</string>
+    <string name="analysis_source_local">Kohalik soovitus</string>
+    <string name="analysis_source_gemini">Gemini soovitus</string>
+    <string name="analysis_signal_waiting_for">Ootab</string>
+    <string name="analysis_signal_someday">Kunagi hiljem</string>
+    <string name="analysis_signal_reflection">Mõtisklus</string>
+    <string name="analysis_confidence_high">kõrge</string>
+    <string name="analysis_confidence_medium">keskmine</string>
+    <string name="analysis_confidence_low">madal</string>
 </resources>

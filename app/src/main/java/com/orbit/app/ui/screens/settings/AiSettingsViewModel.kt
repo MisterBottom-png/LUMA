@@ -31,14 +31,17 @@ data class AiSettingsUiState(
 )
 
 class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
-    private val localizedContext by lazy {
-        val base = container.applicationContext
-        base.createConfigurationContext(
-            Configuration(base.resources.configuration).apply {
-                setLocale(effectiveAppLocale(base))
-            },
-        )
-    }
+    // Resolved on every use: this ViewModel outlives the recreation that follows a
+    // language change, so a cached context would keep producing the old language.
+    private val localizedContext: android.content.Context
+        get() {
+            val base = container.applicationContext
+            return base.createConfigurationContext(
+                Configuration(base.resources.configuration).apply {
+                    setLocale(effectiveAppLocale(base))
+                },
+            )
+        }
     private val _uiState = MutableStateFlow(AiSettingsUiState())
     val uiState: StateFlow<AiSettingsUiState> = _uiState.asStateFlow()
 

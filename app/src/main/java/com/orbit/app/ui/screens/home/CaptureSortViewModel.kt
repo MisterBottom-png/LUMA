@@ -110,13 +110,15 @@ class CaptureSortViewModel(
     private val suggestionDao: CaptureSuggestionDao,
     private val captureResolution: CaptureResolution,
     private val savedStateHandle: SavedStateHandle,
-    applicationContext: Context,
+    private val applicationContext: Context,
 ) : ViewModel() {
-    private val localizedContext = applicationContext.createConfigurationContext(
-        Configuration(applicationContext.resources.configuration).apply {
-            setLocale(effectiveAppLocale(applicationContext))
-        },
-    )
+    // Resolved on every use so messages follow a language change made while open.
+    private val localizedContext: Context
+        get() = applicationContext.createConfigurationContext(
+            Configuration(applicationContext.resources.configuration).apply {
+                setLocale(effectiveAppLocale(applicationContext))
+            },
+        )
     private val _uiState = MutableStateFlow(CaptureSortUiState())
     internal val uiState: StateFlow<CaptureSortUiState> = _uiState.asStateFlow()
     private val brainDumpFlowCoordinator = BrainDumpFlowCoordinator(

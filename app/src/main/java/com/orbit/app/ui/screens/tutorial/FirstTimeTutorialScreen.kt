@@ -127,8 +127,12 @@ fun FirstTimeTutorialScreen(
                 color = MaterialTheme.colorScheme.onBackground,
             )
             TextButton(
-                onClick = ::finishOnce,
-                enabled = !leaving,
+                // Skipping the guide keeps any Spaces already chosen; with none chosen
+                // the setup step finishes immediately.
+                onClick = {
+                    if (spaceSetupState.canConfigure) onFinishSpaceSetup(::finishOnce) else finishOnce()
+                },
+                enabled = !leaving && !spaceSetupState.isSaving,
             ) {
                 Text(stringResource(R.string.tutorial_skip))
             }

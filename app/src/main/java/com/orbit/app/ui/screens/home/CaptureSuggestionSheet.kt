@@ -771,13 +771,13 @@ private fun SuggestedActions(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        SuggestionChip(analysis.analyzerSource.label)
+        SuggestionChip(stringResource(analysis.analyzerSource.labelRes()))
         SuggestionChip(analysis.suggestedType.displayName())
         SuggestionChip(selectedSpaceName)
-        SuggestionChip(stringResource(R.string.core_capture_confidence, analysis.confidenceLevel.label))
-        if (analysis.lifeSignal != com.orbit.app.domain.analyzer.CaptureLifeSignal.None) {
-            SuggestionChip(analysis.lifeSignal.label)
-        }
+        SuggestionChip(
+            stringResource(R.string.core_capture_confidence, stringResource(analysis.confidenceLevel.labelRes())),
+        )
+        analysis.lifeSignal.labelResOrNull()?.let { SuggestionChip(stringResource(it)) }
         if (analysis.suggestedReminderAt != null) {
             SuggestionChip(analysis.reminderPhrase ?: stringResource(R.string.core_capture_time_suggested))
         }

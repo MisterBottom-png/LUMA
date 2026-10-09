@@ -159,12 +159,10 @@ class OrbitAiRouter(
                 )
                 if (items != null) {
                     RoutedCaptureAnalysis(
+                        // Title, summary and chips stay the local analysis's wording, which
+                        // follows the language of the thought; only the split comes from Gemini.
                         analysis = localAnalysis.copy(
-                            suggestedTitle = "Brain Dump",
-                            summary = "A multi-part capture ready to review.",
-                            suggestedNextAction = "Review the split suggestions one at a time",
                             relatedTopics = items.map { it.suggestedSpaceName }.distinct(),
-                            suggestionChips = listOf("Brain Dump", "Gemini split", "${items.size} items"),
                             brainDumpItems = items,
                             analyzerSource = com.orbit.app.domain.analyzer.CaptureAnalyzerSource.Gemini,
                         ),

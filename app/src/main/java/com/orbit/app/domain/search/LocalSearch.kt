@@ -7,6 +7,8 @@ import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.ui.navigation.ItemDetailType
+import java.text.Normalizer
+import java.util.Locale
 
 data class SearchCorpus(
     val captures: List<CaptureEntity>,
@@ -47,12 +49,14 @@ class LocalSearch {
     ): List<LocalSearchResult> {
         val cleanQuery = query.trim()
         if (cleanQuery.length < MinQueryLength) return emptyList()
+        val tokens = SearchText.tokens(cleanQuery)
+        if (tokens.isEmpty()) return emptyList()
         val spacesById = corpus.spaces.associateBy { it.id }
 
         return buildList {
             corpus.notes
                 .filter { includeArchived || !it.archived }
-                .filter { it.title.matchesQuery(cleanQuery) || it.body.matchesQuery(cleanQuery) }
+                .filter { SearchText.matchesAll(tokens, it.title, it.body) }
                 .mapTo(this) {
                     LocalSearchResult(
                         type = ItemDetailType.Note,
@@ -67,7 +71,7 @@ class LocalSearch {
 
             corpus.tasks
                 .filter { includeArchived || it.status != TaskStatus.Archived }
-                .filter { it.title.matchesQuery(cleanQuery) || it.notes.matchesQuery(cleanQuery) }
+                .filter { SearchText.matchesAll(tokens, it.title, it.notes) }
                 .mapTo(this) {
                     LocalSearchResult(
                         type = ItemDetailType.Task,
@@ -81,7 +85,7 @@ class LocalSearch {
                 }
 
             corpus.reminders
-                .filter { it.title.matchesQuery(cleanQuery) || it.notes.matchesQuery(cleanQuery) }
+                .filter { SearchText.matchesAll(tokens, it.title, it.notes) }
                 .mapTo(this) {
                     LocalSearchResult(
                         type = ItemDetailType.Reminder,
@@ -100,10 +104,30 @@ class LocalSearch {
         }.sortedByDescending { it.timestamp }
     }
 
-    private fun String.matchesQuery(query: String): Boolean = contains(query, ignoreCase = true)
-
     private companion object {
         const val MinQueryLength = 2
+    }
+}
+
+/**
+ * Matching that works the same in English, Estonian and Russian: Unicode
+ * normalisation (é typed two ways is one letter), case folding, ё = е, and every
+ * word of the query must appear somewhere in the item, in any order.
+ */
+internal object SearchText {
+    private val Separators = Regex("[\\s\\p{P}\\p{S}]+")
+
+    fun fold(value: String): String =
+        Normalizer.normalize(value, Normalizer.Form.NFKC)
+            .lowercase(Locale.ROOT)
+            .replace('ё', 'е')
+
+    fun tokens(query: String): List<String> =
+        fold(query).split(Separators).filter { it.isNotEmpty() }
+
+    fun matchesAll(tokens: List<String>, vararg fields: String): Boolean {
+        val haystack = fields.joinToString(" ") { fold(it) }
+        return tokens.all { haystack.contains(it) }
     }
 }
 

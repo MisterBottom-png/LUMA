@@ -127,4 +127,12 @@
     <string name="spaces_name_taken">Пространство «%1$s» уже есть.</string>
     <string name="spaces_name_taken_archived">Пространство «%1$s» в архиве. Восстановить его вместо создания второго?</string>
     <string name="spaces_name_taken_hidden">Пространство «%1$s» скрыто. Показать его снова вместо создания второго?</string>
+    <string name="analysis_source_local">Локальное предложение</string>
+    <string name="analysis_source_gemini">Предложено Gemini</string>
+    <string name="analysis_signal_waiting_for">Ожидание</string>
+    <string name="analysis_signal_someday">Когда-нибудь</string>
+    <string name="analysis_signal_reflection">Размышление</string>
+    <string name="analysis_confidence_high">высокая</string>
+    <string name="analysis_confidence_medium">средняя</string>
+    <string name="analysis_confidence_low">низкая</string>
 </resources>
