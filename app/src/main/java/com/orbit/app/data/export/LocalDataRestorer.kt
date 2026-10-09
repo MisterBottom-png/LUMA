@@ -95,6 +95,7 @@ class RoomLocalDataRestoreStore(
             taskLabels = database.labelDao().getAllTaskLabels(),
             reminderLabels = database.labelDao().getAllReminderLabels(),
             captureSuggestions = database.captureSuggestionDao().getAll(),
+            learnedRules = database.learnedRuleDao().observeAll().first(),
         )
     }
 
@@ -132,6 +133,15 @@ class RoomLocalDataRestoreStore(
             val restoredSpaceIds = snapshot.spaces.mapTo(hashSetOf()) { it.id }
             aliases.filter { it.spaceId in restoredSpaceIds }.forEach {
                 database.spaceAliasMemoryDao().insert(it)
+            }
+            // Learned rules are merged, never replaced: what this phone learned stays,
+            // and rules from the backup are added unless the same rule is already here.
+            val knownRules = database.learnedRuleDao().observeAll().first()
+                .mapTo(hashSetOf()) { it.mergeKey() }
+            snapshot.learnedRules.forEach { rule ->
+                if (knownRules.add(rule.mergeKey())) {
+                    database.learnedRuleDao().insert(rule.portableForBackup())
+                }
             }
             val restoredCaptureIds = snapshot.captures.mapTo(hashSetOf()) { it.id }
             suggestionHistory.filter { it.captureId in restoredCaptureIds }.forEach {

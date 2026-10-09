@@ -2,6 +2,8 @@ package com.orbit.app.data.export
 
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureSuggestionEntity
+import com.orbit.app.data.local.entity.LearnedRuleCategory
+import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpItemOutcome
 import com.orbit.app.data.local.entity.BrainDumpReminderStatus
@@ -40,6 +42,11 @@ data class LocalDataSnapshot(
     val reminderLabels: List<ReminderLabelCrossRef> = emptyList(),
     /** LUMA's stored suggestions for unresolved captures (format v5). */
     val captureSuggestions: List<CaptureSuggestionEntity> = emptyList(),
+    /**
+     * Rules LUMA learned from the user's corrections (format v5, optional). Links to
+     * AI history are not exported; restore merges them with rules already on the device.
+     */
+    val learnedRules: List<LearnedRuleEntity> = emptyList(),
 )
 
 data class LocalDataCounts(
@@ -104,6 +111,7 @@ object LocalDataBackupCodec {
             .put("taskLabels", snapshot.taskLabels.toJsonArray { it.toJson() })
             .put("reminderLabels", snapshot.reminderLabels.toJsonArray { it.toJson() })
             .put("captureSuggestions", snapshot.captureSuggestions.toJsonArray { it.toJson() })
+            .put("learnedRules", snapshot.learnedRules.toJsonArray { it.toJson() })
             .toString(2)
     }
 
@@ -166,6 +174,13 @@ object LocalDataBackupCodec {
             captureSuggestions = if (version >= 5L) {
                 root.optionalArray("captureSuggestions")
                     ?.mapObjects("captureSuggestions", ::decodeCaptureSuggestion)
+                    .orEmpty()
+            } else {
+                emptyList()
+            },
+            learnedRules = if (version >= 5L) {
+                root.optionalArray("learnedRules")
+                    ?.mapObjects("learnedRules", ::decodeLearnedRule)
                     .orEmpty()
             } else {
                 emptyList()
@@ -306,6 +321,19 @@ object LocalDataBackupCodec {
         suggestedReminderAt = json.optionalNonNegativeLong("suggestedReminderAt"),
         reminderPhrase = json.optionalString("reminderPhrase"),
         outcome = json.requiredEnum("outcome", BrainDumpItemOutcome.entries),
+        createdAt = json.requiredNonNegativeLong("createdAt"),
+        updatedAt = json.requiredNonNegativeLong("updatedAt"),
+    )
+
+    private fun decodeLearnedRule(json: JSONObject): LearnedRuleEntity = LearnedRuleEntity(
+        title = json.requiredNonBlankString("title"),
+        ruleText = json.requiredNonBlankString("ruleText"),
+        // A category added by a newer LUMA falls back to Other instead of failing the restore.
+        category = json.optionalString("category")
+            ?.let { name -> LearnedRuleCategory.entries.firstOrNull { it.name == name } }
+            ?: LearnedRuleCategory.Other,
+        enabled = json.optionalBoolean("enabled") ?: true,
+        strength = json.requiredFloatInRange("strength", 0f, 1f),
         createdAt = json.requiredNonNegativeLong("createdAt"),
         updatedAt = json.requiredNonNegativeLong("updatedAt"),
     )
@@ -559,6 +587,11 @@ object LocalDataBackupCodec {
 
     private fun ReminderLabelCrossRef.toJson() = JSONObject()
         .put("reminderId", reminderId).put("labelId", labelId)
+
+    private fun LearnedRuleEntity.toJson() = JSONObject()
+        .put("title", title).put("ruleText", ruleText).put("category", category.name)
+        .put("enabled", enabled).put("strength", strength.toDouble())
+        .put("createdAt", createdAt).put("updatedAt", updatedAt)
 
     private fun CaptureSuggestionEntity.toJson() = JSONObject()
         .put("captureId", captureId).put("suggestedType", suggestedType.name)

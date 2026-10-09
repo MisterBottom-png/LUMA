@@ -9,6 +9,8 @@ import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.LabelEntity
+import com.orbit.app.data.local.entity.LearnedRuleCategory
+import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.ReminderEntity
@@ -20,6 +22,7 @@ import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.testing.PolicyRecordingScheduler
 import com.orbit.app.testing.inMemoryOrbitDatabase
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -79,6 +82,50 @@ class BackupRoundTripRoomTest {
             original.reminders.map { it.copy(notificationWorkId = null, deliveredNotificationAt = null) },
             restored.reminders.map { it.copy(notificationWorkId = null, deliveredNotificationAt = null) },
         )
+    }
+
+    @Test
+    fun learnedRulesTravelWithTheBackup_andAreMergedWithRulesAlreadyOnThePhone() = runBlocking {
+        source.learnedRuleDao().insert(
+            LearnedRuleEntity(
+                title = "Space preference",
+                ruleText = "Garden notes go to Home",
+                category = LearnedRuleCategory.Space,
+                strength = 0.8f,
+                createdAt = now,
+            ),
+        )
+        source.learnedRuleDao().insert(
+            LearnedRuleEntity(title = "Type preference", ruleText = "Calls are tasks", category = LearnedRuleCategory.Type, enabled = false, createdAt = now),
+        )
+        // The new phone already learned one of them, written slightly differently.
+        target.learnedRuleDao().insert(
+            LearnedRuleEntity(title = "Mine", ruleText = "  calls are   TASKS ", category = LearnedRuleCategory.Type, createdAt = now),
+        )
+        val json = buildLocalDataExportPayload(RoomLocalDataRestoreStore(source), exportedAt = now)
+        val restorer = LocalDataRestorer(
+            RoomLocalDataRestoreStore(target),
+            LocalReminderRestoreReconciler(PolicyRecordingScheduler { now }, target.reminderDao(), now = { now }),
+        )
+
+        restorer.restore(requireNotNull(restorer.prepare(json)))
+
+        val rules = target.learnedRuleDao().observeAll().first().sortedBy { it.title }
+        assertEquals(listOf("Mine", "Space preference"), rules.map { it.title })
+        val restored = rules.last()
+        assertEquals("Garden notes go to Home", restored.ruleText)
+        assertEquals(0.8f, restored.strength)
+        assertNull(restored.sourceSuggestionHistoryId)
+    }
+
+    @Test
+    fun aV5BackupWithoutLearnedRulesStillRestores() = runBlocking {
+        seed(source)
+        val json = buildLocalDataExportPayload(RoomLocalDataRestoreStore(source), exportedAt = now)
+            .replace(Regex(",\\s*\"learnedRules\":\\s*\\[\\s*]"), "")
+        check(!json.contains("learnedRules"))
+
+        assertTrue(LocalDataBackupCodec.decode(json).learnedRules.isEmpty())
     }
 
     @Test

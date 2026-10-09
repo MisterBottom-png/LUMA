@@ -101,7 +101,7 @@
     <string name="settings_remove">Eemalda</string>
 
     <string name="settings_restore_title">Kas asendada kohalikud andmed?</string>
-    <string name="settings_restore_summary">Taastatakse: märkmed — %1$d; ülesanded — %2$d; meeldetuletused — %3$d; algsed sisestused — %4$d; alad — %5$d.\n\nSelles seadmes asendatakse: märkmed — %6$d; ülesanded — %7$d; meeldetuletused — %8$d; algsed sisestused — %9$d; alad — %10$d.\n\nRakenduse sätted ja AI konfiguratsioon säilivad. Õppimisandmed säilivad, kui nende taastatud allikas või ala on alles; asendatud andmete lingid eemaldatakse. Seda toimingut ei saa tagasi võtta.</string>
+    <string name="settings_restore_summary">Taastatakse: märkmed — %1$d; ülesanded — %2$d; meeldetuletused — %3$d; algsed sisestused — %4$d; alad — %5$d.\n\nSelles seadmes asendatakse: märkmed — %6$d; ülesanded — %7$d; meeldetuletused — %8$d; algsed sisestused — %9$d; alad — %10$d.\n\nRakenduse sätted ja AI konfiguratsioon säilivad. Õppimisandmed säilivad, kui nende taastatud allikas või ala on alles; asendatud andmete lingid eemaldatakse. Varukoopias olevad õpitud reeglid lisatakse selle seadme reeglitele. Seda toimingut ei saa tagasi võtta.</string>
     <string name="settings_restoring">Taastamine…</string>
     <string name="settings_replace_local_data">Asenda kohalikud andmed</string>
     <string name="settings_cancel">Tühista</string>

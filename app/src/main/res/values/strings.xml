@@ -107,7 +107,7 @@
     <string name="settings_remove">Remove</string>
 
     <string name="settings_restore_title">Replace local data?</string>
-    <string name="settings_restore_summary">Restore: notes — %1$d; tasks — %2$d; reminders — %3$d; source captures — %4$d; Spaces — %5$d.\n\nReplace on this device: notes — %6$d; tasks — %7$d; reminders — %8$d; source captures — %9$d; Spaces — %10$d.\n\nApp settings and AI configuration are kept. Learning records remain where their restored source or Space still exists; links to replaced data are cleared. This cannot be undone.</string>
+    <string name="settings_restore_summary">Restore: notes — %1$d; tasks — %2$d; reminders — %3$d; source captures — %4$d; Spaces — %5$d.\n\nReplace on this device: notes — %6$d; tasks — %7$d; reminders — %8$d; source captures — %9$d; Spaces — %10$d.\n\nApp settings and AI configuration are kept. Learning records remain where their restored source or Space still exists; links to replaced data are cleared. Learned rules in the backup are added to the ones on this device. This cannot be undone.</string>
     <string name="settings_restoring">Restoring…</string>
     <string name="settings_replace_local_data">Replace local data</string>
     <string name="settings_cancel">Cancel</string>

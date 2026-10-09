@@ -82,9 +82,26 @@ internal fun LocalDataSnapshot.sanitizedForExport(): LocalDataSnapshot {
             brainDumpItems = sanitized.brainDumpItems.filter { it.captureId in captureIds },
             captureSuggestions = sanitized.captureSuggestions
                 .filter { it.captureId in captureIds && it.suggestedTitle.isNotBlank() },
+            learnedRules = sanitized.learnedRules
+                .filter { it.title.isNotBlank() && it.ruleText.isNotBlank() }
+                .map { it.portableForBackup() },
         )
     }
 }
+
+/** Drops links to AI history (not part of a backup) and clamps legacy values. */
+internal fun com.orbit.app.data.local.entity.LearnedRuleEntity.portableForBackup() = copy(
+    id = 0,
+    sourceSuggestionHistoryId = null,
+    sourceCorrectionHistoryId = null,
+    strength = strength.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0.5f,
+    createdAt = createdAt.coerceAtLeast(0L),
+    updatedAt = updatedAt.coerceAtLeast(0L),
+)
+
+/** Same rule text in the same category counts as the same rule when merging. */
+internal fun com.orbit.app.data.local.entity.LearnedRuleEntity.mergeKey(): String =
+    category.name + ":" + ruleText.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT)
 
 internal fun derivedExportTitle(body: String): String =
     deriveItemTitle(body) ?: UntitledExportTitle
