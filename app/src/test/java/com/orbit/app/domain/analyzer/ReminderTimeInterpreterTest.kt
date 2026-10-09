@@ -17,7 +17,7 @@ class ReminderTimeInterpreterTest {
     fun compactTwentyFourHourTimesResolveOnExplicitLocalDay() {
         assertLocal("set for 1600 today", LocalDate.of(2026, 7, 14), LocalTime.of(16, 0))
         assertLocal("0830 tomorrow", LocalDate.of(2026, 7, 15), LocalTime.of(8, 30))
-        assertLocal("800 today", LocalDate.of(2026, 7, 14), LocalTime.of(8, 0))
+        assertLocal("800 tomorrow", LocalDate.of(2026, 7, 15), LocalTime.of(8, 0))
     }
 
     @Test
@@ -29,16 +29,13 @@ class ReminderTimeInterpreterTest {
     }
 
     @Test
-    fun anEarlierExplicitTodayTimeIsNotSilentlyRolledToTomorrow() {
+    fun anEarlierExplicitTodayTimeAsksInsteadOfRollingOrFiringAtOnce() {
         val lateNow = Instant.parse("2026-07-14T18:00:00Z")
 
         val result = interpretReminderTime("1600 today", lateNow, zone)
 
-        assertEquals(ReminderTimeStatus.Resolved, result.status)
-        assertEquals(
-            LocalDate.of(2026, 7, 14),
-            Instant.ofEpochMilli(requireNotNull(result.epochMillis)).atZone(zone).toLocalDate(),
-        )
+        assertEquals(ReminderTimeStatus.NeedsClarification, result.status)
+        assertNull(result.epochMillis)
     }
 
     @Test
