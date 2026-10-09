@@ -25,12 +25,12 @@
     <string name="core_sort_undo_failed">Не удалось отменить. Ничего не потеряно; запись можно изменить в её пространстве.</string>
     <string name="core_home_saved_let_go">Сохранено. Можно отпустить эту мысль.</string>
     <string name="core_home_quick_reminder_question">Напомнить %1$s?</string>
-    <string name="core_home_quick_reminder_when">Когда LUMA должна напомнить?</string>
+    <string name="core_home_quick_reminder_when">Когда Tallele должна напомнить?</string>
     <string name="core_home_quick_reminder_set">Напомнить</string>
     <string name="core_home_quick_reminder_pick">Выбрать время</string>
     <string name="core_home_quick_reminder_change">Другое время</string>
     <string name="core_home_quick_reminder_not_now">Не сейчас</string>
-    <string name="review_ask_title">Спросить LUMA</string>
+    <string name="review_ask_title">Спросить Tallele</string>
     <string name="review_ask_subtitle">Спокойные ответы на основе ваших записей.</string>
     <string name="review_ask_now">Что мне сделать сейчас?</string>
     <string name="review_ask_can_wait">Что может подождать?</string>
@@ -38,8 +38,8 @@
     <string name="review_ask_smallest">Какой самый маленький полезный шаг?</string>
     <string name="review_ask_urgent">Есть ли что-то действительно срочное?</string>
     <string name="review_to_sort_title">Разобрать</string>
-    <string name="review_to_sort_subtitle">Сохранённые мысли с подсказкой LUMA.</string>
-    <string name="review_to_sort_analyzing">LUMA смотрит на это…</string>
+    <string name="review_to_sort_subtitle">Сохранённые мысли с подсказкой Tallele.</string>
+    <string name="review_to_sort_analyzing">Tallele смотрит на это…</string>
     <string name="review_to_sort_no_suggestion">Выберите, чем это станет.</string>
     <plurals name="review_to_sort_brain_dump">
         <item quantity="one">Поток мыслей · осталась %d мысль</item>
@@ -102,12 +102,12 @@
     <string name="home_greeting_evening_named">Добрый вечер, %1$s</string>
     <string name="home_open_settings">Открыть настройки</string>
     <string name="home_capture_hint_remind">Например: позвонить стоматологу завтра в 10</string>
-    <string name="home_capture_hint_dump">Запишите всё как есть — LUMA разберёт позже</string>
+    <string name="home_capture_hint_dump">Запишите всё как есть — Tallele разберёт позже</string>
     <string name="home_capture_hint_small">Даже полмысли стоит сохранить</string>
     <string name="settings_capture_reminders_title">Записи и напоминания</string>
     <string name="settings_capture_reminders_subtitle">Как работают сохранение и напоминания</string>
     <string name="settings_sort_right_after_saving">Разбирать сразу после сохранения</string>
-    <string name="settings_sort_right_after_saving_body">Сразу показывать предложение LUMA. Если выключено, мысли спокойно ждут в разделе «Обзор» → «Разобрать».</string>
+    <string name="settings_sort_right_after_saving_body">Сразу показывать предложение Tallele. Если выключено, мысли спокойно ждут в разделе «Обзор» → «Разобрать».</string>
     <string name="settings_focus_capture">Открывать клавиатуру на главном экране</string>
     <string name="settings_focus_capture_body">Начинайте печатать сразу, как откроется главный экран.</string>
     <string name="settings_reminder_delivery_title">Доставка напоминаний</string>
@@ -153,7 +153,7 @@
     <string name="reminder_repeat_weekdays">По будням (пн–пт)</string>
     <string name="reminder_repeat_weekly">Каждую неделю</string>
     <string name="reminder_repeat_monthly">Каждый месяц</string>
-    <string name="reminder_repeat_explanation">Когда вы отмечаете его выполненным, LUMA переносит его на следующий раз. Ничего не создаётся за вас.</string>
+    <string name="reminder_repeat_explanation">Когда вы отмечаете его выполненным, Tallele переносит его на следующий раз. Ничего не создаётся за вас.</string>
     <string name="reminder_repeat_updated">Повтор изменён.</string>
     <string name="reminder_repeat_update_failed">Не удалось изменить повтор. Ничего не потеряно.</string>
 </resources>

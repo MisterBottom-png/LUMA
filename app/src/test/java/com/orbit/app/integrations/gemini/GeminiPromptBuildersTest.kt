@@ -20,7 +20,7 @@ class GeminiPromptBuildersTest {
     fun tinyActionPromptUsesLumaAndJsonSchema() {
         val prompt = GeminiPromptBuilders.tinyAction("fix money situation")
 
-        assertTrue(prompt.contains("LUMA"))
+        assertTrue(prompt.contains("Tallele"))
         assertTrue(prompt.contains("tinyAction"))
         assertTrue(prompt.contains("Return JSON only"))
     }

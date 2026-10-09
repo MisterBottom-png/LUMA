@@ -26,7 +26,7 @@ concurrency:
 env:
   ANDROID_API_LEVEL: '36'
   LUMA_AVD_NAME: luma_api_36
-  LUMA_PACKAGE_NAME: com.orbit.app
+  LUMA_PACKAGE_NAME: com.tallele.app
 
 jobs:
   fast-release-gates:

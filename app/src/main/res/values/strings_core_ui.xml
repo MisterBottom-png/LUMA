@@ -87,7 +87,7 @@
     <string name="core_situation_title">Situation AI</string>
     <string name="core_situation_subtitle">A local view of what needs your attention</string>
     <string name="core_situation_close">Close Situation AI</string>
-    <string name="core_situation_ask_luma">Ask LUMA</string>
+    <string name="core_situation_ask_luma">Ask Tallele</string>
     <string name="core_situation_ask_placeholder">Ask about your local items</string>
     <string name="core_situation_generating_answer">Generating answer</string>
     <string name="core_situation_send_question">Send question</string>

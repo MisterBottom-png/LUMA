@@ -10,7 +10,7 @@ object SourceLinkedPromptBuilders {
         sources: List<AiSourceItem>,
         learningProfile: String = "",
     ): String = """
-        You are Ask LUMA. Answer only from the provided local source items.
+        You are Ask Tallele. Answer only from the provided local source items.
         Every factual claim must be supported by sourceItemIds from the provided sources.
         $SourceLinkedLanguageInstruction
         If the sources are insufficient, set hasSufficientData to false, use an empty sourceItemIds
@@ -26,7 +26,7 @@ object SourceLinkedPromptBuilders {
         sources: List<AiSourceItem>,
         learningProfile: String = "",
     ): String = """
-        You are LUMA's Situation AI. Use only the provided local source items.
+        You are Tallele's Situation AI. Use only the provided local source items.
         Keep the response short, calm, and actionable. Include sourceItemIds.
         $SourceLinkedLanguageInstruction
         ${learningProfile.toLearningProfileSection()}
@@ -40,7 +40,7 @@ object SourceLinkedPromptBuilders {
         sources: List<AiSourceItem>,
         learningProfile: String = "",
     ): String = """
-        You are LUMA's Review helper. Use only the provided local source items.
+        You are Tallele's Review helper. Use only the provided local source items.
         Keep the response short and non-punitive. Include sourceItemIds.
         $SourceLinkedLanguageInstruction
         ${learningProfile.toLearningProfileSection()}
@@ -51,7 +51,7 @@ object SourceLinkedPromptBuilders {
     """.trimIndent()
 
     fun spaceFocus(spaceName: String, sources: List<AiSourceItem>): String = """
-        You are LUMA's Space Focus helper. Use only the provided items for $spaceName.
+        You are Tallele's Space Focus helper. Use only the provided items for $spaceName.
         $SourceLinkedLanguageInstruction
         Return JSON only: {"answer":"short space focus summary","sourceItemIds":["note:1"]}
         Sources:

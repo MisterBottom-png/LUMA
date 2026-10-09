@@ -219,10 +219,10 @@ fun geminiError(kind: GeminiApiErrorKind): GeminiApiError {
     val message = when (kind) {
         GeminiApiErrorKind.MissingKey -> "Add a Gemini API key first. Local mode still works."
         GeminiApiErrorKind.BadKey -> "Gemini could not use this key. Local mode still works."
-        GeminiApiErrorKind.RateLimited -> "Rate limit reached. LUMA will use local mode."
+        GeminiApiErrorKind.RateLimited -> "Rate limit reached. Tallele will use local mode."
         GeminiApiErrorKind.Timeout -> "Gemini took too long. Local mode still works."
         GeminiApiErrorKind.NoInternet -> "No internet. Local mode still works."
-        GeminiApiErrorKind.InvalidResponse -> "Gemini replied in a format LUMA could not use."
+        GeminiApiErrorKind.InvalidResponse -> "Gemini replied in a format Tallele could not use."
         GeminiApiErrorKind.SafetyBlocked -> "Gemini blocked that test. Local mode still works."
         GeminiApiErrorKind.Server -> "Gemini is unavailable right now. Local mode still works."
         GeminiApiErrorKind.ModelNotFound -> "Gemini does not know this model name. Local mode still works."

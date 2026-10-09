@@ -10,7 +10,7 @@ param(
 
     [string]$AndroidSdkRoot,
     [string]$Serial,
-    [string]$PackageName = 'com.orbit.app',
+    [string]$PackageName = 'com.tallele.app',
     [switch]$RequirePackage,
     [string]$OutputDirectory
 )

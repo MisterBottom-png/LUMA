@@ -5,11 +5,11 @@
     <string name="settings_export_choose_location">Choose location</string>
     <string name="settings_export_complete">Export saved to the location you chose.</string>
     <string name="settings_gemini_consent_title">Allow a Gemini request?</string>
-    <string name="settings_gemini_consent_body">When enabled, LUMA sends the text you choose and only the relevant local context needed for that action to the Google Gemini API. Your API key remains encrypted on this device. Gemini cannot change, schedule, delete, or send your data without confirmation. Switching back to Local only revokes this consent.</string>
+    <string name="settings_gemini_consent_body">When enabled, Tallele sends the text you choose and only the relevant local context needed for that action to the Google Gemini API. Your API key remains encrypted on this device. Gemini cannot change, schedule, delete, or send your data without confirmation. Switching back to Local only revokes this consent.</string>
     <string name="settings_gemini_consent_confirm">Allow Gemini</string>
     <string name="settings_local_learning_title">Local AI learning</string>
     <string name="settings_local_learning_toggle">Learn from my choices</string>
-    <string name="settings_local_learning_explanation">Off by default. When enabled, LUMA stores short correction patterns and explicit learning records on this device. Learned rules are included in your backup. The correction history behind them stays on this device and is kept for 90 days.</string>
+    <string name="settings_local_learning_explanation">Off by default. When enabled, Tallele stores short correction patterns and explicit learning records on this device. Learned rules are included in your backup. The correction history behind them stays on this device and is kept for 90 days.</string>
     <string name="settings_clear_learning">Clear learned data</string>
     <string name="settings_clearing_learning">Clearing learned data…</string>
     <string name="settings_clear_learning_title">Clear all learned data?</string>

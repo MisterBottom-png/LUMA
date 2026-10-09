@@ -18,7 +18,9 @@
 
 ## Owner decisions open on this branch
 
-- [ ] **Application ID.** The package is still `com.orbit.app`. It must not be changed silently: a new ID is a new app on every phone, with no upgrade path for existing data, alarms or Play listing. Decide before the first public release; the release verifier pins `com.orbit.app` until then.
+- [x] **Application ID and name (decided 2026-10-09).** The product is **Tallele** with application ID `com.tallele.app`; the Kotlin namespace stays `com.orbit.app`. The release verifier pins `com.tallele.app` (`-ExpectedPackageName`) and checks the app's own classes against `-CodeNamespace com.orbit.app`.
+- [ ] Register `tallele.com` (the reverse-domain basis of the ID) and check Tallele in the EUIPO, Estonian Patent Office and WIPO trademark registers (Classes 9 and 42) before publishing.
+- [ ] Phones with a build installed as `com.orbit.app` get Tallele as a separate app: move data with Settings > Local data > Export, then Restore in Tallele. Uninstall the old build afterwards.
 - [ ] Home-screen widget: needs an exported, unprotected `AppWidgetProvider` receiver, which widens the release export allowlist.
 - [ ] Encrypted and automatic weekly backups: key handling (passphrase vs. device-bound key) and where automatic copies are written.
 - [ ] "Remind again until done": cadence and limits.

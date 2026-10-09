@@ -110,7 +110,7 @@ class GlassSurfaceMacrobenchmark {
     }
 
     private companion object {
-        const val TargetPackage = "com.orbit.app"
+        const val TargetPackage = "com.tallele.app"
         const val UiTimeoutMillis = 5_000L
     }
 }

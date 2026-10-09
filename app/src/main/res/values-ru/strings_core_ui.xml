@@ -80,7 +80,7 @@
     <string name="core_situation_title">Ситуационный ИИ</string>
     <string name="core_situation_subtitle">Локальный обзор того, что требует внимания</string>
     <string name="core_situation_close">Закрыть ситуационный ИИ</string>
-    <string name="core_situation_ask_luma">Спросить LUMA</string>
+    <string name="core_situation_ask_luma">Спросить Tallele</string>
     <string name="core_situation_ask_placeholder">Спросите о локальных элементах</string>
     <string name="core_situation_generating_answer">Подготовка ответа</string>
     <string name="core_situation_send_question">Отправить вопрос</string>

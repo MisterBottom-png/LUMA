@@ -9,6 +9,6 @@
         <intent
             android:action="com.orbit.app.action.NEW_THOUGHT"
             android:targetClass="com.orbit.app.MainActivity"
-            android:targetPackage="com.orbit.app" />
+            android:targetPackage="com.tallele.app" />
     </shortcut>
 </shortcuts>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="home_default_user_label">User</string>
-    <string name="app_name" translatable="false">LUMA</string>
+    <string name="app_name" translatable="false">Tallele</string>
 
     <string name="navigation_home">Home</string>
     <string name="navigation_spaces">Spaces</string>
@@ -39,7 +39,7 @@
 
     <string name="settings_reset_appearance">Reset appearance</string>
     <string name="settings_profile_title">Profile</string>
-    <string name="settings_profile_subtitle">Name shown in LUMA</string>
+    <string name="settings_profile_subtitle">Name shown in Tallele</string>
     <string name="settings_colors_title">Colors</string>
     <string name="settings_colors_subtitle">Theme, accent, and text</string>
     <string name="settings_background_title">Background</string>
@@ -92,7 +92,7 @@
     <string name="settings_bright">Bright</string>
     <string name="settings_dim">Dim</string>
     <string name="settings_surface_opacity">Surface opacity</string>
-    <string name="settings_opacity_explanation">Controls LUMA cards, floating controls, and app-owned sheets while preserving readable content.</string>
+    <string name="settings_opacity_explanation">Controls Tallele cards, floating controls, and app-owned sheets while preserving readable content.</string>
     <string name="settings_more_transparent">More transparent</string>
     <string name="settings_more_solid">More solid</string>
     <string name="settings_selected">Selected</string>
@@ -113,7 +113,7 @@
     <string name="settings_cancel">Cancel</string>
     <string name="settings_export_explanation">Create a JSON export stored on this device.</string>
     <string name="settings_exporting">Exporting…</string>
-    <string name="settings_restore_explanation">LUMA validates an export before offering full replacement. Existing data is not changed until you confirm.</string>
+    <string name="settings_restore_explanation">Tallele validates an export before offering full replacement. Existing data is not changed until you confirm.</string>
     <string name="settings_validating">Validating…</string>
     <string name="settings_choose_export">Choose export to restore</string>
     <string name="settings_export_failed">Export could not be created.</string>
@@ -144,10 +144,10 @@
     <string name="settings_gemini_connection_succeeded">Gemini connection works for %1$s.</string>
     <string name="settings_gemini_error_missing_key">Add a Gemini API key first. Local mode still works.</string>
     <string name="settings_gemini_error_bad_key">Gemini did not accept this API key. Check the key and try again. Local mode still works.</string>
-    <string name="settings_gemini_error_rate_limited">Rate limit reached. LUMA will use local mode.</string>
+    <string name="settings_gemini_error_rate_limited">Rate limit reached. Tallele will use local mode.</string>
     <string name="settings_gemini_error_timeout">Gemini took too long. Local mode still works.</string>
     <string name="settings_gemini_error_no_internet">No internet. Local mode still works.</string>
-    <string name="settings_gemini_error_invalid_response">Gemini replied in a format LUMA could not use.</string>
+    <string name="settings_gemini_error_invalid_response">Gemini replied in a format Tallele could not use.</string>
     <string name="settings_gemini_error_safety_blocked">Gemini blocked that test. Local mode still works.</string>
     <string name="settings_gemini_error_server">Gemini is unavailable right now. Local mode still works.</string>
     <string name="settings_gemini_error_unknown">Gemini connection did not finish. Local mode still works.</string>
@@ -160,7 +160,7 @@
     <string name="settings_brain_dump">Brain Dump</string>
     <string name="settings_situation_ai">Situation AI</string>
     <string name="settings_review">Review</string>
-    <string name="settings_ai_privacy_explanation">LUMA stores your data locally. Gemini API is optional cloud AI. When enabled, LUMA sends only the selected text or context needed for the requested action. Raw captures are saved locally before cloud analysis. You stay in control.</string>
+    <string name="settings_ai_privacy_explanation">Tallele stores your data locally. Gemini API is optional cloud AI. When enabled, Tallele sends only the selected text or context needed for the requested action. Raw captures are saved locally before cloud analysis. You stay in control.</string>
 
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
@@ -172,7 +172,7 @@
     <string name="background_violet_mist">Violet Mist</string>
     <string name="background_calm_sky">Calm Sky</string>
     <string name="background_night_glow">Night Glow</string>
-    <string name="accent_luma_violet">LUMA violet</string>
+    <string name="accent_luma_violet">Tallele violet</string>
     <string name="accent_sage">Sage</string>
     <string name="accent_rose">Rose</string>
     <string name="accent_amber">Amber</string>
@@ -187,14 +187,14 @@
     <string name="tutorial_skip">Skip</string>
     <string name="tutorial_back">Back</string>
     <string name="tutorial_next">Next</string>
-    <string name="tutorial_start">Start using LUMA</string>
+    <string name="tutorial_start">Start using Tallele</string>
     <string name="tutorial_progress">Step %1$d of %2$d</string>
     <string name="tutorial_go_to_step">Go to step %1$d</string>
     <string name="settings_first_time_guide_title">First-time guide</string>
     <string name="settings_first_time_guide_status">Replay the introduction</string>
     <string name="tutorial_idea_step">01 · The idea</string>
     <string name="tutorial_idea_title">A home for thoughts before they become plans.</string>
-    <string name="tutorial_idea_body">LUMA is a calm life inbox. Put a thought in first, then decide whether it belongs as a note, task, reminder, or simply in the Inbox.</string>
+    <string name="tutorial_idea_body">Tallele is a calm life inbox. Put a thought in first, then decide whether it belongs as a note, task, reminder, or simply in the Inbox.</string>
     <string name="tutorial_idea_principle_title">Capture first. Organise second.</string>
     <string name="tutorial_idea_principle_body">You do not need to choose a category, date, or Space before writing.</string>
     <string name="tutorial_home_step">02 · Home</string>
@@ -204,14 +204,14 @@
     <string name="tutorial_home_principle_body">Capture first, or use the week strip when you already know the day you need.</string>
     <string name="tutorial_confirm_step">03 · Confirm</string>
     <string name="tutorial_confirm_title">Suggestions are proposals, not commands.</string>
-    <string name="tutorial_confirm_body">LUMA may suggest a note, task, reminder, Space, or time. Accept the main action, open “Change action,” edit the details, or keep the thought in Inbox until it is clearer.</string>
+    <string name="tutorial_confirm_body">Tallele may suggest a note, task, reminder, Space, or time. Accept the main action, open “Change action,” edit the details, or keep the thought in Inbox until it is clearer.</string>
     <string name="tutorial_confirm_principle_title">You make the final decision.</string>
     <string name="tutorial_confirm_principle_body">Important actions are never silently created, scheduled, completed, archived, or deleted.</string>
     <string name="tutorial_brain_dump_step">04 · Brain Dump</string>
     <string name="tutorial_brain_dump_title">Several thoughts become several calm decisions.</string>
     <string name="tutorial_brain_dump_body">When one capture contains multiple ideas, Brain Dump shows one suggestion at a time. Save useful items, discard individual suggestions, or save progress and continue later.</string>
     <string name="tutorial_brain_dump_principle_title">The original stays private.</string>
-    <string name="tutorial_brain_dump_principle_body">LUMA presents clean final items in Spaces instead of duplicating the raw Brain Dump.</string>
+    <string name="tutorial_brain_dump_principle_body">Tallele presents clean final items in Spaces instead of duplicating the raw Brain Dump.</string>
     <string name="tutorial_spaces_step">05 · Spaces</string>
     <string name="tutorial_spaces_title">Keep each part of life in its own context.</string>
     <string name="tutorial_spaces_body">Use Spaces to browse settled notes, tasks, and reminders by area of life. Search across your Spaces, open one to see its items, or use the add button to create a new Space when an area deserves its own home.</string>
@@ -225,12 +225,12 @@
     <string name="tutorial_space_setup_error">Couldn’t save your Spaces. Try again.</string>
     <string name="tutorial_review_step">06 · Review and ask</string>
     <string name="tutorial_review_title">Return when the day gives you a reason.</string>
-    <string name="tutorial_review_body">Review changes with the time of day: a morning scan, a quiet midday pause, an evening close, and a swipeable weekly view on weekends. The centre sparkle opens Situation AI and Ask LUMA using your local items as sources.</string>
+    <string name="tutorial_review_body">Review changes with the time of day: a morning scan, a quiet midday pause, an evening close, and a swipeable weekly view on weekends. The centre sparkle opens Situation AI and Ask Tallele using your local items as sources.</string>
     <string name="tutorial_review_principle_title">Review is not a score.</string>
     <string name="tutorial_review_principle_body">It helps resolve open loops without guilt, streaks, or productivity theatre.</string>
     <string name="tutorial_control_step">07 · Control</string>
     <string name="tutorial_control_title">Private by default. Cloud AI only by choice.</string>
-    <string name="tutorial_control_body">Core LUMA features work locally. Gemini is optional, requires consent, and receives only the selected text and relevant context. Reminder permission appears when it is actually needed.</string>
+    <string name="tutorial_control_body">Core Tallele features work locally. Gemini is optional, requires consent, and receives only the selected text and relevant context. Reminder permission appears when it is actually needed.</string>
     <string name="tutorial_control_principle_title">Start with one real thought.</string>
     <string name="tutorial_control_principle_body">Natural language is the intended interface. Write first; let structure arrive afterward.</string>
 </resources>

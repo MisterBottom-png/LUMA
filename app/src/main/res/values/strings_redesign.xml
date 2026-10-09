@@ -23,12 +23,12 @@
     <string name="core_sort_undo_failed">That could not be undone. Nothing was lost; you can change the item in its Space.</string>
     <string name="core_home_saved_let_go">Saved. You can let it go.</string>
     <string name="core_home_quick_reminder_question">Remind you %1$s?</string>
-    <string name="core_home_quick_reminder_when">When should LUMA remind you?</string>
+    <string name="core_home_quick_reminder_when">When should Tallele remind you?</string>
     <string name="core_home_quick_reminder_set">Remind me</string>
     <string name="core_home_quick_reminder_pick">Pick a time</string>
     <string name="core_home_quick_reminder_change">Other time</string>
     <string name="core_home_quick_reminder_not_now">Not now</string>
-    <string name="review_ask_title">Ask LUMA</string>
+    <string name="review_ask_title">Ask Tallele</string>
     <string name="review_ask_subtitle">Calm answers from your own items.</string>
     <string name="review_ask_now">What should I do now?</string>
     <string name="review_ask_can_wait">What can wait?</string>
@@ -36,8 +36,8 @@
     <string name="review_ask_smallest">What is the smallest useful next step?</string>
     <string name="review_ask_urgent">Is anything actually urgent?</string>
     <string name="review_to_sort_title">To sort</string>
-    <string name="review_to_sort_subtitle">Thoughts you saved, with LUMA\'s suggestion.</string>
-    <string name="review_to_sort_analyzing">LUMA is looking at this…</string>
+    <string name="review_to_sort_subtitle">Thoughts you saved, with Tallele\'s suggestion.</string>
+    <string name="review_to_sort_analyzing">Tallele is looking at this…</string>
     <string name="review_to_sort_no_suggestion">Choose what this becomes.</string>
     <plurals name="review_to_sort_brain_dump">
         <item quantity="one">Brain Dump · %d thought left to sort</item>
@@ -96,12 +96,12 @@
     <string name="home_greeting_evening_named">Good evening, %1$s</string>
     <string name="home_open_settings">Open settings</string>
     <string name="home_capture_hint_remind">Try: call the dentist tomorrow at 10</string>
-    <string name="home_capture_hint_dump">Write it all out — LUMA will sort it later</string>
+    <string name="home_capture_hint_dump">Write it all out — Tallele will sort it later</string>
     <string name="home_capture_hint_small">Even a half-thought is worth keeping</string>
     <string name="settings_capture_reminders_title">Capture &amp; reminders</string>
     <string name="settings_capture_reminders_subtitle">How saving and reminders behave</string>
     <string name="settings_sort_right_after_saving">Sort right after saving</string>
-    <string name="settings_sort_right_after_saving_body">Open LUMA’s suggestion straight away. When off, thoughts wait calmly in Review → To sort.</string>
+    <string name="settings_sort_right_after_saving_body">Open Tallele’s suggestion straight away. When off, thoughts wait calmly in Review → To sort.</string>
     <string name="settings_focus_capture">Open the keyboard on Home</string>
     <string name="settings_focus_capture_body">Start typing as soon as Home opens.</string>
     <string name="settings_reminder_delivery_title">Reminder delivery</string>
@@ -145,7 +145,7 @@
     <string name="reminder_repeat_weekdays">Every weekday (Mon–Fri)</string>
     <string name="reminder_repeat_weekly">Every week</string>
     <string name="reminder_repeat_monthly">Every month</string>
-    <string name="reminder_repeat_explanation">When you mark it done, LUMA moves it to the next time. Nothing is created for you.</string>
+    <string name="reminder_repeat_explanation">When you mark it done, Tallele moves it to the next time. Nothing is created for you.</string>
     <string name="reminder_repeat_updated">Repeat updated.</string>
     <string name="reminder_repeat_update_failed">Repeat could not be changed. Nothing was lost.</string>
 </resources>

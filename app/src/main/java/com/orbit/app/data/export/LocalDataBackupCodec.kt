@@ -70,6 +70,8 @@ fun LocalDataSnapshot.counts() = LocalDataCounts(
 class LocalDataValidationException(message: String) : IllegalArgumentException(message)
 
 object LocalDataBackupCodec {
+    // Format marker written into every backup since v1; it stays "LUMA" so all
+    // existing backups keep restoring after the app was renamed to Tallele.
     const val Product = "LUMA"
     const val Format = "luma-local-json"
     const val Version = 5
@@ -127,7 +129,7 @@ object LocalDataBackupCodec {
         if (metadata.requiredString("product") != Product ||
             metadata.requiredString("format") != Format
         ) {
-            invalid("This file is not a supported LUMA export.")
+            invalid("This file is not a supported Tallele backup.")
         }
         val version = metadata.requiredLong("version")
         if (version !in 1L..Version.toLong()) {

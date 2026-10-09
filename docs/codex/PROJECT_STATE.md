@@ -11,7 +11,8 @@ Previous baseline commit: 09c56f0e1cc566f8bfeaca6bb5cea824e6b9d25e
 Workplace identity purge: COMPLETE
 Cleanup baseline: COMPLETE
 MVP status: PASS for the implemented initial-MVP contract
-Confirmed release blockers: application-ID decision (com.orbit.app kept); connected-device test run on this branch
+Product name: Tallele (application ID com.tallele.app; code namespace com.orbit.app; repository codename LUMA)
+Confirmed release blockers: trademark/domain clearance for Tallele; connected-device test run on this branch
 Room schema: version 9 (explicit migrations 1→9)
 Local export format: version 5; decoder accepts versions 1 through 5
 ```

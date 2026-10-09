@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="reminder_notification_channel_name">LUMA reminders</string>
-    <string name="reminder_notification_channel_description">Approximate reminder notifications from LUMA</string>
-    <string name="reminder_notification_fallback_title">LUMA reminder</string>
-    <string name="reminder_notification_open_luma">Tap to open LUMA</string>
+    <string name="reminder_notification_channel_name">Tallele reminders</string>
+    <string name="reminder_notification_channel_description">Approximate reminder notifications from Tallele</string>
+    <string name="reminder_notification_fallback_title">Tallele reminder</string>
+    <string name="reminder_notification_open_luma">Tap to open Tallele</string>
 
     <string name="reminder_offset_around_target">Around target time</string>
     <string name="reminder_offset_about_five_minutes">About 5 min before</string>

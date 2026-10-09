@@ -13,9 +13,10 @@ param(
     [string]$AvdName = 'luma_api_36',
 
     [ValidatePattern('^[A-Za-z][A-Za-z0-9_.]+$')]
-    [string]$PackageName = 'com.orbit.app',
+    [string]$PackageName = 'com.tallele.app',
 
-    [string]$MainActivity = '.MainActivity',
+    # Fully qualified: the app id (com.tallele.app) differs from the code package.
+    [string]$MainActivity = 'com.orbit.app.MainActivity',
 
     [ValidatePattern('^[A-Za-z][A-Za-z0-9]*$')]
     [string]$CandidateVariant = 'benchmark',

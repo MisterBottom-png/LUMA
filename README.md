@@ -1,6 +1,6 @@
-# LUMA
+# Tallele (codename LUMA)
 
-LUMA is a calm, private, local-first Android life inbox.
+Tallele is a calm, private, local-first Android life inbox. The repository, documents and agent tooling still use the codename LUMA; the application ID is `com.tallele.app` and the Kotlin code lives in `com.orbit.app`.
 
 ## Repository map
 

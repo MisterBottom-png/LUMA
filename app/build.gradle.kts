@@ -20,7 +20,8 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.orbit.app"
+        // Product name Tallele. The Kotlin namespace stays com.orbit.app on purpose.
+        applicationId = "com.tallele.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

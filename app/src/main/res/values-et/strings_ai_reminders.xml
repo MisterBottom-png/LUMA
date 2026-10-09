@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="reminder_notification_channel_name">LUMA meeldetuletused</string>
-    <string name="reminder_notification_channel_description">LUMA ligikaudsed meeldetuletusteavitused</string>
-    <string name="reminder_notification_fallback_title">LUMA meeldetuletus</string>
-    <string name="reminder_notification_open_luma">Puuduta LUMA avamiseks</string>
+    <string name="reminder_notification_channel_name">Tallele meeldetuletused</string>
+    <string name="reminder_notification_channel_description">Tallele ligikaudsed meeldetuletusteavitused</string>
+    <string name="reminder_notification_fallback_title">Tallele meeldetuletus</string>
+    <string name="reminder_notification_open_luma">Puuduta Tallele avamiseks</string>
 
     <string name="reminder_offset_around_target">Sihtaja paiku</string>
     <string name="reminder_offset_about_five_minutes">Umbes 5 minutit varem</string>

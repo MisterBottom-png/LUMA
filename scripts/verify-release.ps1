@@ -14,7 +14,12 @@ param(
     [int]$RequiredTargetSdk = 36,
 
     [ValidatePattern('^[A-Za-z][A-Za-z0-9_.]+$')]
-    [string]$ExpectedPackageName = 'com.orbit.app',
+    [string]$ExpectedPackageName = 'com.tallele.app',
+
+    # Kotlin package of the app's own classes. It differs from the application id
+    # since the app id moved to com.tallele.app while the code stayed in com.orbit.app.
+    [ValidatePattern('^[A-Za-z][A-Za-z0-9_.]+$')]
+    [string]$CodeNamespace = 'com.orbit.app',
 
     [string[]]$ExpectedExportedComponents = @('com.orbit.app.MainActivity'),
     [string[]]$AllowedPortraitOrientations = @('portrait', 'sensorPortrait', 'userPortrait', 'reversePortrait'),
@@ -299,6 +304,7 @@ function Test-ManifestContract {
         [xml]$ManifestXml,
         [string]$Description,
         [string]$ExpectedPackage,
+        [string]$CodeNamespace,
         [int]$ExpectedTargetSdk
     )
 
@@ -346,7 +352,7 @@ function Test-ManifestContract {
             }
         }
 
-        if ($componentNode.LocalName -eq 'activity' -and $resolvedName.StartsWith("$ExpectedPackage.", [System.StringComparison]::Ordinal)) {
+        if ($componentNode.LocalName -eq 'activity' -and $resolvedName.StartsWith("$CodeNamespace.", [System.StringComparison]::Ordinal)) {
             $orientation = $componentNode.GetAttribute('screenOrientation', $androidNamespace)
             if ([string]::IsNullOrWhiteSpace($orientation)) {
                 Stop-Release $ExitCodes.PortraitOrientationMissing "$Description has an application-owned activity without android:screenOrientation."
@@ -369,7 +375,7 @@ function Test-ManifestContract {
             $protectedSystemJobService = $resolvedName -eq 'androidx.work.impl.background.systemjob.SystemJobService' -and
                 $permission -eq 'android.permission.BIND_JOB_SERVICE'
             # Only System UI can bind a tile: BIND_QUICK_SETTINGS_TILE is a signature permission.
-            $protectedQuickSettingsTile = $resolvedName -eq "$ExpectedPackage.capture.NewThoughtTileService" -and
+            $protectedQuickSettingsTile = $resolvedName -eq "$CodeNamespace.capture.NewThoughtTileService" -and
                 $permission -eq 'android.permission.BIND_QUICK_SETTINGS_TILE'
             if (-not $expectedExport -and -not $protectedProfileInstaller -and -not $protectedSystemJobService -and -not $protectedQuickSettingsTile) {
                 Stop-Release $ExitCodes.UnexpectedExportedComponent "$Description contains an exported component outside the release allowlist."
@@ -383,7 +389,7 @@ function Test-ManifestContract {
         debuggable = if ([string]::IsNullOrWhiteSpace($debuggable)) { $false } else { [bool]::Parse($debuggable) }
         appOwnedActivityCount = @($componentNodes | Where-Object {
             $_.LocalName -eq 'activity' -and
-            (Resolve-ComponentName -Name $_.GetAttribute('name', $androidNamespace) -PackageName $packageName).StartsWith("$ExpectedPackage.")
+            (Resolve-ComponentName -Name $_.GetAttribute('name', $androidNamespace) -PackageName $packageName).StartsWith("$CodeNamespace.")
         }).Count
     }
 }
@@ -595,8 +601,8 @@ try {
 
     $mergedManifestXml = Read-ManifestXml -XmlText (Get-Content -LiteralPath $mergedManifest.FullName -Raw) -Description 'Merged release manifest'
     $finalManifestXml = Read-ManifestXml -XmlText $finalManifestText -Description 'Final APK manifest'
-    $mergedResult = Test-ManifestContract -ManifestXml $mergedManifestXml -Description 'Merged release manifest' -ExpectedPackage $ExpectedPackageName -ExpectedTargetSdk $RequiredTargetSdk
-    $finalResult = Test-ManifestContract -ManifestXml $finalManifestXml -Description 'Final APK manifest' -ExpectedPackage $ExpectedPackageName -ExpectedTargetSdk $RequiredTargetSdk
+    $mergedResult = Test-ManifestContract -ManifestXml $mergedManifestXml -Description 'Merged release manifest' -ExpectedPackage $ExpectedPackageName -CodeNamespace $CodeNamespace -ExpectedTargetSdk $RequiredTargetSdk
+    $finalResult = Test-ManifestContract -ManifestXml $finalManifestXml -Description 'Final APK manifest' -ExpectedPackage $ExpectedPackageName -CodeNamespace $CodeNamespace -ExpectedTargetSdk $RequiredTargetSdk
 
     $trackedInputsVerified = Test-TrackedRepositoryInputs -RepositoryRoot $repositoryRoot
     if ((Test-FileForApiKeyShape -Path $releaseApk.FullName) -or (Test-FileForApiKeyShape -Path $releaseBundle.FullName)) {

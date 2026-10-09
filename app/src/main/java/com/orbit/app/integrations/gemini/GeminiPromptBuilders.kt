@@ -14,7 +14,7 @@ object GeminiPromptBuilders {
     ): String {
         val localNow = Instant.ofEpochMilli(nowEpochMillis).atZone(zoneId)
         return """
-        You are LUMA's optional cloud analyzer. Suggest structure only.
+        You are Tallele's optional cloud analyzer. Suggest structure only.
         Never create tasks, notes, reminders, or external items.
         Preserve the user's raw text exactly in meaning.
         $UserFacingLanguageInstruction
@@ -46,7 +46,7 @@ object GeminiPromptBuilders {
     }
 
     fun tinyAction(text: String, learningProfile: String = ""): String = """
-        You are LUMA's optional cloud helper. Make this smaller and kinder.
+        You are Tallele's optional cloud helper. Make this smaller and kinder.
         $UserFacingLanguageInstruction
         ${learningProfile.toLearningProfileSection()}
         Return JSON only: {"tinyAction":"one physical next step under 140 characters","why":"short reason","confidence":"high|medium|low"}
@@ -64,7 +64,7 @@ object GeminiPromptBuilders {
             "${fragment.id}: ${fragment.rawText}"
         }.ifBlank { rawText.trim() }
         return """
-        You are LUMA's optional cloud analyzer. Split a messy brain dump into reviewable suggestions.
+        You are Tallele's optional cloud analyzer. Split a messy brain dump into reviewable suggestions.
         $UserFacingLanguageInstruction
         For mixed-language dumps, apply that rule to each source fragment independently.
         Use only these Spaces when possible: ${allowedSpaces.joinToString().ifBlank { "Work, Personal, Car, Dog, Money, Ideas, Home, Health, Learning, Inbox" }}.
@@ -79,7 +79,7 @@ object GeminiPromptBuilders {
     }
 
     fun situationSummary(context: String): String = """
-        You are LUMA's optional cloud Situation AI. Summarize local context without inventing data.
+        You are Tallele's optional cloud Situation AI. Summarize local context without inventing data.
         $UserFacingLanguageInstruction
         Return JSON only:
         {"summary":"where the user is right now","nextAction":"one calm next action","stuck":["short item"]}
@@ -88,7 +88,7 @@ object GeminiPromptBuilders {
     """.trimIndent()
 
     fun reviewSummary(context: String): String = """
-        You are LUMA's optional cloud Review helper. Be calm and non-punitive.
+        You are Tallele's optional cloud Review helper. Be calm and non-punitive.
         $UserFacingLanguageInstruction
         Return JSON only:
         {"morningScan":"short scan","eveningSweep":"short sweep","tinyAction":"one small next action"}

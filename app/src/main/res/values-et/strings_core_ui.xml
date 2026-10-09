@@ -78,7 +78,7 @@
     <string name="core_situation_title">Olukorra AI</string>
     <string name="core_situation_subtitle">Kohalik vaade sellele, mis vajab sinu tähelepanu</string>
     <string name="core_situation_close">Sulge olukorra AI</string>
-    <string name="core_situation_ask_luma">Küsi LUMAlt</string>
+    <string name="core_situation_ask_luma">Küsi Tallelelt</string>
     <string name="core_situation_ask_placeholder">Küsi oma kohalike üksuste kohta</string>
     <string name="core_situation_generating_answer">Vastuse koostamine</string>
     <string name="core_situation_send_question">Saada küsimus</string>

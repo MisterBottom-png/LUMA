@@ -21,6 +21,8 @@ Included: Spaces, source captures, notes, tasks, reminders (with repeat rule), B
 
 Not included: app settings and appearance, the Gemini key, AI suggestion/correction history, person and project memory, Space aliases, device-local reminder delivery state and alarm tokens.
 
+Backups carry `"product": "LUMA"` in their metadata. That marker predates the Tallele name and is kept unchanged, so every existing backup restores.
+
 Export writes the file only after the encoded payload decodes again with the restore validator; legacy rows restore would reject (for example a blank title) are repaired or left out first.
 
 ## Restore behaviour
