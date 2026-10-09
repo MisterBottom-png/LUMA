@@ -9,6 +9,13 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Lets LUMA see whether the phone has a speech recognition screen to open. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application
         android:name=".OrbitApplication"
         android:allowBackup="true"

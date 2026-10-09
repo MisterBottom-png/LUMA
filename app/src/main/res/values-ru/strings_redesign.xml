@@ -145,4 +145,6 @@
     <string name="shortcut_new_thought_short">Новая мысль</string>
     <string name="shortcut_new_thought_long">Записать новую мысль</string>
     <string name="tile_new_thought">Новая мысль</string>
+    <string name="home_voice_capture">Продиктовать мысль</string>
+    <string name="home_voice_prompt">Скажите, о чём вы думаете</string>
 </resources>

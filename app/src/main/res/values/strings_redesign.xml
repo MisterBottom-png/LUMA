@@ -137,4 +137,6 @@
     <string name="shortcut_new_thought_short">New thought</string>
     <string name="shortcut_new_thought_long">Write a new thought</string>
     <string name="tile_new_thought">New thought</string>
+    <string name="home_voice_capture">Speak a thought</string>
+    <string name="home_voice_prompt">Say what’s on your mind</string>
 </resources>

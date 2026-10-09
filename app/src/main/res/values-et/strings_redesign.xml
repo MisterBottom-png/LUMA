@@ -137,4 +137,6 @@
     <string name="shortcut_new_thought_short">Uus mõte</string>
     <string name="shortcut_new_thought_long">Kirjuta uus mõte</string>
     <string name="tile_new_thought">Uus mõte</string>
+    <string name="home_voice_capture">Ütle mõte</string>
+    <string name="home_voice_prompt">Ütle, mis sul mõttes on</string>
 </resources>

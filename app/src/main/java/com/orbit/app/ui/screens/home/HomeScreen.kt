@@ -50,6 +50,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,6 +102,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.ContextCompat
 import com.orbit.app.R
+import com.orbit.app.capture.VoiceCapture
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.components.orbitPressFeedback
@@ -162,6 +164,21 @@ fun HomeScreen(
     val reduceMotion = rememberReducedMotion()
     var savedConfirmationVisible by remember { mutableStateOf(false) }
     val messageText = uiState.message?.takeIf { it != HomeMessage.Saved }?.let { stringResource(it.textRes) }
+    val voiceAvailable = remember(context) { VoiceCapture.isAvailable(context) }
+    val voicePrompt = stringResource(R.string.home_voice_prompt)
+    val voiceLocale = LocalConfiguration.current.locales[0]
+    val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        VoiceCapture.transcript(result.data)?.let(viewModel::receiveSharedText)
+    }
+    val voiceAction: (() -> Unit)? = if (voiceAvailable) {
+        {
+            runCatching {
+                voiceLauncher.launch(VoiceCapture.intent(voiceLocale, voicePrompt))
+            }
+        }
+    } else {
+        null
+    }
 
     LaunchedEffect(uiState.savedPulse) {
         if (uiState.savedPulse == 0) return@LaunchedEffect
@@ -310,6 +327,7 @@ fun HomeScreen(
                     imeVisible = imeVisible,
                     requestFocusOnOpen = focusCaptureOnOpen,
                     focusRequest = focusRequest,
+                    onVoice = voiceAction,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth(),
@@ -597,6 +615,7 @@ private fun CaptureCard(
     imeVisible: Boolean,
     requestFocusOnOpen: Boolean,
     focusRequest: Long,
+    onVoice: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val isProcessing = processingState.isInProgress
@@ -645,17 +664,19 @@ private fun CaptureCard(
                 )
             }
 
+            // An empty box offers dictation; as soon as there is text the button sends.
+            val offersVoice = onVoice != null && text.isBlank() && !isProcessing
             CaptureActionButton(
                 contentDescription = stringResource(
-                    if (isProcessing) {
-                        processingStatusRes ?: R.string.core_home_analyzing_capture
-                    } else {
-                        R.string.core_home_save_and_analyze
+                    when {
+                        isProcessing -> processingStatusRes ?: R.string.core_home_analyzing_capture
+                        offersVoice -> R.string.home_voice_capture
+                        else -> R.string.core_home_save_and_analyze
                     },
                 ),
                 emphasized = text.isNotBlank() || isProcessing,
-                enabled = text.isNotBlank() && !isProcessing,
-                onClick = onAnalyze,
+                enabled = offersVoice || (text.isNotBlank() && !isProcessing),
+                onClick = { if (offersVoice) onVoice?.invoke() else onAnalyze() },
                 modifier = Modifier.align(
                     if (imeVisible) Alignment.CenterEnd else Alignment.BottomEnd,
                 ),
@@ -668,7 +689,7 @@ private fun CaptureCard(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Rounded.ArrowUpward,
+                        imageVector = if (offersVoice) Icons.Rounded.Mic else Icons.Rounded.ArrowUpward,
                         contentDescription = null,
                     )
                 }
