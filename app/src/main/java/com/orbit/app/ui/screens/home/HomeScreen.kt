@@ -128,6 +128,7 @@ fun HomeScreen(
     timeFormat: OrbitTimeFormat,
     onOpenSettings: () -> Unit = {},
     focusCaptureOnOpen: Boolean = false,
+    focusRequest: Long = 0L,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -308,6 +309,7 @@ fun HomeScreen(
                     height = captureCardHeight,
                     imeVisible = imeVisible,
                     requestFocusOnOpen = focusCaptureOnOpen,
+                    focusRequest = focusRequest,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth(),
@@ -594,6 +596,7 @@ private fun CaptureCard(
     height: Dp,
     imeVisible: Boolean,
     requestFocusOnOpen: Boolean,
+    focusRequest: Long,
     modifier: Modifier = Modifier,
 ) {
     val isProcessing = processingState.isInProgress
@@ -601,6 +604,10 @@ private fun CaptureCard(
     // Focus once per visit to Home, only when the user asked for it in Settings.
     LaunchedEffect(requestFocusOnOpen) {
         if (requestFocusOnOpen) runCatching { focusRequester.requestFocus() }
+    }
+    // The "New thought" shortcut or tile always focuses, whatever the setting.
+    LaunchedEffect(focusRequest) {
+        if (focusRequest != 0L) runCatching { focusRequester.requestFocus() }
     }
     val processingStatusRes = processingState.statusLabelRes()
     SoftGlassSurface(

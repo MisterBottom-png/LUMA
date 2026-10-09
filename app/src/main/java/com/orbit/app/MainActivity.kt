@@ -16,6 +16,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.orbit.app.capture.NewThought
+import com.orbit.app.capture.SharedText
 import com.orbit.app.domain.model.SettingsThemeMode
 import com.orbit.app.ui.LocalDataViewModel
 import com.orbit.app.ui.navigation.OrbitApp
@@ -29,6 +31,8 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
     private var reminderToOpen by mutableStateOf<Long?>(null)
     private var openReviewRequested by mutableStateOf(false)
+    private var sharedText by mutableStateOf<String?>(null)
+    private var newThoughtRequested by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_Orbit)
@@ -81,6 +85,13 @@ class MainActivity : AppCompatActivity() {
                     onReminderOpened = ::consumeReminderRequest,
                     openReviewRequested = openReviewRequested,
                     onOpenReviewHandled = { openReviewRequested = false },
+                    sharedText = sharedText,
+                    onSharedTextHandled = ::consumeSharedText,
+                    newThoughtRequested = newThoughtRequested,
+                    onNewThoughtHandled = {
+                        newThoughtRequested = false
+                        intent?.action = Intent.ACTION_MAIN
+                    },
                 )
             }
         }
@@ -93,12 +104,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun readLaunchIntent(intent: Intent?) {
+        SharedText.from(intent)?.let { sharedText = it }
+        if (NewThought.isRequest(intent)) newThoughtRequested = true
         reminderToOpen = intent
             ?.getLongExtra(ReminderNotificationWorker.EXTRA_REMINDER_ID, 0L)
             ?.takeIf { it != 0L }
         if (intent?.getBooleanExtra(ReminderNotifier.EXTRA_OPEN_REVIEW, false) == true) {
             openReviewRequested = true
         }
+    }
+
+    private fun consumeSharedText() {
+        sharedText = null
+        // A later recreation must not paste the same text into the draft again.
+        intent?.action = Intent.ACTION_MAIN
+        intent?.removeExtra(Intent.EXTRA_TEXT)
+        intent?.removeExtra(Intent.EXTRA_SUBJECT)
     }
 
     private fun consumeReminderRequest() {

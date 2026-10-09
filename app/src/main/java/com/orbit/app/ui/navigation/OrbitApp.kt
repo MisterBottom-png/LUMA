@@ -82,6 +82,10 @@ fun OrbitApp(
     onReminderOpened: () -> Unit,
     openReviewRequested: Boolean = false,
     onOpenReviewHandled: () -> Unit = {},
+    sharedText: String? = null,
+    onSharedTextHandled: () -> Unit = {},
+    newThoughtRequested: Boolean = false,
+    onNewThoughtHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -107,6 +111,30 @@ fun OrbitApp(
             }
             onReminderOpened()
         }
+    }
+
+    // Shared text waits until Home exists (e.g. after the first-time guide), then
+    // lands in the Home draft.
+    LaunchedEffect(sharedText, selectedRoute) {
+        val text = sharedText ?: return@LaunchedEffect
+        val home = runCatching { navController.getBackStackEntry(OrbitDestination.Home.route) }.getOrNull()
+            ?: return@LaunchedEffect
+        home.savedStateHandle[SharedTextContext.TextKey] = text
+        if (selectedRoute != OrbitDestination.Home.route) {
+            navController.popBackStack(OrbitDestination.Home.route, inclusive = false)
+        }
+        onSharedTextHandled()
+    }
+
+    LaunchedEffect(newThoughtRequested, selectedRoute) {
+        if (!newThoughtRequested) return@LaunchedEffect
+        val home = runCatching { navController.getBackStackEntry(OrbitDestination.Home.route) }.getOrNull()
+            ?: return@LaunchedEffect
+        home.savedStateHandle[SharedTextContext.FocusCaptureKey] = System.nanoTime()
+        if (selectedRoute != OrbitDestination.Home.route) {
+            navController.popBackStack(OrbitDestination.Home.route, inclusive = false)
+        }
+        onNewThoughtHandled()
     }
 
     LaunchedEffect(openReviewRequested) {
@@ -209,6 +237,18 @@ fun OrbitApp(
                     val brainDumpResumeCaptureId by entry.savedStateHandle
                         .getStateFlow<Long?>(BrainDumpResumeContext.CaptureIdKey, null)
                         .collectAsStateWithLifecycle()
+                    val focusCaptureRequest by entry.savedStateHandle
+                        .getStateFlow(SharedTextContext.FocusCaptureKey, 0L)
+                        .collectAsStateWithLifecycle()
+                    val sharedTextForHome by entry.savedStateHandle
+                        .getStateFlow<String?>(SharedTextContext.TextKey, null)
+                        .collectAsStateWithLifecycle()
+                    LaunchedEffect(sharedTextForHome) {
+                        sharedTextForHome?.let { text ->
+                            homeViewModel.receiveSharedText(text)
+                            entry.savedStateHandle[SharedTextContext.TextKey] = null
+                        }
+                    }
                     LaunchedEffect(brainDumpResumeCaptureId) {
                         brainDumpResumeCaptureId?.let { captureId ->
                             homeSortViewModel.open(captureId)
@@ -235,6 +275,7 @@ fun OrbitApp(
                             }
                         },
                         focusCaptureOnOpen = settings.focusCaptureOnOpen,
+                        focusRequest = focusCaptureRequest,
                     )
                 }
                 composable(OrbitDestination.Spaces.route) {

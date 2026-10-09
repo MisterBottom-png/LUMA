@@ -35,7 +35,30 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Share text into LUMA: it fills the Home draft; the user sends it. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+        <!-- Exported only to the system UI: BIND_QUICK_SETTINGS_TILE is signature-level. -->
+        <service
+            android:name=".capture.NewThoughtTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_luma_notification"
+            android:label="@string/tile_new_thought"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
         <!-- Not exported: only the system delivers these broadcasts. -->
         <receiver
             android:name=".reminders.ReminderBootReceiver"

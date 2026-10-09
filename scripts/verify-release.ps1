@@ -368,7 +368,10 @@ function Test-ManifestContract {
                 $permission -eq 'android.permission.DUMP'
             $protectedSystemJobService = $resolvedName -eq 'androidx.work.impl.background.systemjob.SystemJobService' -and
                 $permission -eq 'android.permission.BIND_JOB_SERVICE'
-            if (-not $expectedExport -and -not $protectedProfileInstaller -and -not $protectedSystemJobService) {
+            # Only System UI can bind a tile: BIND_QUICK_SETTINGS_TILE is a signature permission.
+            $protectedQuickSettingsTile = $resolvedName -eq "$ExpectedPackage.capture.NewThoughtTileService" -and
+                $permission -eq 'android.permission.BIND_QUICK_SETTINGS_TILE'
+            if (-not $expectedExport -and -not $protectedProfileInstaller -and -not $protectedSystemJobService -and -not $protectedQuickSettingsTile) {
                 Stop-Release $ExitCodes.UnexpectedExportedComponent "$Description contains an exported component outside the release allowlist."
             }
         }

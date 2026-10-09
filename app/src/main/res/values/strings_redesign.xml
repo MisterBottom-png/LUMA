@@ -134,4 +134,7 @@
         <item quantity="one">%1$d thought is waiting in Review</item>
         <item quantity="other">%1$d thoughts are waiting in Review</item>
     </plurals>
+    <string name="shortcut_new_thought_short">New thought</string>
+    <string name="shortcut_new_thought_long">Write a new thought</string>
+    <string name="tile_new_thought">New thought</string>
 </resources>

@@ -134,4 +134,7 @@
         <item quantity="one">%1$d mõte ootab ülevaates</item>
         <item quantity="other">%1$d mõtet ootab ülevaates</item>
     </plurals>
+    <string name="shortcut_new_thought_short">Uus mõte</string>
+    <string name="shortcut_new_thought_long">Kirjuta uus mõte</string>
+    <string name="tile_new_thought">Uus mõte</string>
 </resources>

@@ -104,6 +104,13 @@ object CalendarCaptureContext {
     }
 }
 
+object SharedTextContext {
+    const val TextKey = "sharedTextForHome"
+
+    /** Set by the "New thought" shortcut and tile: focus the capture box once. */
+    const val FocusCaptureKey = "focusCaptureRequest"
+}
+
 object BrainDumpResumeContext {
     const val CaptureIdKey = "brainDumpResumeCaptureId"
 }

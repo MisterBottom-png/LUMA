@@ -113,6 +113,11 @@ class HomeCaptureViewModel(
         }
     }
 
+    /** Text shared from another app joins the draft; the user still decides to send it. */
+    fun receiveSharedText(text: String) {
+        onInputChanged(com.orbit.app.capture.SharedText.mergeIntoDraft(uiState.value.inputText, text))
+    }
+
     fun onInputChanged(value: String) {
         if (_uiState.value.isProcessing) return
         _uiState.update { it.copy(inputText = value) }

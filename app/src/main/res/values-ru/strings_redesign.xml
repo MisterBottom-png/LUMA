@@ -142,4 +142,7 @@
         <item quantity="many">%1$d мыслей ждут в обзоре</item>
         <item quantity="other">%1$d мысли ждут в обзоре</item>
     </plurals>
+    <string name="shortcut_new_thought_short">Новая мысль</string>
+    <string name="shortcut_new_thought_long">Записать новую мысль</string>
+    <string name="tile_new_thought">Новая мысль</string>
 </resources>
