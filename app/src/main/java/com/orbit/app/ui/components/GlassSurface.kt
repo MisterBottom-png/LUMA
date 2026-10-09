@@ -454,7 +454,9 @@ internal fun softGlassContainerAlpha(
 
     if (style == GlassSurfaceStyle.NavigationBar) {
         val customBackgroundBoost = if (hasCustomBackground) 0.03f else 0f
-        return ((if (isDark) 0.88f else 0.92f) + customBackgroundBoost).coerceAtMost(0.96f)
+        // Text scrolling under a soft (unblurred) bar must not show through as a second
+        // layer of text, so the bar stays close to solid.
+        return ((if (isDark) 0.93f else 0.95f) + customBackgroundBoost).coerceAtMost(0.96f)
     }
 
     if (style == GlassSurfaceStyle.Sheet) {
