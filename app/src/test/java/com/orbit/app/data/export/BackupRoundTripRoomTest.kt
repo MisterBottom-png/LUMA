@@ -205,7 +205,7 @@ class BackupRoundTripRoomTest {
         db.reminderDao().insertAll(
             listOf(
                 ReminderEntity(id = 30, title = "Yesterday", dueAt = now - 86_400_000L, spaceId = 1, linkedCaptureId = 10, createdAt = 5, updatedAt = 5),
-                ReminderEntity(id = 31, title = "Tomorrow", dueAt = now + 86_400_000L, notificationOffsetMinutes = 0, linkedTaskId = 21, createdAt = 5, updatedAt = 5),
+                ReminderEntity(id = 31, title = "Tomorrow", dueAt = now + 86_400_000L, notificationOffsetMinutes = 0, linkedTaskId = 21, createdAt = 5, updatedAt = 5, repeatRule = "weekly@09:00"),
             ),
         )
         db.labelDao().insertAll(

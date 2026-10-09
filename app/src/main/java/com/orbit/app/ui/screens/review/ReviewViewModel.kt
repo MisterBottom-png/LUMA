@@ -742,10 +742,7 @@ internal class ReviewActions(
         when (item.type) {
             ReviewItemType.Task -> completeTask(item.id)
             ReviewItemType.Reminder -> reminderRepository.getById(item.id)?.let { reminder ->
-                val completedAt = now()
-                reminderRepository.update(
-                    reminder.copy(completedAt = completedAt, updatedAt = completedAt),
-                )
+                reminderRepository.update(com.orbit.app.reminders.ReminderRepeats.markDone(reminder, now()))
             }
 
             ReviewItemType.Capture -> error("Captures cannot be completed")

@@ -68,7 +68,7 @@ class OrbitDatabaseMigrationJvmTest {
     }
 
     private companion object {
-        const val CurrentVersion = 8
+        const val CurrentVersion = 9
     }
 
     @Test
@@ -83,6 +83,30 @@ class OrbitDatabaseMigrationJvmTest {
         val database = SchemaDatabases.openMigrated(name)
         assertEquals("call the bank", database.captureDao().getById(5)?.rawText)
         assertTrue(database.captureSuggestionDao().getAll().isEmpty())
+        database.close()
+    }
+
+    @Test
+    fun migrate8To9KeepsEveryReminderAndMakesThemOneOff() = runBlocking {
+        val name = "jvm-migration-8-9.db"
+        val future = System.currentTimeMillis() + 86_400_000L
+        SchemaDatabases.createAtVersion(name, 8) { db ->
+            db.execSQL(
+                """
+                INSERT INTO reminders (id, title, notes, dueAt, notificationOffsetMinutes, spaceId,
+                    linkedTaskId, linkedCaptureId, notificationEnabled, notificationWorkId,
+                    createdAt, updatedAt, completedAt, deliveredNotificationAt, snoozedUntil)
+                VALUES (3, 'Water plants', 'balcony', $future, 15, NULL, NULL, NULL, 1, 'w', 1, 9, NULL, NULL, NULL)
+                """.trimIndent(),
+            )
+        }
+        val database = SchemaDatabases.openMigrated(name)
+        val reminder = requireNotNull(database.reminderDao().getById(3))
+        assertEquals("Water plants", reminder.title)
+        assertEquals(future, reminder.dueAt)
+        assertEquals(15L, reminder.notificationOffsetMinutes)
+        assertEquals(9L, reminder.updatedAt)
+        assertNull(reminder.repeatRule)
         database.close()
     }
 }

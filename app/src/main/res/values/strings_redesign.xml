@@ -139,4 +139,13 @@
     <string name="tile_new_thought">New thought</string>
     <string name="home_voice_capture">Speak a thought</string>
     <string name="home_voice_prompt">Say what’s on your mind</string>
+    <string name="reminder_repeat_title">Repeat</string>
+    <string name="reminder_repeat_never">Does not repeat</string>
+    <string name="reminder_repeat_daily">Every day</string>
+    <string name="reminder_repeat_weekdays">Every weekday (Mon–Fri)</string>
+    <string name="reminder_repeat_weekly">Every week</string>
+    <string name="reminder_repeat_monthly">Every month</string>
+    <string name="reminder_repeat_explanation">When you mark it done, LUMA moves it to the next time. Nothing is created for you.</string>
+    <string name="reminder_repeat_updated">Repeat updated.</string>
+    <string name="reminder_repeat_update_failed">Repeat could not be changed. Nothing was lost.</string>
 </resources>

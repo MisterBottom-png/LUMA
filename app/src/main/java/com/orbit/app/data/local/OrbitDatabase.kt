@@ -61,7 +61,7 @@ import com.orbit.app.data.local.entity.TaskLabelCrossRef
         ReminderLabelCrossRef::class,
         CaptureSuggestionEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(OrbitTypeConverters::class)
@@ -452,6 +452,13 @@ abstract class OrbitDatabase : RoomDatabase() {
             }
         }
 
+        /** Repeating reminders: one nullable column; existing reminders stay one-off. */
+        val Migration8To9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `repeatRule` TEXT")
+            }
+        }
+
         val AllMigrations: Array<Migration> = arrayOf(
             Migration1To2,
             Migration2To3,
@@ -460,6 +467,7 @@ abstract class OrbitDatabase : RoomDatabase() {
             Migration5To6,
             Migration6To7,
             Migration7To8,
+            Migration8To9,
         )
 
         @Volatile

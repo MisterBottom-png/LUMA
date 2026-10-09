@@ -139,4 +139,13 @@
     <string name="tile_new_thought">Uus mõte</string>
     <string name="home_voice_capture">Ütle mõte</string>
     <string name="home_voice_prompt">Ütle, mis sul mõttes on</string>
+    <string name="reminder_repeat_title">Kordus</string>
+    <string name="reminder_repeat_never">Ei kordu</string>
+    <string name="reminder_repeat_daily">Iga päev</string>
+    <string name="reminder_repeat_weekdays">Igal tööpäeval (E–R)</string>
+    <string name="reminder_repeat_weekly">Iga nädal</string>
+    <string name="reminder_repeat_monthly">Iga kuu</string>
+    <string name="reminder_repeat_explanation">Kui märgid selle tehtuks, viib LUMA selle järgmisele korrale. Sinu eest ei looda midagi.</string>
+    <string name="reminder_repeat_updated">Kordus muudetud.</string>
+    <string name="reminder_repeat_update_failed">Kordust ei õnnestunud muuta. Midagi ei läinud kaduma.</string>
 </resources>

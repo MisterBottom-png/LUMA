@@ -74,6 +74,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.orbit.app.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectable
+import com.orbit.app.reminders.ReminderRepeat
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.LumaModalBottomSheet
@@ -90,7 +93,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-private enum class DetailSheet { Type, Schedule, LifeState, Space, Notification }
+private enum class DetailSheet { Type, Schedule, LifeState, Space, Notification, Repeat }
 
 internal enum class ItemDetailBackAction { CancelEditing, NavigateUp }
 
@@ -148,6 +151,7 @@ fun ItemDetailScreen(
             onUpdateSpace = viewModel::updateSpace,
             onUpdateNotificationOffset = viewModel::updateNotificationOffset,
             onSetNotificationEnabled = viewModel::setNotificationEnabled,
+            onUpdateRepeat = viewModel::updateRepeat,
             onChangeType = viewModel::changeType,
             onDelete = { confirmDelete = true },
             onResumeBrainDump = { onResumeBrainDump(state.itemId) },
@@ -190,6 +194,7 @@ private fun ItemDetailContent(
     onUpdateSpace: (Long?) -> Unit,
     onUpdateNotificationOffset: (Long) -> Unit,
     onSetNotificationEnabled: (Boolean) -> Unit,
+    onUpdateRepeat: (ReminderRepeat?) -> Unit,
     onChangeType: (ItemDetailType, Long?) -> Unit,
     onDelete: () -> Unit,
     onResumeBrainDump: () -> Unit,
@@ -290,6 +295,12 @@ private fun ItemDetailContent(
                                     ) + " · " + reminderOffsetLabel(state.notificationOffsetMinutes ?: 0L),
                                     !isEditing,
                                 ) { openSheet = DetailSheet.Notification }
+                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                                DetailRow(
+                                    stringResource(R.string.reminder_repeat_title),
+                                    stringResource(state.repeat.labelRes()),
+                                    !isEditing,
+                                ) { openSheet = DetailSheet.Repeat }
                             }
                             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                             DetailRow(
@@ -406,6 +417,14 @@ private fun ItemDetailContent(
         DetailSheet.LifeState -> LifeStateSheet(state.taskStatus, { openSheet = null }) {
             openSheet = null; onSetTaskStatus(it)
         }
+        DetailSheet.Repeat -> RepeatSheet(
+            selected = state.repeat,
+            onDismiss = { openSheet = null },
+            onSelected = {
+                openSheet = null
+                onUpdateRepeat(it)
+            },
+        )
         DetailSheet.Notification -> NotificationSheet(
             offsetMinutes = state.notificationOffsetMinutes ?: 0L,
             notificationEnabled = state.notificationEnabled ?: true,
@@ -534,6 +553,45 @@ private fun ScheduleSheet(
         }
         Spacer(Modifier.navigationBarsPadding())
     }
+}
+
+@Composable
+private fun RepeatSheet(
+    selected: ReminderRepeat?,
+    onDismiss: () -> Unit,
+    onSelected: (ReminderRepeat?) -> Unit,
+) {
+    LumaModalBottomSheet(onDismissRequest = onDismiss) {
+        SheetTitle(stringResource(R.string.reminder_repeat_title))
+        (listOf<ReminderRepeat?>(null) + ReminderRepeat.entries).forEach { option ->
+            ListItem(
+                headlineContent = { Text(stringResource(option.labelRes())) },
+                leadingContent = {
+                    RadioButton(selected = option == selected, onClick = null)
+                },
+                modifier = Modifier.selectable(
+                    selected = option == selected,
+                    role = Role.RadioButton,
+                    onClick = { onSelected(option) },
+                ),
+            )
+        }
+        Text(
+            text = stringResource(R.string.reminder_repeat_explanation),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.navigationBarsPadding())
+    }
+}
+
+private fun ReminderRepeat?.labelRes(): Int = when (this) {
+    null -> R.string.reminder_repeat_never
+    ReminderRepeat.Daily -> R.string.reminder_repeat_daily
+    ReminderRepeat.Weekdays -> R.string.reminder_repeat_weekdays
+    ReminderRepeat.Weekly -> R.string.reminder_repeat_weekly
+    ReminderRepeat.Monthly -> R.string.reminder_repeat_monthly
 }
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -265,7 +265,7 @@ class RoomReminderRepository(
             previous.dueAt != entity.dueAt ||
                 previous.notificationOffsetMinutes != entity.notificationOffsetMinutes
             )
-        val normalized = entity
+        val normalized = com.orbit.app.reminders.ReminderRepeats.reanchored(previous, entity)
             .copy(
                 // A new time supersedes an earlier snooze.
                 snoozedUntil = if (timingEdited && entity.snoozedUntil == previous?.snoozedUntil) {

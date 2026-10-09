@@ -293,6 +293,11 @@ object LocalDataBackupCodec {
             createdAt = json.requiredNonNegativeLong("createdAt"),
             updatedAt = json.requiredNonNegativeLong("updatedAt"),
             completedAt = json.optionalNonNegativeLong("completedAt"),
+            // Optional (format v5): an unknown token from a newer LUMA is kept as-is and
+            // simply behaves as a one-off reminder here.
+            repeatRule = json.optionalString("repeatRule")?.takeIf { it.isNotBlank() }?.also {
+                if (it.length > MaxRepeatRuleLength) invalid("Reminder repeat rule is invalid.")
+            },
         )
     }
 
@@ -560,6 +565,7 @@ object LocalDataBackupCodec {
         .put("linkedTaskId", linkedTaskId).put("linkedCaptureId", linkedCaptureId)
         .put("notificationEnabled", notificationEnabled).put("notificationWorkId", notificationWorkId)
         .put("createdAt", createdAt).put("updatedAt", updatedAt).put("completedAt", completedAt)
+        .put("repeatRule", repeatRule)
 
     private fun BrainDumpSessionEntity.toJson() = JSONObject()
         .put("captureId", captureId).put("analyzerSource", analyzerSource)
@@ -742,4 +748,5 @@ object LocalDataBackupCodec {
         .lowercase(Locale.ROOT)
 
     private const val MaxEntriesPerType = 100_000
+    private const val MaxRepeatRuleLength = 32
 }

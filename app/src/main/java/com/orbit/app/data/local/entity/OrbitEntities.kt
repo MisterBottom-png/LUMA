@@ -228,6 +228,8 @@ data class ReminderEntity(
     val deliveredNotificationAt: Long? = null,
     /** When set, replaces the computed notification time until the reminder is edited. */
     val snoozedUntil: Long? = null,
+    /** Repeat token (Room v9), e.g. "weekly"; null for a one-off reminder. See ReminderRepeat. */
+    val repeatRule: String? = null,
 )
 
 /**

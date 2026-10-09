@@ -43,6 +43,8 @@ data class ItemDetailUiState(
     val scheduledAt: Long? = null,
     val notificationOffsetMinutes: Long? = null,
     val notificationEnabled: Boolean? = null,
+    /** Reminders only: null means one-off (or a repeat this version does not know). */
+    val repeat: com.orbit.app.reminders.ReminderRepeat? = null,
     val canEditTitle: Boolean = true,
     val canEditBody: Boolean = true,
     val canComplete: Boolean = false,
@@ -202,6 +204,24 @@ class ItemDetailViewModel(
         }
     }
 
+    fun updateRepeat(repeat: com.orbit.app.reminders.ReminderRepeat?) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            runCatching {
+                container.reminderRepository.getById(itemId)?.let {
+                    val token = repeat?.let { rule ->
+                        com.orbit.app.reminders.RepeatSpec.forReminder(rule, it.dueAt, java.time.ZoneId.systemDefault()).toStorage()
+                    }
+                    container.reminderRepository.update(it.copy(repeatRule = token, updatedAt = now))
+                }
+            }.onSuccess {
+                load(message = localized(R.string.reminder_repeat_updated))
+            }.onFailure {
+                _uiState.update { state -> state.copy(message = localized(R.string.reminder_repeat_update_failed)) }
+            }
+        }
+    }
+
     fun setNotificationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
@@ -300,10 +320,11 @@ class ItemDetailViewModel(
 
                     ItemDetailType.Reminder -> container.reminderRepository.getById(itemId)?.let {
                         container.reminderRepository.update(
-                            it.copy(
-                                completedAt = if (it.completedAt == null) now else null,
-                                updatedAt = now,
-                            ),
+                            if (it.completedAt == null) {
+                                com.orbit.app.reminders.ReminderRepeats.markDone(it, now)
+                            } else {
+                                it.copy(completedAt = null, updatedAt = now)
+                            },
                         )
                     }
 
@@ -655,6 +676,7 @@ class ItemDetailViewModel(
         scheduledAt = dueAt,
         notificationOffsetMinutes = notificationOffsetMinutes,
         notificationEnabled = notificationEnabled,
+        repeat = com.orbit.app.reminders.ReminderRepeat.fromStorage(repeatRule),
         canComplete = true,
         canArchive = false,
         isComplete = completedAt != null,

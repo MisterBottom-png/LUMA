@@ -72,8 +72,9 @@ class ReminderActionReceiver : BroadcastReceiver() {
 }
 
 /**
- * Applies a notification action. Done completes the reminder; Snooze moves only the
- * notification time, keeping the reminder's own target time and edited timestamp.
+ * Applies a notification action. Done completes the reminder (a repeating one moves
+ * to its next occurrence); Snooze moves only the notification time, keeping the
+ * reminder's own target time and edited timestamp.
  */
 internal suspend fun handleReminderAction(
     repository: ReminderRepository,
@@ -84,9 +85,7 @@ internal suspend fun handleReminderAction(
     val reminder = repository.getById(reminderId) ?: return
     if (reminder.completedAt != null) return
     when (action) {
-        ReminderActionReceiver.ACTION_DONE -> repository.update(
-            reminder.copy(completedAt = now, updatedAt = now),
-        )
+        ReminderActionReceiver.ACTION_DONE -> repository.update(ReminderRepeats.markDone(reminder, now))
         ReminderActionReceiver.ACTION_SNOOZE -> repository.update(
             reminder.copy(snoozedUntil = now + ReminderActionReceiver.SnoozeMillis),
         )

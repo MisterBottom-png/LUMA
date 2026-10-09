@@ -147,4 +147,13 @@
     <string name="tile_new_thought">Новая мысль</string>
     <string name="home_voice_capture">Продиктовать мысль</string>
     <string name="home_voice_prompt">Скажите, о чём вы думаете</string>
+    <string name="reminder_repeat_title">Повтор</string>
+    <string name="reminder_repeat_never">Не повторяется</string>
+    <string name="reminder_repeat_daily">Каждый день</string>
+    <string name="reminder_repeat_weekdays">По будням (пн–пт)</string>
+    <string name="reminder_repeat_weekly">Каждую неделю</string>
+    <string name="reminder_repeat_monthly">Каждый месяц</string>
+    <string name="reminder_repeat_explanation">Когда вы отмечаете его выполненным, LUMA переносит его на следующий раз. Ничего не создаётся за вас.</string>
+    <string name="reminder_repeat_updated">Повтор изменён.</string>
+    <string name="reminder_repeat_update_failed">Не удалось изменить повтор. Ничего не потеряно.</string>
 </resources>

@@ -135,6 +135,23 @@ class ReminderDeliveryRoomTest {
     }
 
     @Test
+    fun doneOnARepeatingReminderMovesItToTheNextTimeAndArmsIt() = runBlocking {
+        val due = now - minute
+        val id = repository.insert(reminder(dueAt = due).copy(repeatRule = ReminderRepeat.Daily.storageToken))
+        database.reminderDao().claimDelivery(id, due)
+
+        handleReminderAction(repository, ReminderActionReceiver.ACTION_DONE, id, now)
+
+        val moved = requireNotNull(repository.getById(id))
+        assertNull(moved.completedAt)
+        assertTrue(moved.dueAt > now)
+        assertEquals(id to moved.dueAt, scheduler.scheduled.last())
+        // The next occurrence is deliverable exactly once.
+        assertEquals(1, database.reminderDao().claimDelivery(id, moved.dueAt))
+        assertEquals(0, database.reminderDao().claimDelivery(id, moved.dueAt))
+    }
+
+    @Test
     fun doneActionCompletesAndCancels() = runBlocking {
         val id = repository.insert(reminder(dueAt = now - minute))
         handleReminderAction(repository, ReminderActionReceiver.ACTION_DONE, id, now)
