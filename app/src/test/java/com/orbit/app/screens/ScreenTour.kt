@@ -2,13 +2,11 @@ package com.orbit.app.screens
 
 import android.content.Context
 import android.graphics.Bitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.captureToImage
+import android.graphics.Canvas
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
@@ -67,7 +65,11 @@ abstract class ScreenTour(private val theme: String) {
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(1_500)
         compose.waitForIdle()
-        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        // Draw the window into a bitmap (software canvas). PixelCopy-based
+        // captureToImage never completes under Robolectric.
+        val view = compose.activity.window.decorView
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
         val dir = requireNotNull(outDir)
         dir.mkdirs()
         File(dir, "$theme-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -92,7 +94,7 @@ abstract class ScreenTour(private val theme: String) {
     @Test
     fun tour() {
         assumeTrue("set LUMA_SCREENS_DIR to render the screens", outDir != null)
-        step("first launch") { compose.waitUntil(10_000) { count("Skip") > 0 } }
+        step("first launch") { compose.waitUntil(30_000) { count("Skip") > 0 } }
         shot("00-tutorial")
         step("skip guide") { compose.onNodeWithText("Skip").performClick() }
         shot("01-home-empty")
