@@ -11,6 +11,7 @@ import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.Until
+import com.orbit.app.macrobenchmark.AppNavigation.hideKeyboardIfShown
 import com.orbit.app.macrobenchmark.AppNavigation.openSettings
 import com.orbit.app.macrobenchmark.AppNavigation.openTab
 import com.orbit.app.macrobenchmark.AppNavigation.skipFirstTimeGuideIfShown
@@ -51,8 +52,8 @@ class GlassSurfaceMacrobenchmark {
 
     @Test
     fun renderAppearanceGlassPreview() = measureSettings {
-        device.findObject(By.text("Appearance")).click()
-        device.wait(Until.hasObject(By.text("Transparency")), UiTimeoutMillis)
+        device.findObject(By.textStartsWith("Appearance")).click()
+        device.wait(Until.hasObject(By.textStartsWith("Transparency")), UiTimeoutMillis)
     }
 
     private fun measureRoute(routeLabel: String, measuredBlock: MacrobenchmarkScope.() -> Unit) {
@@ -95,7 +96,7 @@ class GlassSurfaceMacrobenchmark {
             setupBlock = {
                 startActivityAndWait()
                 skipFirstTimeGuideIfShown()
-                openTab("Home")
+                hideKeyboardIfShown()
             },
             measuredBlock = measuredBlock,
         )

@@ -12,7 +12,20 @@ internal object AppNavigation {
     fun MacrobenchmarkScope.skipFirstTimeGuideIfShown() {
         device.wait(Until.findObject(By.text("Skip")), 2_000L)?.let { skip ->
             skip.click()
-            device.wait(Until.hasObject(By.text("Home")), UiTimeoutMillis)
+            device.wait(Until.hasObject(By.desc("Open settings")), UiTimeoutMillis)
+            device.waitForIdle()
+        }
+    }
+
+    /**
+     * Home focuses the capture box by default, and the tab bar hides while the
+     * keyboard is open. Back closes only the keyboard; it is pressed only when
+     * the keyboard is really showing, so it never leaves the app.
+     */
+    fun MacrobenchmarkScope.hideKeyboardIfShown() {
+        val inputState = device.executeShellCommand("dumpsys input_method")
+        if (inputState.contains("mInputShown=true") || inputState.contains("isInputViewShown=true")) {
+            device.pressBack()
             device.waitForIdle()
         }
     }
@@ -22,6 +35,7 @@ internal object AppNavigation {
      * ("Spaces"), so the match lowest on screen — the bottom bar — is used.
      */
     fun MacrobenchmarkScope.openTab(label: String) {
+        hideKeyboardIfShown()
         val tab = requireNotNull(
             device.wait(Until.findObjects(By.text(label)), UiTimeoutMillis)
                 ?.maxByOrNull { it.visibleBounds.bottom },
@@ -30,12 +44,17 @@ internal object AppNavigation {
         device.waitForIdle()
     }
 
+    /** Settings lives behind the button at the top right of Home. */
     fun MacrobenchmarkScope.openSettings() {
-        openTab("Home")
-        requireNotNull(device.wait(Until.findObject(By.desc("Open settings")), UiTimeoutMillis)) {
-            "The Settings button on Home was not available"
-        }.click()
-        device.wait(Until.hasObject(By.text("Appearance")), UiTimeoutMillis)
+        val button = device.wait(Until.findObject(By.desc("Open settings")), 1_000L) ?: run {
+            openTab("Home")
+            device.wait(Until.findObject(By.desc("Open settings")), UiTimeoutMillis)
+        }
+        requireNotNull(button) { "The Settings button on Home was not available" }.click()
+        // Settings rows read as one label ("Appearance, Theme, …"), so match the start.
+        requireNotNull(device.wait(Until.findObject(By.textStartsWith("Appearance")), UiTimeoutMillis)) {
+            "Settings did not open"
+        }
         device.waitForIdle()
     }
 }

@@ -780,6 +780,8 @@ private fun CaptureActionButton(
     }
 }
 
+private val PlaceholderUserName = com.orbit.app.domain.model.AppSettings().userName
+
 private val CaptureHints = listOf(
     R.string.core_home_capture_placeholder,
     R.string.home_capture_hint_remind,
@@ -791,7 +793,8 @@ private val CaptureHints = listOf(
 @Composable
 private fun homeGreeting(hour: Int, userName: String): String {
     val name = userName.trim()
-    return if (name.isEmpty()) {
+    // "user" is the stored placeholder until the person sets a name in Settings.
+    return if (name.isEmpty() || name.equals(PlaceholderUserName, ignoreCase = true)) {
         stringResource(greetingResFor(hour))
     } else {
         stringResource(namedGreetingResFor(hour), name)
