@@ -21,3 +21,6 @@ _cleanup_before_luma_v4_upgrade/
 
 __pycache__/
 *.pyc
+
+# Local release/device verification evidence
+artifacts/
