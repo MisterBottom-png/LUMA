@@ -17,4 +17,6 @@
     <string name="settings_reminder_setup_still_failing">Некоторые напоминания всё ещё не удалось настроить. Ваши записи в сохранности; проверьте настройки уведомлений и попробуйте снова.</string>
     <string name="settings_gemini_error_model_not_found">Gemini не знает такую модель. Проверьте название модели в настройках ИИ. Локальный режим продолжит работать.</string>
     <string name="core_capture_not_now_keep">Не сейчас – оставить во Входящих</string>
+    <string name="settings_gemini_key_remove_failed">Не удалось удалить ключ. Попробуйте снова; больше ничего не изменилось.</string>
+    <string name="settings_learned_rule_update_failed">Не удалось изменить это правило. Остальные правила не изменились.</string>
 </resources>

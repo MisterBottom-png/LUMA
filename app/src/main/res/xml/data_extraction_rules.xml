@@ -8,7 +8,9 @@
         <exclude domain="external" path="." />
     </cloud-backup>
     <device-transfer>
-        <include domain="database" path="orbit.db" />
+        <!-- The whole database folder, so the write-ahead log (-wal/-shm) with the
+             newest changes moves to the new phone too. -->
+        <include domain="database" path="." />
         <include domain="file" path="datastore/orbit_settings.preferences_pb" />
         <include domain="sharedpref" path="." />
         <exclude domain="sharedpref" path="luma_secure_ai.xml" />

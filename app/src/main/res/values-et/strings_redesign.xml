@@ -15,4 +15,6 @@
     <string name="settings_reminder_setup_still_failing">Mõnda meeldetuletust ei õnnestunud ikka seadistada. Sinu kirjed on alles; kontrolli teavituste sätteid ja proovi uuesti.</string>
     <string name="settings_gemini_error_model_not_found">Gemini ei tunne seda mudeli nime. Kontrolli mudelit AI sätetes. Kohalik režiim töötab edasi.</string>
     <string name="core_capture_not_now_keep">Mitte praegu – jäta sisendkausta</string>
+    <string name="settings_gemini_key_remove_failed">Võtit ei õnnestunud eemaldada. Proovi uuesti; midagi muud ei muutunud.</string>
+    <string name="settings_learned_rule_update_failed">Seda reeglit ei õnnestunud muuta. Teised reeglid on muutmata.</string>
 </resources>

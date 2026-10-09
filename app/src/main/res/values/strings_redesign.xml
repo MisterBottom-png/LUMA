@@ -15,4 +15,6 @@
     <string name="settings_reminder_setup_still_failing">Some reminders still could not be set up. Your items are safe; check notification settings and try again.</string>
     <string name="settings_gemini_error_model_not_found">Gemini does not recognise this model name. Check the model in AI settings. Local mode still works.</string>
     <string name="core_capture_not_now_keep">Not now – keep it in Inbox</string>
+    <string name="settings_gemini_key_remove_failed">The key could not be removed. Try again; nothing else changed.</string>
+    <string name="settings_learned_rule_update_failed">That rule could not be changed. Your other rules are unchanged.</string>
 </resources>

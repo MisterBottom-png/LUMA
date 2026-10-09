@@ -88,10 +88,25 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
 
     fun deleteKey() {
         viewModelScope.launch {
-            container.geminiApiKeyStore.deleteKey()
-            _uiState.value = AiSettingsUiState(
-                connectionMessage = localized(R.string.settings_gemini_key_removed),
-            )
+            runCatching { container.geminiApiKeyStore.deleteKey() }
+                .onSuccess {
+                    // Keep everything else (for example the learned rules list) in place.
+                    _uiState.update {
+                        it.copy(
+                            hasKey = false,
+                            connectionMessage = localized(R.string.settings_gemini_key_removed),
+                            connectionSucceeded = null,
+                        )
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            connectionMessage = localized(R.string.settings_gemini_key_remove_failed),
+                            connectionSucceeded = false,
+                        )
+                    }
+                }
         }
     }
 
@@ -185,11 +200,26 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
     }
 
     fun updateLearnedRule(rule: LearnedRuleEntity) {
-        viewModelScope.launch { container.learnedRuleRepository.update(rule) }
+        viewModelScope.launch {
+            runCatching { container.learnedRuleRepository.update(rule) }
+                .onFailure { reportLearnedRuleFailure() }
+        }
     }
 
     fun deleteLearnedRule(rule: LearnedRuleEntity) {
-        viewModelScope.launch { container.learnedRuleRepository.delete(rule) }
+        viewModelScope.launch {
+            runCatching { container.learnedRuleRepository.delete(rule) }
+                .onFailure { reportLearnedRuleFailure() }
+        }
+    }
+
+    private fun reportLearnedRuleFailure() {
+        _uiState.update {
+            it.copy(
+                connectionMessage = localized(R.string.settings_learned_rule_update_failed),
+                connectionSucceeded = false,
+            )
+        }
     }
 
     class Factory(private val container: OrbitContainer) : ViewModelProvider.Factory {
