@@ -23,4 +23,15 @@ class HomeContrastTest {
             assertTrue(meetsTextReadability(colors.outline, colors.surfaceContainerLow, 3f))
         }
     }
+
+    @Test
+    fun homeCalendarTypographyColorsMeetEnhancedContrastInBothThemes() {
+        listOf(false, true).forEach { isDark ->
+            val colors = defaultOrbitColorScheme(isDark)
+
+            assertTrue(meetsTextReadability(colors.onSurface, colors.surfaceContainerLow, 7f))
+            assertTrue(meetsTextReadability(colors.onSurfaceVariant, colors.surfaceContainerLow, 7f))
+            assertTrue(meetsTextReadability(colors.onPrimaryContainer, colors.primaryContainer, 7f))
+        }
+    }
 }

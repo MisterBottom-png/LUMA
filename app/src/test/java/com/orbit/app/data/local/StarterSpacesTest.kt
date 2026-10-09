@@ -6,14 +6,30 @@ import org.junit.Test
 
 class StarterSpacesTest {
     @Test
-    fun starterSpacesHaveStableUniqueIdsNamesAndSortOrder() {
-        val spaces = StarterSpaces.entities(createdAt = 123L)
+    fun selectableTemplatesHaveStableKeysAndDistinctPresentation() {
+        assertEquals(
+            listOf("personal", "work", "home", "health", "money", "learning"),
+            StarterSpaces.templates.map { it.key },
+        )
+        assertEquals(StarterSpaces.templates.size, StarterSpaces.templates.map { it.storedName }.toSet().size)
+        assertEquals(StarterSpaces.templates.size, StarterSpaces.templates.map { it.icon }.toSet().size)
+    }
 
-        assertEquals(9, spaces.size)
-        assertEquals(StarterSpaces.names, spaces.map { it.name })
-        assertEquals((1L..9L).toList(), spaces.map { it.id })
-        assertEquals((0..8).toList(), spaces.map { it.sortOrder })
-        assertEquals(spaces.size, spaces.map { it.name }.toSet().size)
-        assertTrue(spaces.all { it.createdAt == 123L && it.updatedAt == 123L })
+    @Test
+    fun selectedTemplateBuildsAnUnhiddenSpaceWithCallerOwnedOrder() {
+        val space = StarterSpaces.spaceFor(
+            template = StarterSpaces.templates.single { it.key == "home" },
+            name = "Home",
+            sortOrder = 4,
+            now = 123L,
+        )
+
+        assertEquals(0L, space.id)
+        assertEquals("Home", space.name)
+        assertEquals("home", space.icon)
+        assertEquals(4, space.sortOrder)
+        assertTrue(!space.hidden && !space.archived)
+        assertEquals(123L, space.createdAt)
+        assertEquals(123L, space.updatedAt)
     }
 }

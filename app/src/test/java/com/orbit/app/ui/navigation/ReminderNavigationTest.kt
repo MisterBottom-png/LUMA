@@ -18,4 +18,11 @@ class ReminderNavigationTest {
         assertEquals("item/note/7", ItemDetailDestination.route(ItemDetailType.Note, 7L))
         assertEquals("item/task/8", ItemDetailDestination.route(ItemDetailType.Task, 8L))
     }
+
+    @Test
+    fun spaceDetailUsesTheStableSpaceIdentifierInItsRoute() {
+        assertEquals("spaces/23", SpaceDetailDestination.route(23L))
+        assertEquals("spaces/{spaceId}", SpaceDetailDestination.Route)
+        assertEquals("spaces/unfiled", SpaceDetailDestination.UnfiledRoute)
+    }
 }

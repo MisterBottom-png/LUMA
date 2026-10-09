@@ -85,6 +85,75 @@ class SpacesTransformationsTest {
         assertEquals("Untitled note", feed[2].title)
     }
 
+    @Test
+    fun sectionsTreatTodayAsAttentionAndKeepFutureTargetsUpcoming() {
+        val now = 1_000_000L
+        val today = java.time.Instant.ofEpochMilli(now)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
+            .toEpochDay()
+        val contents = SpaceContents(
+            tasks = listOf(
+                TaskEntity(id = 1, title = "Today", scheduledDateEpochDay = today),
+                TaskEntity(id = 2, title = "Tomorrow", scheduledDateEpochDay = today + 1),
+            ),
+        )
+
+        val sections = contents.sectioned(now)
+
+        assertEquals(listOf(1L), sections.needsAttention.tasks.map { it.id })
+        assertEquals(listOf(2L), sections.upcoming.tasks.map { it.id })
+    }
+
+    @Test
+    fun upcomingFeedUsesTargetTimeSoonestFirst() {
+        val contents = SpaceContents(
+            tasks = listOf(TaskEntity(id = 1, title = "Later", dueAt = 300, updatedAt = 900)),
+            reminders = listOf(ReminderEntity(id = 2, title = "Sooner", dueAt = 200)),
+        )
+
+        val feed = contents.asFeedItems(
+            timeFormat = OrbitTimeFormat(uses24HourClock = true),
+            order = SpaceFeedOrder.TargetSoonest,
+        )
+
+        assertEquals(
+            listOf(
+                SpaceItemReference(SpaceItemType.Reminder, 2),
+                SpaceItemReference(SpaceItemType.Task, 1),
+            ),
+            feed.map { it.reference },
+        )
+    }
+
+    @Test
+    fun unfiledEntryAppearsOnlyForActiveFinalizedItemsWithoutASpace() {
+        assertTrue(
+            hasUnfiledFinalizedItems(
+                notes = listOf(NoteEntity(id = 1, title = "Unfiled", body = "")),
+                tasks = emptyList(),
+                reminders = emptyList(),
+            ),
+        )
+        assertFalse(
+            hasUnfiledFinalizedItems(
+                notes = listOf(NoteEntity(id = 2, title = "Archived", body = "", archived = true)),
+                tasks = listOf(TaskEntity(id = 3, title = "Archived", status = TaskStatus.Archived)),
+                reminders = emptyList(),
+            ),
+        )
+    }
+
+    @Test
+    fun spaceNamesUseCollapsedCaseInsensitiveUniqueness() {
+        val existing = listOf(space(id = 1, sortOrder = 0).copy(name = "Home Base"))
+
+        assertEquals("home base", normalizeSpaceName("  HOME   base  "))
+        assertFalse(canUseSpaceName("home base", existing))
+        assertTrue(canUseSpaceName("home base", existing, excludingSpaceId = 1))
+        assertTrue(canUseSpaceName("Learning", existing))
+    }
+
     private fun space(
         id: Long,
         sortOrder: Int,

@@ -132,6 +132,7 @@ class CalendarViewModel @JvmOverloads constructor(
             _uiState.value.copy(
                 selectedDate = date,
                 visibleMonth = YearMonth.from(date),
+                activeView = CalendarViewMode.Day,
             ),
         )
     }

@@ -18,6 +18,7 @@ class BottomNavigationVisibilityTest {
         assertFalse(shouldEnableHazeCapture(ItemDetailDestination.Route))
         assertFalse(shouldEnableHazeCapture(CalendarDestination.Route))
         assertFalse(shouldEnableHazeCapture(SearchDestination.Route))
+        assertFalse(shouldEnableHazeCapture(FirstTimeTutorialDestination.Route))
     }
 
     @Test
@@ -50,7 +51,7 @@ class BottomNavigationVisibilityTest {
     }
 
     @Test
-    fun appearanceSubsection_hidesBottomNavigationUntilReturn() {
+    fun settingsSubsection_hidesBottomNavigationUntilReturn() {
         assertFalse(
             shouldShowFloatingBottomNavigation(
                 imeVisible = false,

@@ -177,6 +177,27 @@ class GlassRolePolicyTest {
     }
 
     @Test
+    fun homeCaptureRemainsMoreProminentThanHomeNavigationOnCustomBackgrounds() {
+        listOf(false, true).forEach { isDark ->
+            val navigationAlpha = softGlassContainerAlpha(
+                style = GlassSurfaceStyle.HomeNavigation,
+                isDark = isDark,
+                glassStrength = 0f,
+                hasCustomBackground = true,
+            )
+            val captureAlpha = softGlassContainerAlpha(
+                style = GlassSurfaceStyle.HomeCapture,
+                isDark = isDark,
+                glassStrength = 0f,
+                hasCustomBackground = true,
+            )
+
+            assertTrue(navigationAlpha >= 0.26f)
+            assertTrue(captureAlpha > navigationAlpha)
+        }
+    }
+
+    @Test
     fun liveGlassAccentTintStaysRestrainedAcrossRolesAndThemes() {
         GlassSurfaceStyle.entries.forEach { style ->
             val lightAlpha = glassAccentTintAlpha(style = style, isDark = false)

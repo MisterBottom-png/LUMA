@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.orbit.app.OrbitContainer
 import com.orbit.app.data.export.LocalDataBackupCodec
 import com.orbit.app.data.export.LocalDataValidationException
-import com.orbit.app.data.export.LocalDataRestoreException
 import com.orbit.app.data.export.LocalRestorePlan
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -25,9 +24,34 @@ data class LocalDataToolsUiState(
     val isRestoring: Boolean = false,
     val exportCompleted: Boolean = false,
     val restorePlan: LocalRestorePlan? = null,
-    val restoreMessage: String? = null,
-    val errorMessage: String? = null,
+    val restoreMessage: LocalDataToolsMessage? = null,
+    val errorMessage: LocalDataToolsMessage? = null,
 )
+
+sealed interface LocalDataToolsMessage {
+    data object ExportFailed : LocalDataToolsMessage
+    data object RestoreFileInvalid : LocalDataToolsMessage
+    data object RestoreFailed : LocalDataToolsMessage
+    data class RestoreCompleted(
+        val visibleItemCount: Int,
+        val needsReminderDeviceCheck: Boolean,
+    ) : LocalDataToolsMessage
+}
+
+internal fun restoreCompletionMessage(
+    visibleItemCount: Int,
+    remindersReconciled: Boolean,
+): LocalDataToolsMessage.RestoreCompleted = LocalDataToolsMessage.RestoreCompleted(
+    visibleItemCount = visibleItemCount,
+    needsReminderDeviceCheck = !remindersReconciled,
+)
+
+internal fun restoreFailureMessage(failure: Throwable): LocalDataToolsMessage =
+    if (failure is LocalDataValidationException) {
+        LocalDataToolsMessage.RestoreFileInvalid
+    } else {
+        LocalDataToolsMessage.RestoreFailed
+    }
 
 class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel() {
     private val _uiState = MutableStateFlow(LocalDataToolsUiState())
@@ -47,7 +71,9 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
                     _uiState.value = LocalDataToolsUiState(exportCompleted = true)
                 }
                 .onFailure {
-                    _uiState.value = LocalDataToolsUiState(errorMessage = "Export could not be created.")
+                    _uiState.value = LocalDataToolsUiState(
+                        errorMessage = LocalDataToolsMessage.ExportFailed,
+                    )
                 }
         }
     }
@@ -76,7 +102,7 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
                 _uiState.update {
                     it.copy(
                         isPreparingRestore = false,
-                        errorMessage = exception.safeRestoreMessage(),
+                        errorMessage = restoreFailureMessage(exception),
                     )
                 }
             }
@@ -95,18 +121,14 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
             _uiState.update { it.copy(isRestoring = true, errorMessage = null) }
             runCatching { container.localDataRestorer.restore(plan) }
                 .onSuccess { result ->
-                    val schedulingNote = if (result.remindersReconciled) {
-                        ""
-                    } else {
-                        " Reminder scheduling needs a device check."
-                    }
                     _uiState.update {
                         it.copy(
                             isRestoring = false,
                             restorePlan = null,
-                            restoreMessage =
-                                "Restore complete: ${result.restoredCounts.visibleItems} items." +
-                                    schedulingNote,
+                            restoreMessage = restoreCompletionMessage(
+                                visibleItemCount = result.restoredCounts.visibleItems,
+                                remindersReconciled = result.remindersReconciled,
+                            ),
                         )
                     }
                 }
@@ -114,7 +136,7 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
                     _uiState.update {
                         it.copy(
                             isRestoring = false,
-                            errorMessage = exception.safeRestoreMessage(),
+                            errorMessage = restoreFailureMessage(exception),
                         )
                     }
                 }
@@ -149,11 +171,3 @@ private fun InputStream.readRestoreText(): String {
     }
     return output.toString(Charsets.UTF_8.name())
 }
-
-private fun Throwable.safeRestoreMessage(): String =
-    when (this) {
-        is LocalDataValidationException,
-        is LocalDataRestoreException,
-        -> message?.takeIf { it.isNotBlank() }
-        else -> null
-    } ?: "Restore could not be completed. Existing data was kept."

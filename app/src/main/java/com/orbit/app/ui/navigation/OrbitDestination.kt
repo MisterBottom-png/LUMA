@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.annotation.StringRes
 import androidx.navigation.NavController
 import com.orbit.app.R
+import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.calendar.CalendarEntryId
 import com.orbit.app.domain.calendar.CalendarItemType
 import com.orbit.app.ui.screens.review.ReviewItem
@@ -25,6 +26,20 @@ enum class OrbitDestination(
     Review("review", R.string.navigation_review, Icons.AutoMirrored.Rounded.FactCheck),
     Settings("settings", R.string.navigation_settings, Icons.Rounded.Settings),
 }
+
+object FirstTimeTutorialDestination {
+    const val ReplayArgument = "replay"
+    const val Route = "tutorial?$ReplayArgument={$ReplayArgument}"
+
+    fun route(isReplay: Boolean): String = "tutorial?$ReplayArgument=$isReplay"
+}
+
+internal fun initialOrbitRoute(settings: AppSettings): String =
+    if (settings.hasCompletedFirstTimeTutorial) {
+        OrbitDestination.Home.route
+    } else {
+        FirstTimeTutorialDestination.route(isReplay = false)
+    }
 
 object ReminderDestination {
     const val ReminderIdArgument = "reminderId"
@@ -53,6 +68,14 @@ object ItemDetailDestination {
 
 object SearchDestination {
     const val Route = "search"
+}
+
+object SpaceDetailDestination {
+    const val SpaceIdArgument = "spaceId"
+    const val Route = "spaces/{$SpaceIdArgument}"
+    const val UnfiledRoute = "spaces/unfiled"
+
+    fun route(spaceId: Long): String = "spaces/$spaceId"
 }
 
 object CalendarCaptureContext {

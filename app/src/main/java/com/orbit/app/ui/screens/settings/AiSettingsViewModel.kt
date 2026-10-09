@@ -1,12 +1,17 @@
 package com.orbit.app.ui.screens.settings
 
+import android.content.res.Configuration
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
 import com.orbit.app.OrbitContainer
+import com.orbit.app.R
 import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.integrations.gemini.GeminiApiResult
+import com.orbit.app.integrations.gemini.GeminiApiErrorKind
+import com.orbit.app.ui.localization.effectiveAppLocale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +31,14 @@ data class AiSettingsUiState(
 )
 
 class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
+    private val localizedContext by lazy {
+        val base = container.applicationContext
+        base.createConfigurationContext(
+            Configuration(base.resources.configuration).apply {
+                setLocale(effectiveAppLocale(base))
+            },
+        )
+    }
     private val _uiState = MutableStateFlow(AiSettingsUiState())
     val uiState: StateFlow<AiSettingsUiState> = _uiState.asStateFlow()
 
@@ -56,7 +69,7 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                         it.copy(
                             hasKey = true,
                             isSavingKey = false,
-                            connectionMessage = "Gemini key saved on this device.",
+                            connectionMessage = localized(R.string.settings_gemini_key_saved),
                             connectionSucceeded = true,
                         )
                     }
@@ -65,7 +78,7 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                     _uiState.update {
                         it.copy(
                             isSavingKey = false,
-                            connectionMessage = "That key could not be saved.",
+                            connectionMessage = localized(R.string.settings_gemini_key_save_failed),
                             connectionSucceeded = false,
                         )
                     }
@@ -76,7 +89,9 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
     fun deleteKey() {
         viewModelScope.launch {
             container.geminiApiKeyStore.deleteKey()
-            _uiState.value = AiSettingsUiState(connectionMessage = "Gemini key removed.")
+            _uiState.value = AiSettingsUiState(
+                connectionMessage = localized(R.string.settings_gemini_key_removed),
+            )
         }
     }
 
@@ -92,7 +107,7 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                     it.copy(
                         isTestingConnection = false,
                         hasKey = false,
-                        connectionMessage = "Add a Gemini API key first. Local mode still works.",
+                        connectionMessage = localized(GeminiApiErrorKind.MissingKey.settingsMessageRes()),
                         connectionSucceeded = false,
                     )
                 }
@@ -121,7 +136,10 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                         it.copy(
                             isTestingConnection = false,
                             hasKey = true,
-                            connectionMessage = "Gemini connection works for $testedModels.",
+                            connectionMessage = localized(
+                                R.string.settings_gemini_connection_succeeded,
+                                testedModels,
+                            ),
                             connectionSucceeded = true,
                         )
                     }
@@ -132,7 +150,7 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                         it.copy(
                             isTestingConnection = false,
                             hasKey = true,
-                            connectionMessage = failure.error.userMessage,
+                            connectionMessage = localized(failure.error.kind.settingsMessageRes()),
                             connectionSucceeded = false,
                         )
                     }
@@ -181,4 +199,20 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
             return AiSettingsViewModel(container) as T
         }
     }
+
+    private fun localized(@StringRes resId: Int, vararg formatArgs: Any): String =
+        localizedContext.getString(resId, *formatArgs)
+}
+
+@StringRes
+internal fun GeminiApiErrorKind.settingsMessageRes(): Int = when (this) {
+    GeminiApiErrorKind.MissingKey -> R.string.settings_gemini_error_missing_key
+    GeminiApiErrorKind.BadKey -> R.string.settings_gemini_error_bad_key
+    GeminiApiErrorKind.RateLimited -> R.string.settings_gemini_error_rate_limited
+    GeminiApiErrorKind.Timeout -> R.string.settings_gemini_error_timeout
+    GeminiApiErrorKind.NoInternet -> R.string.settings_gemini_error_no_internet
+    GeminiApiErrorKind.InvalidResponse -> R.string.settings_gemini_error_invalid_response
+    GeminiApiErrorKind.SafetyBlocked -> R.string.settings_gemini_error_safety_blocked
+    GeminiApiErrorKind.Server -> R.string.settings_gemini_error_server
+    GeminiApiErrorKind.Unknown -> R.string.settings_gemini_error_unknown
 }

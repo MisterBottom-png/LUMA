@@ -14,6 +14,7 @@ data class CaptureAnalysis(
     val possibleMondayItem: Boolean,
     val suggestedNextAction: String,
     val relatedTopics: List<String>,
+    val suggestedLabels: List<String> = emptyList(),
     val suggestionChips: List<String> = emptyList(),
     val reminderPossible: Boolean,
     val suggestedReminderAt: Long? = null,
@@ -88,6 +89,7 @@ class LocalRulesCaptureAnalyzer(
 
         val currentLocale = locale()
         val rulePacks = captureRulePacks(currentLocale)
+        val presentation = capturePresentation(currentLocale)
 
         val brainDumpItems = splitBrainDump(rawText).mapIndexed { index, line ->
             val lineAnalysis = analyzeSingle(line)
@@ -105,7 +107,7 @@ class LocalRulesCaptureAnalyzer(
                 confidence = lineAnalysis.confidence,
                 tinyNextAction = LocalReviewAnalyzer.makeSmallerText(line, currentLocale),
                 reason = if (lineAnalysis.confidenceLevel == CaptureConfidence.Low) {
-                    "This fragment is gentle enough to keep as a note or Inbox item."
+                    presentation.lowConfidenceFragmentReason
                 } else {
                     lineAnalysis.typeReason
                 },
@@ -120,14 +122,14 @@ class LocalRulesCaptureAnalyzer(
                 suggestedType = SuggestedItemType.Note,
                 suggestedSpaceName = "Inbox",
                 possibleMondayItem = brainDumpItems.any { it.suggestedSpaceName == "Work" },
-                suggestedNextAction = "Review the split suggestions one at a time",
+                suggestedNextAction = presentation.reviewSplitSuggestions,
                 relatedTopics = brainDumpItems.map { it.suggestedSpaceName }.distinct(),
                 reminderPossible = brainDumpItems.any {
                     it.rawText.lowercase(Locale.ROOT).hasReminderSignal(rulePacks)
                 },
                 confidence = 0.74f,
-                typeReason = "Multiple lines look like separate thoughts.",
-                spaceReason = "The original dump stays in Inbox while you review each suggestion.",
+                typeReason = presentation.multipleLinesReason,
+                spaceReason = presentation.originalDumpInInboxReason,
                 brainDumpItems = brainDumpItems,
             )
         }
@@ -205,11 +207,16 @@ class LocalRulesCaptureAnalyzer(
                 locale = currentLocale,
             ),
             relatedTopics = relatedTopics,
+            suggestedLabels = relatedTopics
+                .filterNot { it.equals(suggestedSpace, ignoreCase = true) }
+                .distinctBy { it.trim().lowercase(Locale.ROOT) }
+                .take(3),
             suggestionChips = localChips(
                 type = suggestedType,
                 spaceName = suggestedSpace,
                 reminderPossible = reminderPossible,
                 lifeSignal = lifeSignalFor(normalized, rulePacks),
+                locale = currentLocale,
             ),
             reminderPossible = reminderPossible,
             suggestedReminderAt = reminderTime.epochMillis ?: taskDueDate?.epochMillis,
@@ -221,10 +228,12 @@ class LocalRulesCaptureAnalyzer(
                 type = suggestedType,
                 taskSuggested = taskSuggested,
                 reminderPossible = reminderPossible,
+                locale = currentLocale,
             ),
             spaceReason = spaceReasonFor(
                 spaceName = suggestedSpace,
                 matchedSignals = spaceRule?.signals.orEmpty(),
+                locale = currentLocale,
             ),
         )
     }
@@ -247,9 +256,9 @@ class LocalRulesCaptureAnalyzer(
             if (character.isLowerCase()) character.titlecase(locale) else character.toString()
         }
         return when {
-            reminderPossible -> "Choose a time, then $action"
+            reminderPossible -> capturePresentation(locale).chooseTimeThen(action)
             type == SuggestedItemType.Task -> action
-            else -> "Review and file this capture"
+            else -> capturePresentation(locale).reviewAndFileCapture
         }
     }
 
@@ -511,11 +520,12 @@ private fun localChips(
     spaceName: String,
     reminderPossible: Boolean,
     lifeSignal: CaptureLifeSignal,
+    locale: Locale,
 ): List<String> = buildList {
-    add(type.displayName())
+    add(type.displayName(locale))
     add(spaceName)
-    if (reminderPossible) add("Time hint")
-    if (lifeSignal != CaptureLifeSignal.None) add(lifeSignal.label)
+    if (reminderPossible) add(capturePresentation(locale).timeHint)
+    if (lifeSignal != CaptureLifeSignal.None) add(lifeSignal.displayName(locale))
 }.distinct().take(5)
 
 private fun String.hasReminderSignal(rulePacks: List<CaptureRulePack>): Boolean =
@@ -562,25 +572,173 @@ private fun typeReasonFor(
     type: SuggestedItemType,
     taskSuggested: Boolean,
     reminderPossible: Boolean,
+    locale: Locale,
 ): String = when {
-    reminderPossible -> "Time words suggest a reminder may help."
-    taskSuggested -> "Action words suggest this may be a task."
-    type == SuggestedItemType.Note -> "No strong action words appeared, so a note is safest."
-    else -> defaultTypeReason(type)
+    reminderPossible -> capturePresentation(locale).reminderReason
+    taskSuggested -> capturePresentation(locale).taskReason
+    type == SuggestedItemType.Note -> capturePresentation(locale).noteReason
+    else -> defaultTypeReason(type, locale)
 }
 
-private fun spaceReasonFor(spaceName: String, matchedSignals: List<String>): String {
+private fun spaceReasonFor(
+    spaceName: String,
+    matchedSignals: List<String>,
+    locale: Locale,
+): String {
     val signal = matchedSignals.firstOrNull()
     return when {
-        spaceName == "Inbox" -> "This can stay in Inbox until it becomes clearer."
-        signal != null -> "\"$signal\" points toward $spaceName."
-        else -> "No specific life area stood out, so Personal is the gentlest fit."
+        spaceName == "Inbox" -> capturePresentation(locale).inboxReason
+        signal != null -> capturePresentation(locale).signalPointsToward(signal, spaceName)
+        else -> capturePresentation(locale).personalReason
     }
 }
 
-private fun SuggestedItemType.displayName(): String = when (this) {
-    SuggestedItemType.Note -> "Note"
-    SuggestedItemType.Task -> "Task"
-    SuggestedItemType.Reminder -> "Reminder"
-    SuggestedItemType.MondayItem -> "Monday item"
+private fun defaultTypeReason(type: SuggestedItemType, locale: Locale): String =
+    capturePresentation(locale).defaultTypeReason(type)
+
+private fun SuggestedItemType.displayName(locale: Locale): String =
+    capturePresentation(locale).itemTypeName(this)
+
+private fun CaptureLifeSignal.displayName(locale: Locale): String =
+    capturePresentation(locale).lifeSignalName(this)
+
+private data class CapturePresentation(
+    val lowConfidenceFragmentReason: String,
+    val reviewSplitSuggestions: String,
+    val multipleLinesReason: String,
+    val originalDumpInInboxReason: String,
+    val reviewAndFileCapture: String,
+    val timeHint: String,
+    val reminderReason: String,
+    val taskReason: String,
+    val noteReason: String,
+    val inboxReason: String,
+    val personalReason: String,
+    val chooseTimeThen: (String) -> String,
+    val signalPointsToward: (String, String) -> String,
+    val defaultTypeReason: (SuggestedItemType) -> String,
+    val itemTypeName: (SuggestedItemType) -> String,
+    val lifeSignalName: (CaptureLifeSignal) -> String,
+)
+
+private fun capturePresentation(locale: Locale): CapturePresentation = when (locale.language) {
+    "et" -> CapturePresentation(
+        lowConfidenceFragmentReason = "Selle osa võib rahulikult jätta märkme või sisendkausta üksusena.",
+        reviewSplitSuggestions = "Vaata eraldatud soovitused läbi ükshaaval.",
+        multipleLinesReason = "Mitu rida näivad olevat eraldi mõtted.",
+        originalDumpInInboxReason = "Algne mõtete kogum jääb sisendkasti, kuni vaatad soovitused läbi.",
+        reviewAndFileCapture = "Vaata see sisestus üle ja paiguta sobivasse kohta.",
+        timeHint = "Aja vihje",
+        reminderReason = "Ajaviited osutavad, et meeldetuletus võib aidata.",
+        taskReason = "Tegevussõnad osutavad, et see võib olla ülesanne.",
+        noteReason = "Selgeid tegevussõnu ei leitud, seega on märge kõige turvalisem.",
+        inboxReason = "See võib jääda sisendkasti, kuni see muutub selgemaks.",
+        personalReason = "Selget eluvaldkonda ei paistnud välja, seega sobib kõige rahulikumalt Isiklik.",
+        chooseTimeThen = { action -> "Vali aeg, seejärel $action" },
+        signalPointsToward = { signal, spaceName -> "\"$signal\" viitab valdkonnale $spaceName." },
+        defaultTypeReason = { type ->
+            when (type) {
+                SuggestedItemType.Task -> "See kõlab teostatavalt."
+                SuggestedItemType.Reminder -> "See tundub olevat ajaga seotud."
+                SuggestedItemType.Note -> "See paistab olevat hilisemaks hoitav märge."
+                SuggestedItemType.MondayItem -> "See tundub olevat tööga seotud."
+            }
+        },
+        itemTypeName = { type ->
+            when (type) {
+                SuggestedItemType.Note -> "Märge"
+                SuggestedItemType.Task -> "Ülesanne"
+                SuggestedItemType.Reminder -> "Meeldetuletus"
+                SuggestedItemType.MondayItem -> "Esmaspäeva üksus"
+            }
+        },
+        lifeSignalName = { signal ->
+            when (signal) {
+                CaptureLifeSignal.None -> "Lahtine ots"
+                CaptureLifeSignal.WaitingFor -> "Ootel"
+                CaptureLifeSignal.Someday -> "Kunagi hiljem"
+                CaptureLifeSignal.Reflection -> "Mõtisklus"
+            }
+        },
+    )
+
+    "ru" -> CapturePresentation(
+        lowConfidenceFragmentReason = "Этот фрагмент можно спокойно оставить как заметку или во Входящих.",
+        reviewSplitSuggestions = "Просмотрите разделённые предложения по одному.",
+        multipleLinesReason = "Несколько строк похожи на отдельные мысли.",
+        originalDumpInInboxReason = "Исходная запись останется во Входящих, пока вы просматриваете предложения.",
+        reviewAndFileCapture = "Просмотрите эту запись и поместите её в подходящее место.",
+        timeHint = "Подсказка времени",
+        reminderReason = "Слова о времени подсказывают, что напоминание может помочь.",
+        taskReason = "Слова действия подсказывают, что это может быть задачей.",
+        noteReason = "Явных слов действия нет, поэтому заметка — самый безопасный вариант.",
+        inboxReason = "Это можно оставить во Входящих, пока запись не станет яснее.",
+        personalReason = "Не выделилась конкретная жизненная область, поэтому раздел «Личное» — самый мягкий вариант.",
+        chooseTimeThen = { action -> "Сначала выберите время, затем $action" },
+        signalPointsToward = { signal, spaceName -> "\"$signal\" указывает на раздел $spaceName." },
+        defaultTypeReason = { type ->
+            when (type) {
+                SuggestedItemType.Task -> "Это похоже на выполнимое действие."
+                SuggestedItemType.Reminder -> "Это похоже на запись, связанную со временем."
+                SuggestedItemType.Note -> "Это похоже на заметку, которую стоит сохранить."
+                SuggestedItemType.MondayItem -> "Это похоже на запись, связанную с работой."
+            }
+        },
+        itemTypeName = { type ->
+            when (type) {
+                SuggestedItemType.Note -> "Заметка"
+                SuggestedItemType.Task -> "Задача"
+                SuggestedItemType.Reminder -> "Напоминание"
+                SuggestedItemType.MondayItem -> "Пункт на понедельник"
+            }
+        },
+        lifeSignalName = { signal ->
+            when (signal) {
+                CaptureLifeSignal.None -> "Открытый вопрос"
+                CaptureLifeSignal.WaitingFor -> "Ожидание"
+                CaptureLifeSignal.Someday -> "Когда-нибудь"
+                CaptureLifeSignal.Reflection -> "Размышление"
+            }
+        },
+    )
+
+    else -> CapturePresentation(
+        lowConfidenceFragmentReason = "This fragment is gentle enough to keep as a note or Inbox item.",
+        reviewSplitSuggestions = "Review the split suggestions one at a time",
+        multipleLinesReason = "Multiple lines look like separate thoughts.",
+        originalDumpInInboxReason = "The original dump stays in Inbox while you review each suggestion.",
+        reviewAndFileCapture = "Review and file this capture",
+        timeHint = "Time hint",
+        reminderReason = "Time words suggest a reminder may help.",
+        taskReason = "Action words suggest this may be a task.",
+        noteReason = "No strong action words appeared, so a note is safest.",
+        inboxReason = "This can stay in Inbox until it becomes clearer.",
+        personalReason = "No specific life area stood out, so Personal is the gentlest fit.",
+        chooseTimeThen = { action -> "Choose a time, then $action" },
+        signalPointsToward = { signal, spaceName -> "\"$signal\" points toward $spaceName." },
+        defaultTypeReason = { type ->
+            when (type) {
+                SuggestedItemType.Task -> "This sounds actionable."
+                SuggestedItemType.Reminder -> "This sounds time-related."
+                SuggestedItemType.Note -> "This reads like something to keep for later."
+                SuggestedItemType.MondayItem -> "This looks work-related."
+            }
+        },
+        itemTypeName = { type ->
+            when (type) {
+                SuggestedItemType.Note -> "Note"
+                SuggestedItemType.Task -> "Task"
+                SuggestedItemType.Reminder -> "Reminder"
+                SuggestedItemType.MondayItem -> "Monday item"
+            }
+        },
+        lifeSignalName = { signal ->
+            when (signal) {
+                CaptureLifeSignal.None -> "Open loop"
+                CaptureLifeSignal.WaitingFor -> "Waiting for"
+                CaptureLifeSignal.Someday -> "Someday"
+                CaptureLifeSignal.Reflection -> "Reflection"
+            }
+        },
+    )
 }

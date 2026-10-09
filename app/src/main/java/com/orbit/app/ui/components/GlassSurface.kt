@@ -48,6 +48,7 @@ enum class GlassSurfaceStyle {
     Sheet,
     Subtle,
     HomeCapture,
+    HomeNavigation,
     NavigationAction,
 }
 
@@ -132,7 +133,10 @@ fun SoftGlassSurface(
         val interactionSource = remember { MutableInteractionSource() }
         Surface(
             onClick = onClick,
-            modifier = modifier.orbitPressFeedback(interactionSource),
+            modifier = modifier.orbitPressFeedback(
+                interactionSource = interactionSource,
+                clipShape = shape,
+            ),
             shape = shape,
             color = visuals.containerColor,
             contentColor = MaterialTheme.colorScheme.onSurface,
@@ -230,6 +234,7 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
         GlassSurfaceStyle.Subtle -> if (isDark) 14.dp else 12.dp
         GlassSurfaceStyle.Standard -> if (isDark) 20.dp else 16.dp
         GlassSurfaceStyle.HomeCapture -> if (isDark) 22.dp else 18.dp
+        GlassSurfaceStyle.HomeNavigation -> if (isDark) 14.dp else 12.dp
         GlassSurfaceStyle.NavigationAction -> if (isDark) 18.dp else 14.dp
     }
     val noiseFactor = when (style) {
@@ -238,6 +243,7 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
         GlassSurfaceStyle.Subtle -> if (isDark) 0.024f else 0.018f
         GlassSurfaceStyle.Standard -> if (isDark) 0.032f else 0.024f
         GlassSurfaceStyle.HomeCapture -> if (isDark) 0.036f else 0.028f
+        GlassSurfaceStyle.HomeNavigation -> if (isDark) 0.024f else 0.018f
         GlassSurfaceStyle.NavigationAction -> if (isDark) 0.026f else 0.020f
     }
 
@@ -282,6 +288,7 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
             GlassSurfaceStyle.Subtle -> 3.dp
             GlassSurfaceStyle.Standard -> 5.dp
             GlassSurfaceStyle.HomeCapture -> 5.dp
+            GlassSurfaceStyle.HomeNavigation -> 3.dp
             GlassSurfaceStyle.NavigationAction -> 2.dp
         },
         fallbackColor = tint,
@@ -294,6 +301,7 @@ internal fun glassAccentTintAlpha(style: GlassSurfaceStyle, isDark: Boolean): Fl
     GlassSurfaceStyle.Prominent -> if (isDark) 0.055f else 0.045f
     GlassSurfaceStyle.Sheet -> if (isDark) 0.045f else 0.035f
     GlassSurfaceStyle.HomeCapture -> if (isDark) 0.050f else 0.040f
+    GlassSurfaceStyle.HomeNavigation -> if (isDark) 0.045f else 0.035f
     GlassSurfaceStyle.NavigationAction -> if (isDark) 0.040f else 0.030f
 }
 
@@ -309,6 +317,7 @@ internal fun glassTintAlpha(
         GlassSurfaceStyle.Prominent -> 0.04f
         GlassSurfaceStyle.Sheet -> 0.08f
         GlassSurfaceStyle.HomeCapture -> 0.02f
+        GlassSurfaceStyle.HomeNavigation -> -0.01f
         GlassSurfaceStyle.NavigationAction -> 0.01f
     }
     val themeAdjustment = if (isDark) 0.02f else 0f
@@ -343,11 +352,13 @@ internal fun orbitSoftSurfaceVisuals(
             GlassSurfaceStyle.Prominent -> colors.surfaceContainerHigh
             GlassSurfaceStyle.Sheet -> colors.surfaceContainerHigh
             GlassSurfaceStyle.HomeCapture -> colors.surfaceContainerHigh
+            GlassSurfaceStyle.HomeNavigation -> colors.surfaceContainerHigh
             GlassSurfaceStyle.NavigationAction -> colors.primaryContainer
         }.withAlpha(containerAlpha),
         borderColor = when (style) {
             GlassSurfaceStyle.Subtle -> colors.outlineVariant.copy(alpha = if (isDark) 0.22f else 0.18f)
             GlassSurfaceStyle.HomeCapture -> colors.outlineVariant.copy(alpha = 0.56f)
+            GlassSurfaceStyle.HomeNavigation -> colors.outlineVariant.copy(alpha = if (isDark) 0.22f else 0.18f)
             GlassSurfaceStyle.NavigationAction -> colors.primary.copy(alpha = if (isDark) 0.16f else 0.10f)
             else -> colors.outline
         },
@@ -376,12 +387,34 @@ internal fun softGlassContainerAlpha(
             ).coerceIn(0.70f, 0.94f)
     }
 
+    if (style == GlassSurfaceStyle.HomeNavigation) {
+        val themeFloor = if (isDark) 0.26f else 0.20f
+        val customBackgroundBoost = if (hasCustomBackground) 0.06f else 0f
+        return (
+            themeFloor +
+                (glassStrength.coerceIn(0f, 1f) * 0.45f) +
+                customBackgroundBoost
+            ).coerceIn(0.20f, 0.77f)
+    }
+
+    if (style == GlassSurfaceStyle.HomeCapture) {
+        val themeFloor = if (isDark) 0.36f else 0.30f
+        val customBackgroundBoost = if (hasCustomBackground) 0.10f else 0f
+        val maximumAlpha = if (isDark) 0.91f else 0.85f
+        return (
+            themeFloor +
+                (glassStrength.coerceIn(0f, 1f) * 0.45f) +
+                customBackgroundBoost
+            ).coerceIn(0.30f, maximumAlpha)
+    }
+
     val roleAdjustment = when (style) {
         GlassSurfaceStyle.Subtle -> -0.03f
         GlassSurfaceStyle.Standard -> 0f
         GlassSurfaceStyle.Prominent -> 0.04f
         GlassSurfaceStyle.Sheet -> 0f
         GlassSurfaceStyle.HomeCapture -> 0.02f
+        GlassSurfaceStyle.HomeNavigation -> -0.01f
         GlassSurfaceStyle.NavigationAction -> 0.01f
     }
     val themeAdjustment = if (isDark) 0.03f else 0f

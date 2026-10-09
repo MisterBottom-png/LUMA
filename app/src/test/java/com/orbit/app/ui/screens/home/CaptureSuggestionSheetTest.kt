@@ -12,6 +12,29 @@ import org.junit.Test
 
 class CaptureSuggestionSheetTest {
     @Test
+    fun brainDumpSheetAllowsHiddenOnlyWhenClosingTheSession() {
+        assertTrue(brainDumpSheetAllowsHidden(BrainDumpDismissalDecision.CloseSession))
+        assertFalse(brainDumpSheetAllowsHidden(BrainDumpDismissalDecision.StepBack))
+        assertFalse(brainDumpSheetAllowsHidden(BrainDumpDismissalDecision.ConfirmDiscard))
+        assertFalse(brainDumpSheetAllowsHidden(BrainDumpDismissalDecision.Blocked))
+    }
+
+    @Test
+    fun actionInProgressBlocksEveryDismissalPath() {
+        val draft = BrainDumpDraft("Title", SuggestedItemType.Note, null, null)
+
+        assertEquals(
+            BrainDumpDismissalDecision.Blocked,
+            brainDumpDismissalDecision(
+                stage = BrainDumpStage.Edit,
+                initialDraft = draft,
+                draft = draft,
+                actionInProgress = true,
+            ),
+        )
+    }
+
+    @Test
     fun nestedCaptureAndBrainDumpSetupsConsumeBackBeforeTheSheetIsDismissed() {
         assertTrue(hasNestedCaptureSetup(ActionSetup.Task))
         assertTrue(hasNestedCaptureSetup(ActionSetup.Reminder))

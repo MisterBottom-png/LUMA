@@ -87,7 +87,7 @@ fun FloatingBottomNavigation(
                 .fillMaxWidth()
                 .height(OrbitBottomNavigationDefaults.BarHeight),
             shape = RoundedCornerShape(34.dp),
-            style = GlassSurfaceStyle.Subtle,
+            style = GlassSurfaceStyle.HomeNavigation,
         ) {
             Row(
                 modifier = Modifier
@@ -136,13 +136,16 @@ fun FloatingBottomNavigation(
                 .size(OrbitBottomNavigationDefaults.CenterButtonSize),
             shape = CircleShape,
             style = GlassSurfaceStyle.NavigationAction,
-            shadowElevation = 2.dp,
+            shadowElevation = 1.dp,
         ) {
             IconButton(
                 onClick = onSituationAiSelected,
                 modifier = Modifier
                     .size(OrbitBottomNavigationDefaults.CenterButtonSize)
-                    .orbitPressFeedback(situationInteractionSource)
+                    .orbitPressFeedback(
+                        interactionSource = situationInteractionSource,
+                        clipShape = CircleShape,
+                    )
                     .focusRequester(situationAiFocusRequester),
                 interactionSource = situationInteractionSource,
             ) {
@@ -180,7 +183,7 @@ private fun NavIcon(
         targetValue = if (selected) {
             MaterialTheme.colorScheme.onPrimaryContainer
         } else {
-            MaterialTheme.colorScheme.onSurface
+            MaterialTheme.colorScheme.onSurfaceVariant
         },
         animationSpec = tween(OrbitMotion.StandardDurationMillis),
         label = "Bottom navigation tint",
@@ -202,7 +205,10 @@ private fun NavIcon(
     Box(
         modifier = Modifier
             .size(OrbitBottomNavigationDefaults.MinimumTouchTargetSize)
-            .orbitPressFeedback(interactionSource)
+            .orbitPressFeedback(
+                interactionSource = interactionSource,
+                clipShape = CircleShape,
+            )
             .clip(CircleShape)
             .selectable(
                 selected = selected,

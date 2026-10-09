@@ -7,11 +7,15 @@ import com.orbit.app.data.local.entity.BrainDumpReminderStatus
 import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureSource
 import com.orbit.app.data.local.entity.CaptureStatus
+import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.reminders.reminderNotificationTimeMillis
 import org.json.JSONArray
@@ -19,6 +23,7 @@ import org.json.JSONException
 import org.json.JSONObject
 import java.time.DateTimeException
 import java.time.LocalDate
+import java.util.Locale
 
 data class LocalDataSnapshot(
     val spaces: List<SpaceEntity>,
@@ -28,6 +33,10 @@ data class LocalDataSnapshot(
     val reminders: List<ReminderEntity>,
     val brainDumpSessions: List<BrainDumpSessionEntity> = emptyList(),
     val brainDumpItems: List<BrainDumpItemEntity> = emptyList(),
+    val labels: List<LabelEntity> = emptyList(),
+    val noteLabels: List<NoteLabelCrossRef> = emptyList(),
+    val taskLabels: List<TaskLabelCrossRef> = emptyList(),
+    val reminderLabels: List<ReminderLabelCrossRef> = emptyList(),
 )
 
 data class LocalDataCounts(
@@ -53,7 +62,7 @@ class LocalDataValidationException(message: String) : IllegalArgumentException(m
 object LocalDataBackupCodec {
     const val Product = "LUMA"
     const val Format = "luma-local-json"
-    const val Version = 3
+    const val Version = 4
     const val MaximumInputBytes = 10 * 1024 * 1024
     const val MaximumStructureDepth = 64
 
@@ -87,6 +96,10 @@ object LocalDataBackupCodec {
             .put("reminders", snapshot.reminders.toJsonArray { it.toJson() })
             .put("brainDumpSessions", snapshot.brainDumpSessions.toJsonArray { it.toJson() })
             .put("brainDumpItems", snapshot.brainDumpItems.toJsonArray { it.toJson() })
+            .put("labels", snapshot.labels.toJsonArray { it.toJson() })
+            .put("noteLabels", snapshot.noteLabels.toJsonArray { it.toJson() })
+            .put("taskLabels", snapshot.taskLabels.toJsonArray { it.toJson() })
+            .put("reminderLabels", snapshot.reminderLabels.toJsonArray { it.toJson() })
             .toString(2)
     }
 
@@ -123,6 +136,26 @@ object LocalDataBackupCodec {
             },
             brainDumpItems = if (version >= 3L) {
                 root.requiredArray("brainDumpItems").mapObjects("brainDumpItems", ::decodeBrainDumpItem)
+            } else {
+                emptyList()
+            },
+            labels = if (version >= 4L) {
+                root.requiredArray("labels").mapObjects("labels", ::decodeLabel)
+            } else {
+                emptyList()
+            },
+            noteLabels = if (version >= 4L) {
+                root.requiredArray("noteLabels").mapObjects("noteLabels", ::decodeNoteLabel)
+            } else {
+                emptyList()
+            },
+            taskLabels = if (version >= 4L) {
+                root.requiredArray("taskLabels").mapObjects("taskLabels", ::decodeTaskLabel)
+            } else {
+                emptyList()
+            },
+            reminderLabels = if (version >= 4L) {
+                root.requiredArray("reminderLabels").mapObjects("reminderLabels", ::decodeReminderLabel)
             } else {
                 emptyList()
             },
@@ -265,12 +298,36 @@ object LocalDataBackupCodec {
         updatedAt = json.requiredNonNegativeLong("updatedAt"),
     )
 
+    private fun decodeLabel(json: JSONObject) = LabelEntity(
+        id = json.requiredPositiveId(),
+        name = json.requiredNonBlankString("name"),
+        normalizedName = json.requiredNonBlankString("normalizedName"),
+        createdAt = json.requiredNonNegativeLong("createdAt"),
+        updatedAt = json.requiredNonNegativeLong("updatedAt"),
+    )
+
+    private fun decodeNoteLabel(json: JSONObject) = NoteLabelCrossRef(
+        noteId = json.requiredPositiveLong("noteId"),
+        labelId = json.requiredPositiveLong("labelId"),
+    )
+
+    private fun decodeTaskLabel(json: JSONObject) = TaskLabelCrossRef(
+        taskId = json.requiredPositiveLong("taskId"),
+        labelId = json.requiredPositiveLong("labelId"),
+    )
+
+    private fun decodeReminderLabel(json: JSONObject) = ReminderLabelCrossRef(
+        reminderId = json.requiredPositiveLong("reminderId"),
+        labelId = json.requiredPositiveLong("labelId"),
+    )
+
     private fun validateRelationships(snapshot: LocalDataSnapshot) {
         validateUniqueIds("spaces", snapshot.spaces.map { it.id })
         validateUniqueIds("captures", snapshot.captures.map { it.id })
         validateUniqueIds("notes", snapshot.notes.map { it.id })
         validateUniqueIds("tasks", snapshot.tasks.map { it.id })
         validateUniqueIds("reminders", snapshot.reminders.map { it.id })
+        validateUniqueIds("labels", snapshot.labels.map { it.id })
         validateUniqueIds("Brain Dump items", snapshot.brainDumpItems.map { it.id })
 
         val spaceIds = snapshot.spaces.mapTo(hashSetOf()) { it.id }
@@ -278,6 +335,16 @@ object LocalDataBackupCodec {
         val noteIds = snapshot.notes.mapTo(hashSetOf()) { it.id }
         val taskIds = snapshot.tasks.mapTo(hashSetOf()) { it.id }
         val reminderIds = snapshot.reminders.mapTo(hashSetOf()) { it.id }
+        val labelIds = snapshot.labels.mapTo(hashSetOf()) { it.id }
+        val normalizedLabelNames = hashSetOf<String>()
+        snapshot.labels.forEach { label ->
+            if (label.normalizedName != normalizeExportLabelName(label.name)) {
+                invalid("A label has an invalid normalized name.")
+            }
+            if (!normalizedLabelNames.add(label.normalizedName)) {
+                invalid("The export contains duplicate normalized label names.")
+            }
+        }
         val sessionCaptureIds = snapshot.brainDumpSessions.mapTo(hashSetOf()) { it.captureId }
         if (sessionCaptureIds.size != snapshot.brainDumpSessions.size) {
             invalid("The export contains duplicate Brain Dump sessions.")
@@ -325,6 +392,30 @@ object LocalDataBackupCodec {
             requireReference("reminder spaceId", reminder.spaceId, spaceIds)
             requireReference("reminder linkedTaskId", reminder.linkedTaskId, taskIds)
             requireReference("reminder linkedCaptureId", reminder.linkedCaptureId, captureIds)
+        }
+        val noteLabelKeys = hashSetOf<String>()
+        snapshot.noteLabels.forEach { relation ->
+            requireReference("note label noteId", relation.noteId, noteIds)
+            requireReference("note label labelId", relation.labelId, labelIds)
+            if (!noteLabelKeys.add("${relation.noteId}:${relation.labelId}")) {
+                invalid("The export contains duplicate note label relationships.")
+            }
+        }
+        val taskLabelKeys = hashSetOf<String>()
+        snapshot.taskLabels.forEach { relation ->
+            requireReference("task label taskId", relation.taskId, taskIds)
+            requireReference("task label labelId", relation.labelId, labelIds)
+            if (!taskLabelKeys.add("${relation.taskId}:${relation.labelId}")) {
+                invalid("The export contains duplicate task label relationships.")
+            }
+        }
+        val reminderLabelKeys = hashSetOf<String>()
+        snapshot.reminderLabels.forEach { relation ->
+            requireReference("reminder label reminderId", relation.reminderId, reminderIds)
+            requireReference("reminder label labelId", relation.labelId, labelIds)
+            if (!reminderLabelKeys.add("${relation.reminderId}:${relation.labelId}")) {
+                invalid("The export contains duplicate reminder label relationships.")
+            }
         }
     }
 
@@ -407,6 +498,19 @@ object LocalDataBackupCodec {
         .put("reminderStatus", reminderStatus.name).put("suggestedReminderAt", suggestedReminderAt)
         .put("reminderPhrase", reminderPhrase).put("outcome", outcome.name)
         .put("createdAt", createdAt).put("updatedAt", updatedAt)
+
+    private fun LabelEntity.toJson() = JSONObject()
+        .put("id", id).put("name", name).put("normalizedName", normalizedName)
+        .put("createdAt", createdAt).put("updatedAt", updatedAt)
+
+    private fun NoteLabelCrossRef.toJson() = JSONObject()
+        .put("noteId", noteId).put("labelId", labelId)
+
+    private fun TaskLabelCrossRef.toJson() = JSONObject()
+        .put("taskId", taskId).put("labelId", labelId)
+
+    private fun ReminderLabelCrossRef.toJson() = JSONObject()
+        .put("reminderId", reminderId).put("labelId", labelId)
 
     private fun <T> List<T>.toJsonArray(transform: (T) -> JSONObject): JSONArray =
         JSONArray().also { array -> forEach { array.put(transform(it)) } }
@@ -527,6 +631,11 @@ object LocalDataBackupCodec {
     }
 
     private fun invalid(message: String): Nothing = throw LocalDataValidationException(message)
+
+    private fun normalizeExportLabelName(value: String): String = value
+        .trim()
+        .replace(Regex("\\s+"), " ")
+        .lowercase(Locale.ROOT)
 
     private const val MaxEntriesPerType = 100_000
 }

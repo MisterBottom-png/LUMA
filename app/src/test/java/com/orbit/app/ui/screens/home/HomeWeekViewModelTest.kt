@@ -55,17 +55,16 @@ class HomeWeekViewModelTest {
     }
 
     @Test
-    fun selection_usesExactDateAndRestoresFromSavedState() {
+    fun visibleWeek_restoresIndependentlyOfDateTaps() {
         val handle = SavedStateHandle()
         val repository = FakeCalendarRepository()
         val original = viewModel(handle, repository)
-        val selectedDate = LocalDate.of(2026, 7, 17)
 
-        original.selectDate(selectedDate)
+        original.moveVisibleWeek(1)
         val restored = viewModel(handle, repository)
 
-        assertEquals(selectedDate, original.uiState.value.selectedDate)
-        assertEquals(selectedDate, restored.uiState.value.selectedDate)
+        assertEquals(today.plusWeeks(1), original.uiState.value.visibleWeekDate)
+        assertEquals(today.plusWeeks(1), restored.uiState.value.visibleWeekDate)
     }
 
     @Test
@@ -79,17 +78,15 @@ class HomeWeekViewModelTest {
 
         assertEquals(today.plusWeeks(1), original.uiState.value.visibleWeekDate)
         assertEquals(today.plusWeeks(1), restored.uiState.value.visibleWeekDate)
-        assertEquals(today, original.uiState.value.selectedDate)
         assertEquals(today.plusWeeks(1).minusDays(6), repository.observedRanges.last().startDate)
         assertEquals(today.plusWeeks(1).plusDays(7), repository.observedRanges.last().endDateExclusive)
     }
 
     @Test
-    fun today_isTheInitialSelectedDate() {
+    fun today_anchorsTheInitialWeek() {
         val viewModel = viewModel(SavedStateHandle(), FakeCalendarRepository())
 
         assertEquals(today, viewModel.uiState.value.today)
-        assertEquals(today, viewModel.uiState.value.selectedDate)
         assertEquals(today, viewModel.uiState.value.visibleWeekDate)
     }
 
@@ -121,12 +118,12 @@ class HomeWeekViewModelTest {
     }
 
     @Test
-    fun semanticLabel_describesTodaySelectionAndItemPresence() {
+    fun semanticLabel_describesTodayAndItemPresenceWithoutPersistentSelection() {
         val label = homeDateContentDescription(
             date = today,
             locale = Locale.US,
             isToday = true,
-            isSelected = true,
+            isSelected = false,
             hasItems = true,
             labels = HomeDateAccessibilityLabels(
                 today = "Today",
@@ -138,7 +135,7 @@ class HomeWeekViewModelTest {
 
         assertTrue(label.startsWith("Today,"))
         assertTrue(label.contains("July 14"))
-        assertTrue(label.contains("selected"))
+        assertFalse(label.contains("selected"))
         assertTrue(label.contains("has scheduled items"))
         assertFalse(label.contains("null"))
     }

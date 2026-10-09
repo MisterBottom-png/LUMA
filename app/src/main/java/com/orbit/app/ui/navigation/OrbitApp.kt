@@ -59,6 +59,8 @@ import com.orbit.app.ui.screens.situation.SituationAiSheet
 import com.orbit.app.ui.screens.situation.SituationAiViewModel
 import com.orbit.app.ui.screens.spaces.SpacesScreen
 import com.orbit.app.ui.screens.spaces.SpacesViewModel
+import com.orbit.app.ui.screens.tutorial.FirstTimeTutorialScreen
+import com.orbit.app.ui.screens.tutorial.TutorialSpaceSetupViewModel
 import com.orbit.app.OrbitContainer
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.ui.screens.home.HomeCaptureViewModel
@@ -81,7 +83,7 @@ fun OrbitApp(
     val selectedRoute = backStackEntry?.destination?.route
     var showSituationAi by rememberSaveable { mutableStateOf(false) }
     var restoreSituationAiFocus by rememberSaveable { mutableStateOf(false) }
-    var appearanceSubsectionOpen by rememberSaveable { mutableStateOf(false) }
+    var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
     val situationAiFocusRequester = remember { FocusRequester() }
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
     val contentMaxWidth = portraitContentMaxWidth(LocalConfiguration.current.screenWidthDp.dp)
@@ -91,7 +93,7 @@ fun OrbitApp(
     val showBottomNavigation = shouldShowFloatingBottomNavigation(
         imeVisible = imeVisible,
         selectedRoute = selectedRoute,
-        appearanceSubsectionOpen = appearanceSubsectionOpen,
+        appearanceSubsectionOpen = settingsSubsectionOpen,
     )
 
     LaunchedEffect(reminderToOpen) {
@@ -112,7 +114,7 @@ fun OrbitApp(
 
     LaunchedEffect(selectedRoute) {
         if (selectedRoute != OrbitDestination.Settings.route) {
-            appearanceSubsectionOpen = false
+            settingsSubsectionOpen = false
         }
     }
 
@@ -127,7 +129,7 @@ fun OrbitApp(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = OrbitDestination.Home.route,
+                startDestination = initialOrbitRoute(settings),
                 modifier = Modifier
                     .widthIn(max = contentMaxWidth)
                     .fillMaxSize()
@@ -137,6 +139,48 @@ fun OrbitApp(
                 popEnterTransition = { orbitPopEnterTransition() },
                 popExitTransition = { orbitPopExitTransition() },
             ) {
+                composable(
+                    route = FirstTimeTutorialDestination.Route,
+                    arguments = listOf(
+                        navArgument(FirstTimeTutorialDestination.ReplayArgument) {
+                            type = NavType.BoolType
+                            defaultValue = false
+                        },
+                    ),
+                ) { entry ->
+                    val isReplay = entry.arguments
+                        ?.getBoolean(FirstTimeTutorialDestination.ReplayArgument)
+                        ?: false
+                    val tutorialSpaceSetupViewModel: TutorialSpaceSetupViewModel = viewModel(
+                        factory = TutorialSpaceSetupViewModel.Factory(isReplay, container),
+                    )
+                    val tutorialSpaceSetupState by tutorialSpaceSetupViewModel.uiState
+                        .collectAsStateWithLifecycle()
+                    FirstTimeTutorialScreen(
+                        isReplay = isReplay,
+                        spaceSetupState = tutorialSpaceSetupState,
+                        onToggleSpaceTemplate = tutorialSpaceSetupViewModel::toggleTemplate,
+                        onAddCustomSpace = tutorialSpaceSetupViewModel::addCustomName,
+                        onRemoveCustomSpace = tutorialSpaceSetupViewModel::removeCustomName,
+                        onFinishSpaceSetup = tutorialSpaceSetupViewModel::finish,
+                        onFinish = {
+                            if (isReplay) {
+                                navController.popBackStack()
+                            } else {
+                                onSettingsChanged(
+                                    settings.copy(hasCompletedFirstTimeTutorial = true),
+                                )
+                                navController.navigate(OrbitDestination.Home.route) {
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
+                                }
+                            }
+                        },
+                        onReplayBack = { navController.popBackStack() },
+                    )
+                }
                 composable(OrbitDestination.Home.route) { entry ->
                     val homeViewModel: HomeCaptureViewModel = viewModel(
                         factory = HomeCaptureViewModel.Factory(
@@ -150,6 +194,7 @@ fun OrbitApp(
                             recordAiLearningEvent = container.recordAiLearningEvent,
                             proposeLearnedRule = container.proposeLearnedRule,
                             savedStateHandle = entry.savedStateHandle,
+                            applicationContext = container.applicationContext,
                         ),
                     )
                     val homeWeekViewModel: HomeWeekViewModel = viewModel(
@@ -176,7 +221,6 @@ fun OrbitApp(
                             entry.savedStateHandle[CalendarCaptureContext.EpochDayKey] = null
                         },
                         onCalendarDateSelected = { date ->
-                            homeWeekViewModel.selectDate(date)
                             navController.navigateToCalendar(date)
                         },
                         onVisibleWeekChanged = homeWeekViewModel::moveVisibleWeek,
@@ -192,7 +236,9 @@ fun OrbitApp(
                     SpacesScreen(
                         uiState = spacesUiState,
                         timeFormat = timeFormat,
-                        onSpaceSelected = spacesViewModel::selectSpace,
+                        onSpaceSelected = { spaceId ->
+                            if (spaceId != null) navController.navigate(SpaceDetailDestination.route(spaceId))
+                        },
                         onCreateSpace = spacesViewModel::createSpace,
                         onUpdateSpace = spacesViewModel::updateSpace,
                         onHideSpace = spacesViewModel::hideSpace,
@@ -200,6 +246,11 @@ fun OrbitApp(
                         onRestoreSpace = spacesViewModel::restoreSpace,
                         onMoveSpace = spacesViewModel::moveSpace,
                         onMoveItem = spacesViewModel::moveItem,
+                        onUndoMove = spacesViewModel::undoLastMove,
+                        onRetryMove = spacesViewModel::retryFailedMove,
+                        onUnfiledSelected = {
+                            navController.navigate(SpaceDetailDestination.UnfiledRoute)
+                        },
                         onOpenSearch = {
                             navController.navigate(SearchDestination.Route) {
                                 launchSingleTop = true
@@ -208,6 +259,60 @@ fun OrbitApp(
                         onItemSelected = { item ->
                             navController.navigate(item.route())
                         },
+                    )
+                }
+                composable(SpaceDetailDestination.UnfiledRoute) {
+                    val spacesViewModel: SpacesViewModel = viewModel(
+                        factory = SpacesViewModel.Factory(container),
+                    )
+                    LaunchedEffect(Unit) { spacesViewModel.selectUnfiled() }
+                    val spacesUiState by spacesViewModel.uiState.collectAsStateWithLifecycle()
+                    SpacesScreen(
+                        uiState = spacesUiState,
+                        timeFormat = timeFormat,
+                        onSpaceSelected = { navController.popBackStack() },
+                        onCreateSpace = spacesViewModel::createSpace,
+                        onUpdateSpace = spacesViewModel::updateSpace,
+                        onHideSpace = spacesViewModel::hideSpace,
+                        onArchiveSpace = spacesViewModel::archiveSpace,
+                        onRestoreSpace = spacesViewModel::restoreSpace,
+                        onMoveSpace = spacesViewModel::moveSpace,
+                        onMoveItem = spacesViewModel::moveItem,
+                        onUndoMove = spacesViewModel::undoLastMove,
+                        onRetryMove = spacesViewModel::retryFailedMove,
+                        onUnfiledSelected = {},
+                        onOpenSearch = { navController.navigate(SearchDestination.Route) },
+                        onItemSelected = { item -> navController.navigate(item.route()) },
+                    )
+                }
+                composable(
+                    route = SpaceDetailDestination.Route,
+                    arguments = listOf(navArgument(SpaceDetailDestination.SpaceIdArgument) {
+                        type = NavType.LongType
+                    }),
+                ) { entry ->
+                    val spaceId = entry.arguments?.getLong(SpaceDetailDestination.SpaceIdArgument) ?: return@composable
+                    val spacesViewModel: SpacesViewModel = viewModel(
+                        factory = SpacesViewModel.Factory(container),
+                    )
+                    LaunchedEffect(spaceId) { spacesViewModel.selectSpace(spaceId) }
+                    val spacesUiState by spacesViewModel.uiState.collectAsStateWithLifecycle()
+                    SpacesScreen(
+                        uiState = spacesUiState,
+                        timeFormat = timeFormat,
+                        onSpaceSelected = { navController.popBackStack() },
+                        onCreateSpace = spacesViewModel::createSpace,
+                        onUpdateSpace = spacesViewModel::updateSpace,
+                        onHideSpace = spacesViewModel::hideSpace,
+                        onArchiveSpace = spacesViewModel::archiveSpace,
+                        onRestoreSpace = spacesViewModel::restoreSpace,
+                        onMoveSpace = spacesViewModel::moveSpace,
+                        onMoveItem = spacesViewModel::moveItem,
+                        onUndoMove = spacesViewModel::undoLastMove,
+                        onRetryMove = spacesViewModel::retryFailedMove,
+                        onUnfiledSelected = {},
+                        onOpenSearch = { navController.navigate(SearchDestination.Route) },
+                        onItemSelected = { item -> navController.navigate(item.route()) },
                     )
                 }
                 composable(OrbitDestination.Review.route) {
@@ -236,6 +341,8 @@ fun OrbitApp(
                         onDeferTask = reviewViewModel::deferTask,
                         onDismissCapture = reviewViewModel::dismissCapture,
                         onMakeSmaller = reviewViewModel::makeSmaller,
+                        onUndoTaskMutation = reviewViewModel::undoTaskMutation,
+                        onTaskUndoExpired = reviewViewModel::expireTaskUndo,
                         onCarryForwardTomorrow = reviewViewModel::carryForwardTomorrow,
                         onCarryForwardToDate = reviewViewModel::carryForwardToDate,
                         onKeepCarryForwardUnscheduled =
@@ -270,7 +377,14 @@ fun OrbitApp(
                         onRestoreFileSelected = localDataToolsViewModel::restoreFileSelected,
                         onConfirmRestore = localDataToolsViewModel::confirmRestore,
                         onCancelRestore = localDataToolsViewModel::cancelRestore,
-                        onAppearanceSubsectionChanged = { appearanceSubsectionOpen = it },
+                        onOpenFirstTimeGuide = {
+                            navController.navigate(
+                                FirstTimeTutorialDestination.route(isReplay = true),
+                            ) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onSettingsSubsectionChanged = { settingsSubsectionOpen = it },
                     )
                 }
                 composable(
@@ -510,6 +624,7 @@ internal fun shouldShowFloatingBottomNavigation(
     selectedRoute: String?,
     appearanceSubsectionOpen: Boolean,
 ): Boolean = !imeVisible &&
+    selectedRoute != FirstTimeTutorialDestination.Route &&
     selectedRoute != CalendarDestination.Route &&
     selectedRoute != SearchDestination.Route &&
     selectedRoute != ItemDetailDestination.Route &&
@@ -552,7 +667,6 @@ private fun com.orbit.app.ui.screens.spaces.SpaceItemReference.route(): String {
         com.orbit.app.ui.screens.spaces.SpaceItemType.Note -> ItemDetailType.Note
         com.orbit.app.ui.screens.spaces.SpaceItemType.Task -> ItemDetailType.Task
         com.orbit.app.ui.screens.spaces.SpaceItemType.Reminder -> ItemDetailType.Reminder
-        com.orbit.app.ui.screens.spaces.SpaceItemType.Capture -> ItemDetailType.Capture
     }
     return ItemDetailDestination.route(detailType, id)
 }

@@ -10,6 +10,7 @@
         android:name=".OrbitApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/full_backup_rules"
         android:icon="@mipmap/ic_luma_launcher"
         android:label="@string/app_name"
@@ -34,7 +35,7 @@
         </activity>
         <receiver
             android:name=".reminders.ReminderBootReceiver"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />

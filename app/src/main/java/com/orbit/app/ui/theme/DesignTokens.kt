@@ -51,3 +51,16 @@ object OrbitStateLayer {
     const val Dragged = 0.16f
     const val Selected = 0.14f
 }
+
+object CalendarDimensions {
+    val ControlHorizontalPadding = 20.dp
+    val ControlVerticalPadding = 16.dp
+    val PagerVisualHeight = 44.dp
+    val ActionRowHeight = 48.dp
+    val WeekdayHeaderHeight = 30.dp
+    val MonthRowHeight = 60.dp
+    val DateVisualDiameter = 40.dp
+    val EventDotDiameter = 4.dp
+    val TimelineTimeColumnWidth = 52.dp
+    val TimelineGridGap = 12.dp
+}

@@ -208,6 +208,81 @@ data class ReminderEntity(
 )
 
 @Entity(
+    tableName = "labels",
+    indices = [Index(value = ["normalizedName"], unique = true)],
+)
+data class LabelEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val normalizedName: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
+)
+
+@Entity(
+    tableName = "note_labels",
+    primaryKeys = ["noteId", "labelId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = NoteEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["noteId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = LabelEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["labelId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("labelId")],
+)
+data class NoteLabelCrossRef(val noteId: Long, val labelId: Long)
+
+@Entity(
+    tableName = "task_labels",
+    primaryKeys = ["taskId", "labelId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = TaskEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["taskId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = LabelEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["labelId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("labelId")],
+)
+data class TaskLabelCrossRef(val taskId: Long, val labelId: Long)
+
+@Entity(
+    tableName = "reminder_labels",
+    primaryKeys = ["reminderId", "labelId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = ReminderEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["reminderId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = LabelEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["labelId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("labelId")],
+)
+data class ReminderLabelCrossRef(val reminderId: Long, val labelId: Long)
+
+@Entity(
     tableName = "ai_suggestion_history",
     foreignKeys = [
         ForeignKey(

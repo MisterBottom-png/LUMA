@@ -22,8 +22,12 @@ data class LocalRestoreResult(
 
 class LocalDataRestoreException(message: String) : IllegalStateException(message)
 
-interface LocalDataRestoreStore {
+fun interface LocalDataSnapshotReader {
     suspend fun read(): LocalDataSnapshot
+}
+
+interface LocalDataRestoreStore : LocalDataSnapshotReader {
+    override suspend fun read(): LocalDataSnapshot
     suspend fun replace(snapshot: LocalDataSnapshot)
 }
 
@@ -84,6 +88,10 @@ class RoomLocalDataRestoreStore(
             brainDumpItems = brainDumpSessions.flatMap { session ->
                 database.brainDumpDao().getItems(session.captureId)
             },
+            labels = database.labelDao().getAll(),
+            noteLabels = database.labelDao().getAllNoteLabels(),
+            taskLabels = database.labelDao().getAllTaskLabels(),
+            reminderLabels = database.labelDao().getAllReminderLabels(),
         )
     }
 
@@ -92,12 +100,16 @@ class RoomLocalDataRestoreStore(
             val aliases = database.spaceAliasMemoryDao().observeAll().first()
             val suggestionHistory = database.aiSuggestionHistoryDao().observeAll().first()
 
+            database.labelDao().deleteAllNoteLabels()
+            database.labelDao().deleteAllTaskLabels()
+            database.labelDao().deleteAllReminderLabels()
             database.reminderDao().deleteAll()
             database.brainDumpDao().deleteAllItems()
             database.brainDumpDao().deleteAllSessions()
             database.noteDao().deleteAll()
             database.taskDao().deleteAll()
             database.captureDao().deleteAll()
+            database.labelDao().deleteAllLabels()
             database.spaceDao().deleteAll()
 
             database.spaceDao().insertAll(snapshot.spaces)
@@ -107,6 +119,10 @@ class RoomLocalDataRestoreStore(
             database.noteDao().insertAll(snapshot.notes)
             database.taskDao().insertAll(snapshot.tasks)
             database.reminderDao().insertAll(snapshot.reminders)
+            database.labelDao().insertAll(snapshot.labels)
+            database.labelDao().insertNoteLabels(snapshot.noteLabels)
+            database.labelDao().insertTaskLabels(snapshot.taskLabels)
+            database.labelDao().insertReminderLabels(snapshot.reminderLabels)
 
             val restoredSpaceIds = snapshot.spaces.mapTo(hashSetOf()) { it.id }
             aliases.filter { it.spaceId in restoredSpaceIds }.forEach {

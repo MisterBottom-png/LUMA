@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -23,7 +24,7 @@ class HomeWeekStripAccessibilityTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun constrainedWidthAndLargeTextPreserveHeadingAndSelectedDateSemantics() {
+    fun constrainedWidthAndLargeTextPreserveHeadingAndUnselectedDateSemantics() {
         val today = LocalDate.of(2026, 7, 14)
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
@@ -32,7 +33,6 @@ class HomeWeekStripAccessibilityTest {
                         WeekStrip(
                             uiState = HomeWeekUiState(
                                 today = today,
-                                selectedDate = today,
                                 visibleWeekDate = today,
                                 datesWithItems = setOf(today),
                             ),
@@ -46,12 +46,10 @@ class HomeWeekStripAccessibilityTest {
 
         composeRule.onNode(isHeading()).assertExists()
         composeRule.onNode(
-            hasContentDescription("Today", substring = true) and
-                SemanticsMatcher.expectValue(SemanticsProperties.Selected, true),
+            hasContentDescription("Today", substring = true),
         ).assertExists()
-        composeRule.onNode(
-            hasContentDescription("has scheduled items", substring = true) and
-                SemanticsMatcher.expectValue(SemanticsProperties.Selected, true),
-        ).assertExists()
+        composeRule.onAllNodes(
+            SemanticsMatcher.expectValue(SemanticsProperties.Selected, false),
+        ).assertCountEquals(7)
     }
 }

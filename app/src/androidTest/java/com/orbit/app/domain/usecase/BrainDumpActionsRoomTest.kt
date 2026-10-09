@@ -141,6 +141,21 @@ class BrainDumpActionsRoomTest {
     }
 
     @Test
+    fun delayedSkipFlushRemainsExactlyOnce() = runBlocking {
+        val captureId = seedSession()
+
+        val first = actions.skip(captureId, "brain:1")
+        val repeated = actions.skip(captureId, "brain:1")
+
+        assertEquals(BrainDumpActionStatus.Applied, first.status)
+        assertEquals(BrainDumpActionStatus.AlreadyHandled, repeated.status)
+        assertEquals(
+            BrainDumpItemOutcome.Skipped,
+            database.brainDumpDao().getItem(captureId, "brain:1")?.outcome,
+        )
+    }
+
+    @Test
     fun concurrentConfirmationCreatesOneItem() = runBlocking {
         val captureId = seedSession()
 

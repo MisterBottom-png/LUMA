@@ -5,7 +5,7 @@ This is the current evidence ledger. Superseded failures, repair narratives, and
 ## Snapshot
 
 ```text
-Updated: 2026-07-26
+Updated: 2026-08-01
 Branch: master
 Baseline commit: 09c56f0e1cc566f8bfeaca6bb5cea824e6b9d25e
 Working tree: intentionally dirty and not reproducible from the baseline commit alone
@@ -13,8 +13,8 @@ Workplace identity purge: COMPLETE
 Cleanup baseline: COMPLETE
 MVP status: PASS for the implemented initial-MVP contract
 Confirmed release blockers: NONE
-Room schema: version 5
-Local export format: version 3; decoder accepts versions 1 through 3
+Room schema: version 6
+Local export format: version 4; decoder accepts versions 1 through 4
 ```
 
 The current working tree contains the application, tests, Room schemas, canonical documentation, project skills, and reviewer configuration described below. Do not infer current behavior from the baseline commit without the working-tree changes.
@@ -36,6 +36,10 @@ Command: `./gradlew --no-daemon :app:test :app:assembleDebug :app:lintDebug`
 
 The 55 lint warnings were not reclassified in this documentation cleanup. A future release claim must inspect any warning whose category or relevance changed.
 
+Focused Spaces data-foundation and onboarding evidence from 2026-08-01: the full debug JVM suite and debug lint passed; the debug APK and instrumentation APK compile and package successfully. The optional localized onboarding selector has focused ViewModel and Compose interaction coverage. Room version-6 migration, label repository, and format-4 Room restore instrumentation compile and package successfully but were not executed on a connected target.
+
+Focused Spaces device evidence from 2026-08-01: manual confirmation covered Space creation, rename, hide, archive, and restore; deterministic detail sections; Unfiled retrieval; moving a note, task, and reminder between Spaces and to Unfiled with Undo; retry-safe move behavior; capture confirmation with Space and label suggestions; reopening a Space detail route; and basic rotation and larger-text usability. This does not replace the still-pending Room version-6 migration and format-4 restore instrumentation execution or the full accessibility traversal.
+
 ## Current capability map
 
 | Area | Current implementation | Current evidence | Remaining gap |
@@ -47,7 +51,7 @@ The 55 lint warnings were not reclassified in this documentation cleanup. A futu
 | Calendar V1 | Home week strip, full Day/Month destination, finalized-item projection, item routing, date-aware capture, note/task scheduling, and reminder integrity are implemented without external calendar sync. | Current Calendar and full JVM suites pass; Calendar instrumentation exists. | Current end-to-end physical acceptance and accessibility matrix remain open. |
 | Reminders | Local target time, independent notification offset, dedicated editing, scheduling abstraction, replacement, cancellation, boot/package reconciliation, and notification routing are implemented. | Current scheduling tests pass; prior API 36 scheduling, notification, reboot, and restore checks passed. | Re-run physical delivery checks after scheduler, permission, or manifest changes. |
 | Situation AI and Ask LUMA | Local situation analysis, bounded local retrieval, optional source-linked Gemini answers, source opening, and stale-result rejection are implemented. | Current analyzer, router, prompt, validator, and ask-state tests pass; prior API 36 Ask LUMA and IME checks passed. | No live-provider request was run in this cleanup; broader V2 expansion is deferred. |
-| Persistence and local data | Room version 5 stores core items, learning/history data, and Brain Dump sessions. Export format 3 includes current local data and accepts versions 1 through 3 for restore. | Current migration/export/restore JVM tests pass; Room instrumentation exists; prior restore and migration device checks passed for earlier formats/schema transitions. | Run current version-5 migration and format-3 restore instrumentation on a connected target before a release claim. |
+| Persistence and local data | Room version 6 stores core items, learning/history data, Brain Dump sessions, labels, and type-safe finalized-item label relationships. Export format 4 includes current local data and accepts versions 1 through 4 for restore. | Current format-4 codec/restore JVM tests pass; version-6 migration, label repository, and Room restore instrumentation compile and package; prior device checks cover earlier formats/schema transitions. | Run current version-6 migration and format-4 restore instrumentation on a connected target before a release claim. |
 | Appearance and glass | Light, Dark, Auto, presets, custom backgrounds, contrast protection, and route-aware glass policies are implemented. | Current theme/glass tests and lint pass; prior API 36 custom-background matrix passed. | Re-run the visual matrix when theme, glass, insets, or typography changes. |
 | Accessibility | Semantics, selected states, practical touch targets, scalable layouts, and custom Calendar actions are present across core surfaces. | Current lint has zero errors and focused semantics tests pass; sampled prior physical behavior passed. | Complete hands-on assistive-technology traversal remains open. |
 | Project agent stack | One canonical `.agents/skills` tree and three bounded `.codex/agents` reviewers are configured. | Structural validator passes. | Runtime discovery is outside the structural validator. |

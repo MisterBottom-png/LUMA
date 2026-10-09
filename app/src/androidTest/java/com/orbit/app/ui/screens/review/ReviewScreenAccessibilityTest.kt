@@ -9,10 +9,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.orbit.app.domain.analyzer.ReviewLoop
+import com.orbit.app.domain.analyzer.ReviewLoopType
 import com.orbit.app.ui.time.OrbitTimeFormat
 import org.junit.Rule
 import org.junit.Test
@@ -38,6 +43,8 @@ class ReviewScreenAccessibilityTest {
                             onDeferTask = {},
                             onDismissCapture = {},
                             onMakeSmaller = {},
+                            onUndoTaskMutation = {},
+                            onTaskUndoExpired = {},
                             onCarryForwardTomorrow = {},
                             onCarryForwardToDate = { _, _ -> },
                             onKeepCarryForwardUnscheduled = {},
@@ -53,5 +60,40 @@ class ReviewScreenAccessibilityTest {
             SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Review"),
         ).assertExists()
         composeRule.onNode(isHeading()).assertExists()
+    }
+
+    @Test
+    fun taskLoopKeepsOnePrimaryActionAndPlacesSecondaryActionsInAnAccessibleSheet() {
+        composeRule.setContent {
+            MaterialTheme {
+                ResetLoopCard(
+                    loop = ReviewLoop(
+                        id = 1L,
+                        type = ReviewLoopType.Task,
+                        title = "A task to review",
+                        updatedAt = 1L,
+                    ),
+                    smallerAction = null,
+                    onKeepTaskActive = {},
+                    onConfirmCapture = {},
+                    onArchive = {},
+                    onCompleteTask = {},
+                    onDeferTask = {},
+                    onDismissCapture = {},
+                    onMakeSmaller = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Keep active").assertIsDisplayed()
+        composeRule.onNodeWithText("More actions").performClick()
+
+        composeRule.onNode(
+            SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "More actions"),
+        ).assertExists()
+        composeRule.onNodeWithText("Mark task done").assertIsDisplayed()
+        composeRule.onNodeWithText("Defer to Someday").assertIsDisplayed()
+        composeRule.onNodeWithText("Make smaller").assertIsDisplayed()
+        composeRule.onNodeWithText("Archive task").assertIsDisplayed()
     }
 }

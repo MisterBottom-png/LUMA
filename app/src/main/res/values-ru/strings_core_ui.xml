@@ -32,9 +32,10 @@
     <string name="core_home_show_next_week">Показать следующую неделю</string>
     <string name="core_home_week_number">Неделя %1$d</string>
     <string name="core_home_save_and_analyze">Сохранить и проанализировать запись</string>
-    <string name="core_home_analyzing_capture">Анализ записи</string>
+    <string name="core_home_saving_capture">Конфиденциальное сохранение</string>
+    <string name="core_home_analyzing_capture">Подготовка предложения</string>
     <string name="core_home_capture_input">Текст записи</string>
-    <string name="core_home_capture_placeholder">Напишите что угодно…</string>
+    <string name="core_home_capture_placeholder">Что у тебя на уме?</string>
 
     <string name="core_calendar_title">Календарь</string>
     <string name="core_calendar_previous_month">Предыдущий месяц</string>
@@ -67,8 +68,11 @@
     <string name="core_search_title">Поиск</string>
     <string name="core_search_local_data">Поиск в локальных данных</string>
     <string name="core_search_include_archived">Включая архивные</string>
+    <string name="core_search_start_typing">Начните вводить запрос для поиска в локальных данных.</string>
     <string name="core_search_minimum_query">Введите не менее двух символов.</string>
     <string name="core_search_empty">Здесь пока ничего не найдено.</string>
+    <string name="core_search_empty_recovery">Попробуйте другое слово или очистите поиск.</string>
+    <string name="core_search_clear_query">Очистить поиск</string>
     <string name="core_source_row_accessibility">%1$s: %2$s. Открыть</string>
     <string name="core_source_row_accessibility_with_date">%1$s: %2$s, %3$s. Открыть</string>
     <string name="core_open_item_type">Открыть: %1$s</string>
@@ -149,6 +153,10 @@
     <string name="core_review_archive_task">Архивировать задачу</string>
     <string name="core_review_archive_source">Архивировать источник</string>
     <string name="core_review_make_smaller">Уменьшить шаг</string>
+    <string name="core_review_more_actions">Другие действия</string>
+    <string name="core_review_task_completed">Задача отмечена выполненной</string>
+    <string name="core_review_task_deferred">Задача отложена на «Когда-нибудь»</string>
+    <string name="core_review_task_archived">Задача архивирована</string>
     <string name="core_review_suggested_by_gemini">Предложено Gemini</string>
     <string name="core_review_local_suggestion">Локальное предложение</string>
     <string name="core_review_local_fallback">Локальный резервный вариант</string>

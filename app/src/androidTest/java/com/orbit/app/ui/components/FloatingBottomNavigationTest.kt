@@ -6,6 +6,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -48,6 +49,10 @@ class FloatingBottomNavigationTest {
                 .assertWidthIsAtLeast(48.dp)
                 .assertHeightIsAtLeast(48.dp)
         }
+
+        composeRule.onAllNodes(
+            SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab),
+        ).assertCountEquals(4)
     }
 
     @Test

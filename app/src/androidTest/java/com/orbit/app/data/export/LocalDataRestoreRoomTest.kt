@@ -5,8 +5,14 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.orbit.app.data.local.OrbitDatabase
+import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
+import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.SpaceEntity
+import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -42,8 +48,12 @@ class LocalDataRestoreRoomTest {
             spaces = listOf(space(2, "Restored")),
             captures = emptyList(),
             notes = listOf(NoteEntity(id = 2, title = "Restored", body = "New", spaceId = 2)),
-            tasks = emptyList(),
-            reminders = emptyList(),
+            tasks = listOf(TaskEntity(id = 3, title = "Restored task", spaceId = 2)),
+            reminders = listOf(ReminderEntity(id = 4, title = "Restored reminder", dueAt = 4_000, spaceId = 2)),
+            labels = listOf(LabelEntity(id = 5, name = "Errand", normalizedName = "errand")),
+            noteLabels = listOf(NoteLabelCrossRef(noteId = 2, labelId = 5)),
+            taskLabels = listOf(TaskLabelCrossRef(taskId = 3, labelId = 5)),
+            reminderLabels = listOf(ReminderLabelCrossRef(reminderId = 4, labelId = 5)),
         )
 
         store.replace(restored)

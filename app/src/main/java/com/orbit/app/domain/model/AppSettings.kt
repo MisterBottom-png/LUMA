@@ -98,6 +98,7 @@ data class AppSettings(
     val useGeminiForBrainDump: Boolean = false,
     val useGeminiForSituation: Boolean = false,
     val useGeminiForReview: Boolean = false,
+    val hasCompletedFirstTimeTutorial: Boolean = false,
 )
 
 val AppSettings.hasCurrentGeminiConsent: Boolean

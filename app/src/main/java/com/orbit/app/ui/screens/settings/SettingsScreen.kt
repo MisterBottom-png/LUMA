@@ -33,8 +33,8 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
@@ -80,9 +81,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -90,6 +93,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.annotation.StringRes
 import com.orbit.app.R
@@ -113,6 +117,7 @@ import com.orbit.app.ui.components.GlassSurfaceStyle
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.calmPressHaptics
+import com.orbit.app.ui.components.orbitScrollEdgeFade
 import com.orbit.app.ui.components.orbitPressFeedback
 import com.orbit.app.ui.localization.AppLanguage
 import com.orbit.app.ui.theme.OrbitShapes
@@ -139,7 +144,8 @@ fun SettingsScreen(
     onRestoreFileSelected: (android.net.Uri?) -> Unit,
     onConfirmRestore: () -> Unit,
     onCancelRestore: () -> Unit,
-    onAppearanceSubsectionChanged: (Boolean) -> Unit,
+    onOpenFirstTimeGuide: () -> Unit,
+    onSettingsSubsectionChanged: (Boolean) -> Unit,
 ) {
     var currentSection by rememberSaveable { mutableStateOf(SettingsSection.Overview) }
     var appearanceSubsection by rememberSaveable {
@@ -148,29 +154,41 @@ fun SettingsScreen(
     var systemSubsection by rememberSaveable {
         mutableStateOf<SystemMenuSection?>(null)
     }
+    var aiSubsection by rememberSaveable {
+        mutableStateOf<AiSettingsPage?>(null)
+    }
     val defaultScrollState = rememberScrollState()
     val appearanceIndexScrollState = rememberScrollState()
     val appearanceSubsectionScrollState = rememberScrollState()
     val systemIndexScrollState = rememberScrollState()
     val systemSubsectionScrollState = rememberScrollState()
+    val aiIndexScrollState = rememberScrollState()
+    val aiSubsectionScrollState = rememberScrollState()
     val activeScrollState = when {
         currentSection == SettingsSection.Appearance && appearanceSubsection == null ->
             appearanceIndexScrollState
         currentSection == SettingsSection.Appearance -> appearanceSubsectionScrollState
         currentSection == SettingsSection.System && systemSubsection == null -> systemIndexScrollState
+        currentSection == SettingsSection.System && systemSubsection == SystemMenuSection.Ai &&
+            aiSubsection == null -> aiIndexScrollState
+        currentSection == SettingsSection.System && systemSubsection == SystemMenuSection.Ai ->
+            aiSubsectionScrollState
         currentSection == SettingsSection.System -> systemSubsectionScrollState
         else -> defaultScrollState
     }
     val isSettingsSubsectionOpen = appearanceSubsection != null || systemSubsection != null
 
     LaunchedEffect(isSettingsSubsectionOpen) {
-        onAppearanceSubsectionChanged(isSettingsSubsectionOpen)
+        onSettingsSubsectionChanged(isSettingsSubsectionOpen)
     }
 
     BackHandler(enabled = appearanceSubsection != null) {
         appearanceSubsection = null
     }
-    BackHandler(enabled = systemSubsection != null) {
+    BackHandler(enabled = aiSubsection != null) {
+        aiSubsection = null
+    }
+    BackHandler(enabled = systemSubsection != null && aiSubsection == null) {
         systemSubsection = null
     }
     BackHandler(
@@ -181,6 +199,15 @@ fun SettingsScreen(
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
+    val statusBarTopPadding = with(LocalDensity.current) {
+        WindowInsets.statusBars.getTop(this).toDp()
+    }
+    var headerHeightPx by remember { mutableStateOf(0) }
+    val measuredHeaderHeight = with(LocalDensity.current) { headerHeightPx.toDp() }
+    val headerClearance = settingsHeaderClearance(
+        statusBarTop = statusBarTopPadding,
+        headerHeight = measuredHeaderHeight,
+    )
     val imeVisible = with(LocalDensity.current) {
         WindowInsets.ime.getBottom(this) > 0
     }
@@ -191,68 +218,51 @@ fun SettingsScreen(
     } else {
         OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding
     }
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .imePadding()
-            .verticalScroll(activeScrollState)
-            .padding(horizontal = 24.dp)
-            .padding(top = 30.dp),
     ) {
-        AnimatedContent(
-            targetState = Triple(currentSection, appearanceSubsection, systemSubsection),
-            modifier = Modifier.fillMaxWidth(),
-            transitionSpec = {
-                val movingForward = when {
-                    initialState.first == targetState.first ->
-                        initialState.second == null && initialState.third == null &&
-                            (targetState.second != null || targetState.third != null)
-                    targetState.first == SettingsSection.Overview -> false
-                    else -> true
-                }
-                val enterOffset: (Int) -> Int = { width ->
-                    if (movingForward) width / 10 else -width / 10
-                }
-                val exitOffset: (Int) -> Int = { width ->
-                    if (movingForward) -width / 12 else width / 12
-                }
-                (fadeIn(tween(OrbitMotion.StandardDurationMillis)) +
-                    slideInHorizontally(
-                        animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                        initialOffsetX = enterOffset,
-                    )) togetherWith
-                    (fadeOut(tween(OrbitMotion.QuickDurationMillis)) +
-                        slideOutHorizontally(
-                            animationSpec = tween(OrbitMotion.StandardDurationMillis),
-                            targetOffsetX = exitOffset,
-                        ))
-            },
-            contentKey = { it },
-            label = "Settings section",
-        ) { (section, appearanceMenuSection, systemMenuSection) ->
-            Column(modifier = Modifier.fillMaxWidth()) {
-                if (appearanceMenuSection != null) {
-                    SettingsSubsectionHeader(
-                        title = stringResource(appearanceMenuSection.titleRes),
-                        subtitle = stringResource(appearanceMenuSection.subtitleRes),
-                        parentTitle = stringResource(SettingsSection.Appearance.titleRes),
-                        onBack = { appearanceSubsection = null },
-                    )
-                } else if (systemMenuSection != null) {
-                    SettingsSubsectionHeader(
-                        title = stringResource(systemMenuSection.titleRes),
-                        subtitle = stringResource(systemMenuSection.subtitleRes),
-                        parentTitle = stringResource(SettingsSection.System.titleRes),
-                        onBack = { systemSubsection = null },
-                    )
-                } else {
-                    SettingsHeader(
-                        section = section,
-                        onBack = { currentSection = SettingsSection.Overview },
-                    )
-                }
-
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .orbitScrollEdgeFade(top = headerClearance)
+                .verticalScroll(activeScrollState)
+                .padding(horizontal = 24.dp)
+                .padding(top = headerClearance),
+        ) {
+            AnimatedContent(
+                targetState = Triple(currentSection, appearanceSubsection, systemSubsection to aiSubsection),
+                modifier = Modifier.fillMaxWidth(),
+                transitionSpec = {
+                    val movingForward = when {
+                        initialState.first == targetState.first ->
+                            initialState.second == null && initialState.third.first == null &&
+                                (targetState.second != null || targetState.third.first != null)
+                        targetState.first == SettingsSection.Overview -> false
+                        else -> true
+                    }
+                    val enterOffset: (Int) -> Int = { width ->
+                        if (movingForward) width / 10 else -width / 10
+                    }
+                    val exitOffset: (Int) -> Int = { width ->
+                        if (movingForward) -width / 12 else width / 12
+                    }
+                    (fadeIn(tween(OrbitMotion.StandardDurationMillis)) +
+                        slideInHorizontally(
+                            animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                            initialOffsetX = enterOffset,
+                        )) togetherWith
+                        (fadeOut(tween(OrbitMotion.QuickDurationMillis)) +
+                            slideOutHorizontally(
+                                animationSpec = tween(OrbitMotion.StandardDurationMillis),
+                                targetOffsetX = exitOffset,
+                            ))
+                },
+                contentKey = { it },
+                label = "Settings section",
+            ) { (section, appearanceMenuSection, systemAndAiMenuSections) ->
+                val (systemMenuSection, aiMenuSection) = systemAndAiMenuSections
                 when (section) {
                     SettingsSection.Overview -> SettingsOverview(
                         settings = settings,
@@ -260,6 +270,7 @@ fun SettingsScreen(
                         onSectionSelected = {
                             appearanceSubsection = null
                             systemSubsection = null
+                            aiSubsection = null
                             currentSection = it
                         },
                     )
@@ -277,6 +288,7 @@ fun SettingsScreen(
                             applicationLanguage = applicationLanguage,
                             aiSettings = aiSettings,
                             localDataTools = localDataTools,
+                            onOpenFirstTimeGuide = onOpenFirstTimeGuide,
                             onSectionSelected = { systemSubsection = it },
                         )
 
@@ -302,6 +314,8 @@ fun SettingsScreen(
                             settings = settings,
                             onSettingsChanged = onSettingsChanged,
                             aiSettings = aiSettings,
+                            selectedMenuSection = aiMenuSection,
+                            onSectionSelected = { aiSubsection = it },
                             onSaveGeminiKey = onSaveGeminiKey,
                             onDeleteGeminiKey = onDeleteGeminiKey,
                             onClearLearningData = onClearAiLearningData,
@@ -320,11 +334,53 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(bottomContentPadding))
         }
 
-        Spacer(modifier = Modifier.height(bottomContentPadding))
+        AnimatedContent(
+            targetState = Triple(currentSection, appearanceSubsection, systemSubsection to aiSubsection),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onSizeChanged { headerHeightPx = it.height }
+                .padding(horizontal = 24.dp)
+                .padding(top = statusBarTopPadding + 30.dp),
+            label = "Settings header",
+        ) { (section, appearanceMenuSection, systemAndAiMenuSections) ->
+            val (systemMenuSection, aiMenuSection) = systemAndAiMenuSections
+            when {
+                appearanceMenuSection != null -> SettingsSubsectionHeader(
+                    title = stringResource(appearanceMenuSection.titleRes),
+                    subtitle = stringResource(appearanceMenuSection.subtitleRes),
+                    parentTitle = stringResource(SettingsSection.Appearance.titleRes),
+                    onBack = { appearanceSubsection = null },
+                )
+
+                aiMenuSection != null -> SettingsSubsectionHeader(
+                    title = stringResource(aiMenuSection.titleRes),
+                    subtitle = stringResource(aiMenuSection.subtitleRes),
+                    parentTitle = stringResource(SystemMenuSection.Ai.titleRes),
+                    onBack = { aiSubsection = null },
+                )
+
+                systemMenuSection != null -> SettingsSubsectionHeader(
+                    title = stringResource(systemMenuSection.titleRes),
+                    subtitle = stringResource(systemMenuSection.subtitleRes),
+                    parentTitle = stringResource(SettingsSection.System.titleRes),
+                    onBack = { systemSubsection = null },
+                )
+
+                else -> SettingsHeader(
+                    section = section,
+                    onBack = { currentSection = SettingsSection.Overview },
+                )
+            }
+        }
     }
 }
+
+internal fun settingsHeaderClearance(statusBarTop: Dp, headerHeight: Dp): Dp =
+    maxOf(statusBarTop + 128.dp, headerHeight + 20.dp)
 
 @Composable
 private fun SettingsHeader(
@@ -426,10 +482,14 @@ private fun SettingsCategoryRow(
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val rowShape = RoundedCornerShape(22.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .orbitPressFeedback(interactionSource)
+            .orbitPressFeedback(
+                interactionSource = interactionSource,
+                clipShape = rowShape,
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
@@ -658,12 +718,43 @@ private enum class SystemMenuSection(
     LocalData(R.string.settings_local_data_title, R.string.settings_local_data_subtitle, Icons.Filled.Storage),
 }
 
+internal enum class AiSettingsPage(
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val subtitleRes: Int,
+    val icon: ImageVector,
+) {
+    Mode(R.string.settings_ai_mode, R.string.settings_ai_mode_subtitle, Icons.Filled.AutoAwesome),
+    GeminiSetup(R.string.settings_gemini_key, R.string.settings_ai_setup_subtitle, Icons.Filled.Tune),
+    Features(R.string.settings_use_gemini_for, R.string.settings_ai_features_subtitle, Icons.Filled.AutoAwesome),
+    LocalLearning(
+        R.string.settings_local_learning_title,
+        R.string.settings_ai_learning_subtitle,
+        Icons.Filled.Person,
+    ),
+}
+
+internal enum class AiSettingsContent {
+    Mode,
+    GeminiKey,
+    Models,
+    Features,
+    LocalLearning,
+}
+
+internal fun aiSettingsContentFor(page: AiSettingsPage): List<AiSettingsContent> = when (page) {
+    AiSettingsPage.Mode -> listOf(AiSettingsContent.Mode)
+    AiSettingsPage.GeminiSetup -> listOf(AiSettingsContent.GeminiKey, AiSettingsContent.Models)
+    AiSettingsPage.Features -> listOf(AiSettingsContent.Features)
+    AiSettingsPage.LocalLearning -> listOf(AiSettingsContent.LocalLearning)
+}
+
 @Composable
 private fun SystemMenuCard(
     settings: AppSettings,
     applicationLanguage: AppLanguage,
     aiSettings: AiSettingsUiState,
     localDataTools: LocalDataToolsUiState,
+    onOpenFirstTimeGuide: () -> Unit,
     onSectionSelected: (SystemMenuSection) -> Unit,
 ) {
     SoftGlassSurface(
@@ -721,6 +812,13 @@ private fun SystemMenuCard(
                 ),
                 onClick = { onSectionSelected(SystemMenuSection.LocalData) },
             )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
+            SettingsMenuRow(
+                icon = Icons.Filled.Info,
+                title = stringResource(R.string.settings_first_time_guide_title),
+                status = stringResource(R.string.settings_first_time_guide_status),
+                onClick = onOpenFirstTimeGuide,
+            )
         }
     }
 }
@@ -733,10 +831,14 @@ private fun SettingsMenuRow(
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val rowShape = RoundedCornerShape(22.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .orbitPressFeedback(interactionSource)
+            .orbitPressFeedback(
+                interactionSource = interactionSource,
+                clipShape = rowShape,
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
@@ -1415,7 +1517,7 @@ private fun LocalDataSettingsSection(
             }
             localDataTools.errorMessage?.let { message ->
                 Text(
-                    text = message,
+                    text = message.localizedText(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -1442,13 +1544,29 @@ private fun LocalDataSettingsSection(
             }
             localDataTools.restoreMessage?.let { message ->
                 Text(
-                    text = message,
+                    text = message.localizedText(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
     }
+}
+
+@Composable
+private fun LocalDataToolsMessage.localizedText(): String = when (this) {
+    LocalDataToolsMessage.ExportFailed -> stringResource(R.string.settings_export_failed)
+    LocalDataToolsMessage.RestoreFileInvalid -> stringResource(R.string.settings_restore_file_invalid)
+    LocalDataToolsMessage.RestoreFailed -> stringResource(R.string.settings_restore_failed)
+    is LocalDataToolsMessage.RestoreCompleted -> pluralStringResource(
+        id = if (needsReminderDeviceCheck) {
+            R.plurals.settings_restore_complete_device_check
+        } else {
+            R.plurals.settings_restore_complete
+        },
+        count = visibleItemCount,
+        visibleItemCount,
+    )
 }
 
 private enum class SettingsSection(
@@ -1536,6 +1654,8 @@ private fun AiSettingsCard(
     settings: AppSettings,
     onSettingsChanged: (AppSettings) -> Unit,
     aiSettings: AiSettingsUiState,
+    selectedMenuSection: AiSettingsPage?,
+    onSectionSelected: (AiSettingsPage) -> Unit,
     onSaveGeminiKey: (String) -> Unit,
     onDeleteGeminiKey: () -> Unit,
     onClearLearningData: () -> Unit,
@@ -1631,23 +1751,92 @@ private fun AiSettingsCard(
         )
     }
 
-    SoftGlassSurface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 18.dp),
-        shape = RoundedCornerShape(26.dp),
-        style = GlassSurfaceStyle.Prominent,
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.settings_ai_title),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+    if (selectedMenuSection == null) {
+        AiSettingsMenuCard(
+            settings = settings,
+            aiSettings = aiSettings,
+            onSectionSelected = onSectionSelected,
+        )
+    } else {
+        AiSettingsDetailsCard(
+            page = selectedMenuSection,
+            settings = settings,
+            onSettingsChanged = onSettingsChanged,
+            aiSettings = aiSettings,
+            onSaveGeminiKey = onSaveGeminiKey,
+            onDeleteGeminiKey = onDeleteGeminiKey,
+            onClearLearningData = onClearLearningData,
+            onUpdateLearnedRule = onUpdateLearnedRule,
+            onDeleteLearnedRule = onDeleteLearnedRule,
+            onTestGeminiConnection = onTestGeminiConnection,
+            onRequestGeminiConsent = { showGeminiConsent = true },
+            onRequestClearLearning = { showClearLearningConfirmation = true },
+            onEditLearnedRule = { ruleBeingEdited = it },
+        )
+    }
+}
 
+@Composable
+private fun AiSettingsMenuCard(
+    settings: AppSettings,
+    aiSettings: AiSettingsUiState,
+    onSectionSelected: (AiSettingsPage) -> Unit,
+) {
+    SoftGlassSurface(
+        modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
+        shape = RoundedCornerShape(24.dp),
+        style = GlassSurfaceStyle.Standard,
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            AiSettingsPage.entries.forEachIndexed { index, section ->
+                SettingsMenuRow(
+                    icon = section.icon,
+                    title = stringResource(section.titleRes),
+                    status = when (section) {
+                        AiSettingsPage.Mode -> stringResource(settings.aiMode.labelRes())
+                        AiSettingsPage.GeminiSetup -> stringResource(
+                            if (aiSettings.hasKey) R.string.settings_status_key_saved
+                            else R.string.settings_status_key_not_saved,
+                        )
+                        AiSettingsPage.Features -> stringResource(settings.aiMode.labelRes())
+                        AiSettingsPage.LocalLearning -> stringResource(
+                            if (settings.enableLocalAiLearning) R.string.settings_selected
+                            else R.string.settings_not_selected,
+                        )
+                    },
+                    onClick = { onSectionSelected(section) },
+                )
+                if (index < AiSettingsPage.entries.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiSettingsDetailsCard(
+    page: AiSettingsPage,
+    settings: AppSettings,
+    onSettingsChanged: (AppSettings) -> Unit,
+    aiSettings: AiSettingsUiState,
+    onSaveGeminiKey: (String) -> Unit,
+    onDeleteGeminiKey: () -> Unit,
+    onClearLearningData: () -> Unit,
+    onUpdateLearnedRule: (LearnedRuleEntity) -> Unit,
+    onDeleteLearnedRule: (LearnedRuleEntity) -> Unit,
+    onTestGeminiConnection: (String, String) -> Unit,
+    onRequestGeminiConsent: () -> Unit,
+    onRequestClearLearning: () -> Unit,
+    onEditLearnedRule: (LearnedRuleEntity) -> Unit,
+) {
+    var apiKey by rememberSaveable { mutableStateOf("") }
+    val canUseGeminiFeatures = settings.aiMode == AiMode.GeminiApi &&
+        settings.hasCurrentGeminiConsent && aiSettings.hasKey
+    val visibleContent = aiSettingsContentFor(page)
+    Column(modifier = Modifier.padding(top = 22.dp)) {
+        AppearanceCard {
+            if (AiSettingsContent.Mode in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_ai_mode)) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1672,7 +1861,7 @@ private fun AiSettingsCard(
                                     AiMode.GeminiApi -> if (settings.hasCurrentGeminiConsent) {
                                         onSettingsChanged(settings.copy(aiMode = AiMode.GeminiApi))
                                     } else {
-                                        showGeminiConsent = true
+                                        onRequestGeminiConsent()
                                     }
                                 }
                             },
@@ -1687,7 +1876,9 @@ private fun AiSettingsCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
 
+        if (AiSettingsContent.GeminiKey in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_gemini_key)) {
                 OutlinedTextField(
                     value = apiKey,
@@ -1746,7 +1937,7 @@ private fun AiSettingsCard(
                                 settings.geminiReasoningModelId,
                             )
                         } else {
-                            showGeminiConsent = true
+                            onRequestGeminiConsent()
                         }
                     },
                     enabled = aiSettings.hasKey && !aiSettings.isTestingConnection,
@@ -1774,7 +1965,9 @@ private fun AiSettingsCard(
                     )
                 }
             }
+        }
 
+        if (AiSettingsContent.Models in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_models)) {
                 OutlinedTextField(
                     value = settings.geminiFastModelId,
@@ -1795,7 +1988,9 @@ private fun AiSettingsCard(
                     singleLine = true,
                 )
             }
+        }
 
+        if (AiSettingsContent.Features in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_use_gemini_for)) {
                 AiFeatureSwitch(
                     title = stringResource(R.string.settings_capture_suggestions),
@@ -1838,7 +2033,9 @@ private fun AiSettingsCard(
                     },
                 )
             }
+        }
 
+        if (AiSettingsContent.LocalLearning in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_local_learning_title)) {
                 AiFeatureSwitch(
                     title = stringResource(R.string.settings_local_learning_toggle),
@@ -1884,7 +2081,7 @@ private fun AiSettingsCard(
                             checked = rule.enabled,
                             onCheckedChange = { enabled -> onUpdateLearnedRule(rule.copy(enabled = enabled)) },
                         )
-                        TextButton(onClick = { ruleBeingEdited = rule }) {
+                        TextButton(onClick = { onEditLearnedRule(rule) }) {
                             Text(stringResource(R.string.settings_edit))
                         }
                         TextButton(onClick = { onDeleteLearnedRule(rule) }) {
@@ -1893,7 +2090,7 @@ private fun AiSettingsCard(
                     }
                 }
                 OutlinedButton(
-                    onClick = { showClearLearningConfirmation = true },
+                    onClick = onRequestClearLearning,
                     enabled = !aiSettings.isClearingLearning,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -1925,6 +2122,7 @@ private fun AiSettingsCard(
                     )
                 }
             }
+        }
 
             Text(
                 text = stringResource(R.string.settings_ai_privacy_explanation),
@@ -1998,7 +2196,10 @@ private fun BackgroundPresetOption(
                 },
                 shape = shape,
             )
-            .orbitPressFeedback(interactionSource)
+            .orbitPressFeedback(
+                interactionSource = interactionSource,
+                clipShape = shape,
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,

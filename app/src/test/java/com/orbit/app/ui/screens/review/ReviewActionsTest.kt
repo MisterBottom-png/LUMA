@@ -13,6 +13,7 @@ import com.orbit.app.data.repository.ReminderRepository
 import com.orbit.app.data.repository.TaskRepository
 import com.orbit.app.domain.analyzer.ReviewLoop
 import com.orbit.app.domain.analyzer.ReviewLoopType
+import com.orbit.app.domain.usecase.CaptureFinalizationTransaction
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
 import com.orbit.app.ui.screens.item.ItemScheduleActions
 import java.time.LocalDate
@@ -29,6 +30,66 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReviewActionsTest {
+    @Test
+    fun completingTaskReturnsExactSnapshotForUndo() = runBlocking {
+        val captures = FakeCaptureRepository()
+        val tasks = FakeTaskRepository()
+        val original = TaskEntity(
+            title = "Finish later",
+            notes = "Keep the existing task fields",
+            dueAt = 2_000L,
+            updatedAt = 10L,
+        )
+        val taskId = tasks.insert(original)
+
+        val mutation = actions(captures, tasks, now = 50L).completeTask(
+            ReviewLoop(taskId, ReviewLoopType.Task, original.title, 10L),
+        )
+
+        assertEquals(ReviewTaskMutationAction.Completed, mutation?.action)
+        assertEquals(original.copy(id = taskId), mutation?.original)
+        assertEquals(TaskStatus.Done, mutation?.updated?.status)
+        assertEquals(50L, mutation?.updated?.completedAt)
+    }
+
+    @Test
+    fun deferringTaskReturnsExactSnapshotForUndo() = runBlocking {
+        val captures = FakeCaptureRepository()
+        val tasks = FakeTaskRepository()
+        val original = TaskEntity(title = "Choose later", updatedAt = 10L)
+        val taskId = tasks.insert(original)
+
+        val mutation = actions(captures, tasks, now = 50L).deferTask(
+            ReviewLoop(taskId, ReviewLoopType.Task, original.title, 10L),
+        )
+
+        assertEquals(ReviewTaskMutationAction.Deferred, mutation?.action)
+        assertEquals(original.copy(id = taskId), mutation?.original)
+        assertEquals(TaskStatus.Someday, mutation?.updated?.status)
+    }
+
+    @Test
+    fun archivingTaskReturnsExactSnapshotForUndoButCaptureDoesNot() = runBlocking {
+        val captures = FakeCaptureRepository()
+        val tasks = FakeTaskRepository()
+        val original = TaskEntity(title = "Archive later", updatedAt = 10L)
+        val taskId = tasks.insert(original)
+        val actions = actions(captures, tasks, now = 50L)
+
+        val taskMutation = actions.archive(
+            ReviewLoop(taskId, ReviewLoopType.Task, original.title, 10L),
+        )
+        val captureId = captures.insert(CaptureEntity(rawText = "Leave source private"))
+        val captureMutation = actions.archive(
+            ReviewLoop(captureId, ReviewLoopType.Capture, "Leave source private", 10L),
+        )
+
+        assertEquals(ReviewTaskMutationAction.Archived, taskMutation?.action)
+        assertEquals(original.copy(id = taskId), taskMutation?.original)
+        assertEquals(TaskStatus.Archived, taskMutation?.updated?.status)
+        assertNull(captureMutation)
+    }
+
     @Test
     fun concurrentCaptureConfirmationCreatesExactlyOneSomedayTask() = runBlocking {
         val captures = FakeCaptureRepository()
@@ -184,6 +245,7 @@ class ReviewActionsTest {
             noteRepository = UnusedNoteRepository(),
             taskRepository = tasks,
             reminderRepository = reminders,
+            transaction = DirectReviewTestCaptureFinalizationTransaction,
         )
         return ReviewActions(
             captureRepository = captures,
@@ -276,3 +338,7 @@ private abstract class UnusedReviewRepository<T> : EntityRepository<T> {
 }
 
 private class UnusedNoteRepository : UnusedReviewRepository<NoteEntity>(), NoteRepository
+
+private object DirectReviewTestCaptureFinalizationTransaction : CaptureFinalizationTransaction {
+    override suspend fun <T> run(block: suspend () -> T): T = block()
+}

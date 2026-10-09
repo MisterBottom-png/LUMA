@@ -24,6 +24,10 @@
     <string name="settings_language_subtitle">Choose the language used by the app</string>
     <string name="settings_ai_title">AI</string>
     <string name="settings_ai_subtitle">Mode, key, models, and feature access</string>
+    <string name="settings_ai_mode_subtitle">Choose local or Gemini processing</string>
+    <string name="settings_ai_setup_subtitle">Key, connection, and model selection</string>
+    <string name="settings_ai_features_subtitle">Choose where Gemini may help</string>
+    <string name="settings_ai_learning_subtitle">Private on-device learning and controls</string>
     <string name="settings_local_data_title">Local data</string>
     <string name="settings_local_data_subtitle">Exports and device-held data</string>
 
@@ -112,6 +116,17 @@
     <string name="settings_restore_explanation">LUMA validates an export before offering full replacement. Existing data is not changed until you confirm.</string>
     <string name="settings_validating">Validating…</string>
     <string name="settings_choose_export">Choose export to restore</string>
+    <string name="settings_export_failed">Export could not be created.</string>
+    <string name="settings_restore_file_invalid">The selected export cannot be restored. Existing data was kept.</string>
+    <string name="settings_restore_failed">Restore could not be completed. Existing data was kept.</string>
+    <plurals name="settings_restore_complete">
+        <item quantity="one">Restore complete: %1$d item.</item>
+        <item quantity="other">Restore complete: %1$d items.</item>
+    </plurals>
+    <plurals name="settings_restore_complete_device_check">
+        <item quantity="one">Restore complete: %1$d item. Check reminder delivery on this device.</item>
+        <item quantity="other">Restore complete: %1$d items. Check reminder delivery on this device.</item>
+    </plurals>
 
     <string name="settings_ai_mode">Mode</string>
     <string name="settings_ai_mode_explanation">Local only remains the default. Gemini is optional cloud AI.</string>
@@ -123,6 +138,19 @@
     <string name="settings_save_key">Save key</string>
     <string name="settings_testing">Testing…</string>
     <string name="settings_test_connection">Test connection</string>
+    <string name="settings_gemini_key_saved">Gemini key saved on this device.</string>
+    <string name="settings_gemini_key_save_failed">That key could not be saved.</string>
+    <string name="settings_gemini_key_removed">Gemini key removed.</string>
+    <string name="settings_gemini_connection_succeeded">Gemini connection works for %1$s.</string>
+    <string name="settings_gemini_error_missing_key">Add a Gemini API key first. Local mode still works.</string>
+    <string name="settings_gemini_error_bad_key">Gemini could not use this key. Local mode still works.</string>
+    <string name="settings_gemini_error_rate_limited">Rate limit reached. LUMA will use local mode.</string>
+    <string name="settings_gemini_error_timeout">Gemini took too long. Local mode still works.</string>
+    <string name="settings_gemini_error_no_internet">No internet. Local mode still works.</string>
+    <string name="settings_gemini_error_invalid_response">Gemini replied in a format LUMA could not use.</string>
+    <string name="settings_gemini_error_safety_blocked">Gemini blocked that test. Local mode still works.</string>
+    <string name="settings_gemini_error_server">Gemini is unavailable right now. Local mode still works.</string>
+    <string name="settings_gemini_error_unknown">Gemini connection did not finish. Local mode still works.</string>
     <string name="settings_models">Models</string>
     <string name="settings_fast_model">Fast model</string>
     <string name="settings_reasoning_model">Reasoning model</string>
@@ -156,4 +184,53 @@
     <string name="text_warm_ivory">Warm ivory</string>
     <string name="ai_local_only">Local only</string>
     <string name="ai_gemini_api" translatable="false">Gemini API</string>
+    <string name="tutorial_skip">Skip</string>
+    <string name="tutorial_back">Back</string>
+    <string name="tutorial_next">Next</string>
+    <string name="tutorial_start">Start using LUMA</string>
+    <string name="tutorial_progress">Step %1$d of %2$d</string>
+    <string name="tutorial_go_to_step">Go to step %1$d</string>
+    <string name="settings_first_time_guide_title">First-time guide</string>
+    <string name="settings_first_time_guide_status">Replay the introduction</string>
+    <string name="tutorial_idea_step">01 · The idea</string>
+    <string name="tutorial_idea_title">A home for thoughts before they become plans.</string>
+    <string name="tutorial_idea_body">LUMA is a calm life inbox. Put a thought in first, then decide whether it belongs as a note, task, reminder, or simply in the Inbox.</string>
+    <string name="tutorial_idea_principle_title">Capture first. Organise second.</string>
+    <string name="tutorial_idea_principle_body">You do not need to choose a category, date, or Space before writing.</string>
+    <string name="tutorial_home_step">02 · Home</string>
+    <string name="tutorial_home_title">Capture thoughts and orient yourself in time.</string>
+    <string name="tutorial_home_body">On Home, type a sentence, a fragment, or several thoughts, then tap the upward arrow to save and analyse it. The week strip is also your Calendar entry point: tap a day to open that date, switch between Day and Month views, or add an item directly for the selected date.</string>
+    <string name="tutorial_home_principle_title">Home is the starting point.</string>
+    <string name="tutorial_home_principle_body">Capture first, or use the week strip when you already know the day you need.</string>
+    <string name="tutorial_confirm_step">03 · Confirm</string>
+    <string name="tutorial_confirm_title">Suggestions are proposals, not commands.</string>
+    <string name="tutorial_confirm_body">LUMA may suggest a note, task, reminder, Space, or time. Accept the main action, open “Change action,” edit the details, or keep the thought in Inbox until it is clearer.</string>
+    <string name="tutorial_confirm_principle_title">You make the final decision.</string>
+    <string name="tutorial_confirm_principle_body">Important actions are never silently created, scheduled, completed, archived, or deleted.</string>
+    <string name="tutorial_brain_dump_step">04 · Brain Dump</string>
+    <string name="tutorial_brain_dump_title">Several thoughts become several calm decisions.</string>
+    <string name="tutorial_brain_dump_body">When one capture contains multiple ideas, Brain Dump shows one suggestion at a time. Save useful items, discard individual suggestions, or save progress and continue later.</string>
+    <string name="tutorial_brain_dump_principle_title">The original stays private.</string>
+    <string name="tutorial_brain_dump_principle_body">LUMA presents clean final items in Spaces instead of duplicating the raw Brain Dump.</string>
+    <string name="tutorial_spaces_step">05 · Spaces</string>
+    <string name="tutorial_spaces_title">Keep each part of life in its own context.</string>
+    <string name="tutorial_spaces_body">Use Spaces to browse settled notes, tasks, and reminders by area of life. Search across your Spaces, open one to see its items, or use the add button to create a new Space when an area deserves its own home.</string>
+    <string name="tutorial_spaces_principle_title">Spaces organise context, not time.</string>
+    <string name="tutorial_spaces_principle_body">Unscheduled thoughts can remain in a Space or Inbox without being forced onto the Calendar.</string>
+    <string name="tutorial_space_setup_title">Choose a few Spaces</string>
+    <string name="tutorial_space_setup_body">Only pick the parts of life you want to return to. You can add, rename, or hide Spaces later.</string>
+    <string name="tutorial_space_setup_name">Name a Space</string>
+    <string name="tutorial_space_setup_add">Add Space</string>
+    <string name="tutorial_space_setup_remove">Remove %1$s</string>
+    <string name="tutorial_space_setup_error">Couldn’t save your Spaces. Try again.</string>
+    <string name="tutorial_review_step">06 · Review and ask</string>
+    <string name="tutorial_review_title">Return when the day gives you a reason.</string>
+    <string name="tutorial_review_body">Review changes with the time of day: a morning scan, a quiet midday pause, an evening close, and a swipeable weekly view on weekends. The centre sparkle opens Situation AI and Ask LUMA using your local items as sources.</string>
+    <string name="tutorial_review_principle_title">Review is not a score.</string>
+    <string name="tutorial_review_principle_body">It helps resolve open loops without guilt, streaks, or productivity theatre.</string>
+    <string name="tutorial_control_step">07 · Control</string>
+    <string name="tutorial_control_title">Private by default. Cloud AI only by choice.</string>
+    <string name="tutorial_control_body">Core LUMA features work locally. Gemini is optional, requires consent, and receives only the selected text and relevant context. Reminder permission appears when it is actually needed.</string>
+    <string name="tutorial_control_principle_title">Start with one real thought.</string>
+    <string name="tutorial_control_principle_body">Natural language is the intended interface. Write first; let structure arrive afterward.</string>
 </resources>

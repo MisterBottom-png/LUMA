@@ -93,7 +93,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun adjacentDateSelection_changesVisibleMonthAndPreservesMonthView() {
+    fun monthDateSelection_opensSelectedDateInDayView() {
         val viewModel = viewModel(LocalDate.of(2026, 7, 14).toEpochDay().toString())
         viewModel.setActiveView(CalendarViewMode.Month)
 
@@ -101,7 +101,7 @@ class CalendarViewModelTest {
 
         assertEquals(LocalDate.of(2026, 8, 1), viewModel.uiState.value.selectedDate)
         assertEquals(YearMonth.of(2026, 8), viewModel.uiState.value.visibleMonth)
-        assertEquals(CalendarViewMode.Month, viewModel.uiState.value.activeView)
+        assertEquals(CalendarViewMode.Day, viewModel.uiState.value.activeView)
     }
 
     @Test

@@ -5,10 +5,14 @@ import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.local.entity.CaptureStatus
+import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import com.orbit.app.data.local.entity.TaskStatus
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -70,6 +74,38 @@ class LocalDataRestoreTest {
         assertEquals(45L, decoded.reminders.single().notificationOffsetMinutes)
         assertEquals(2L, decoded.reminders.single().linkedTaskId)
         assertEquals(3L, decoded.reminders.single().linkedCaptureId)
+        assertEquals(original.labels, decoded.labels)
+        assertEquals(original.noteLabels, decoded.noteLabels)
+        assertEquals(original.taskLabels, decoded.taskLabels)
+        assertEquals(original.reminderLabels, decoded.reminderLabels)
+    }
+
+    @Test
+    fun versionThreeExportDefaultsLabelCollectionsToEmpty() {
+        val root = JSONObject(LocalDataBackupCodec.encode(completeSnapshot(), exportedAt = 900L))
+        root.getJSONObject("metadata").put("version", 3)
+        root.remove("labels")
+        root.remove("noteLabels")
+        root.remove("taskLabels")
+        root.remove("reminderLabels")
+
+        val decoded = LocalDataBackupCodec.decode(root.toString())
+
+        assertEquals(emptyList<LabelEntity>(), decoded.labels)
+        assertEquals(emptyList<NoteLabelCrossRef>(), decoded.noteLabels)
+        assertEquals(emptyList<TaskLabelCrossRef>(), decoded.taskLabels)
+        assertEquals(emptyList<ReminderLabelCrossRef>(), decoded.reminderLabels)
+    }
+
+    @Test
+    fun danglingLabelRelationFailsValidation() {
+        val invalid = completeSnapshot().copy(
+            noteLabels = listOf(NoteLabelCrossRef(noteId = 4, labelId = 999)),
+        )
+
+        assertThrows(LocalDataValidationException::class.java) {
+            LocalDataBackupCodec.decode(LocalDataBackupCodec.encode(invalid, exportedAt = 900L))
+        }
     }
 
     @Test
@@ -459,5 +495,17 @@ private fun completeSnapshot(): LocalDataSnapshot {
                 completedAt = 800,
             ),
         ),
+        labels = listOf(
+            LabelEntity(
+                id = 7,
+                name = "Errand",
+                normalizedName = "errand",
+                createdAt = 650,
+                updatedAt = 650,
+            ),
+        ),
+        noteLabels = listOf(NoteLabelCrossRef(noteId = 4, labelId = 7)),
+        taskLabels = listOf(TaskLabelCrossRef(taskId = 2, labelId = 7)),
+        reminderLabels = listOf(ReminderLabelCrossRef(reminderId = 5, labelId = 7)),
     )
 }

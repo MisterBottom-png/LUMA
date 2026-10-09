@@ -29,7 +29,6 @@ import kotlinx.coroutines.launch
 
 data class HomeWeekUiState(
     val today: LocalDate,
-    val selectedDate: LocalDate,
     val visibleWeekDate: LocalDate,
     val datesWithItems: Set<LocalDate> = emptySet(),
 )
@@ -49,18 +48,15 @@ class HomeWeekViewModel internal constructor(
     observationDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) : ViewModel() {
     private val today = todayProvider()
-    private val restoredSelectedDate = restoredDate(savedStateHandle[SelectedDateKey]) ?: today
     private val _uiState = MutableStateFlow(
         HomeWeekUiState(
             today = today,
-            selectedDate = restoredSelectedDate,
-            visibleWeekDate = restoredDate(savedStateHandle[VisibleWeekDateKey]) ?: restoredSelectedDate,
+            visibleWeekDate = restoredDate(savedStateHandle[VisibleWeekDateKey]) ?: today,
         ),
     )
     val uiState: StateFlow<HomeWeekUiState> = _uiState.asStateFlow()
 
     init {
-        persistSelectedDate(_uiState.value.selectedDate)
         persistVisibleWeekDate(_uiState.value.visibleWeekDate)
         viewModelScope.launch(observationDispatcher) {
             _uiState
@@ -82,21 +78,12 @@ class HomeWeekViewModel internal constructor(
         }
     }
 
-    fun selectDate(date: LocalDate) {
-        _uiState.update { it.copy(selectedDate = date) }
-        persistSelectedDate(date)
-    }
-
     fun moveVisibleWeek(weekOffset: Int) {
         if (weekOffset == 0) return
         _uiState.update { state ->
             state.copy(visibleWeekDate = state.visibleWeekDate.plusWeeks(weekOffset.toLong()))
         }
         persistVisibleWeekDate(_uiState.value.visibleWeekDate)
-    }
-
-    private fun persistSelectedDate(date: LocalDate) {
-        savedStateHandle[SelectedDateKey] = date.toEpochDay()
     }
 
     private fun persistVisibleWeekDate(date: LocalDate) {
@@ -117,7 +104,6 @@ class HomeWeekViewModel internal constructor(
     }
 
     private companion object {
-        const val SelectedDateKey = "home.week.selectedDate"
         const val VisibleWeekDateKey = "home.week.visibleDate"
     }
 }

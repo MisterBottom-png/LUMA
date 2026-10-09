@@ -21,7 +21,7 @@ PLACEHOLDER_DOMAINS = {"example.com", "example.org", "example.net", "example.inv
 GENERIC_VALUES = {
     "manager", "reviewer", "stakeholder", "team member", "operator", "administrator",
     "customer", "test user", "user", "team", "anonymous", "redacted", "unknown", "maintainer",
-    "phase", "gate",
+    "phase", "gate", "name", "personal", "nimi", "isiklik",
 }
 TECHNICAL_PROPER_NOUNS = {
     "android", "codex", "compose", "gemini", "git", "gradle", "java", "json", "kotlin", "luma",
