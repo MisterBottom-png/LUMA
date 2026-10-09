@@ -45,9 +45,12 @@ class BrainDumpSuggestionContentTest {
 
         composeRule.onNodeWithText("Suggestion 2 of 6").assertIsDisplayed()
         composeRule.onNodeWithText("Sort your thoughts").assertIsDisplayed()
-        composeRule.onNodeWithText("Task").assertIsDisplayed()
-        composeRule.onNodeWithText("Personal").assertIsDisplayed()
-        composeRule.onNodeWithText("Set up task").assertIsDisplayed()
+        composeRule.onNodeWithText("Type: Task").assertIsDisplayed()
+        composeRule.onNodeWithText("Space: Personal").assertIsDisplayed()
+        // The item title and the primary "Set up task" action share this text.
+        composeRule.onAllNodesWithText("Set up task").assertCountEquals(2)
+        composeRule.onAllNodesWithText("Set up task")[0].assertIsDisplayed()
+        composeRule.onAllNodesWithText("Set up task")[1].assertIsDisplayed()
         composeRule.onNodeWithText("Edit details").assertIsDisplayed()
         composeRule.onNodeWithText("Finish later").assertIsDisplayed()
         composeRule.onAllNodesWithText("Keep this thought in Inbox").assertCountEquals(0)
@@ -61,12 +64,14 @@ class BrainDumpSuggestionContentTest {
     @Test
     fun whyThisAndEditorExposeCompleteTrustContext() {
         val suggestion = suggestion(type = SuggestedItemType.Task, spaceName = "Personal")
-        val state = interactionState(itemNumber = 1, totalItems = 1)
+        val initial = interactionState(itemNumber = 1, totalItems = 1)
+        // One composition; the stage changes through state, as it does in the app.
+        val state = mutableStateOf(initial)
         composeRule.setContent {
             OrbitTheme(settings = AppSettings()) {
                 BrainDumpSuggestionContent(
                     suggestion = suggestion,
-                    state = state,
+                    state = state.value,
                     timeFormat = OrbitTimeFormat(uses24HourClock = true),
                     callbacks = recordingCallbacks(),
                 )
@@ -78,16 +83,8 @@ class BrainDumpSuggestionContentTest {
         composeRule.onNodeWithText("This sounds actionable.").assertIsDisplayed()
         composeRule.onNodeWithText("Take the smallest next step").assertIsDisplayed()
 
-        composeRule.setContent {
-            OrbitTheme(settings = AppSettings()) {
-                BrainDumpSuggestionContent(
-                    suggestion = suggestion,
-                    state = state.copy(stage = BrainDumpStage.Edit),
-                    timeFormat = OrbitTimeFormat(uses24HourClock = true),
-                    callbacks = recordingCallbacks(),
-                )
-            }
-        }
+        state.value = initial.copy(stage = BrainDumpStage.Edit)
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("Original source thought").assertIsDisplayed()
         composeRule.onNodeWithText("This sounds actionable.").assertIsDisplayed()
     }
