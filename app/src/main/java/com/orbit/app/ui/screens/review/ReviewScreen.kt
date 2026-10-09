@@ -35,9 +35,14 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +76,7 @@ import com.orbit.app.R
 import com.orbit.app.domain.analyzer.ReviewLoop
 import com.orbit.app.domain.analyzer.ReviewLoopType
 import com.orbit.app.ui.components.GlassSurfaceStyle
+import com.orbit.app.ui.components.LumaModalBottomSheet
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.orbitScrollEdgeFade
@@ -83,16 +89,6 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlinx.coroutines.delay
 
-/**
- * Backdrop alpha used when Review draws a local surface behind its content.
- * Custom backgrounds get strong protection in both modes; preset backgrounds
- * keep a quieter backdrop. Contract covered by [ReviewContrastTest].
- */
-internal fun reviewBackdropAlpha(hasCustomBackground: Boolean, isDark: Boolean): Float = when {
-    hasCustomBackground -> 0.96f
-    isDark -> 0.78f
-    else -> 0.74f
-}
 
 internal enum class ReviewPeriod {
     Morning,
@@ -131,6 +127,8 @@ fun ReviewScreen(
     onDeferTask: (ReviewLoop) -> Unit,
     onDismissCapture: (ReviewLoop) -> Unit,
     onMakeSmaller: (ReviewLoop) -> Unit,
+    onUndoTaskMutation: (Long) -> Unit,
+    onTaskUndoExpired: (Long) -> Unit,
     onCarryForwardTomorrow: (ReviewItem) -> Unit,
     onCarryForwardToDate: (ReviewItem, Long) -> Unit,
     onKeepCarryForwardUnscheduled: (ReviewItem) -> Unit,
@@ -138,6 +136,12 @@ fun ReviewScreen(
     onWeeklyLookBackVisible: () -> Unit,
 ) {
     val reviewContext by rememberReviewContext()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val undoLabel = stringResource(R.string.core_action_undo)
+    val pendingTaskUndo = uiState.pendingTaskUndo
+    val pendingTaskUndoMessage = pendingTaskUndo?.let { taskUndo ->
+        stringResource(taskUndo.action.undoMessageRes())
+    }
     var showOpenLoops by rememberSaveable { mutableStateOf(false) }
     var showAllOpenLoops by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(reviewContext.period) {
@@ -159,6 +163,20 @@ fun ReviewScreen(
     }
     val headerClearance = maxOf(statusBarTopPadding + 128.dp, measuredHeaderClearance)
     val reviewTitle = stringResource(R.string.core_review_title)
+    LaunchedEffect(pendingTaskUndo?.operationId) {
+        val taskUndo = pendingTaskUndo ?: return@LaunchedEffect
+        val message = pendingTaskUndoMessage ?: return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(
+            message = message,
+            actionLabel = undoLabel,
+            duration = SnackbarDuration.Short,
+        )
+        if (result == SnackbarResult.ActionPerformed) {
+            onUndoTaskMutation(taskUndo.operationId)
+        } else {
+            onTaskUndoExpired(taskUndo.operationId)
+        }
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -249,6 +267,17 @@ fun ReviewScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(
+                    start = 16.dp,
+                    top = 16.dp,
+                    end = 16.dp,
+                    bottom = navigationBottomPadding + 16.dp,
+                ),
+        )
     }
 }
 
@@ -276,13 +305,7 @@ internal fun reviewContextRefreshDelayMillis(now: LocalDateTime): Long {
 
 @Composable
 private fun MiddayBreathingSpace() {
-    val motionEnabled = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ValueAnimator.getDurationScale() > 0f
-        } else {
-            true
-        }
-    }
+    val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
     var inhaling by remember { mutableStateOf(false) }
     LaunchedEffect(motionEnabled) {
         if (motionEnabled) {
@@ -1066,14 +1089,9 @@ private fun LoopRow(
     )
 }
 
-internal fun reviewRowClick(
-    item: ReviewItem,
-    onReviewItemSelected: (ReviewItem) -> Unit,
-): () -> Unit = { onReviewItemSelected(item) }
-
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ResetLoopCard(
+@OptIn(ExperimentalMaterial3Api::class)
+internal fun ResetLoopCard(
     loop: ReviewLoop,
     smallerAction: ReviewSuggestion?,
     onKeepTaskActive: () -> Unit,
@@ -1085,6 +1103,24 @@ private fun ResetLoopCard(
     onMakeSmaller: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val actionPlan = reviewLoopActionPlan(loop)
+    val moreActionsTitle = stringResource(R.string.core_review_more_actions)
+    var showMoreActions by rememberSaveable(loop.key) { mutableStateOf(false) }
+
+    fun perform(action: ReviewLoopAction) {
+        showMoreActions = false
+        when (action) {
+            ReviewLoopAction.KeepActive -> onKeepTaskActive()
+            ReviewLoopAction.ConfirmCapture,
+            ReviewLoopAction.ResumeBrainDump -> onConfirmCapture()
+            ReviewLoopAction.CompleteTask -> onCompleteTask()
+            ReviewLoopAction.DeferTask -> onDeferTask()
+            ReviewLoopAction.DismissCapture -> onDismissCapture()
+            ReviewLoopAction.MakeSmaller -> onMakeSmaller()
+            ReviewLoopAction.Archive -> onArchive()
+        }
+    }
+
     SoftGlassSurface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -1121,70 +1157,46 @@ private fun ResetLoopCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            FlowRow(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+            FilledTonalButton(
+                onClick = { perform(actionPlan.primary) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
             ) {
-                if (loop.type == ReviewLoopType.Task) {
-                    AssistChip(
-                        onClick = onKeepTaskActive,
-                        label = { Text(stringResource(R.string.core_review_keep_active)) },
-                    )
-                    AssistChip(
-                        onClick = onCompleteTask,
-                        label = { Text(stringResource(R.string.core_review_mark_task_done)) },
-                        leadingIcon = {
-                            Icon(Icons.Rounded.CheckCircle, contentDescription = null)
-                        },
-                    )
-                    AssistChip(
-                        onClick = onDeferTask,
-                        label = { Text(stringResource(R.string.core_review_defer_to_someday)) },
-                        leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
-                    )
-                } else {
-                    AssistChip(
-                        onClick = onConfirmCapture,
-                        label = {
-                            Text(
-                                stringResource(
-                                    if (loop.hasPendingBrainDump) {
-                                        R.string.core_review_resume_brain_dump
-                                    } else {
-                                        R.string.core_review_confirm_as_someday
-                                    },
-                                ),
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(Icons.Rounded.CheckCircle, contentDescription = null)
-                        },
-                    )
-                    AssistChip(
-                        onClick = onDismissCapture,
-                        label = { Text(stringResource(R.string.core_review_dismiss_capture)) },
-                    )
-                }
-                AssistChip(
-                    onClick = onArchive,
-                    label = {
-                        Text(
-                            if (loop.type == ReviewLoopType.Task) {
-                                stringResource(R.string.core_review_archive_task)
-                            } else {
-                                stringResource(R.string.core_review_archive_source)
-                            },
-                        )
-                    },
-                    leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
-                )
-                AssistChip(
-                    onClick = onMakeSmaller,
-                    label = { Text(stringResource(R.string.core_review_make_smaller)) },
-                    leadingIcon = { Icon(Icons.Rounded.Spa, contentDescription = null) },
-                )
+                Text(stringResource(actionPlan.primary.labelRes(loop)))
             }
+            AssistChip(
+                onClick = { showMoreActions = true },
+                modifier = Modifier.padding(top = 8.dp),
+                label = { Text(moreActionsTitle) },
+            )
+        }
+    }
+
+    if (showMoreActions) {
+        LumaModalBottomSheet(
+            onDismissRequest = { showMoreActions = false },
+            modifier = Modifier.semantics { paneTitle = moreActionsTitle },
+        ) {
+            Text(
+                text = moreActionsTitle,
+                modifier = Modifier
+                    .padding(start = 24.dp, top = 20.dp, end = 24.dp)
+                    .semantics { heading() },
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            actionPlan.more.forEach { action ->
+                FilledTonalButton(
+                    onClick = { perform(action) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, top = 12.dp, end = 16.dp),
+                ) {
+                    Text(stringResource(action.labelRes(loop)))
+                }
+            }
+            Box(Modifier.height(20.dp))
         }
     }
 }
@@ -1259,6 +1271,29 @@ private fun ReviewLoop.actionExplanationRes(): Int = when (type) {
     } else {
         R.string.core_review_capture_action_explanation
     }
+}
+
+@StringRes
+private fun ReviewLoopAction.labelRes(loop: ReviewLoop): Int = when (this) {
+    ReviewLoopAction.KeepActive -> R.string.core_review_keep_active
+    ReviewLoopAction.ConfirmCapture -> R.string.core_review_confirm_as_someday
+    ReviewLoopAction.ResumeBrainDump -> R.string.core_review_resume_brain_dump
+    ReviewLoopAction.CompleteTask -> R.string.core_review_mark_task_done
+    ReviewLoopAction.DeferTask -> R.string.core_review_defer_to_someday
+    ReviewLoopAction.DismissCapture -> R.string.core_review_dismiss_capture
+    ReviewLoopAction.MakeSmaller -> R.string.core_review_make_smaller
+    ReviewLoopAction.Archive -> if (loop.type == ReviewLoopType.Task) {
+        R.string.core_review_archive_task
+    } else {
+        R.string.core_review_archive_source
+    }
+}
+
+@StringRes
+private fun ReviewTaskMutationAction.undoMessageRes(): Int = when (this) {
+    ReviewTaskMutationAction.Completed -> R.string.core_review_task_completed
+    ReviewTaskMutationAction.Deferred -> R.string.core_review_task_deferred
+    ReviewTaskMutationAction.Archived -> R.string.core_review_task_archived
 }
 
 @StringRes

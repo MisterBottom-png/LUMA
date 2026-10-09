@@ -69,6 +69,7 @@ class ConfirmCaptureActionUseCaseTest {
             noteRepository = FakeNoteRepository(NoteStore()),
             taskRepository = taskRepository,
             reminderRepository = UnusedReminderRepository(),
+            transaction = DirectTestCaptureFinalizationTransaction,
         )
 
         val taskId = useCase.createTask(
@@ -111,6 +112,29 @@ class ConfirmCaptureActionUseCaseTest {
         assertEquals(1, results.count { it })
         assertEquals(1, noteStore.entities.size)
         assertEquals(CaptureStatus.Processed, captureRepository.getById(captureId)?.status)
+    }
+
+    @Test
+    fun confirmedCaptureFinalizationRunsInsideOneTransactionBoundary() = runBlocking {
+        val captureStore = CaptureStore()
+        val noteStore = NoteStore()
+        val captureRepository = FakeCaptureRepository(captureStore)
+        val noteRepository = FakeNoteRepository(noteStore)
+        val transaction = RecordingCaptureFinalizationTransaction()
+        val captureId = captureRepository.insert(CaptureEntity(rawText = "One raw capture"))
+        val useCase = ConfirmCaptureActionUseCase(
+            captureRepository = captureRepository,
+            noteRepository = noteRepository,
+            taskRepository = UnusedTaskRepository(),
+            reminderRepository = UnusedReminderRepository(),
+            transaction = transaction,
+        )
+
+        useCase.saveNote(captureId, null, "Final note")
+
+        assertEquals(1, transaction.runCount)
+        assertEquals(CaptureStatus.Processed, captureRepository.getById(captureId)?.status)
+        assertEquals(1, noteStore.entities.size)
     }
 
     @Test
@@ -176,6 +200,7 @@ class ConfirmCaptureActionUseCaseTest {
             noteRepository = FakeNoteRepository(NoteStore()),
             taskRepository = UnusedTaskRepository(),
             reminderRepository = reminderRepository,
+            transaction = DirectTestCaptureFinalizationTransaction,
         )
 
         val reminderId = useCase.createReminder(
@@ -198,7 +223,21 @@ class ConfirmCaptureActionUseCaseTest {
         noteRepository = noteRepository,
         taskRepository = UnusedTaskRepository(),
         reminderRepository = UnusedReminderRepository(),
+        transaction = DirectTestCaptureFinalizationTransaction,
     )
+}
+
+private class RecordingCaptureFinalizationTransaction : CaptureFinalizationTransaction {
+    var runCount = 0
+
+    override suspend fun <T> run(block: suspend () -> T): T {
+        runCount += 1
+        return block()
+    }
+}
+
+private object DirectTestCaptureFinalizationTransaction : CaptureFinalizationTransaction {
+    override suspend fun <T> run(block: suspend () -> T): T = block()
 }
 
 private class CaptureStore(

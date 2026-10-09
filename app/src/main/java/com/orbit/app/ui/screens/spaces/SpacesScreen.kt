@@ -136,7 +136,17 @@ internal data class SpaceFeedItem(
     val title: String,
     val subtitle: String,
     val timestamp: Long,
+    val sortTimestamp: Long = timestamp,
 )
+
+internal enum class SpaceFeedOrder { RecentFirst, TargetSoonest }
+
+private data class SpaceDetailTarget(
+    val space: SpaceEntity?,
+    val isUnfiled: Boolean,
+) {
+    val key: String = if (isUnfiled) "unfiled" else "space_${space!!.id}"
+}
 
 @Composable
 fun SpacesScreen(
@@ -149,7 +159,10 @@ fun SpacesScreen(
     onArchiveSpace: (Long) -> Unit,
     onRestoreSpace: (Long) -> Unit,
     onMoveSpace: (Long, Int) -> Unit,
-    onMoveItem: (SpaceItemReference, Long) -> Unit,
+    onMoveItem: (SpaceItemReference, Long?) -> Unit,
+    onUndoMove: () -> Unit,
+    onRetryMove: () -> Unit,
+    onUnfiledSelected: () -> Unit,
     onOpenSearch: () -> Unit,
     onItemSelected: (SpaceItemReference) -> Unit,
 ) {
@@ -158,14 +171,16 @@ fun SpacesScreen(
     var itemToMove by remember { mutableStateOf<SpaceItemReference?>(null) }
 
     val selectedSpace = uiState.selectedSpace
-    BackHandler(enabled = shouldHandleSpaceDetailBack(selectedSpace)) {
+    val detailTarget = selectedSpace?.let { SpaceDetailTarget(space = it, isUnfiled = false) }
+        ?: uiState.isUnfiledSelected.takeIf { it }?.let { SpaceDetailTarget(space = null, isUnfiled = true) }
+    BackHandler(enabled = detailTarget != null) {
         onSpaceSelected(null)
     }
     val moveTargets = remember(uiState.visibleSpaces, selectedSpace?.id) {
         uiState.visibleSpaces.filterNot { it.id == selectedSpace?.id }
     }
     AnimatedContent(
-        targetState = selectedSpace,
+        targetState = detailTarget,
         modifier = Modifier.fillMaxSize(),
         transitionSpec = {
             val opening = targetState != null
@@ -180,14 +195,15 @@ fun SpacesScreen(
                         targetOffsetX = { if (opening) -it / 12 else it / 12 },
                     ))
         },
-        contentKey = { it?.id },
+        contentKey = { it?.key },
         label = "Spaces pane",
-    ) { space ->
-        if (space == null) {
+    ) { target ->
+        if (target == null) {
             SpacesOverview(
                 uiState = uiState,
                 onCreate = { showCreateDialog = true },
                 onSelect = { onSpaceSelected(it.id) },
+                onSelectUnfiled = onUnfiledSelected,
                 onEdit = { editingSpace = it },
                 onHide = onHideSpace,
                 onArchive = onArchiveSpace,
@@ -197,11 +213,15 @@ fun SpacesScreen(
             )
         } else {
             SpaceDetail(
-                space = space,
+                space = target.space,
                 contents = uiState.selectedContents,
                 timeFormat = timeFormat,
                 onBack = { onSpaceSelected(null) },
                 onMoveItem = { itemToMove = it },
+                onUndoMove = onUndoMove,
+                hasUndoMove = uiState.moveUndo != null,
+                hasMoveFailure = uiState.moveFailure != null,
+                onRetryMove = onRetryMove,
                 onItemSelected = onItemSelected,
             )
         }
@@ -248,6 +268,7 @@ private fun SpacesOverview(
     uiState: SpacesUiState,
     onCreate: () -> Unit,
     onSelect: (SpaceEntity) -> Unit,
+    onSelectUnfiled: () -> Unit,
     onEdit: (SpaceEntity) -> Unit,
     onHide: (Long) -> Unit,
     onArchive: (Long) -> Unit,
@@ -293,7 +314,6 @@ private fun SpacesOverview(
                     val space = visible[index]
                     SpaceCard(
                         space = space,
-                        itemCount = uiState.itemCounts[space.id] ?: 0,
                         canMoveUp = index > 0,
                         canMoveDown = index < visible.lastIndex,
                         onClick = { onSelect(space) },
@@ -302,6 +322,19 @@ private fun SpacesOverview(
                         onArchive = { onArchive(space.id) },
                         onMoveUp = { onMove(space.id, -1) },
                         onMoveDown = { onMove(space.id, 1) },
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                            placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                            fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                        ),
+                    )
+                }
+            }
+
+            if (uiState.hasUnfiledItems) {
+                item(key = "unfiled") {
+                    UnfiledCard(
+                        onClick = onSelectUnfiled,
                         modifier = Modifier.animateItem(
                             fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
                             placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
@@ -394,7 +427,6 @@ private fun SpacesOverview(
 @Composable
 private fun SpaceCard(
     space: SpaceEntity,
-    itemCount: Int,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onClick: () -> Unit,
@@ -426,12 +458,6 @@ private fun SpaceCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = pluralStringResource(R.plurals.core_spaces_item_count, itemCount, itemCount),
-                    modifier = Modifier.padding(top = 3.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Box {
@@ -477,6 +503,44 @@ private fun SpaceCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun UnfiledCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SoftGlassSurface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Folder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                text = stringResource(R.string.core_spaces_unfiled),
+                modifier = Modifier.padding(start = 14.dp),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
     }
 }
@@ -622,11 +686,15 @@ private fun EmptySpacesCard(onCreate: () -> Unit) {
 
 @Composable
 private fun SpaceDetail(
-    space: SpaceEntity,
+    space: SpaceEntity?,
     contents: SpaceContents,
     timeFormat: OrbitTimeFormat,
     onBack: () -> Unit,
     onMoveItem: (SpaceItemReference) -> Unit,
+    onUndoMove: () -> Unit,
+    hasUndoMove: Boolean,
+    hasMoveFailure: Boolean,
+    onRetryMove: () -> Unit,
     onItemSelected: (SpaceItemReference) -> Unit,
 ) {
     val feedPresentation = SpaceFeedPresentation(
@@ -640,9 +708,7 @@ private fun SpaceDetail(
         reminder = stringResource(R.string.core_spaces_feed_reminder, "%s"),
         subtitle = stringResource(R.string.core_spaces_feed_subtitle, "%1\$s", "%2\$s"),
     )
-    val feed = remember(contents, timeFormat, feedPresentation) {
-        contents.asFeedItems(timeFormat, feedPresentation)
-    }
+    val sections = remember(contents) { contents.sectioned(System.currentTimeMillis()) }
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
@@ -694,17 +760,63 @@ private fun SpaceDetail(
             }
         }
 
-        if (feed.isNotEmpty()) {
-            item(key = "life_feed_heading") {
+        if (hasUndoMove) {
+            item(key = "space_move_undo") {
+                SoftGlassSurface(
+                    onClick = onUndoMove,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                ) {
+                    Text(
+                        text = stringResource(R.string.core_spaces_undo_move),
+                        modifier = Modifier.padding(OrbitSpacing.Medium),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+
+        if (hasMoveFailure) {
+            item(key = "space_move_failure") {
+                SoftGlassSurface(
+                    onClick = onRetryMove,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                ) {
+                    Text(
+                        text = stringResource(R.string.core_spaces_move_retry),
+                        modifier = Modifier.padding(OrbitSpacing.Medium),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+
+        val groupedFeeds = listOf(
+            R.string.core_spaces_needs_attention to sections.needsAttention.asFeedItems(
+                timeFormat,
+                feedPresentation,
+                SpaceFeedOrder.TargetSoonest,
+            ),
+            R.string.core_spaces_upcoming to sections.upcoming.asFeedItems(
+                timeFormat,
+                feedPresentation,
+                SpaceFeedOrder.TargetSoonest,
+            ),
+            R.string.core_spaces_recent_reference to sections.recentAndReference.asFeedItems(timeFormat, feedPresentation),
+        )
+        groupedFeeds.forEachIndexed { sectionIndex, (heading, sectionFeed) ->
+            if (sectionFeed.isEmpty()) return@forEachIndexed
+            item(key = "space_section_$sectionIndex") {
                 Text(
-                    text = stringResource(R.string.core_spaces_life_feed),
+                    text = stringResource(heading),
                     modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            items(feed, key = { "${it.reference.type}_${it.reference.id}" }) { item ->
+            items(sectionFeed, key = { "${sectionIndex}_${it.reference.type}_${it.reference.id}" }) { item ->
                 SpaceFeedRow(
                     item = item,
                     onClick = { onItemSelected(item.reference) },
@@ -735,22 +847,33 @@ private fun SpaceDetail(
                 modifier = Modifier.padding(top = 8.dp, bottom = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SpaceIcon(space, modifier = Modifier.size(58.dp))
+                if (space != null) {
+                    SpaceIcon(space, modifier = Modifier.size(58.dp))
+                } else {
+                    Surface(
+                        modifier = Modifier.size(58.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.Folder,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
                 Column(modifier = Modifier.padding(start = 16.dp)) {
                     Text(
-                        text = localizedSpaceName(space.name),
+                        text = if (space != null) {
+                            localizedSpaceName(space.name)
+                        } else {
+                            stringResource(R.string.core_spaces_unfiled)
+                        },
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        text = pluralStringResource(
-                            R.plurals.core_spaces_item_count,
-                            contents.size,
-                            contents.size,
-                        ),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -773,7 +896,9 @@ internal data class SpaceFeedPresentation(
 internal fun SpaceContents.asFeedItems(
     timeFormat: OrbitTimeFormat,
     presentation: SpaceFeedPresentation = SpaceFeedPresentation(),
-): List<SpaceFeedItem> = buildList {
+    order: SpaceFeedOrder = SpaceFeedOrder.RecentFirst,
+): List<SpaceFeedItem> {
+    val items = buildList {
     notes.mapTo(this) { note ->
         SpaceFeedItem(
             reference = SpaceItemReference(SpaceItemType.Note, note.id),
@@ -790,6 +915,12 @@ internal fun SpaceContents.asFeedItems(
             title = task.title,
             subtitle = feedSubtitle(task.status.feedLabel(presentation), task.notes, presentation),
             timestamp = task.updatedAt,
+            sortTimestamp = task.dueAt ?: task.scheduledDateEpochDay?.let { dateEpochDay ->
+                java.time.LocalDate.ofEpochDay(dateEpochDay)
+                    .atStartOfDay(java.time.ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli()
+            } ?: task.updatedAt,
         )
     }
     reminders.mapTo(this) { reminder ->
@@ -805,7 +936,12 @@ internal fun SpaceContents.asFeedItems(
             timestamp = reminder.dueAt,
         )
     }
-}.sortedByDescending { it.timestamp }
+    }
+    return when (order) {
+        SpaceFeedOrder.RecentFirst -> items.sortedByDescending { it.timestamp }
+        SpaceFeedOrder.TargetSoonest -> items.sortedBy { it.sortTimestamp }
+    }
+}
 
 private fun feedSubtitle(
     badge: String,
@@ -1043,7 +1179,7 @@ private fun SpaceEditorDialog(
 private fun MoveItemDialog(
     spaces: List<SpaceEntity>,
     onDismiss: () -> Unit,
-    onMove: (Long) -> Unit,
+    onMove: (Long?) -> Unit,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -1092,6 +1228,18 @@ private fun MoveItemDialog(
                             }
                         }
                     }
+                }
+                SoftGlassSurface(
+                    onClick = { onMove(null) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 7.dp),
+                    shape = MaterialTheme.shapes.large,
+                ) {
+                    Text(
+                        text = stringResource(R.string.core_spaces_unfiled),
+                        modifier = Modifier.padding(OrbitSpacing.Medium),
+                    )
                 }
                 TextButton(
                     onClick = onDismiss,

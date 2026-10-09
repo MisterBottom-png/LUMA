@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.orbit.app.ui.theme.OrbitMotion
@@ -24,6 +25,7 @@ import com.orbit.app.ui.theme.OrbitMotion
 fun Modifier.orbitPressFeedback(
     interactionSource: InteractionSource,
     enabled: Boolean = true,
+    clipShape: Shape? = null,
 ): Modifier {
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -40,6 +42,10 @@ fun Modifier.orbitPressFeedback(
     return graphicsLayer {
         scaleX = scale
         scaleY = scale
+        clipShape?.let {
+            shape = it
+            clip = true
+        }
     }
 }
 

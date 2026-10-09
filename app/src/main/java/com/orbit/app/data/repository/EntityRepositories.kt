@@ -1,10 +1,12 @@
 package com.orbit.app.data.repository
 
+import android.database.sqlite.SQLiteConstraintException
 import com.orbit.app.data.local.dao.CaptureDao
 import com.orbit.app.data.local.dao.AiCorrectionHistoryDao
 import com.orbit.app.data.local.dao.AiSuggestionHistoryDao
 import com.orbit.app.data.local.dao.BrainDumpDao
 import com.orbit.app.data.local.dao.LearnedRuleDao
+import com.orbit.app.data.local.dao.LabelDao
 import com.orbit.app.data.local.dao.NoteDao
 import com.orbit.app.data.local.dao.PersonMemoryDao
 import com.orbit.app.data.local.dao.ProjectMemoryDao
@@ -18,16 +20,21 @@ import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.LearnedRuleEntity
+import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.PersonMemoryEntity
 import com.orbit.app.data.local.entity.ProjectMemoryEntity
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.SpaceAliasMemoryEntity
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.reminders.shouldScheduleNotification
 import kotlinx.coroutines.flow.Flow
+import java.util.Locale
 
 interface EntityRepository<T> {
     fun observeAll(): Flow<List<T>>
@@ -59,7 +66,26 @@ interface BrainDumpRepository {
     suspend fun createSession(session: BrainDumpSessionEntity, items: List<BrainDumpItemEntity>)
 }
 
-interface SpaceRepository : EntityRepository<SpaceEntity>
+interface SpaceRepository : EntityRepository<SpaceEntity> {
+    suspend fun swapSortOrder(firstId: Long, secondId: Long, updatedAt: Long) {
+        val first = getById(firstId) ?: return
+        val second = getById(secondId) ?: return
+        update(first.copy(sortOrder = second.sortOrder, updatedAt = updatedAt))
+        update(second.copy(sortOrder = first.sortOrder, updatedAt = updatedAt))
+    }
+}
+interface LabelRepository {
+    fun observeAll(): Flow<List<LabelEntity>>
+    suspend fun getAll(): List<LabelEntity>
+    suspend fun getAllNoteLabels(): List<NoteLabelCrossRef>
+    suspend fun getAllTaskLabels(): List<TaskLabelCrossRef>
+    suspend fun getAllReminderLabels(): List<ReminderLabelCrossRef>
+    suspend fun findOrCreate(name: String): LabelEntity
+    suspend fun delete(entity: LabelEntity)
+    suspend fun replaceNoteLabels(noteId: Long, labelIds: Set<Long>)
+    suspend fun replaceTaskLabels(taskId: Long, labelIds: Set<Long>)
+    suspend fun replaceReminderLabels(reminderId: Long, labelIds: Set<Long>)
+}
 interface NoteRepository : EntityRepository<NoteEntity>
 interface TaskRepository : EntityRepository<TaskEntity>
 interface ReminderRepository : EntityRepository<ReminderEntity>
@@ -106,9 +132,50 @@ class RoomSpaceRepository(private val dao: SpaceDao) : SpaceRepository {
     override suspend fun getById(id: Long) = dao.getById(id)
     override suspend fun insert(entity: SpaceEntity) = dao.insert(entity)
     override suspend fun update(entity: SpaceEntity) = dao.update(entity)
+    override suspend fun swapSortOrder(firstId: Long, secondId: Long, updatedAt: Long) =
+        dao.swapSortOrder(firstId, secondId, updatedAt)
     override suspend fun delete(entity: SpaceEntity) = dao.delete(entity)
     override suspend fun deleteById(id: Long) = dao.deleteById(id)
 }
+
+class RoomLabelRepository(private val dao: LabelDao) : LabelRepository {
+    override fun observeAll() = dao.observeAll()
+    override suspend fun getAll() = dao.getAll()
+    override suspend fun getAllNoteLabels() = dao.getAllNoteLabels()
+    override suspend fun getAllTaskLabels() = dao.getAllTaskLabels()
+    override suspend fun getAllReminderLabels() = dao.getAllReminderLabels()
+
+    override suspend fun findOrCreate(name: String): LabelEntity {
+        val displayName = name.trim().replace(WhitespacePattern, " ")
+        val normalizedName = normalizeLabelName(displayName)
+        require(normalizedName.isNotEmpty()) { "A label name cannot be blank" }
+        dao.getByNormalizedName(normalizedName)?.let { return it }
+
+        val entity = LabelEntity(name = displayName, normalizedName = normalizedName)
+        return try {
+            entity.copy(id = dao.insert(entity))
+        } catch (error: SQLiteConstraintException) {
+            dao.getByNormalizedName(normalizedName) ?: throw error
+        }
+    }
+
+    override suspend fun delete(entity: LabelEntity) = dao.delete(entity)
+    override suspend fun replaceNoteLabels(noteId: Long, labelIds: Set<Long>) =
+        dao.replaceNoteLabels(noteId, labelIds)
+
+    override suspend fun replaceTaskLabels(taskId: Long, labelIds: Set<Long>) =
+        dao.replaceTaskLabels(taskId, labelIds)
+
+    override suspend fun replaceReminderLabels(reminderId: Long, labelIds: Set<Long>) =
+        dao.replaceReminderLabels(reminderId, labelIds)
+}
+
+internal fun normalizeLabelName(value: String): String = value
+    .trim()
+    .replace(WhitespacePattern, " ")
+    .lowercase(Locale.ROOT)
+
+private val WhitespacePattern = Regex("\\s+")
 
 class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
     override fun observeAll() = dao.observeAll()

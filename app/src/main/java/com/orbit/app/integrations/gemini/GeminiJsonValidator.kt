@@ -48,6 +48,11 @@ object GeminiJsonValidator {
             relatedTopics = extractStringArray(text, "relatedTopics")
                 .map { it.take(MaxTextFieldLength) }
                 .ifEmpty { listOf(suggestedSpaceName.take(MaxSpaceNameLength)) },
+            suggestedLabels = extractStringArray(text, "suggestedLabels")
+                .map { it.trim().replace(Regex("\\s+"), " ").take(MaxChipLength) }
+                .filter { it.isNotBlank() && !it.equals(suggestedSpaceName, ignoreCase = true) }
+                .distinctBy { it.lowercase() }
+                .take(3),
             suggestionChips = extractStringArray(text, "suggestionChips")
                 .map { it.take(MaxChipLength) }
                 .ifEmpty { listOf(suggestedType.displayName(), suggestedSpaceName) }

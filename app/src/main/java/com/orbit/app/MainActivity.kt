@@ -38,13 +38,14 @@ class MainActivity : AppCompatActivity() {
                 factory = LocalDataViewModel.Factory(container),
             )
             val settings by localDataViewModel.settings.collectAsStateWithLifecycle()
+            val loadedSettings = settings ?: return@setContent
             val applicationLanguage = AppLanguage.fromLanguageTags(
                 AppCompatDelegate.getApplicationLocales().toLanguageTags(),
             )
 
-            OrbitTheme(settings = settings) {
+            OrbitTheme(settings = loadedSettings) {
                 val systemInDarkTheme = isSystemInDarkTheme()
-                val useDarkSystemBars = when (settings.themeMode) {
+                val useDarkSystemBars = when (loadedSettings.themeMode) {
                     SettingsThemeMode.Light -> false
                     SettingsThemeMode.Dark -> true
                     SettingsThemeMode.Auto -> systemInDarkTheme
@@ -57,7 +58,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 OrbitApp(
                     container = container,
-                    settings = settings,
+                    settings = loadedSettings,
                     onSettingsChanged = localDataViewModel::updateSettings,
                     applicationLanguage = applicationLanguage,
                     onApplicationLanguageChanged = ::setApplicationLanguage,

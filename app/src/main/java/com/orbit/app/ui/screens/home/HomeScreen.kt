@@ -17,6 +17,11 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -54,6 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -69,9 +75,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -86,7 +94,9 @@ import androidx.core.content.ContextCompat
 import com.orbit.app.R
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
+import com.orbit.app.ui.components.orbitPressFeedback
 import com.orbit.app.ui.time.OrbitTimeFormat
+import com.orbit.app.ui.theme.HomeTypography
 import com.orbit.app.ui.theme.OrbitShapes
 import com.orbit.app.ui.theme.OrbitSpacing
 import java.time.LocalDate
@@ -94,6 +104,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import kotlinx.coroutines.flow.collect
 
 @Composable
 fun HomeScreen(
@@ -154,8 +165,8 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(uiState.message) {
-        uiState.message?.let { message ->
+    LaunchedEffect(uiState.message, uiState.brainDumpInteraction) {
+        uiState.message?.takeIf { uiState.brainDumpInteraction == null }?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.messageShown()
         }
@@ -177,15 +188,39 @@ fun HomeScreen(
             .semantics { paneTitle = homePaneTitle },
     ) {
         val headerTranslationY = with(LocalDensity.current) { headerOffsetY.toPx() }
-        Column(
+        val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .imePadding()
                 .statusBarsPadding()
                 .padding(horizontal = OrbitSpacing.ExtraLarge)
                 .padding(top = 26.dp, bottom = bottomContentPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            val requiresVerticalScroll = maxHeight < homeMinimumContentHeightFor(
+                fontScale = fontScale,
+                imeVisible = imeVisible,
+                hasCalendarCaptureContext = calendarDateContext != null,
+            )
+            val scrollState = rememberScrollState()
+            LaunchedEffect(imeVisible, requiresVerticalScroll, scrollState) {
+                if (shouldRevealHomeCapture(imeVisible, requiresVerticalScroll)) {
+                    snapshotFlow { scrollState.maxValue }
+                        .collect(scrollState::scrollTo)
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (requiresVerticalScroll) {
+                            Modifier.verticalScroll(scrollState)
+                        } else {
+                            Modifier
+                        },
+                    ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -195,22 +230,23 @@ fun HomeScreen(
             ) {
                 Text(
                     text = stringResource(greetingResFor(LocalTime.now().hour)),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = HomeTypography.greeting,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.height(OrbitSpacing.ExtraSmall))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = userName.ifBlank { stringResource(R.string.home_default_user_label) },
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = HomeTypography.userName,
                     color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
 
                 Spacer(modifier = Modifier.height(OrbitSpacing.ExtraLarge))
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(HomeWeekCardHeight),
+                        .height(homeWeekCardHeightFor(fontScale)),
                     shape = RoundedCornerShape(32.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                     contentColor = MaterialTheme.colorScheme.onSurface,
@@ -245,7 +281,13 @@ fun HomeScreen(
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .then(
+                        if (requiresVerticalScroll) {
+                            Modifier
+                        } else {
+                            Modifier.weight(1f)
+                        },
+                    ),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 val captureCardHeight by animateDpAsState(
@@ -259,7 +301,7 @@ fun HomeScreen(
                 )
                 CaptureCard(
                     text = uiState.inputText,
-                    isAnalyzing = uiState.isAnalyzing,
+                    processingState = uiState.processingState,
                     onTextChanged = viewModel::onInputChanged,
                     onAnalyze = {
                         viewModel.analyzeCapture(calendarDateContext?.toEpochDay())
@@ -271,6 +313,7 @@ fun HomeScreen(
                         .fillMaxWidth(),
                 )
             }
+        }
         }
 
         SnackbarHost(
@@ -286,18 +329,28 @@ fun HomeScreen(
         CaptureSuggestionSheet(
             suggestion = suggestion,
             timeFormat = timeFormat,
-            brainDumpHandledItemIds = uiState.brainDumpHandledItemIds,
+            brainDumpInteraction = uiState.brainDumpInteraction,
+            brainDumpCallbacks = BrainDumpCallbacks(
+                onPrimaryAction = viewModel::commitBrainDumpPrimaryAction,
+                onEdit = viewModel::editBrainDumpItem,
+                onDraftChanged = viewModel::updateBrainDumpDraft,
+                onContinueFromEditor = viewModel::continueBrainDumpFromEditor,
+                onStepBack = viewModel::stepBackBrainDump,
+                onKeepInInbox = viewModel::keepBrainDumpInInbox,
+                onSkip = viewModel::skipBrainDump,
+                onUndoSkip = viewModel::undoBrainDumpSkip,
+                onRetry = viewModel::retryBrainDumpAction,
+                onFinishLater = viewModel::finishBrainDumpLater,
+                onDiscardRemaining = viewModel::discardRemainingBrainDumpSuggestions,
+                onCloseCompletion = viewModel::closeBrainDumpCompletion,
+            ),
             isPerformingAction = uiState.isPerformingAction,
             onSaveNote = viewModel::saveNote,
             onCreateTask = viewModel::createTask,
             onCreateReminder = viewModel::createReminder,
-            onSaveBrainDumpItem = viewModel::saveBrainDumpItem,
-            onSaveBrainDumpReminder = viewModel::saveBrainDumpReminder,
-            onSaveBrainDumpOriginalForLater = viewModel::saveBrainDumpOriginalForLater,
-            onSkipBrainDumpItem = viewModel::skipBrainDumpItem,
             onKeepInInbox = viewModel::keepInInbox,
-            onCancelBrainDump = viewModel::cancelBrainDump,
             onCancel = viewModel::cancelSuggestion,
+            onDiscardBrainDumpDraftChanges = viewModel::discardBrainDumpDraftChanges,
         )
     }
     uiState.learnedRuleProposal?.let { proposal ->
@@ -438,86 +491,99 @@ internal fun WeekStrip(
                             .weight(1f)
                             .alignByBaseline()
                             .semantics { heading() },
-                        style = MaterialTheme.typography.titleMedium,
+                        style = HomeTypography.calendarMonth,
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = stringResource(R.string.core_home_week_number, weekNumber),
                         modifier = Modifier.alignByBaseline(),
-                        style = MaterialTheme.typography.labelLarge,
+                        style = HomeTypography.calendarWeek,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Normal,
                         maxLines = 1,
                     )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                Row(
-                    modifier = sharedContentBounds,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    dates.forEach { date ->
+                BoxWithConstraints(modifier = sharedContentBounds) {
+                    val dayCapsuleWidth = minOf(HomeDayCapsuleMaxWidth, maxWidth / dates.size)
+                    val dayCapsuleHeight = HomeDayCapsuleHeight *
+                        LocalDensity.current.fontScale.coerceAtLeast(1f)
+                    val dayCapsuleShape = RoundedCornerShape(22.dp)
+                    Row(
+                        modifier = sharedContentBounds,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        dates.forEach { date ->
                         val isToday = date == uiState.today
-                        val isSelected = date == uiState.selectedDate
+                        val interactionSource = remember(date) { MutableInteractionSource() }
+                        val isPressed by interactionSource.collectIsPressedAsState()
                         val hasItems = date in uiState.datesWithItems
                         val backgroundColor by animateColorAsState(
-                            targetValue = if (isSelected) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                Color.Transparent
+                            targetValue = when {
+                                isPressed -> MaterialTheme.colorScheme.primary
+                                isToday -> MaterialTheme.colorScheme.primaryContainer
+                                else -> Color.Transparent
                             },
                             animationSpec = tween(durationMillis = 140),
                             label = "homeWeekSelection",
                         )
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(64.dp)
-                                .clickable { onDateSelected(date) }
-                                .semantics(mergeDescendants = true) {
-                                    role = Role.Button
-                                    selected = isSelected
-                                    contentDescription = homeDateContentDescription(
-                                        date = date,
-                                        locale = locale,
-                                        isToday = isToday,
-                                        isSelected = isSelected,
-                                        hasItems = hasItems,
-                                        labels = dateAccessibilityLabels,
-                                    )
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Column(
+                            Box(
                                 modifier = Modifier
-                                    .size(width = 48.dp, height = 64.dp)
-                                    .clip(RoundedCornerShape(22.dp))
-                                    .background(backgroundColor),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
+                                    .weight(1f)
+                                    .height(dayCapsuleHeight)
+                                    .orbitPressFeedback(
+                                        interactionSource = interactionSource,
+                                        clipShape = dayCapsuleShape,
+                                    )
+                                    .clickable(
+                                        interactionSource = interactionSource,
+                                        indication = LocalIndication.current,
+                                    ) { onDateSelected(date) }
+                                    .semantics(mergeDescendants = true) {
+                                        role = Role.Button
+                                        selected = false
+                                        contentDescription = homeDateContentDescription(
+                                            date = date,
+                                            locale = locale,
+                                            isToday = isToday,
+                                            isSelected = false,
+                                            hasItems = hasItems,
+                                            labels = dateAccessibilityLabels,
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center,
                             ) {
+                                Column(
+                                    modifier = Modifier
+                                        .size(width = dayCapsuleWidth, height = dayCapsuleHeight)
+                                        .clip(dayCapsuleShape)
+                                        .background(backgroundColor),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                ) {
                                 Text(
                                     text = homeWeekdayLabel(date, locale),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                    style = HomeTypography.calendarWeekday,
                                     color = when {
-                                        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                                        isToday -> MaterialTheme.colorScheme.primary
+                                        isPressed -> MaterialTheme.colorScheme.onPrimary
+                                        isToday -> MaterialTheme.colorScheme.onPrimaryContainer
                                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                                     },
                                 )
                                 Spacer(modifier = Modifier.height(OrbitSpacing.ExtraSmall))
                                 Text(
                                     text = date.dayOfMonth.toString(),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                    style = if (isPressed) {
+                                        HomeTypography.calendarDate.copy(fontWeight = FontWeight.SemiBold)
+                                    } else {
+                                        HomeTypography.calendarDate
+                                    },
                                     color = when {
-                                        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                                        isToday -> MaterialTheme.colorScheme.primary
+                                        isPressed -> MaterialTheme.colorScheme.onPrimary
+                                        isToday -> MaterialTheme.colorScheme.onPrimaryContainer
                                         else -> MaterialTheme.colorScheme.onSurface
                                     },
                                 )
@@ -526,8 +592,8 @@ internal fun WeekStrip(
                                         .size(4.dp)
                                         .background(
                                             color = if (hasItems) {
-                                                if (isSelected) {
-                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                if (isPressed) {
+                                                    MaterialTheme.colorScheme.onPrimary
                                                 } else {
                                                     MaterialTheme.colorScheme.primary
                                                 }
@@ -537,6 +603,7 @@ internal fun WeekStrip(
                                             shape = CircleShape,
                                         ),
                                 )
+                                }
                             }
                         }
                     }
@@ -549,13 +616,15 @@ internal fun WeekStrip(
 @Composable
 private fun CaptureCard(
     text: String,
-    isAnalyzing: Boolean,
+    processingState: CaptureProcessingState,
     onTextChanged: (String) -> Unit,
     onAnalyze: () -> Unit,
     height: Dp,
     imeVisible: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val isProcessing = processingState.isInProgress
+    val processingStatusRes = processingState.statusLabelRes()
     SoftGlassSurface(
         modifier = modifier
             .height(height),
@@ -569,28 +638,43 @@ private fun CaptureCard(
         ) {
             CaptureTextField(
                 text = text,
+                enabled = !isProcessing,
                 onTextChanged = onTextChanged,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(end = CaptureTextActionClearance),
+                    .padding(
+                        end = CaptureTextActionClearance,
+                        bottom = if (isProcessing) 34.dp else 0.dp,
+                    ),
             )
+
+            processingStatusRes?.let { statusRes ->
+                Text(
+                    text = stringResource(statusRes),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .semantics { liveRegion = LiveRegionMode.Polite },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             CaptureActionButton(
                 contentDescription = stringResource(
-                    if (isAnalyzing) {
-                        R.string.core_home_analyzing_capture
+                    if (isProcessing) {
+                        processingStatusRes ?: R.string.core_home_analyzing_capture
                     } else {
                         R.string.core_home_save_and_analyze
                     },
                 ),
                 emphasized = true,
-                enabled = text.isNotBlank() && !isAnalyzing,
+                enabled = text.isNotBlank() && !isProcessing,
                 onClick = onAnalyze,
                 modifier = Modifier.align(
                     if (imeVisible) Alignment.CenterEnd else Alignment.BottomEnd,
                 ),
             ) {
-                if (isAnalyzing) {
+                if (isProcessing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(19.dp),
                         strokeWidth = 2.dp,
@@ -610,6 +694,7 @@ private fun CaptureCard(
 @Composable
 private fun CaptureTextField(
     text: String,
+    enabled: Boolean,
     onTextChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -617,6 +702,7 @@ private fun CaptureTextField(
     BasicTextField(
         value = text,
         onValueChange = onTextChanged,
+        enabled = enabled,
         modifier = modifier.semantics {
             contentDescription = captureInputDescription
         },
@@ -629,8 +715,8 @@ private fun CaptureTextField(
                 if (text.isEmpty()) {
                     Text(
                         text = stringResource(R.string.core_home_capture_placeholder),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.90f),
+                        style = HomeTypography.capturePlaceholder,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 innerTextField()
@@ -730,7 +816,12 @@ private fun estimatedCaptureLineCount(text: String): Int = text
     }
 
 private val HomeWeekCardHeight = 156.dp
+private val HomeDayCapsuleMaxWidth = 56.dp
+private val HomeDayCapsuleHeight = 76.dp
+private val HomeWeekCardScaledContentGrowth = 112.dp
 private val HomeCaptureGap = 28.dp
+private val CalendarCaptureContextBannerActionMinimumHeight = 48.dp
+private val CalendarCaptureContextBannerBodyLineHeight = 22.dp
 private val CaptureCardExpandedHeight = 244.dp
 private val CaptureCardCompactHeight = 132.dp
 private val CaptureCardTypingMinHeight = 156.dp
@@ -741,3 +832,32 @@ private val CaptureTextActionClearance = CaptureActionButtonSize + 16.dp
 private val CaptureCardVerticalChromeHeight = 24.dp + 24.dp
 private const val CaptureEstimatedCharactersPerLine = 34
 private const val CaptureEstimatedLineHeight = 29
+
+private fun homeWeekCardHeightFor(fontScale: Float): Dp =
+    HomeWeekCardHeight + (HomeWeekCardScaledContentGrowth * (fontScale - 1f))
+
+private fun homeMinimumContentHeightFor(
+    fontScale: Float,
+    imeVisible: Boolean,
+    hasCalendarCaptureContext: Boolean,
+): Dp =
+    26.dp +
+        (24.dp * fontScale) +
+        2.dp +
+        (44.dp * fontScale) +
+        OrbitSpacing.ExtraLarge +
+        homeWeekCardHeightFor(fontScale) +
+        (if (hasCalendarCaptureContext) calendarCaptureContextBannerMinimumHeightFor(fontScale) else 0.dp) +
+        (if (imeVisible) OrbitSpacing.Large else HomeCaptureGap) +
+        (if (imeVisible) CaptureCardCompactHeight else CaptureCardExpandedHeight)
+
+internal fun shouldRevealHomeCapture(
+    imeVisible: Boolean,
+    requiresVerticalScroll: Boolean,
+): Boolean = imeVisible && requiresVerticalScroll
+
+private fun calendarCaptureContextBannerMinimumHeightFor(fontScale: Float): Dp =
+    OrbitSpacing.Medium + maxOf(
+        CalendarCaptureContextBannerActionMinimumHeight,
+        CalendarCaptureContextBannerBodyLineHeight * 2 * fontScale,
+    )

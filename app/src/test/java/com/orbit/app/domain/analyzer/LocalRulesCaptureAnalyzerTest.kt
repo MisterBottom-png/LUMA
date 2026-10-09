@@ -16,6 +16,16 @@ class LocalRulesCaptureAnalyzerTest {
     private val analyzer: CaptureAnalyzer = LocalRulesCaptureAnalyzer()
 
     @Test
+    fun `brain dump guidance follows the selected Estonian interface language`() {
+        val result = LocalRulesCaptureAnalyzer(locale = { Locale.forLanguageTag("et") })
+            .analyze("osta leib\nhomme kell 10")
+
+        assertEquals("Vaata eraldatud soovitused läbi ükshaaval.", result.suggestedNextAction)
+        assertEquals("Mitu rida näivad olevat eraldi mõtted.", result.typeReason)
+        assertTrue(result.brainDumpItems.none { it.reason.startsWith("This fragment") })
+    }
+
+    @Test
     fun taskSignalsSuggestTaskCaseInsensitively() {
         val signals = listOf("ask", "CALL", "send", "need to", "must", "remind")
 

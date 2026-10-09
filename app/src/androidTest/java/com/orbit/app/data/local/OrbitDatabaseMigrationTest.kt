@@ -46,9 +46,9 @@ class OrbitDatabaseMigrationTest {
     }
 
     @Test
-    fun everySupportedStartingVersionMigratesToFiveWithoutCaptureLoss() {
-        (1..4).forEach { startVersion ->
-            val databaseName = "orbit-migration-$startVersion-to-5"
+    fun everySupportedStartingVersionMigratesToSixWithoutCaptureLoss() {
+        (1..5).forEach { startVersion ->
+            val databaseName = "orbit-migration-$startVersion-to-6"
             helper.createDatabase(databaseName, startVersion).apply {
                 insertCapture(id = startVersion.toLong(), rawText = "Version $startVersion source")
                 close()
@@ -56,7 +56,7 @@ class OrbitDatabaseMigrationTest {
 
             val migrated = helper.runMigrationsAndValidate(
                 databaseName,
-                5,
+                6,
                 true,
                 *migrationsFrom(startVersion),
             )
@@ -181,11 +181,54 @@ class OrbitDatabaseMigrationTest {
         migrated.close()
     }
 
+    @Test
+    fun migrate5To6PreservesFinalizedItemsAndCreatesLabelTables() {
+        helper.createDatabase(TEST_DATABASE_5_TO_6, 5).apply {
+            execSQL(
+                """
+                INSERT INTO spaces (
+                    id, name, icon, colorAccent, sortOrder, hidden, archived, createdAt, updatedAt
+                ) VALUES (1, 'Home', 'home', '#6D7CFF', 0, 0, 0, 1000, 1000)
+                """.trimIndent(),
+            )
+            execSQL(
+                """
+                INSERT INTO notes (
+                    id, title, body, spaceId, createdAt, updatedAt, archived,
+                    scheduledDateEpochDay, scheduledAt
+                ) VALUES (1, 'Saved note', '', 1, 1000, 1000, 0, NULL, NULL)
+                """.trimIndent(),
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            TEST_DATABASE_5_TO_6,
+            6,
+            true,
+            OrbitDatabase.Migration5To6,
+        )
+
+        migrated.query("SELECT title, spaceId FROM notes WHERE id = 1").use {
+            assertEquals(true, it.moveToFirst())
+            assertEquals("Saved note", it.getString(0))
+            assertEquals(1L, it.getLong(1))
+        }
+        listOf("labels", "note_labels", "task_labels", "reminder_labels").forEach { table ->
+            migrated.query("SELECT COUNT(*) FROM $table").use {
+                assertEquals(true, it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+        }
+        migrated.close()
+    }
+
     private companion object {
         const val TEST_DATABASE_1_TO_2 = "orbit-migration-1-to-2"
         const val TEST_DATABASE_2_TO_3 = "orbit-migration-2-to-3"
         const val TEST_DATABASE_3_TO_4 = "orbit-migration-3-to-4"
         const val TEST_DATABASE_4_TO_5 = "orbit-migration-4-to-5"
+        const val TEST_DATABASE_5_TO_6 = "orbit-migration-5-to-6"
 
         fun androidx.sqlite.db.SupportSQLiteDatabase.insertCapture(id: Long, rawText: String) {
             execSQL(
@@ -205,14 +248,21 @@ class OrbitDatabaseMigrationTest {
                 OrbitDatabase.Migration2To3,
                 OrbitDatabase.Migration3To4,
                 OrbitDatabase.Migration4To5,
+                OrbitDatabase.Migration5To6,
             )
             2 -> arrayOf(
                 OrbitDatabase.Migration2To3,
                 OrbitDatabase.Migration3To4,
                 OrbitDatabase.Migration4To5,
+                OrbitDatabase.Migration5To6,
             )
-            3 -> arrayOf(OrbitDatabase.Migration3To4, OrbitDatabase.Migration4To5)
-            4 -> arrayOf(OrbitDatabase.Migration4To5)
+            3 -> arrayOf(
+                OrbitDatabase.Migration3To4,
+                OrbitDatabase.Migration4To5,
+                OrbitDatabase.Migration5To6,
+            )
+            4 -> arrayOf(OrbitDatabase.Migration4To5, OrbitDatabase.Migration5To6)
+            5 -> arrayOf(OrbitDatabase.Migration5To6)
             else -> error("Unsupported start version")
         }
     }

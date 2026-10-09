@@ -73,6 +73,8 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             preferences[Keys.USE_GEMINI_FOR_BRAIN_DUMP] = settings.useGeminiForBrainDump
             preferences[Keys.USE_GEMINI_FOR_SITUATION] = settings.useGeminiForSituation
             preferences[Keys.USE_GEMINI_FOR_REVIEW] = settings.useGeminiForReview
+            preferences[Keys.HAS_COMPLETED_FIRST_TIME_TUTORIAL] =
+                settings.hasCompletedFirstTimeTutorial
         }
     }
 
@@ -147,6 +149,9 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 ?: defaults.useGeminiForSituation,
             useGeminiForReview = preferences[Keys.USE_GEMINI_FOR_REVIEW]
                 ?: defaults.useGeminiForReview,
+            hasCompletedFirstTimeTutorial =
+                preferences[Keys.HAS_COMPLETED_FIRST_TIME_TUTORIAL]
+                    ?: defaults.hasCompletedFirstTimeTutorial,
         )
     }
 
@@ -201,5 +206,7 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
         val USE_GEMINI_FOR_BRAIN_DUMP = booleanPreferencesKey("use_gemini_for_brain_dump")
         val USE_GEMINI_FOR_SITUATION = booleanPreferencesKey("use_gemini_for_situation")
         val USE_GEMINI_FOR_REVIEW = booleanPreferencesKey("use_gemini_for_review")
+        val HAS_COMPLETED_FIRST_TIME_TUTORIAL =
+            booleanPreferencesKey("has_completed_first_time_tutorial")
     }
 }

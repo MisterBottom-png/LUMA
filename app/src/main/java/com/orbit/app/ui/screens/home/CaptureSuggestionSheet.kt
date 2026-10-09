@@ -30,13 +30,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
@@ -71,6 +75,9 @@ internal fun hasNestedBrainDumpSetup(
     showReminderSetup: Boolean,
 ): Boolean = showTaskSetup || showReminderSetup
 
+internal fun brainDumpSheetAllowsHidden(decision: BrainDumpDismissalDecision): Boolean =
+    decision == BrainDumpDismissalDecision.CloseSession
+
 internal enum class CaptureDecisionAction(
     val labelRes: Int,
     val primaryLabelRes: Int,
@@ -83,23 +90,24 @@ internal enum class CaptureDecisionAction(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun CaptureSuggestionSheet(
+internal fun CaptureSuggestionSheet(
     suggestion: CaptureSuggestion,
     timeFormat: OrbitTimeFormat,
-    brainDumpHandledItemIds: Set<String>,
+    brainDumpInteraction: BrainDumpInteractionState?,
+    brainDumpCallbacks: BrainDumpCallbacks?,
     isPerformingAction: Boolean,
-    onSaveNote: (title: String, spaceId: Long?) -> Unit,
-    onCreateTask: (title: String, dueAt: Long?, spaceId: Long?) -> Unit,
-    onCreateReminder: (title: String, dueAt: Long, spaceId: Long?, linkedTaskId: Long?) -> Unit,
-    onSaveBrainDumpItem: (BrainDumpSuggestion, String, SuggestedItemType, Long?, Long?) -> Unit,
-    onSaveBrainDumpReminder: (BrainDumpSuggestion, String, Long, Long?) -> Unit,
-    onSaveBrainDumpOriginalForLater: (BrainDumpSuggestion) -> Unit,
-    onSkipBrainDumpItem: (BrainDumpSuggestion) -> Unit,
+    onSaveNote: (title: String, spaceId: Long?, labelNames: List<String>) -> Unit,
+    onCreateTask: (title: String, dueAt: Long?, spaceId: Long?, labelNames: List<String>) -> Unit,
+    onCreateReminder: (title: String, dueAt: Long, spaceId: Long?, linkedTaskId: Long?, labelNames: List<String>) -> Unit,
     onKeepInInbox: () -> Unit,
-    onCancelBrainDump: () -> Unit,
     onCancel: () -> Unit,
+    onDiscardBrainDumpDraftChanges: () -> Unit,
 ) {
     val analysis = suggestion.analysis
+    val isBrainDump = analysis.brainDumpItems.isNotEmpty()
+    if (isBrainDump && brainDumpInteraction == null) return
+    val brainDumpState = brainDumpInteraction
+    val callbacks = brainDumpCallbacks
     val calendarDateContext = suggestion.calendarDateContextEpochDay?.let {
         runCatching { LocalDate.ofEpochDay(it) }.getOrNull()
     }
@@ -111,6 +119,9 @@ fun CaptureSuggestionSheet(
     }
     var selectedSpaceId by rememberSaveable(suggestion.captureId) {
         mutableStateOf(suggestion.suggestedSpaceId)
+    }
+    var selectedLabels by rememberSaveable(suggestion.captureId) {
+        mutableStateOf(suggestion.analysis.suggestedLabels)
     }
     val noteTitle = analysis.suggestedTitle.ifBlank { analysis.rawText }
     var taskTitle by rememberSaveable(suggestion.captureId) {
@@ -135,16 +146,66 @@ fun CaptureSuggestionSheet(
     var reminderAt by rememberSaveable(suggestion.captureId) {
         mutableStateOf(analysis.suggestedReminderAt)
     }
+    var showDiscardEditsConfirmation by rememberSaveable(suggestion.captureId) {
+        mutableStateOf(false)
+    }
+    val scrollState = rememberScrollState()
     val confirmAction: (() -> Unit) -> Unit = { action -> action() }
     val selectedAction = CaptureDecisionAction.valueOf(selectedActionName)
+    val currentIsBrainDump by rememberUpdatedState(isBrainDump)
+    val currentBrainDumpDismissalDecision by rememberUpdatedState(
+        brainDumpState?.let { state ->
+            brainDumpDismissalDecision(
+                stage = state.stage,
+                initialDraft = state.initialDraft,
+                draft = state.draft,
+                actionInProgress = state.actionInProgress,
+            )
+        },
+    )
+    val currentBrainDumpCallbacks by rememberUpdatedState(callbacks)
+    val onBrainDumpDismissRequested: () -> Unit = remember {
+        {
+            when (currentBrainDumpDismissalDecision) {
+                BrainDumpDismissalDecision.CloseSession -> currentBrainDumpCallbacks?.onFinishLater?.invoke()
+                BrainDumpDismissalDecision.StepBack -> currentBrainDumpCallbacks?.onStepBack?.invoke()
+                BrainDumpDismissalDecision.ConfirmDiscard -> showDiscardEditsConfirmation = true
+                BrainDumpDismissalDecision.Blocked, null -> Unit
+            }
+        }
+    }
+    val brainDumpSheetState = rememberModalBottomSheetState(
+        confirmValueChange = { target ->
+            if (!currentIsBrainDump || target != SheetValue.Hidden) {
+                true
+            } else if (brainDumpSheetAllowsHidden(requireNotNull(currentBrainDumpDismissalDecision))) {
+                true
+            } else {
+                onBrainDumpDismissRequested()
+                false
+            }
+        },
+    )
 
-    BackHandler(enabled = hasNestedCaptureSetup(actionSetup)) {
+    LaunchedEffect(brainDumpState?.itemId) {
+        if (brainDumpState?.itemId != null) {
+            scrollState.scrollTo(0)
+        }
+    }
+
+    BackHandler(enabled = isBrainDump) {
+        onBrainDumpDismissRequested()
+    }
+    BackHandler(enabled = !isBrainDump && hasNestedCaptureSetup(actionSetup)) {
         actionSetup = null
     }
 
     LumaModalBottomSheet(
+        sheetState = brainDumpSheetState,
         onDismissRequest = {
-            if (!isPerformingAction) {
+            if (isBrainDump) {
+                onBrainDumpDismissRequested()
+            } else if (!isPerformingAction) {
                 if (hasNestedCaptureSetup(actionSetup)) {
                     actionSetup = null
                 } else {
@@ -161,7 +222,7 @@ fun CaptureSuggestionSheet(
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .imePadding()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(horizontal = 24.dp)
                     .padding(top = 20.dp),
             ) {
@@ -183,7 +244,7 @@ fun CaptureSuggestionSheet(
                         onDueAtChanged = { taskDueAt = it },
                         onConfirm = {
                             confirmAction {
-                                onCreateTask(taskTitle, taskDueAt, selectedSpaceId)
+                                onCreateTask(taskTitle, taskDueAt, selectedSpaceId, selectedLabels)
                             }
                         },
                         onBack = { actionSetup = null },
@@ -200,41 +261,19 @@ fun CaptureSuggestionSheet(
                         onConfirm = {
                             confirmAction {
                                 reminderAt?.let { dueAt ->
-                                    onCreateReminder(reminderTitle, dueAt, selectedSpaceId, null)
+                                    onCreateReminder(reminderTitle, dueAt, selectedSpaceId, null, selectedLabels)
                                 }
                             }
                         },
                         onBack = { actionSetup = null },
                     )
 
-                    null -> if (analysis.brainDumpItems.isNotEmpty()) {
-                        BrainDumpReview(
+                    null -> if (isBrainDump) {
+                        BrainDumpSuggestionContent(
                             suggestion = suggestion,
+                            state = requireNotNull(brainDumpState),
                             timeFormat = timeFormat,
-                            handledItemIds = brainDumpHandledItemIds,
-                            isPerformingAction = isPerformingAction,
-                            onSaveItem = { item, title, type, dueAt, spaceId ->
-                                confirmAction {
-                                    onSaveBrainDumpItem(item, title, type, dueAt, spaceId)
-                                }
-                            },
-                            onSaveReminder = { item, title, dueAt, spaceId ->
-                                confirmAction {
-                                    onSaveBrainDumpReminder(item, title, dueAt, spaceId)
-                                }
-                            },
-                            onSaveOriginalForLater = { item ->
-                                confirmAction {
-                                    onSaveBrainDumpOriginalForLater(item)
-                                }
-                            },
-                            onSkipItem = { item ->
-                                confirmAction {
-                                    onSkipBrainDumpItem(item)
-                                }
-                            },
-                            onFinishLater = onCancel,
-                            onCancel = onCancelBrainDump,
+                            callbacks = requireNotNull(callbacks),
                         )
                     } else {
                         SuggestedActions(
@@ -242,11 +281,13 @@ fun CaptureSuggestionSheet(
                             isPerformingAction = isPerformingAction,
                             selectedAction = selectedAction,
                             selectedSpaceId = selectedSpaceId,
+                            selectedLabels = selectedLabels,
                             onActionSelected = { selectedActionName = it.name },
                             onSpaceSelected = { selectedSpaceId = it },
+                            onRemoveLabel = { name -> selectedLabels = selectedLabels - name },
                             onSaveNote = {
                                 confirmAction {
-                                    onSaveNote(noteTitle, selectedSpaceId)
+                                    onSaveNote(noteTitle, selectedSpaceId, selectedLabels)
                                 }
                             },
                             onCreateTask = {
@@ -266,6 +307,32 @@ fun CaptureSuggestionSheet(
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
+    }
+
+    if (showDiscardEditsConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDiscardEditsConfirmation = false },
+            title = { Text(stringResource(R.string.core_brain_dump_discard_edits_title)) },
+            text = { Text(stringResource(R.string.core_brain_dump_discard_edits_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardEditsConfirmation = false
+                        onDiscardBrainDumpDraftChanges()
+                    },
+                ) {
+                    Text(
+                        text = stringResource(R.string.core_brain_dump_discard_edits),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardEditsConfirmation = false }) {
+                    Text(stringResource(R.string.core_cancel))
+                }
+            },
+        )
     }
 }
 
@@ -648,8 +715,10 @@ private fun SuggestedActions(
     isPerformingAction: Boolean,
     selectedAction: CaptureDecisionAction,
     selectedSpaceId: Long?,
+    selectedLabels: List<String>,
     onActionSelected: (CaptureDecisionAction) -> Unit,
     onSpaceSelected: (Long?) -> Unit,
+    onRemoveLabel: (String) -> Unit,
     onSaveNote: () -> Unit,
     onCreateTask: () -> Unit,
     onCreateReminder: () -> Unit,
@@ -719,6 +788,18 @@ private fun SuggestedActions(
             }
             .take(3)
             .forEach { chip -> SuggestionChip(chip) }
+    }
+    if (selectedLabels.isNotEmpty()) {
+        FlowRow(
+            modifier = Modifier.padding(top = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            selectedLabels.forEach { label ->
+                TextButton(onClick = { onRemoveLabel(label) }, enabled = !isPerformingAction) {
+                    Text("$label ×")
+                }
+            }
+        }
     }
 
     TextButton(

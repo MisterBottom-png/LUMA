@@ -38,9 +38,10 @@
     <string name="core_home_show_next_week">Show next week</string>
     <string name="core_home_week_number">Week %1$d</string>
     <string name="core_home_save_and_analyze">Save and analyze capture</string>
-    <string name="core_home_analyzing_capture">Analyzing capture</string>
+    <string name="core_home_saving_capture">Saving privately</string>
+    <string name="core_home_analyzing_capture">Preparing a suggestion</string>
     <string name="core_home_capture_input">Capture text</string>
-    <string name="core_home_capture_placeholder">Type anything…</string>
+    <string name="core_home_capture_placeholder">What’s on your mind?</string>
 
     <!-- Calendar -->
     <string name="core_calendar_title">Calendar</string>
@@ -73,8 +74,11 @@
     <string name="core_search_title">Search</string>
     <string name="core_search_local_data">Search local data</string>
     <string name="core_search_include_archived">Include archived</string>
+    <string name="core_search_start_typing">Type to search your local items.</string>
     <string name="core_search_minimum_query">Type at least two characters.</string>
     <string name="core_search_empty">Nothing found here yet.</string>
+    <string name="core_search_empty_recovery">Try a different word or clear the search.</string>
+    <string name="core_search_clear_query">Clear search</string>
     <string name="core_source_row_accessibility">%1$s: %2$s. Open</string>
     <string name="core_source_row_accessibility_with_date">%1$s: %2$s, %3$s. Open</string>
     <string name="core_open_item_type">Open %1$s</string>
@@ -157,6 +161,10 @@
     <string name="core_review_archive_task">Archive task</string>
     <string name="core_review_archive_source">Archive source</string>
     <string name="core_review_make_smaller">Make smaller</string>
+    <string name="core_review_more_actions">More actions</string>
+    <string name="core_review_task_completed">Task completed</string>
+    <string name="core_review_task_deferred">Task deferred to Someday</string>
+    <string name="core_review_task_archived">Task archived</string>
     <string name="core_review_suggested_by_gemini">Suggested by Gemini</string>
     <string name="core_review_local_suggestion">Local suggestion</string>
     <string name="core_review_local_fallback">Local fallback</string>

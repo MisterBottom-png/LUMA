@@ -75,6 +75,13 @@ Do not run the whole checklist for tiny visual fixes. Use the affected sections.
 - Gemini output is accepted only when it covers every immutable source fragment exactly once; malformed, missing, duplicate, or unknown source identifiers fall back locally.
 - Pending progress survives sheet dismissal, navigation, process recreation, and export/restore.
 - Each Brain Dump item can be saved, kept in Inbox, or skipped at most once, and a failed database write leaves it pending.
+- The default Brain Dump card visibly confirms type, Space, and applicable timing.
+- Keep in Inbox, Skip, and Discard remaining remain behind More; only Discard remaining requires destructive confirmation.
+- Skip advances immediately, offers Undo, and commits at most once on expiry, next action, or close.
+- Root dismissal saves progress; nested dismissal steps back and confirms before discarding modified fields.
+- Each new item resets scroll and accessibility focus to `Suggestion N of M`.
+- Intermediate success, warning, failure, Retry, and Undo remain visible inside the modal.
+- Completion shows saved, Inbox, and skipped counts without exposing raw source text.
 - Note, task, and reminder actions preserve the selected type, Space, calendar context, and interpreted reminder time.
 - Review and Capture details offer Resume Brain Dump while pending work exists; dismiss and archive remove that pending work without creating finalized items.
 - Long lists and task/reminder setup remain reachable above navigation bars and the IME.

@@ -14,6 +14,7 @@ import com.orbit.app.data.repository.CaptureRepository
 import com.orbit.app.data.repository.CalendarRepository
 import com.orbit.app.data.repository.DataStoreAppSettingsRepository
 import com.orbit.app.data.repository.LearnedRuleRepository
+import com.orbit.app.data.repository.LabelRepository
 import com.orbit.app.data.repository.NoteRepository
 import com.orbit.app.data.repository.PersonMemoryRepository
 import com.orbit.app.data.repository.ProjectMemoryRepository
@@ -24,6 +25,7 @@ import com.orbit.app.data.repository.RoomBrainDumpRepository
 import com.orbit.app.data.repository.RoomCaptureRepository
 import com.orbit.app.data.repository.RoomCalendarRepository
 import com.orbit.app.data.repository.RoomLearnedRuleRepository
+import com.orbit.app.data.repository.RoomLabelRepository
 import com.orbit.app.data.repository.RoomNoteRepository
 import com.orbit.app.data.repository.RoomPersonMemoryRepository
 import com.orbit.app.data.repository.RoomProjectMemoryRepository
@@ -42,6 +44,7 @@ import com.orbit.app.domain.analyzer.LocalRulesSituationAnalyzer
 import com.orbit.app.domain.analyzer.SituationAnalyzer
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
 import com.orbit.app.domain.usecase.BrainDumpActions
+import com.orbit.app.domain.usecase.RoomCaptureFinalizationTransaction
 import com.orbit.app.domain.usecase.RecordAiLearningEventUseCase
 import com.orbit.app.domain.usecase.ProposeLearnedRuleUseCase
 import com.orbit.app.integrations.gemini.GeminiApiClient
@@ -52,30 +55,16 @@ import com.orbit.app.reminders.WorkManagerReminderScheduler
 import com.orbit.app.security.AndroidKeystoreGeminiApiKeyStore
 import com.orbit.app.security.GeminiApiKeyStore
 import com.orbit.app.ui.localization.effectiveAppLocale
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
 class OrbitApplication : Application() {
     lateinit var container: OrbitContainer
         private set
 
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     override fun onCreate() {
         super.onCreate()
         ReminderNotifications.createChannel(this)
         container = OrbitContainer(this)
-        applicationScope.launch {
-            // Opening Room triggers its onCreate callback exactly once for a new database.
-            container.spaceRepository.getById(StarterSpaceId)
-        }
-    }
-
-    private companion object {
-        const val StarterSpaceId = 1L
     }
 }
 
@@ -92,6 +81,9 @@ class OrbitContainer(application: Application) {
     }
     val spaceRepository: SpaceRepository by lazy {
         RoomSpaceRepository(database.spaceDao())
+    }
+    val labelRepository: LabelRepository by lazy {
+        RoomLabelRepository(database.labelDao())
     }
     val noteRepository: NoteRepository by lazy {
         RoomNoteRepository(database.noteDao())
@@ -175,6 +167,8 @@ class OrbitContainer(application: Application) {
             noteRepository = noteRepository,
             taskRepository = taskRepository,
             reminderRepository = reminderRepository,
+            transaction = RoomCaptureFinalizationTransaction(database),
+            labelRepository = labelRepository,
         )
     }
     val brainDumpActions: BrainDumpActions by lazy {
@@ -196,20 +190,18 @@ class OrbitContainer(application: Application) {
             isLearningEnabled = { appSettingsRepository.settings.first().enableLocalAiLearning },
         )
     }
+    private val localDataStore: RoomLocalDataRestoreStore by lazy {
+        RoomLocalDataRestoreStore(database)
+    }
     val localDataExporter: LocalDataExporter by lazy {
         LocalDataExporter(
             context = application,
-            captureRepository = captureRepository,
-            noteRepository = noteRepository,
-            taskRepository = taskRepository,
-            reminderRepository = reminderRepository,
-            spaceRepository = spaceRepository,
-            brainDumpRepository = brainDumpRepository,
+            snapshotReader = localDataStore,
         )
     }
     val localDataRestorer: LocalDataRestorer by lazy {
         LocalDataRestorer(
-            store = RoomLocalDataRestoreStore(database),
+            store = localDataStore,
             reminderReconciler = LocalReminderRestoreReconciler(
                 scheduler = reminderScheduler,
                 reminderDao = database.reminderDao(),

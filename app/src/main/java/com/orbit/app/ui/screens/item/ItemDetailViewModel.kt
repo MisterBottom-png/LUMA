@@ -16,6 +16,7 @@ import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.domain.ai.AiRouteSource
 import com.orbit.app.domain.analyzer.TinyActionSuggestion
+import com.orbit.app.integrations.gemini.GeminiApiErrorKind
 import com.orbit.app.ui.navigation.ItemDetailType
 import com.orbit.app.ui.localization.effectiveAppLocale
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -417,7 +418,7 @@ class ItemDetailViewModel(
                     sourceLabel = tinyActionLabel(routedAction.metadata.source),
                     ),
                     message = if (routedAction.metadata.source == com.orbit.app.domain.ai.AiRouteSource.GeminiFailedLocalUsed) {
-                        routedAction.metadata.error?.userMessage
+                        routedAction.metadata.error?.kind?.let(::geminiFallbackMessage)
                     } else {
                         null
                     },
@@ -700,6 +701,20 @@ class ItemDetailViewModel(
             AiRouteSource.Gemini -> R.string.core_item_detail_ai_gemini
             AiRouteSource.Local -> R.string.core_item_detail_ai_local
             AiRouteSource.GeminiFailedLocalUsed -> R.string.core_item_detail_ai_local_fallback
+        },
+    )
+
+    private fun geminiFallbackMessage(kind: GeminiApiErrorKind): String = localized(
+        when (kind) {
+            GeminiApiErrorKind.MissingKey -> R.string.settings_gemini_error_missing_key
+            GeminiApiErrorKind.BadKey -> R.string.settings_gemini_error_bad_key
+            GeminiApiErrorKind.RateLimited -> R.string.settings_gemini_error_rate_limited
+            GeminiApiErrorKind.Timeout -> R.string.settings_gemini_error_timeout
+            GeminiApiErrorKind.NoInternet -> R.string.settings_gemini_error_no_internet
+            GeminiApiErrorKind.InvalidResponse -> R.string.settings_gemini_error_invalid_response
+            GeminiApiErrorKind.SafetyBlocked -> R.string.settings_gemini_error_safety_blocked
+            GeminiApiErrorKind.Server -> R.string.settings_gemini_error_server
+            GeminiApiErrorKind.Unknown -> R.string.settings_gemini_error_unknown
         },
     )
 

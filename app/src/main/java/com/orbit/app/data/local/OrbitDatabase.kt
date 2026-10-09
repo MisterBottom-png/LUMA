@@ -11,6 +11,7 @@ import com.orbit.app.data.local.dao.AiCorrectionHistoryDao
 import com.orbit.app.data.local.dao.AiSuggestionHistoryDao
 import com.orbit.app.data.local.dao.BrainDumpDao
 import com.orbit.app.data.local.dao.CaptureDao
+import com.orbit.app.data.local.dao.LabelDao
 import com.orbit.app.data.local.dao.LearnedRuleDao
 import com.orbit.app.data.local.dao.NoteDao
 import com.orbit.app.data.local.dao.PersonMemoryDao
@@ -24,14 +25,18 @@ import com.orbit.app.data.local.entity.AiSuggestionHistoryEntity
 import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.PersonMemoryEntity
 import com.orbit.app.data.local.entity.ProjectMemoryEntity
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.SpaceAliasMemoryEntity
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 
 @Database(
     entities = [
@@ -48,8 +53,12 @@ import com.orbit.app.data.local.entity.TaskEntity
         SpaceAliasMemoryEntity::class,
         BrainDumpSessionEntity::class,
         BrainDumpItemEntity::class,
+        LabelEntity::class,
+        NoteLabelCrossRef::class,
+        TaskLabelCrossRef::class,
+        ReminderLabelCrossRef::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(OrbitTypeConverters::class)
@@ -66,6 +75,7 @@ abstract class OrbitDatabase : RoomDatabase() {
     abstract fun projectMemoryDao(): ProjectMemoryDao
     abstract fun spaceAliasMemoryDao(): SpaceAliasMemoryDao
     abstract fun brainDumpDao(): BrainDumpDao
+    abstract fun labelDao(): LabelDao
 
     companion object {
         private const val DATABASE_NAME = "orbit.db"
@@ -318,6 +328,71 @@ abstract class OrbitDatabase : RoomDatabase() {
             }
         }
 
+        val Migration5To6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `labels` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `normalizedName` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_labels_normalizedName` " +
+                        "ON `labels` (`normalizedName`)",
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `note_labels` (
+                        `noteId` INTEGER NOT NULL,
+                        `labelId` INTEGER NOT NULL,
+                        PRIMARY KEY(`noteId`, `labelId`),
+                        FOREIGN KEY(`noteId`) REFERENCES `notes`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`labelId`) REFERENCES `labels`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_note_labels_labelId` " +
+                        "ON `note_labels` (`labelId`)",
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `task_labels` (
+                        `taskId` INTEGER NOT NULL,
+                        `labelId` INTEGER NOT NULL,
+                        PRIMARY KEY(`taskId`, `labelId`),
+                        FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`labelId`) REFERENCES `labels`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_task_labels_labelId` " +
+                        "ON `task_labels` (`labelId`)",
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `reminder_labels` (
+                        `reminderId` INTEGER NOT NULL,
+                        `labelId` INTEGER NOT NULL,
+                        PRIMARY KEY(`reminderId`, `labelId`),
+                        FOREIGN KEY(`reminderId`) REFERENCES `reminders`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`labelId`) REFERENCES `labels`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_reminder_labels_labelId` " +
+                        "ON `reminder_labels` (`labelId`)",
+                )
+            }
+        }
+
         @Volatile
         private var instance: OrbitDatabase? = null
 
@@ -327,35 +402,15 @@ abstract class OrbitDatabase : RoomDatabase() {
                 OrbitDatabase::class.java,
                 DATABASE_NAME,
             )
-                .addMigrations(Migration1To2, Migration2To3, Migration3To4, Migration4To5)
-                .addCallback(SeedStarterSpacesCallback)
+                .addMigrations(
+                    Migration1To2,
+                    Migration2To3,
+                    Migration3To4,
+                    Migration4To5,
+                    Migration5To6,
+                )
                 .build()
                 .also { instance = it }
-        }
-
-        private object SeedStarterSpacesCallback : Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                super.onCreate(db)
-                val now = System.currentTimeMillis()
-                StarterSpaces.entities(now).forEach { space ->
-                    db.execSQL(
-                        """
-                        INSERT INTO spaces
-                        (id, name, icon, colorAccent, sortOrder, hidden, archived, createdAt, updatedAt)
-                        VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)
-                        """.trimIndent(),
-                        arrayOf<Any?>(
-                            space.id,
-                            space.name,
-                            space.icon,
-                            space.colorAccent,
-                            space.sortOrder,
-                            space.createdAt,
-                            space.updatedAt,
-                        ),
-                    )
-                }
-            }
         }
     }
 }

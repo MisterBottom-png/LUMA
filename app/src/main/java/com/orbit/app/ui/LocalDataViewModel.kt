@@ -11,6 +11,7 @@ import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.domain.model.AppSettings
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -25,8 +26,8 @@ class LocalDataViewModel(private val container: OrbitContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val reminders = container.reminderRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val settings = container.appSettingsRepository.settings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+    val settings: StateFlow<AppSettings?> = container.appSettingsRepository.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun insertCapture(entity: CaptureEntity) = viewModelScope.launch {
         container.captureRepository.insert(entity)

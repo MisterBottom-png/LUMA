@@ -2,53 +2,34 @@ package com.orbit.app.data.local
 
 import com.orbit.app.data.local.entity.SpaceEntity
 
+data class StarterSpaceTemplate(
+    val key: String,
+    val storedName: String,
+    val icon: String,
+    val colorAccent: String,
+)
+
 object StarterSpaces {
-    val names: List<String> = listOf(
-        "Work",
-        "Personal",
-        "Car",
-        "Dog",
-        "Money",
-        "Ideas",
-        "Home",
-        "Health",
-        "Learning",
+    val templates: List<StarterSpaceTemplate> = listOf(
+        StarterSpaceTemplate("personal", "Personal", "person", "#B270D6"),
+        StarterSpaceTemplate("work", "Work", "work", "#6D7CFF"),
+        StarterSpaceTemplate("home", "Home", "home", "#D7798D"),
+        StarterSpaceTemplate("health", "Health", "favorite", "#59A6A6"),
+        StarterSpaceTemplate("money", "Money", "payments", "#62A77A"),
+        StarterSpaceTemplate("learning", "Learning", "school", "#7B8CB8"),
     )
 
-    fun entities(createdAt: Long = System.currentTimeMillis()): List<SpaceEntity> =
-        names.mapIndexed { index, name ->
-            SpaceEntity(
-                id = (index + 1).toLong(),
-                name = name,
-                icon = iconFor(name),
-                colorAccent = accentFor(index),
-                sortOrder = index,
-                createdAt = createdAt,
-                updatedAt = createdAt,
-            )
-        }
-
-    private fun iconFor(name: String): String = when (name) {
-        "Work" -> "work"
-        "Personal" -> "person"
-        "Car" -> "directions_car"
-        "Dog" -> "pets"
-        "Money" -> "payments"
-        "Ideas" -> "lightbulb"
-        "Home" -> "home"
-        "Health" -> "favorite"
-        else -> "school"
-    }
-
-    private fun accentFor(index: Int): String = listOf(
-        "#6D7CFF",
-        "#B270D6",
-        "#4E91D8",
-        "#D58B62",
-        "#62A77A",
-        "#B38BDB",
-        "#D7798D",
-        "#59A6A6",
-        "#7B8CB8",
-    )[index]
+    fun spaceFor(
+        template: StarterSpaceTemplate,
+        name: String = template.storedName,
+        sortOrder: Int,
+        now: Long = System.currentTimeMillis(),
+    ): SpaceEntity = SpaceEntity(
+        name = name,
+        icon = template.icon,
+        colorAccent = template.colorAccent,
+        sortOrder = sortOrder,
+        createdAt = now,
+        updatedAt = now,
+    )
 }

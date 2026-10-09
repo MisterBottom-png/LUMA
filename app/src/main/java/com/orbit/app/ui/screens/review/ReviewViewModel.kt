@@ -109,6 +109,7 @@ data class ReviewUiState(
     val someday: List<ReviewItem> = emptyList(),
     val smallerAction: ReviewSuggestion? = null,
     val weeklySummary: SourceLinkedAnswer? = null,
+    val pendingTaskUndo: ReviewTaskUndoToken? = null,
     val staleLoopDays: Int = LocalReviewAnalyzer.DefaultStaleLoopDays,
 )
 
@@ -136,9 +137,13 @@ class ReviewViewModel internal constructor(
         ),
         brainDumpActions = container.brainDumpActions,
     ),
+    private val taskUndoController: ReviewTaskUndoController = ReviewTaskUndoController(
+        container.taskRepository,
+    ),
 ) : ViewModel() {
     private val smallerAction = MutableStateFlow<ReviewSuggestion?>(null)
     private val weeklySummary = MutableStateFlow<SourceLinkedAnswer?>(null)
+    private val pendingTaskUndo = MutableStateFlow<ReviewTaskUndoToken?>(null)
     private var weeklyDataVersion = 0L
 
     private val corpus = combine(
@@ -182,8 +187,13 @@ class ReviewViewModel internal constructor(
         }
     }
 
-    val uiState = combine(reviewData, smallerAction, weeklySummary) { data, smallAction, summary ->
-        buildUiState(data, smallAction, summary)
+    val uiState = combine(
+        reviewData,
+        smallerAction,
+        weeklySummary,
+        pendingTaskUndo,
+    ) { data, smallAction, summary, taskUndo ->
+        buildUiState(data, smallAction, summary, taskUndo)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -194,11 +204,17 @@ class ReviewViewModel internal constructor(
 
     fun confirmCapture(loop: ReviewLoop) = updateLoop(loop, actions::confirmCapture)
 
-    fun archive(loop: ReviewLoop) = updateLoop(loop, actions::archive)
+    fun archive(loop: ReviewLoop) {
+        if (loop.type == ReviewLoopType.Task) {
+            updateUndoableTask(loop, actions::archive)
+        } else {
+            updateLoop(loop, actions::archive)
+        }
+    }
 
-    fun completeTask(loop: ReviewLoop) = updateLoop(loop, actions::completeTask)
+    fun completeTask(loop: ReviewLoop) = updateUndoableTask(loop, actions::completeTask)
 
-    fun deferTask(loop: ReviewLoop) = updateLoop(loop, actions::deferTask)
+    fun deferTask(loop: ReviewLoop) = updateUndoableTask(loop, actions::deferTask)
 
     fun carryForwardTomorrow(item: ReviewItem) = updateItem(item, actions::carryForwardTomorrow)
 
@@ -237,9 +253,38 @@ class ReviewViewModel internal constructor(
         }
     }
 
+    fun undoTaskMutation(operationId: Long) {
+        viewModelScope.launch {
+            if (pendingTaskUndo.value?.operationId != operationId) return@launch
+            taskUndoController.undo(operationId)
+            if (pendingTaskUndo.value?.operationId == operationId) {
+                pendingTaskUndo.value = null
+            }
+        }
+    }
+
+    fun expireTaskUndo(operationId: Long) {
+        if (pendingTaskUndo.value?.operationId == operationId) {
+            taskUndoController.expire(operationId)
+            pendingTaskUndo.value = null
+        }
+    }
+
     private fun updateLoop(loop: ReviewLoop, update: suspend (ReviewLoop) -> Unit) {
         viewModelScope.launch {
             update(loop)
+            if (smallerAction.value?.sourceKey == loop.key) smallerAction.value = null
+        }
+    }
+
+    private fun updateUndoableTask(
+        loop: ReviewLoop,
+        update: suspend (ReviewLoop) -> ReviewTaskMutation?,
+    ) {
+        viewModelScope.launch {
+            update(loop)?.let { mutation ->
+                pendingTaskUndo.value = taskUndoController.record(mutation)
+            }
             if (smallerAction.value?.sourceKey == loop.key) smallerAction.value = null
         }
     }
@@ -252,6 +297,7 @@ class ReviewViewModel internal constructor(
         data: ReviewData,
         smallAction: ReviewSuggestion?,
         summary: SourceLinkedAnswer?,
+        taskUndo: ReviewTaskUndoToken?,
         now: Long = System.currentTimeMillis(),
     ): ReviewUiState {
         val zone = ZoneId.systemDefault()
@@ -363,6 +409,7 @@ class ReviewViewModel internal constructor(
                 .map { it.asReviewItem() },
             smallerAction = smallAction,
             weeklySummary = summary,
+            pendingTaskUndo = taskUndo,
             staleLoopDays = data.settings.staleLoopDays,
         )
     }
@@ -483,6 +530,18 @@ internal fun isUnresolvedReviewCapture(capture: CaptureEntity): Boolean =
 
 internal fun CaptureEntity.reviewReason(): ReviewReason = ReviewReason.UnfinalizedCapture
 
+enum class ReviewTaskMutationAction {
+    Completed,
+    Deferred,
+    Archived,
+}
+
+internal data class ReviewTaskMutation(
+    val action: ReviewTaskMutationAction,
+    val original: TaskEntity,
+    val updated: TaskEntity,
+)
+
 internal class ReviewActions(
     private val captureRepository: CaptureRepository,
     private val taskRepository: TaskRepository,
@@ -520,29 +579,46 @@ internal class ReviewActions(
         }
     }
 
-    suspend fun archive(loop: ReviewLoop) {
-        when (loop.type) {
-            ReviewLoopType.Task -> taskRepository.getById(loop.id)?.let {
-                taskRepository.update(
-                    it.copy(status = TaskStatus.Archived, updatedAt = now()),
-                )
-            }
+    suspend fun archive(loop: ReviewLoop): ReviewTaskMutation? = when (loop.type) {
+        ReviewLoopType.Task -> taskRepository.getById(loop.id)?.let { task ->
+            val updated = task.copy(status = TaskStatus.Archived, updatedAt = now())
+            taskRepository.update(updated)
+            ReviewTaskMutation(
+                action = ReviewTaskMutationAction.Archived,
+                original = task,
+                updated = updated,
+            )
+        }
 
-            ReviewLoopType.Capture -> captureRepository.getById(loop.id)?.let {
+        ReviewLoopType.Capture -> {
+            captureRepository.getById(loop.id)?.let { capture ->
                 if (brainDumpActions != null) {
                     brainDumpActions.dismissCapture(loop.id, archive = true)
                 } else {
                     captureRepository.update(
-                        it.copy(status = CaptureStatus.Archived, updatedAt = now()),
+                        capture.copy(status = CaptureStatus.Archived, updatedAt = now()),
                     )
                 }
             }
+            null
         }
     }
 
-    suspend fun completeTask(loop: ReviewLoop) {
+    suspend fun completeTask(loop: ReviewLoop): ReviewTaskMutation? {
         require(loop.type == ReviewLoopType.Task)
-        completeTask(loop.id)
+        val task = taskRepository.getById(loop.id) ?: return null
+        val completedAt = now()
+        val updated = task.copy(
+            status = TaskStatus.Done,
+            updatedAt = completedAt,
+            completedAt = completedAt,
+        )
+        taskRepository.update(updated)
+        return ReviewTaskMutation(
+            action = ReviewTaskMutationAction.Completed,
+            original = task,
+            updated = updated,
+        )
     }
 
     suspend fun carryForwardTomorrow(item: ReviewItem) {
@@ -596,13 +672,16 @@ internal class ReviewActions(
         }
     }
 
-    suspend fun deferTask(loop: ReviewLoop) {
+    suspend fun deferTask(loop: ReviewLoop): ReviewTaskMutation? {
         require(loop.type == ReviewLoopType.Task)
-        taskRepository.getById(loop.id)?.let {
-            taskRepository.update(
-                it.copy(status = TaskStatus.Someday, updatedAt = now(), completedAt = null),
-            )
-        }
+        val task = taskRepository.getById(loop.id) ?: return null
+        val updated = task.copy(status = TaskStatus.Someday, updatedAt = now(), completedAt = null)
+        taskRepository.update(updated)
+        return ReviewTaskMutation(
+            action = ReviewTaskMutationAction.Deferred,
+            original = task,
+            updated = updated,
+        )
     }
 
     suspend fun dismissCapture(loop: ReviewLoop) {

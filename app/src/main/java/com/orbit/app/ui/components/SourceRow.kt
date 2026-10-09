@@ -68,6 +68,7 @@ fun SourceRow(
     }
     val openLabel = stringResource(R.string.core_open_item_type, typeLabel)
     val interactionSource = remember { MutableInteractionSource() }
+    val shape = MaterialTheme.shapes.large
 
     Surface(
         modifier = modifier
@@ -75,7 +76,10 @@ fun SourceRow(
             .semantics(mergeDescendants = true) {
                 contentDescription = accessibilityText
             }
-            .orbitPressFeedback(interactionSource)
+            .orbitPressFeedback(
+                interactionSource = interactionSource,
+                clipShape = shape,
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
@@ -83,7 +87,7 @@ fun SourceRow(
                 onClickLabel = openLabel,
                 onClick = onClick,
             ),
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {

@@ -664,7 +664,10 @@ private fun BackgroundPresetOption(
                 },
                 shape = shape,
             )
-            .orbitPressFeedback(interactionSource)
+            .orbitPressFeedback(
+                interactionSource = interactionSource,
+                clipShape = shape,
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,

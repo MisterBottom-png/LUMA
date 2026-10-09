@@ -55,26 +55,22 @@ class CalendarMonthGridTest {
 
     @Test
     fun adjacentMonthCells_crossYearBoundaryAndRemainSelectable() {
-        val selectedDate = LocalDate.of(2027, 1, 1)
         val grid = buildCalendarMonthGrid(
             visibleMonth = YearMonth.of(2026, 12),
-            selectedDate = selectedDate,
             today = today,
             datesWithItems = emptySet(),
             locale = Locale.GERMANY,
         )
-        val selectedCell = grid.weeks.flatten().single { it.isSelected }
+        val adjacentCell = grid.weeks.flatten().single { it.date == LocalDate.of(2027, 1, 1) }
 
-        assertEquals(selectedDate, selectedCell.date)
-        assertFalse(selectedCell.isInVisibleMonth)
-        assertEquals(YearMonth.of(2027, 1), YearMonth.from(selectedCell.date))
+        assertFalse(adjacentCell.isInVisibleMonth)
+        assertEquals(YearMonth.of(2027, 1), YearMonth.from(adjacentCell.date))
     }
 
     @Test
-    fun cellStates_includeTodaySelectionAndOneItemIndicator() {
+    fun cellStates_includeTodayAndOneItemIndicatorWithoutSelection() {
         val grid = buildCalendarMonthGrid(
             visibleMonth = YearMonth.from(today),
-            selectedDate = today,
             today = today,
             datesWithItems = setOf(today),
             locale = Locale.US,
@@ -85,7 +81,6 @@ class CalendarMonthGridTest {
             locale = Locale.US,
             labels = CalendarMonthCellAccessibilityLabels(
                 today = "Today",
-                selected = "selected",
                 outsideCurrentMonth = "outside current month",
                 hasScheduledItems = "has scheduled items",
                 separator = ", ",
@@ -93,20 +88,29 @@ class CalendarMonthGridTest {
         )
 
         assertTrue(cell.isToday)
-        assertTrue(cell.isSelected)
         assertTrue(cell.hasItems)
         assertTrue(description.startsWith("Today,"))
-        assertTrue(description.contains("selected"))
         assertTrue(description.contains("has scheduled items"))
     }
 
     private fun grid(month: YearMonth, locale: Locale) = buildCalendarMonthGrid(
         visibleMonth = month,
-        selectedDate = month.atDay(1),
         today = today,
         datesWithItems = emptySet(),
         locale = locale,
     )
+
+    @Test
+    fun todayIsTheOnlyPersistentPill() {
+        assertEquals(CalendarDatePillState.Today, resolveCalendarDatePillState(true, false))
+        assertEquals(CalendarDatePillState.None, resolveCalendarDatePillState(false, false))
+    }
+
+    @Test
+    fun pressingDateProducesOnlyTransientPresentationStates() {
+        assertEquals(CalendarDatePillState.Pressed, resolveCalendarDatePillState(false, true))
+        assertEquals(CalendarDatePillState.TodayPressed, resolveCalendarDatePillState(true, true))
+    }
 
     private val CalendarMonthGrid.visibleCells: List<CalendarMonthCell>
         get() = weeks.flatten().filter { it.isInVisibleMonth }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PushPin
@@ -27,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -47,6 +49,20 @@ import com.orbit.app.domain.search.LocalSearchStatus
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.navigation.ItemDetailType
 import com.orbit.app.ui.theme.OrbitMotion
+
+internal enum class SearchFeedbackState {
+    StartTyping,
+    MinimumQuery,
+    EmptyResults,
+    Results,
+}
+
+internal fun SearchUiState.feedbackState(): SearchFeedbackState = when {
+    query.isBlank() -> SearchFeedbackState.StartTyping
+    query.trim().length < 2 -> SearchFeedbackState.MinimumQuery
+    results.isEmpty() -> SearchFeedbackState.EmptyResults
+    else -> SearchFeedbackState.Results
+}
 
 @Composable
 fun SearchScreen(
@@ -115,6 +131,18 @@ internal fun SearchContent(
                 label = { Text(stringResource(R.string.core_search_local_data)) },
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = if (state.query.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { onQueryChanged("") }) {
+                            Icon(
+                                Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.core_search_clear_query),
+                            )
+                        }
+                    }
+                } else {
+                    null
+                },
             )
         }
         item {
@@ -126,16 +154,22 @@ internal fun SearchContent(
             )
         }
 
-        when {
-            state.query.trim().length < 2 -> item {
+        when (state.feedbackState()) {
+            SearchFeedbackState.StartTyping -> item {
+                CalmSearchState(stringResource(R.string.core_search_start_typing))
+            }
+
+            SearchFeedbackState.MinimumQuery -> item {
                 CalmSearchState(stringResource(R.string.core_search_minimum_query))
             }
 
-            state.results.isEmpty() -> item {
-                CalmSearchState(stringResource(R.string.core_search_empty))
+            SearchFeedbackState.EmptyResults -> item {
+                CalmSearchEmptyState(
+                    onClearSearch = { onQueryChanged("") },
+                )
             }
 
-            else -> items(state.results, key = { it.key }) { result ->
+            SearchFeedbackState.Results -> items(state.results, key = { it.key }) { result ->
                 SearchResultRow(
                     result = result,
                     onClick = { onResultSelected(result) },
@@ -217,6 +251,36 @@ private fun CalmSearchState(text: String) {
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun CalmSearchEmptyState(
+    onClearSearch: () -> Unit,
+) {
+    SoftGlassSurface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+    ) {
+        Column(modifier = Modifier.padding(22.dp)) {
+            Text(
+                text = stringResource(R.string.core_search_empty),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(R.string.core_search_empty_recovery),
+                modifier = Modifier.padding(top = 6.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(
+                onClick = onClearSearch,
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(stringResource(R.string.core_search_clear_query))
+            }
+        }
     }
 }
 

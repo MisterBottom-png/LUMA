@@ -25,6 +25,21 @@ class WorkplacePrivacyTests(unittest.TestCase):
             proc = run_checker(repo)
             self.assertEqual(proc.returncode, 0, proc.stdout)
 
+    def test_generic_ui_labels_pass_strict_resource_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            values = repo / "values"
+            values.mkdir()
+            (values / "strings.xml").write_text(
+                '<resources><string name="core_name">Name</string>'
+                '<string name="core_starter_space_personal">Personal</string>'
+                '<string name="localized_name">Nimi</string>'
+                '<string name="localized_personal">Isiklik</string></resources>\n',
+                encoding="utf-8",
+            )
+            proc = run_checker(repo)
+            self.assertEqual(proc.returncode, 0, proc.stdout)
+
     def test_private_email_is_reported_without_echo(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)

@@ -12,14 +12,18 @@ import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpItemOutcome
 import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.PersonMemoryEntity
 import com.orbit.app.data.local.entity.ProjectMemoryEntity
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.SpaceAliasMemoryEntity
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -120,6 +124,14 @@ interface SpaceDao {
     @Update
     suspend fun update(entity: SpaceEntity)
 
+    @Transaction
+    suspend fun swapSortOrder(firstId: Long, secondId: Long, updatedAt: Long) {
+        val first = getById(firstId) ?: return
+        val second = getById(secondId) ?: return
+        update(first.copy(sortOrder = second.sortOrder, updatedAt = updatedAt))
+        update(second.copy(sortOrder = first.sortOrder, updatedAt = updatedAt))
+    }
+
     @Delete
     suspend fun delete(entity: SpaceEntity)
 
@@ -128,6 +140,89 @@ interface SpaceDao {
 
     @Query("DELETE FROM spaces")
     suspend fun deleteAll()
+}
+
+@Dao
+interface LabelDao {
+    @Query("SELECT * FROM labels ORDER BY normalizedName, id")
+    fun observeAll(): Flow<List<LabelEntity>>
+
+    @Query("SELECT * FROM labels ORDER BY normalizedName, id")
+    suspend fun getAll(): List<LabelEntity>
+
+    @Query("SELECT * FROM labels WHERE normalizedName = :normalizedName LIMIT 1")
+    suspend fun getByNormalizedName(normalizedName: String): LabelEntity?
+
+    @Insert
+    suspend fun insert(entity: LabelEntity): Long
+
+    @Insert
+    suspend fun insertAll(entities: List<LabelEntity>)
+
+    @Update
+    suspend fun update(entity: LabelEntity)
+
+    @Delete
+    suspend fun delete(entity: LabelEntity)
+
+    @Query("SELECT * FROM note_labels ORDER BY noteId, labelId")
+    suspend fun getAllNoteLabels(): List<NoteLabelCrossRef>
+
+    @Query("SELECT * FROM task_labels ORDER BY taskId, labelId")
+    suspend fun getAllTaskLabels(): List<TaskLabelCrossRef>
+
+    @Query("SELECT * FROM reminder_labels ORDER BY reminderId, labelId")
+    suspend fun getAllReminderLabels(): List<ReminderLabelCrossRef>
+
+    @Insert
+    suspend fun insertNoteLabels(relations: List<NoteLabelCrossRef>)
+
+    @Insert
+    suspend fun insertTaskLabels(relations: List<TaskLabelCrossRef>)
+
+    @Insert
+    suspend fun insertReminderLabels(relations: List<ReminderLabelCrossRef>)
+
+    @Query("DELETE FROM note_labels WHERE noteId = :noteId")
+    suspend fun deleteNoteLabels(noteId: Long)
+
+    @Query("DELETE FROM task_labels WHERE taskId = :taskId")
+    suspend fun deleteTaskLabels(taskId: Long)
+
+    @Query("DELETE FROM reminder_labels WHERE reminderId = :reminderId")
+    suspend fun deleteReminderLabels(reminderId: Long)
+
+    @Query("DELETE FROM note_labels")
+    suspend fun deleteAllNoteLabels()
+
+    @Query("DELETE FROM task_labels")
+    suspend fun deleteAllTaskLabels()
+
+    @Query("DELETE FROM reminder_labels")
+    suspend fun deleteAllReminderLabels()
+
+    @Query("DELETE FROM labels")
+    suspend fun deleteAllLabels()
+
+    @Transaction
+    suspend fun replaceNoteLabels(noteId: Long, labelIds: Set<Long>) {
+        deleteNoteLabels(noteId)
+        insertNoteLabels(labelIds.sorted().map { labelId -> NoteLabelCrossRef(noteId, labelId) })
+    }
+
+    @Transaction
+    suspend fun replaceTaskLabels(taskId: Long, labelIds: Set<Long>) {
+        deleteTaskLabels(taskId)
+        insertTaskLabels(labelIds.sorted().map { labelId -> TaskLabelCrossRef(taskId, labelId) })
+    }
+
+    @Transaction
+    suspend fun replaceReminderLabels(reminderId: Long, labelIds: Set<Long>) {
+        deleteReminderLabels(reminderId)
+        insertReminderLabels(
+            labelIds.sorted().map { labelId -> ReminderLabelCrossRef(reminderId, labelId) },
+        )
+    }
 }
 
 @Dao

@@ -71,4 +71,44 @@ class SearchContentTest {
         composeRule.onNode(isHeading()).assertExists()
         composeRule.onNodeWithText("Search local data").assertIsDisplayed()
     }
+
+    @Test
+    fun blankSearchInvitesTypingInsteadOfShowingNoResults() {
+        composeRule.setContent {
+            MaterialTheme {
+                SearchContent(
+                    state = SearchUiState(),
+                    onBack = {},
+                    onQueryChanged = {},
+                    onIncludeArchivedChanged = {},
+                    onResultSelected = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Type to search your local items.").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptySearchResultsOfferAnAccessibleClearSearchRecoveryAction() {
+        var clearedQuery: String? = null
+        composeRule.setContent {
+            MaterialTheme {
+                SearchContent(
+                    state = SearchUiState(query = "missing"),
+                    onBack = {},
+                    onQueryChanged = { clearedQuery = it },
+                    onIncludeArchivedChanged = {},
+                    onResultSelected = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Nothing found here yet.").assertIsDisplayed()
+        composeRule.onNodeWithText("Clear search").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("", clearedQuery)
+        }
+    }
 }

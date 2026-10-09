@@ -39,6 +39,8 @@ import com.orbit.app.domain.calendar.CalendarEntry
 import com.orbit.app.domain.calendar.CalendarEntryId
 import com.orbit.app.domain.calendar.CalendarItemType
 import com.orbit.app.ui.components.SoftGlassSurface
+import com.orbit.app.ui.theme.CalendarDimensions
+import com.orbit.app.ui.theme.CalendarTypography
 import com.orbit.app.ui.time.OrbitTimeFormat
 import java.time.Instant
 import java.time.LocalTime
@@ -118,7 +120,6 @@ fun CalendarDayTimelineView(
                     timedGroups = timedGroups,
                     currentTime = currentTime,
                     timeFormat = timeFormat,
-                    showEmptyMessage = timedGroups.isEmpty(),
                     onEntrySelected = onEntrySelected,
                 )
             }
@@ -170,7 +171,6 @@ private fun CalendarTimelineCanvas(
     timedGroups: List<CalendarTimedGroup>,
     currentTime: CalendarDayRow.CurrentTime?,
     timeFormat: OrbitTimeFormat,
-    showEmptyMessage: Boolean,
     onEntrySelected: (CalendarEntryId) -> Unit,
 ) {
     val timedMinutes = timedGroups.map(CalendarTimedGroup::minuteOfDay)
@@ -185,7 +185,7 @@ private fun CalendarTimelineCanvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset(y = y),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(CalendarDimensions.TimelineGridGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (
@@ -201,13 +201,13 @@ private fun CalendarTimelineCanvas(
                         } else {
                             timeFormat.formatEndOfDay()
                         },
-                        modifier = Modifier.width(TimelineTimeWidth),
-                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.width(CalendarDimensions.TimelineTimeColumnWidth),
+                        style = CalendarTypography.timelineHour,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
                         maxLines = 1,
                     )
                 } else {
-                    Box(modifier = Modifier.width(TimelineTimeWidth))
+                    Box(modifier = Modifier.width(CalendarDimensions.TimelineTimeColumnWidth))
                 }
                 Box(
                     modifier = Modifier
@@ -223,20 +223,20 @@ private fun CalendarTimelineCanvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset(y = y),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(CalendarDimensions.TimelineGridGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (shouldShowCurrentTimeLabel(current.minuteOfDay, timedMinutes)) {
                     Text(
                         text = timeFormat.formatTime(current.instant.toEpochMilli()),
-                        modifier = Modifier.width(TimelineTimeWidth),
-                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.width(CalendarDimensions.TimelineTimeColumnWidth),
+                        style = CalendarTypography.timelineHour,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
                     )
                 } else {
-                    Box(modifier = Modifier.width(TimelineTimeWidth))
+                    Box(modifier = Modifier.width(CalendarDimensions.TimelineTimeColumnWidth))
                 }
                 Box(
                     modifier = Modifier
@@ -252,13 +252,13 @@ private fun CalendarTimelineCanvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset(y = y),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(CalendarDimensions.TimelineGridGap),
                 verticalAlignment = Alignment.Top,
             ) {
                 Text(
                     text = timeFormat.formatTime(group.start.toEpochMilli()),
                     modifier = Modifier
-                        .width(TimelineTimeWidth)
+                        .width(CalendarDimensions.TimelineTimeColumnWidth)
                         .padding(top = 12.dp),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -277,17 +277,25 @@ private fun CalendarTimelineCanvas(
                 }
             }
         }
-        if (showEmptyMessage) currentTime?.let { current ->
-            val y = TimelineTopPadding + TimelineDayHeight * calendarTimelineOffsetFraction(current.minuteOfDay)
-            Text(
-                text = stringResource(R.string.core_calendar_no_timed_items_today),
-                modifier = Modifier
-                    .padding(start = TimelineTimeWidth + 8.dp, end = 6.dp)
-                    .offset(y = y + 18.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        DayTimelineEmptyState(
+            visible = timedGroups.isEmpty(),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(start = CalendarDimensions.TimelineTimeColumnWidth + CalendarDimensions.TimelineGridGap, end = 24.dp),
+        )
+    }
+}
+
+@Composable
+private fun DayTimelineEmptyState(visible: Boolean, modifier: Modifier = Modifier) {
+    if (visible) {
+        Text(
+            text = stringResource(R.string.core_calendar_no_timed_items_today),
+            modifier = modifier.width(260.dp),
+            style = CalendarTypography.emptyState,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 
@@ -400,7 +408,6 @@ private fun CalendarDayRow.stableKey(index: Int): String = when (this) {
 
 private const val MillisPerMinute = 60_000L
 private const val HoursPerDay = 24
-private val TimelineTimeWidth = 78.dp
 private val TimelineHourHeight = 48.dp
 private val TimelineDayHeight = TimelineHourHeight * HoursPerDay
 private val TimelineTopPadding = 12.dp

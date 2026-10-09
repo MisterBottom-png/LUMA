@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.FilterChip
@@ -47,6 +48,7 @@ internal fun SystemMenuCard(
     applicationLanguage: AppLanguage,
     aiSettings: AiSettingsUiState,
     localDataTools: LocalDataToolsUiState,
+    onOpenFirstTimeGuide: () -> Unit,
     onSectionSelected: (SystemMenuSection) -> Unit,
 ) {
     SoftGlassSurface(
@@ -103,6 +105,13 @@ internal fun SystemMenuCard(
                     },
                 ),
                 onClick = { onSectionSelected(SystemMenuSection.LocalData) },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
+            SettingsMenuRow(
+                icon = Icons.Filled.Info,
+                title = stringResource(R.string.settings_first_time_guide_title),
+                status = stringResource(R.string.settings_first_time_guide_status),
+                onClick = onOpenFirstTimeGuide,
             )
         }
     }

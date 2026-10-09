@@ -47,10 +47,14 @@ internal fun SettingsMenuRow(
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val rowShape = RoundedCornerShape(22.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .orbitPressFeedback(interactionSource)
+            .orbitPressFeedback(
+                interactionSource = interactionSource,
+                clipShape = rowShape,
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,

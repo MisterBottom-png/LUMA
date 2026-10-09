@@ -1,5 +1,12 @@
 package com.orbit.app.ui.screens.settings
 
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.Icons
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -38,12 +45,44 @@ import com.orbit.app.ui.components.GlassSurfaceStyle
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.calmPressHaptics
 
+internal enum class AiSettingsPage(
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val subtitleRes: Int,
+    val icon: ImageVector,
+) {
+    Mode(R.string.settings_ai_mode, R.string.settings_ai_mode_subtitle, Icons.Filled.AutoAwesome),
+    GeminiSetup(R.string.settings_gemini_key, R.string.settings_ai_setup_subtitle, Icons.Filled.Tune),
+    Features(R.string.settings_use_gemini_for, R.string.settings_ai_features_subtitle, Icons.Filled.AutoAwesome),
+    LocalLearning(
+        R.string.settings_local_learning_title,
+        R.string.settings_ai_learning_subtitle,
+        Icons.Filled.Person,
+    ),
+}
+
+internal enum class AiSettingsContent {
+    Mode,
+    GeminiKey,
+    Models,
+    Features,
+    LocalLearning,
+}
+
+internal fun aiSettingsContentFor(page: AiSettingsPage): List<AiSettingsContent> = when (page) {
+    AiSettingsPage.Mode -> listOf(AiSettingsContent.Mode)
+    AiSettingsPage.GeminiSetup -> listOf(AiSettingsContent.GeminiKey, AiSettingsContent.Models)
+    AiSettingsPage.Features -> listOf(AiSettingsContent.Features)
+    AiSettingsPage.LocalLearning -> listOf(AiSettingsContent.LocalLearning)
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AiSettingsCard(
     settings: AppSettings,
     onSettingsChanged: (AppSettings) -> Unit,
     aiSettings: AiSettingsUiState,
+    selectedMenuSection: AiSettingsPage?,
+    onSectionSelected: (AiSettingsPage) -> Unit,
     onSaveGeminiKey: (String) -> Unit,
     onDeleteGeminiKey: () -> Unit,
     onClearLearningData: () -> Unit,
@@ -139,23 +178,92 @@ internal fun AiSettingsCard(
         )
     }
 
-    SoftGlassSurface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 18.dp),
-        shape = RoundedCornerShape(26.dp),
-        style = GlassSurfaceStyle.Prominent,
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.settings_ai_title),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+    if (selectedMenuSection == null) {
+        AiSettingsMenuCard(
+            settings = settings,
+            aiSettings = aiSettings,
+            onSectionSelected = onSectionSelected,
+        )
+    } else {
+        AiSettingsDetailsCard(
+            page = selectedMenuSection,
+            settings = settings,
+            onSettingsChanged = onSettingsChanged,
+            aiSettings = aiSettings,
+            onSaveGeminiKey = onSaveGeminiKey,
+            onDeleteGeminiKey = onDeleteGeminiKey,
+            onClearLearningData = onClearLearningData,
+            onUpdateLearnedRule = onUpdateLearnedRule,
+            onDeleteLearnedRule = onDeleteLearnedRule,
+            onTestGeminiConnection = onTestGeminiConnection,
+            onRequestGeminiConsent = { showGeminiConsent = true },
+            onRequestClearLearning = { showClearLearningConfirmation = true },
+            onEditLearnedRule = { ruleBeingEdited = it },
+        )
+    }
+}
 
+@Composable
+private fun AiSettingsMenuCard(
+    settings: AppSettings,
+    aiSettings: AiSettingsUiState,
+    onSectionSelected: (AiSettingsPage) -> Unit,
+) {
+    SoftGlassSurface(
+        modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
+        shape = RoundedCornerShape(24.dp),
+        style = GlassSurfaceStyle.Standard,
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            AiSettingsPage.entries.forEachIndexed { index, section ->
+                SettingsMenuRow(
+                    icon = section.icon,
+                    title = stringResource(section.titleRes),
+                    status = when (section) {
+                        AiSettingsPage.Mode -> stringResource(settings.aiMode.labelRes())
+                        AiSettingsPage.GeminiSetup -> stringResource(
+                            if (aiSettings.hasKey) R.string.settings_status_key_saved
+                            else R.string.settings_status_key_not_saved,
+                        )
+                        AiSettingsPage.Features -> stringResource(settings.aiMode.labelRes())
+                        AiSettingsPage.LocalLearning -> stringResource(
+                            if (settings.enableLocalAiLearning) R.string.settings_selected
+                            else R.string.settings_not_selected,
+                        )
+                    },
+                    onClick = { onSectionSelected(section) },
+                )
+                if (index < AiSettingsPage.entries.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiSettingsDetailsCard(
+    page: AiSettingsPage,
+    settings: AppSettings,
+    onSettingsChanged: (AppSettings) -> Unit,
+    aiSettings: AiSettingsUiState,
+    onSaveGeminiKey: (String) -> Unit,
+    onDeleteGeminiKey: () -> Unit,
+    onClearLearningData: () -> Unit,
+    onUpdateLearnedRule: (LearnedRuleEntity) -> Unit,
+    onDeleteLearnedRule: (LearnedRuleEntity) -> Unit,
+    onTestGeminiConnection: (String, String) -> Unit,
+    onRequestGeminiConsent: () -> Unit,
+    onRequestClearLearning: () -> Unit,
+    onEditLearnedRule: (LearnedRuleEntity) -> Unit,
+) {
+    var apiKey by rememberSaveable { mutableStateOf("") }
+    val canUseGeminiFeatures = settings.aiMode == AiMode.GeminiApi &&
+        settings.hasCurrentGeminiConsent && aiSettings.hasKey
+    val visibleContent = aiSettingsContentFor(page)
+    Column(modifier = Modifier.padding(top = 22.dp)) {
+        AppearanceCard {
+            if (AiSettingsContent.Mode in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_ai_mode)) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -180,7 +288,7 @@ internal fun AiSettingsCard(
                                     AiMode.GeminiApi -> if (settings.hasCurrentGeminiConsent) {
                                         onSettingsChanged(settings.copy(aiMode = AiMode.GeminiApi))
                                     } else {
-                                        showGeminiConsent = true
+                                        onRequestGeminiConsent()
                                     }
                                 }
                             },
@@ -195,7 +303,9 @@ internal fun AiSettingsCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
 
+        if (AiSettingsContent.GeminiKey in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_gemini_key)) {
                 OutlinedTextField(
                     value = apiKey,
@@ -254,7 +364,7 @@ internal fun AiSettingsCard(
                                 settings.geminiReasoningModelId,
                             )
                         } else {
-                            showGeminiConsent = true
+                            onRequestGeminiConsent()
                         }
                     },
                     enabled = aiSettings.hasKey && !aiSettings.isTestingConnection,
@@ -282,7 +392,9 @@ internal fun AiSettingsCard(
                     )
                 }
             }
+        }
 
+        if (AiSettingsContent.Models in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_models)) {
                 OutlinedTextField(
                     value = settings.geminiFastModelId,
@@ -303,7 +415,9 @@ internal fun AiSettingsCard(
                     singleLine = true,
                 )
             }
+        }
 
+        if (AiSettingsContent.Features in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_use_gemini_for)) {
                 AiFeatureSwitch(
                     title = stringResource(R.string.settings_capture_suggestions),
@@ -346,7 +460,9 @@ internal fun AiSettingsCard(
                     },
                 )
             }
+        }
 
+        if (AiSettingsContent.LocalLearning in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_local_learning_title)) {
                 AiFeatureSwitch(
                     title = stringResource(R.string.settings_local_learning_toggle),
@@ -392,7 +508,7 @@ internal fun AiSettingsCard(
                             checked = rule.enabled,
                             onCheckedChange = { enabled -> onUpdateLearnedRule(rule.copy(enabled = enabled)) },
                         )
-                        TextButton(onClick = { ruleBeingEdited = rule }) {
+                        TextButton(onClick = { onEditLearnedRule(rule) }) {
                             Text(stringResource(R.string.settings_edit))
                         }
                         TextButton(onClick = { onDeleteLearnedRule(rule) }) {
@@ -401,7 +517,7 @@ internal fun AiSettingsCard(
                     }
                 }
                 OutlinedButton(
-                    onClick = { showClearLearningConfirmation = true },
+                    onClick = onRequestClearLearning,
                     enabled = !aiSettings.isClearingLearning,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -433,6 +549,7 @@ internal fun AiSettingsCard(
                     )
                 }
             }
+        }
 
             Text(
                 text = stringResource(R.string.settings_ai_privacy_explanation),

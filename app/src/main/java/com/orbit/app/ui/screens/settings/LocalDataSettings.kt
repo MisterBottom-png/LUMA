@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
@@ -151,7 +152,7 @@ internal fun LocalDataSettingsSection(
             }
             localDataTools.errorMessage?.let { message ->
                 Text(
-                    text = message,
+                    text = message.localizedText(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -178,7 +179,7 @@ internal fun LocalDataSettingsSection(
             }
             localDataTools.restoreMessage?.let { message ->
                 Text(
-                    text = message,
+                    text = message.localizedText(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -229,4 +230,22 @@ internal fun LocalDataSettingsSection(
             },
         )
     }
+}
+
+@Composable
+private fun LocalDataToolsMessage.localizedText(): String = when (this) {
+    LocalDataToolsMessage.ExportFailed -> stringResource(R.string.settings_export_failed)
+    LocalDataToolsMessage.RestoreFileInvalid -> stringResource(R.string.settings_restore_file_invalid)
+    LocalDataToolsMessage.RestoreFailed -> stringResource(R.string.settings_restore_failed)
+    LocalDataToolsMessage.ResetCompleted -> stringResource(R.string.settings_reset_complete)
+    LocalDataToolsMessage.ResetFailed -> stringResource(R.string.settings_reset_failed)
+    is LocalDataToolsMessage.RestoreCompleted -> pluralStringResource(
+        id = if (needsReminderDeviceCheck) {
+            R.plurals.settings_restore_complete_device_check
+        } else {
+            R.plurals.settings_restore_complete
+        },
+        count = visibleItemCount,
+        visibleItemCount,
+    )
 }
