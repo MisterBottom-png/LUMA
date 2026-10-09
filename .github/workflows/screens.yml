@@ -57,5 +57,5 @@ jobs:
           cd "$out"
           git init -q -b out
           git add -A
-          git -c user.name="screens-bot" -c user.email="screens-bot@users.noreply.github.com" commit -q -m "Screens for ${GITHUB_SHA}"
+          git -c user.name="screens-bot" -c user.email="screens-bot" commit -q -m "Screens for ${GITHUB_SHA}"
           git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "out:refs/heads/screens/${GITHUB_REF_NAME}"
