@@ -1,5 +1,7 @@
 package com.orbit.app.ui.screens.calendar
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -203,7 +205,7 @@ private fun CalendarTimelineCanvas(
                         },
                         modifier = Modifier.width(CalendarDimensions.TimelineTimeColumnWidth),
                         style = CalendarTypography.timelineHour,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.88f),
                         maxLines = 1,
                     )
                 } else {
@@ -213,7 +215,7 @@ private fun CalendarTimelineCanvas(
                     modifier = Modifier
                         .weight(1f)
                         .height(1.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.38f)),
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)),
                 )
             }
         }
@@ -238,11 +240,22 @@ private fun CalendarTimelineCanvas(
                 } else {
                     Box(modifier = Modifier.width(CalendarDimensions.TimelineTimeColumnWidth))
                 }
+                // The "now" line starts with a small dot, so it never reads as one more hour line.
+                val nowColor = MaterialTheme.colorScheme.primary
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(1.dp)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)),
+                        .height(9.dp)
+                        .drawBehind {
+                            val radius = 4.5.dp.toPx()
+                            drawLine(
+                                color = nowColor.copy(alpha = 0.82f),
+                                start = Offset(radius, size.height / 2f),
+                                end = Offset(size.width, size.height / 2f),
+                                strokeWidth = 1.5.dp.toPx(),
+                            )
+                            drawCircle(color = nowColor, radius = radius, center = Offset(radius, size.height / 2f))
+                        },
                 )
             }
         }
@@ -277,10 +290,15 @@ private fun CalendarTimelineCanvas(
                 }
             }
         }
+        // Shown just under the "now" line, where the view opens, instead of at noon,
+        // where it was cut off at the top of the card in the evening.
+        val emptyStateY = currentTime?.let {
+            TimelineTopPadding + TimelineDayHeight * calendarTimelineOffsetFraction(it.minuteOfDay) + 20.dp
+        } ?: (TimelineTopPadding + TimelineHourHeight * 8)
         DayTimelineEmptyState(
             visible = timedGroups.isEmpty(),
             modifier = Modifier
-                .align(Alignment.Center)
+                .offset(y = emptyStateY)
                 .padding(start = CalendarDimensions.TimelineTimeColumnWidth + CalendarDimensions.TimelineGridGap, end = 24.dp),
         )
     }
@@ -294,7 +312,6 @@ private fun DayTimelineEmptyState(visible: Boolean, modifier: Modifier = Modifie
             modifier = modifier.width(260.dp),
             style = CalendarTypography.emptyState,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
 }

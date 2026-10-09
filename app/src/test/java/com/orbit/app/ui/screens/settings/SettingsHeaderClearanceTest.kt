@@ -7,7 +7,7 @@ import org.junit.Test
 class SettingsHeaderClearanceTest {
     @Test
     fun headerClearanceCoversTheStatusBarAndTheMeasuredHeader() {
-        assertEquals(220.dp, settingsHeaderClearance(statusBarTop = 24.dp, headerHeight = 200.dp))
-        assertEquals(152.dp, settingsHeaderClearance(statusBarTop = 24.dp, headerHeight = 96.dp))
+        assertEquals(212.dp, settingsHeaderClearance(statusBarTop = 24.dp, headerHeight = 200.dp))
+        assertEquals(112.dp, settingsHeaderClearance(statusBarTop = 24.dp, headerHeight = 96.dp))
     }
 }

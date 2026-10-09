@@ -263,26 +263,19 @@ fun HomeScreen(
                 )
 
                 Spacer(modifier = Modifier.height(OrbitSpacing.Large))
-                SoftGlassSurface(
+                // The week sits directly on the page, without a card: Home has one surface,
+                // the capture box, so the eye goes straight to it.
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(homeWeekCardHeightFor(fontScale)),
-                    shape = RoundedCornerShape(28.dp),
-                    style = com.orbit.app.ui.components.GlassSurfaceStyle.Standard,
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    Column(
-                        modifier = Modifier.padding(
-                            horizontal = OrbitSpacing.Comfortable,
-                            vertical = OrbitSpacing.Medium,
-                        ),
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        WeekStrip(
-                            uiState = weekUiState,
-                            onDateSelected = onCalendarDateSelected,
-                            onVisibleWeekChanged = onVisibleWeekChanged,
-                        )
-                    }
+                    WeekStrip(
+                        uiState = weekUiState,
+                        onDateSelected = onCalendarDateSelected,
+                        onVisibleWeekChanged = onVisibleWeekChanged,
+                    )
                 }
 
                 calendarDateContext?.let { date ->
@@ -484,7 +477,7 @@ internal fun WeekStrip(
                             .alignByBaseline()
                             .semantics { heading() },
                         style = HomeTypography.calendarMonth,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -753,7 +746,7 @@ private fun CaptureActionButton(
                 color = if (emphasized) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
                 },
                 shape = CircleShape,
             ),
@@ -815,7 +808,7 @@ private fun HomeHeader(
             modifier = Modifier
                 .weight(1f)
                 .semantics { heading() },
-            style = HomeTypography.userName.copy(fontSize = 28.sp, lineHeight = 34.sp),
+            style = HomeTypography.userName.copy(fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.45).sp),
             color = MaterialTheme.colorScheme.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -884,7 +877,7 @@ private fun estimatedCaptureLineCount(text: String): Int = text
         )
     }
 
-private val HomeWeekCardHeight = 128.dp
+private val HomeWeekCardHeight = 104.dp
 private val HomeDayCapsuleMaxWidth = 52.dp
 private val HomeDayCapsuleHeight = 64.dp
 private val HomeWeekCardScaledContentGrowth = 112.dp

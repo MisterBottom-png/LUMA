@@ -37,7 +37,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import com.orbit.app.ui.components.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -114,11 +114,15 @@ internal fun AppearanceSettingsSection(
                 settings = settings,
                 onSectionSelected = onSectionSelected,
             )
-            OutlinedButton(
+            // A rarely used action: a quiet text button, not a full-width button.
+            TextButton(
                 onClick = { showResetConfirmation = true },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             ) {
-                Text(stringResource(R.string.settings_reset_appearance))
+                Text(
+                    text = stringResource(R.string.settings_reset_appearance),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             if (showResetConfirmation) {
                 AlertDialog(

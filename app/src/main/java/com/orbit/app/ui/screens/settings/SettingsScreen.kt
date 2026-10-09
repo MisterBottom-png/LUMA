@@ -349,7 +349,7 @@ fun SettingsScreen(
 }
 
 internal fun settingsHeaderClearance(statusBarTop: Dp, headerHeight: Dp): Dp =
-    maxOf(statusBarTop + 128.dp, headerHeight + 20.dp)
+    maxOf(statusBarTop + 88.dp, headerHeight + 12.dp)
 
 @Composable
 private fun SettingsHeader(
@@ -395,8 +395,8 @@ private fun SettingsOverview(
     SoftGlassSurface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 26.dp),
-        shape = RoundedCornerShape(26.dp),
+            .padding(top = 8.dp),
+        shape = RoundedCornerShape(24.dp),
         style = GlassSurfaceStyle.Prominent,
     ) {
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
