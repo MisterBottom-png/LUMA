@@ -5,6 +5,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
+import com.orbit.app.macrobenchmark.AppNavigation.openSettings
+import com.orbit.app.macrobenchmark.AppNavigation.openTab
+import com.orbit.app.macrobenchmark.AppNavigation.skipFirstTimeGuideIfShown
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,13 +27,11 @@ class BaselineProfileGenerator {
         startActivityAndWait()
         device.waitForIdle()
 
-        listOf("Spaces", "Review", "Settings", "Home").forEach { destination ->
-            val navigationItem = requireNotNull(
-                device.wait(Until.findObject(By.desc(destination)), UiTimeoutMillis),
-            ) { "Navigation destination '$destination' was not available" }
-            navigationItem.click()
-            device.waitForIdle()
-        }
+        skipFirstTimeGuideIfShown()
+        listOf("Spaces", "Calendar", "Review", "Home").forEach { tab -> openTab(tab) }
+        openSettings()
+        device.pressBack()
+        device.waitForIdle()
 
         val captureField = device.wait(
             Until.findObject(By.clazz("android.widget.EditText")),
@@ -46,6 +47,6 @@ class BaselineProfileGenerator {
 
     private companion object {
         const val TargetPackage = "com.tallele.app"
-        const val UiTimeoutMillis = 5_000L
+        const val UiTimeoutMillis = AppNavigation.UiTimeoutMillis
     }
 }

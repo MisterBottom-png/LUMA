@@ -11,6 +11,9 @@ import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.Until
+import com.orbit.app.macrobenchmark.AppNavigation.openSettings
+import com.orbit.app.macrobenchmark.AppNavigation.openTab
+import com.orbit.app.macrobenchmark.AppNavigation.skipFirstTimeGuideIfShown
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,34 +37,41 @@ class GlassSurfaceMacrobenchmark {
     fun scrollReview() = measureRoute("Review") { scrollContent() }
 
     @Test
-    fun scrollSettings() = measureRoute("Settings") { scrollContent() }
+    fun scrollSettings() = measureSettings { scrollContent() }
 
     @Test
-    fun openAndCloseSituationAi() = measureHome {
-        device.findObject(By.desc("Situation AI")).click()
-        device.wait(Until.hasObject(By.desc("Close Situation AI")), UiTimeoutMillis)
-        device.findObject(By.desc("Close Situation AI")).click()
-        device.wait(Until.gone(By.desc("Close Situation AI")), UiTimeoutMillis)
+    fun navigateHomeToCalendar() = measureHome {
+        openTab("Calendar")
     }
 
     @Test
     fun navigateHomeToSpaces() = measureHome {
-        device.findObject(By.desc("Spaces")).click()
-        device.wait(Until.hasObject(By.text("Spaces")), UiTimeoutMillis)
+        openTab("Spaces")
     }
 
     @Test
-    fun renderAppearanceGlassPreview() = measureRoute("Settings") {
+    fun renderAppearanceGlassPreview() = measureSettings {
         device.findObject(By.text("Appearance")).click()
-        device.wait(Until.hasObject(By.text("Live Glass")), UiTimeoutMillis)
+        device.wait(Until.hasObject(By.text("Transparency")), UiTimeoutMillis)
     }
 
     private fun measureRoute(routeLabel: String, measuredBlock: MacrobenchmarkScope.() -> Unit) {
         measure(
             setupBlock = {
                 startActivityAndWait()
-                device.findObject(By.desc(routeLabel)).click()
-                device.wait(Until.hasObject(By.text(routeLabel)), UiTimeoutMillis)
+                skipFirstTimeGuideIfShown()
+                openTab(routeLabel)
+            },
+            measuredBlock = measuredBlock,
+        )
+    }
+
+    private fun measureSettings(measuredBlock: MacrobenchmarkScope.() -> Unit) {
+        measure(
+            setupBlock = {
+                startActivityAndWait()
+                skipFirstTimeGuideIfShown()
+                openSettings()
             },
             measuredBlock = measuredBlock,
         )
@@ -81,7 +91,14 @@ class GlassSurfaceMacrobenchmark {
     }
 
     private fun measureHome(measuredBlock: MacrobenchmarkScope.() -> Unit) {
-        measure(setupBlock = { startActivityAndWait() }, measuredBlock = measuredBlock)
+        measure(
+            setupBlock = {
+                startActivityAndWait()
+                skipFirstTimeGuideIfShown()
+                openTab("Home")
+            },
+            measuredBlock = measuredBlock,
+        )
     }
 
     private fun measure(
@@ -111,6 +128,6 @@ class GlassSurfaceMacrobenchmark {
 
     private companion object {
         const val TargetPackage = "com.tallele.app"
-        const val UiTimeoutMillis = 5_000L
+        const val UiTimeoutMillis = AppNavigation.UiTimeoutMillis
     }
 }
