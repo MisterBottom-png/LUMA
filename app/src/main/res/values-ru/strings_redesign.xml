@@ -135,4 +135,11 @@
     <string name="analysis_confidence_high">высокая</string>
     <string name="analysis_confidence_medium">средняя</string>
     <string name="analysis_confidence_low">низкая</string>
+    <string name="spaces_card_next">Далее: %1$s · %2$s</string>
+    <plurals name="spaces_to_sort_waiting">
+        <item quantity="one">%1$d мысль ждёт в обзоре</item>
+        <item quantity="few">%1$d мысли ждут в обзоре</item>
+        <item quantity="many">%1$d мыслей ждут в обзоре</item>
+        <item quantity="other">%1$d мысли ждут в обзоре</item>
+    </plurals>
 </resources>

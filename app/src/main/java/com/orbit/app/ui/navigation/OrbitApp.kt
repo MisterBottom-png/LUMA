@@ -260,6 +260,13 @@ fun OrbitApp(
                         onUnfiledSelected = {
                             navController.navigate(SpaceDetailDestination.UnfiledRoute)
                         },
+                        onOpenToSort = {
+                            navController.navigate(OrbitDestination.Review.route) {
+                                launchSingleTop = true
+                                restoreState = true
+                                popUpTo(OrbitDestination.Home.route) { saveState = true }
+                            }
+                        },
                         onOpenSearch = {
                             navController.navigate(SearchDestination.Route) {
                                 launchSingleTop = true

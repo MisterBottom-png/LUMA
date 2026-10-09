@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.orbit.app.OrbitContainer
+import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.DuplicateSpaceNameException
@@ -68,9 +69,16 @@ data class SpacesUiState(
     val hasUnfiledItems: Boolean = false,
     val selectedContents: SpaceContents = SpaceContents(),
     val itemCounts: Map<Long, Int> = emptyMap(),
+    /** The earliest upcoming open task or reminder per Space, for the overview card. */
+    val nextItems: Map<Long, SpaceNextItem> = emptyMap(),
+    /** Saved thoughts not yet sorted; they live in Review > To sort. */
+    val toSortCount: Int = 0,
     val moveUndo: SpaceMoveUndo? = null,
     val moveFailure: SpaceMoveFailure? = null,
 )
+
+/** [hasTime] is false for a task planned for a day, which must not read as 00:00. */
+data class SpaceNextItem(val title: String, val at: Long, val hasTime: Boolean = true)
 
 data class SpaceMoveUndo(val item: SpaceItemReference, val previousSpaceId: Long?)
 
@@ -87,6 +95,7 @@ private data class AllSpaceContents(
     val notes: List<NoteEntity>,
     val tasks: List<TaskEntity>,
     val reminders: List<ReminderEntity>,
+    val toSortCount: Int,
 )
 
 private data class SpaceMoveFeedback(
@@ -109,8 +118,9 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
         container.noteRepository.observeAll(),
         container.taskRepository.observeAll(),
         container.reminderRepository.observeAll(),
-    ) { notes, tasks, reminders ->
-        AllSpaceContents(notes, tasks, reminders)
+        container.captureRepository.observeAll(),
+    ) { notes, tasks, reminders, captures ->
+        AllSpaceContents(notes, tasks, reminders, captures.count { it.status == CaptureStatus.Inbox })
     }
     private val moveFeedback = combine(moveUndo, moveFailure) { undo, failure ->
         SpaceMoveFeedback(undo, failure)
@@ -144,6 +154,12 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
             isUnfiledSelected = unfiledSelected,
             hasUnfiledItems = hasUnfiledFinalizedItems(contents.notes, contents.tasks, contents.reminders),
             selectedContents = selectedContents,
+            toSortCount = contents.toSortCount,
+            nextItems = calculateSpaceNextItems(
+                tasks = contents.tasks,
+                reminders = contents.reminders,
+                now = System.currentTimeMillis(),
+            ),
             itemCounts = calculateSpaceItemCounts(
                 spaces = spaces,
                 notes = contents.notes,
@@ -330,6 +346,37 @@ internal fun calculateSpaceItemCounts(
     reminders.forEach { if (it.completedAt == null) increment(it.spaceId) }
     return counts
 }
+
+internal fun calculateSpaceNextItems(
+    tasks: List<TaskEntity>,
+    reminders: List<ReminderEntity>,
+    now: Long,
+    zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+): Map<Long, SpaceNextItem> {
+    val candidates = buildList {
+        tasks.filter { it.status == TaskStatus.Open && it.spaceId != null }.forEach { task ->
+            when {
+                task.dueAt != null -> if (task.dueAt >= now) add(task.spaceId!! to SpaceNextItem(task.title, task.dueAt))
+                task.scheduledDateEpochDay != null -> {
+                    val dayStart = java.time.LocalDate.ofEpochDay(task.scheduledDateEpochDay)
+                        .atStartOfDay(zoneId).toInstant().toEpochMilli()
+                    if (dayStart >= startOfDay(now, zoneId)) {
+                        add(task.spaceId!! to SpaceNextItem(task.title, dayStart, hasTime = false))
+                    }
+                }
+            }
+        }
+        reminders.filter { it.completedAt == null && it.spaceId != null && it.dueAt >= now }.forEach {
+            add(it.spaceId!! to SpaceNextItem(it.title, it.dueAt))
+        }
+    }
+    return candidates
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (_, items) -> items.minBy { it.at } }
+}
+
+private fun startOfDay(now: Long, zoneId: java.time.ZoneId): Long =
+    java.time.Instant.ofEpochMilli(now).atZone(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant().toEpochMilli()
 
 internal fun hasUnfiledFinalizedItems(
     notes: List<NoteEntity>,

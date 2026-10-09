@@ -129,4 +129,9 @@
     <string name="analysis_confidence_high">High</string>
     <string name="analysis_confidence_medium">Medium</string>
     <string name="analysis_confidence_low">Low</string>
+    <string name="spaces_card_next">Next: %1$s · %2$s</string>
+    <plurals name="spaces_to_sort_waiting">
+        <item quantity="one">%1$d thought is waiting in Review</item>
+        <item quantity="other">%1$d thoughts are waiting in Review</item>
+    </plurals>
 </resources>

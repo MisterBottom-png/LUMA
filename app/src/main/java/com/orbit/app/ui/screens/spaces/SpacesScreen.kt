@@ -98,6 +98,7 @@ import androidx.core.graphics.toColorInt
 import com.orbit.app.data.local.SpaceNames
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.R
+import com.orbit.app.ui.components.GlassSurfaceStyle
 import com.orbit.app.ui.components.ModalSurface
 import com.orbit.app.ui.components.OrbitModalDefaults
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
@@ -170,6 +171,7 @@ fun SpacesScreen(
     onUnfiledSelected: () -> Unit,
     onOpenSearch: () -> Unit,
     onItemSelected: (SpaceItemReference) -> Unit,
+    onOpenToSort: () -> Unit = {},
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
     var editingSpace by remember { mutableStateOf<SpaceEntity?>(null) }
@@ -206,6 +208,8 @@ fun SpacesScreen(
         if (target == null) {
             SpacesOverview(
                 uiState = uiState,
+                timeFormat = timeFormat,
+                onOpenToSort = onOpenToSort,
                 onCreate = { showCreateDialog = true },
                 onSelect = { onSpaceSelected(it.id) },
                 onSelectUnfiled = onUnfiledSelected,
@@ -278,6 +282,8 @@ internal fun shouldHandleSpaceDetailBack(selectedSpace: SpaceEntity?): Boolean =
 @Composable
 private fun SpacesOverview(
     uiState: SpacesUiState,
+    timeFormat: OrbitTimeFormat,
+    onOpenToSort: () -> Unit,
     onCreate: () -> Unit,
     onSelect: (SpaceEntity) -> Unit,
     onSelectUnfiled: () -> Unit,
@@ -317,6 +323,11 @@ private fun SpacesOverview(
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (uiState.toSortCount > 0) {
+                item(key = "to_sort") {
+                    ToSortEntryCard(count = uiState.toSortCount, onClick = onOpenToSort)
+                }
+            }
             if (visible.isEmpty()) {
                 item {
                     EmptySpacesCard(onCreate)
@@ -326,6 +337,9 @@ private fun SpacesOverview(
                     val space = visible[index]
                     SpaceCard(
                         space = space,
+                        itemCount = uiState.itemCounts[space.id] ?: 0,
+                        nextItem = uiState.nextItems[space.id],
+                        timeFormat = timeFormat,
                         canMoveUp = index > 0,
                         canMoveDown = index < visible.lastIndex,
                         onClick = { onSelect(space) },
@@ -436,9 +450,41 @@ private fun SpacesOverview(
     }
 }
 
+/** Unsorted thoughts are not in any Space yet; this points to where they wait. */
+@Composable
+private fun ToSortEntryCard(count: Int, onClick: () -> Unit) {
+    SoftGlassSurface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        style = GlassSurfaceStyle.Prominent,
+    ) {
+        Column(
+            modifier = Modifier
+                .heightIn(min = 56.dp)
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.review_to_sort_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = pluralStringResource(R.plurals.spaces_to_sort_waiting, count, count),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 private fun SpaceCard(
     space: SpaceEntity,
+    itemCount: Int,
+    nextItem: SpaceNextItem?,
+    timeFormat: OrbitTimeFormat,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onClick: () -> Unit,
@@ -470,7 +516,27 @@ private fun SpaceCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Text(
+                    text = pluralStringResource(R.plurals.core_spaces_item_count, itemCount, itemCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                nextItem?.let { next ->
+                    Text(
+                        text = stringResource(
+                            R.string.spaces_card_next,
+                            next.title,
+                            if (next.hasTime) timeFormat.formatWeekdayDateTime(next.at) else timeFormat.formatDate(next.at),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
