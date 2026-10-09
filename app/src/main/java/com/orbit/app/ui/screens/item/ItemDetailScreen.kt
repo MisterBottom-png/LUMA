@@ -351,7 +351,11 @@ private fun ItemDetailContent(
             if (!state.isLoading && !state.isMissing && state.canEditTitle) {
                 if (isEditing) {
                     TextButton(onClick = cancelEditing) { Text(stringResource(R.string.core_action_cancel)) }
-                    TextButton(onClick = { onSave(title, body, state.spaceId) }) { Text(stringResource(R.string.core_action_save)) }
+                    // A final item always needs a title; restore rejects untitled items.
+                    TextButton(
+                        onClick = { onSave(title, body, state.spaceId) },
+                        enabled = isSavableItemTitle(title),
+                    ) { Text(stringResource(R.string.core_action_save)) }
                 } else {
                     IconButton(onClick = { isEditing = true }) { Icon(Icons.Rounded.Edit, stringResource(R.string.core_item_detail_edit)) }
                 }

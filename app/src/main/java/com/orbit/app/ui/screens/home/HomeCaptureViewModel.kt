@@ -128,7 +128,11 @@ class HomeCaptureViewModel(
             setLocale(effectiveAppLocale(applicationContext))
         },
     )
-    private val _uiState = MutableStateFlow(HomeCaptureUiState())
+    // The draft lives in the saved state so a half-typed thought survives Android
+    // reclaiming LUMA in the background.
+    private val _uiState = MutableStateFlow(
+        HomeCaptureUiState(inputText = savedStateHandle.get<String>(DraftTextKey).orEmpty()),
+    )
     internal val uiState: StateFlow<HomeCaptureUiState> = _uiState.asStateFlow()
     private val brainDumpFlowCoordinator = BrainDumpFlowCoordinator(
         scope = viewModelScope,
@@ -151,6 +155,7 @@ class HomeCaptureViewModel(
     fun onInputChanged(value: String) {
         if (_uiState.value.isProcessing) return
         _uiState.update { it.copy(inputText = value) }
+        savedStateHandle[DraftTextKey] = value
     }
 
     fun analyzeCapture(calendarDateContextEpochDay: Long? = null): Boolean {
@@ -176,6 +181,7 @@ class HomeCaptureViewModel(
 
             // Clear only after the raw text is safely in the local Inbox.
             _uiState.update { it.copy(inputText = "").beginCaptureAnalyzing() }
+            savedStateHandle[DraftTextKey] = ""
 
             val spaceOptions = loadSpaceOptions()
             try {
@@ -255,39 +261,13 @@ class HomeCaptureViewModel(
         }
     }
 
+    /**
+     * Closing the sheet (Cancel, swipe down, tap outside, back) never archives a sent
+     * thought: it stays in the Inbox until the user decides what it becomes.
+     */
     fun cancelSuggestion() {
         if (_uiState.value.isPerformingAction) return
-        val suggestion = _uiState.value.suggestion ?: return
-        if (suggestion.analysis.brainDumpItems.isNotEmpty()) {
-            viewModelScope.launch { brainDumpFlowCoordinator.finishLater() }
-            return
-        }
-
-        _uiState.update { it.copy(isPerformingAction = true, message = null) }
-        viewModelScope.launch {
-            runCatching {
-                archiveCancelledCapture(
-                    captureRepository = captureRepository,
-                    captureId = suggestion.captureId,
-                )
-            }.onSuccess {
-                _uiState.update {
-                    it.copy(
-                        isPerformingAction = false,
-                        suggestion = null,
-                        brainDumpHandledItemIds = emptySet(),
-                        message = localized(R.string.core_home_message_capture_cancelled),
-                    )
-                }
-            }.onFailure {
-                _uiState.update {
-                    it.copy(
-                        isPerformingAction = false,
-                        message = localized(R.string.core_home_message_capture_cancel_failed),
-                    )
-                }
-            }
-        }
+        keepInInbox()
     }
 
     fun resumeBrainDump(captureId: Long) {
@@ -1000,25 +980,11 @@ class HomeCaptureViewModel(
 
     private companion object {
         const val ActiveBrainDumpCaptureIdKey = "activeBrainDumpCaptureId"
+        const val DraftTextKey = "homeCaptureDraft"
     }
 
     private fun localized(@StringRes resId: Int, vararg formatArgs: Any): String =
         localizedContext.getString(resId, *formatArgs)
-}
-
-internal suspend fun archiveCancelledCapture(
-    captureRepository: CaptureRepository,
-    captureId: Long,
-    now: Long = System.currentTimeMillis(),
-) {
-    val capture = captureRepository.getById(captureId) ?: return
-    if (capture.status != CaptureStatus.Inbox) return
-    captureRepository.update(
-        capture.copy(
-            status = CaptureStatus.Archived,
-            updatedAt = now,
-        ),
-    )
 }
 
 internal data class CalendarTaskSchedule(

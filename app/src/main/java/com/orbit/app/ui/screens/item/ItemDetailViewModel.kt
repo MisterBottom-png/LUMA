@@ -95,6 +95,10 @@ class ItemDetailViewModel(
     }
 
     fun save(title: String, body: String, spaceId: Long?) {
+        if (currentType != ItemDetailType.Capture && !isSavableItemTitle(title)) {
+            _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_title_required)) }
+            return
+        }
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             runCatching {
@@ -714,6 +718,7 @@ class ItemDetailViewModel(
             GeminiApiErrorKind.InvalidResponse -> R.string.settings_gemini_error_invalid_response
             GeminiApiErrorKind.SafetyBlocked -> R.string.settings_gemini_error_safety_blocked
             GeminiApiErrorKind.Server -> R.string.settings_gemini_error_server
+            GeminiApiErrorKind.ModelNotFound -> R.string.settings_gemini_error_model_not_found
             GeminiApiErrorKind.Unknown -> R.string.settings_gemini_error_unknown
         },
     )
@@ -746,3 +751,6 @@ class ItemDetailViewModel(
         },
     )
 }
+
+/** Notes, tasks and reminders must keep a non-blank title (backup restore requires it). */
+internal fun isSavableItemTitle(title: String): Boolean = title.isNotBlank()

@@ -1,6 +1,7 @@
 package com.orbit.app.domain.usecase
 
 import androidx.room.withTransaction
+import com.orbit.app.data.export.deriveItemTitle
 import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
@@ -80,7 +81,7 @@ class ConfirmCaptureActionUseCase(
     ): Long = finalizationMutex.withLock {
         transaction.run {
             val capture = requireInboxCapture(captureId)
-            val taskTitle = title.trim().ifBlank { capture.rawText }
+            val taskTitle = title.trim().ifBlank { capture.rawText.toNoteTitle() }
             val taskId = taskRepository.insert(
                 TaskEntity(
                     title = taskTitle,
@@ -117,7 +118,7 @@ class ConfirmCaptureActionUseCase(
             val capture = requireInboxCapture(captureId)
             val reminderId = reminderRepository.insert(
                 ReminderEntity(
-                    title = title.trim().ifBlank { capture.rawText },
+                    title = title.trim().ifBlank { capture.rawText.toNoteTitle() },
                     dueAt = dueAt,
                     spaceId = spaceId,
                     linkedTaskId = linkedTaskId,
@@ -196,5 +197,5 @@ class ConfirmCaptureActionUseCase(
     }
 
     private fun String.toNoteTitle(): String =
-        lineSequence().firstOrNull().orEmpty().trim().take(80)
+        deriveItemTitle(this) ?: trim().take(80)
 }

@@ -905,7 +905,7 @@ private fun SuggestedActions(
             .fillMaxWidth()
             .padding(top = 4.dp),
     ) {
-        Text(stringResource(R.string.core_cancel))
+        Text(stringResource(R.string.core_capture_not_now_keep))
     }
 }
 
