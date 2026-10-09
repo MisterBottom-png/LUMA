@@ -122,32 +122,15 @@ object SourceLinkedGeminiValidator {
             .take(MaxSourceIds)
     }
 
-    private fun extractString(json: String, key: String): String? {
-        val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
-        return regex.find(json)?.groupValues?.get(1)?.unescapeJsonString()
-    }
+    // Replies are read with a real JSON parser; anything that does not parse is rejected.
+    private fun extractString(json: String, key: String): String? =
+        GeminiJson.parseObject(json)?.stringValue(key)
 
-    private fun extractStringArray(json: String, key: String): List<String> {
-        val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\\[(.*?)]", RegexOption.DOT_MATCHES_ALL)
-        val body = regex.find(json)?.groupValues?.get(1) ?: return emptyList()
-        return Regex("\"((?:\\\\.|[^\"\\\\])*)\"")
-            .findAll(body)
-            .map { it.groupValues[1].unescapeJsonString().trim() }
-            .filter { it.isNotBlank() }
-            .toList()
-    }
+    private fun extractStringArray(json: String, key: String): List<String> =
+        GeminiJson.parseObject(json)?.stringList(key, limit = 50).orEmpty()
 
-    private fun extractBoolean(json: String, key: String): Boolean? {
-        val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*(true|false)")
-        return regex.find(json)?.groupValues?.get(1)?.toBooleanStrictOrNull()
-    }
-
-    private fun String.unescapeJsonString(): String =
-        replace("\\\"", "\"")
-            .replace("\\\\", "\\")
-            .replace("\\n", "\n")
-            .replace("\\r", "\r")
-            .replace("\\t", "\t")
+    private fun extractBoolean(json: String, key: String): Boolean? =
+        GeminiJson.parseObject(json)?.booleanValue(key)
 
     private const val LegacyNoDataAnswer = "No data found."
     private const val MaxAnswerLength = 420

@@ -137,7 +137,7 @@
     <string name="settings_gemini_key_removed">Gemini võti on eemaldatud.</string>
     <string name="settings_gemini_connection_succeeded">Gemini ühendus töötab mudeliga %1$s.</string>
     <string name="settings_gemini_error_missing_key">Lisa esmalt Gemini API võti. Kohalik režiim töötab edasi.</string>
-    <string name="settings_gemini_error_bad_key">Gemini ei saanud seda võtit kasutada. Kohalik režiim töötab edasi.</string>
+    <string name="settings_gemini_error_bad_key">Gemini ei aktsepteerinud seda API-võtit. Kontrolli võtit ja proovi uuesti. Kohalik režiim töötab edasi.</string>
     <string name="settings_gemini_error_rate_limited">Päringupiirang on täis. LUMA kasutab kohalikku režiimi.</string>
     <string name="settings_gemini_error_timeout">Gemini vastamine võttis liiga kaua. Kohalik režiim töötab edasi.</string>
     <string name="settings_gemini_error_no_internet">Internetiühendus puudub. Kohalik režiim töötab edasi.</string>

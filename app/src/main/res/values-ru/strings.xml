@@ -141,7 +141,7 @@
     <string name="settings_gemini_key_removed">Ключ Gemini удалён.</string>
     <string name="settings_gemini_connection_succeeded">Подключение к Gemini работает для модели %1$s.</string>
     <string name="settings_gemini_error_missing_key">Сначала добавьте ключ Gemini API. Локальный режим продолжит работать.</string>
-    <string name="settings_gemini_error_bad_key">Gemini не удалось использовать этот ключ. Локальный режим продолжит работать.</string>
+    <string name="settings_gemini_error_bad_key">Gemini не принял этот API-ключ. Проверьте ключ и попробуйте снова. Локальный режим продолжит работать.</string>
     <string name="settings_gemini_error_rate_limited">Достигнут лимит запросов. LUMA будет использовать локальный режим.</string>
     <string name="settings_gemini_error_timeout">Gemini отвечает слишком долго. Локальный режим продолжит работать.</string>
     <string name="settings_gemini_error_no_internet">Нет подключения к интернету. Локальный режим продолжит работать.</string>

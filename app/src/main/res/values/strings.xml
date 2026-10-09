@@ -143,7 +143,7 @@
     <string name="settings_gemini_key_removed">Gemini key removed.</string>
     <string name="settings_gemini_connection_succeeded">Gemini connection works for %1$s.</string>
     <string name="settings_gemini_error_missing_key">Add a Gemini API key first. Local mode still works.</string>
-    <string name="settings_gemini_error_bad_key">Gemini could not use this key. Local mode still works.</string>
+    <string name="settings_gemini_error_bad_key">Gemini did not accept this API key. Check the key and try again. Local mode still works.</string>
     <string name="settings_gemini_error_rate_limited">Rate limit reached. LUMA will use local mode.</string>
     <string name="settings_gemini_error_timeout">Gemini took too long. Local mode still works.</string>
     <string name="settings_gemini_error_no_internet">No internet. Local mode still works.</string>

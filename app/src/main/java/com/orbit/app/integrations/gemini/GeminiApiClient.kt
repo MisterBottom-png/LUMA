@@ -47,6 +47,7 @@ enum class GeminiApiErrorKind {
     InvalidResponse,
     SafetyBlocked,
     Server,
+    ModelNotFound,
     Unknown,
 }
 
@@ -104,7 +105,7 @@ class HttpGeminiApiClient : GeminiApiClient {
             connection.disconnect()
 
             if (statusCode !in 200..299) {
-                return@withContext GeminiApiResult.Failure(errorForStatus(statusCode))
+                return@withContext GeminiApiResult.Failure(geminiError(geminiErrorKindFor(statusCode, responseText)))
             }
 
             parseResponse(responseText, modelId)
@@ -163,13 +164,6 @@ class HttpGeminiApiClient : GeminiApiClient {
         }
     }
 
-    private fun errorForStatus(statusCode: Int): GeminiApiError = when (statusCode) {
-        401, 403 -> geminiError(GeminiApiErrorKind.BadKey)
-        429 -> geminiError(GeminiApiErrorKind.RateLimited)
-        in 500..599 -> geminiError(GeminiApiErrorKind.Server)
-        else -> geminiError(GeminiApiErrorKind.Unknown)
-    }
-
     private fun errorForException(exception: Throwable): GeminiApiError = when (exception) {
         is SocketTimeoutException -> geminiError(GeminiApiErrorKind.Timeout)
         is UnknownHostException -> geminiError(GeminiApiErrorKind.NoInternet)
@@ -181,6 +175,32 @@ class HttpGeminiApiClient : GeminiApiClient {
     private companion object {
         const val BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models"
         const val TimeoutMillis = 15_000
+    }
+}
+
+/**
+ * Maps an HTTP failure to a user-meaningful kind. Gemini reports an invalid key as
+ * HTTP 400 with reason API_KEY_INVALID, and an unknown model as HTTP 404.
+ */
+internal fun geminiErrorKindFor(statusCode: Int, errorBody: String): GeminiApiErrorKind {
+    val error = GeminiJson.parseObject(errorBody)?.optJSONObject("error")
+    val status = error?.optString("status").orEmpty()
+    val message = error?.optString("message").orEmpty().lowercase()
+    val reasons = buildList {
+        val details = error?.optJSONArray("details")
+        for (index in 0 until (details?.length() ?: 0)) {
+            details?.optJSONObject(index)?.optString("reason")?.takeIf { it.isNotBlank() }?.let(::add)
+        }
+    }
+    return when {
+        "API_KEY_INVALID" in reasons || "API_KEY_INVALID" in errorBody ||
+            (statusCode == 400 && "api key" in message) -> GeminiApiErrorKind.BadKey
+        statusCode == 401 || statusCode == 403 || status == "PERMISSION_DENIED" ||
+            status == "UNAUTHENTICATED" -> GeminiApiErrorKind.BadKey
+        statusCode == 404 || status == "NOT_FOUND" -> GeminiApiErrorKind.ModelNotFound
+        statusCode == 429 || status == "RESOURCE_EXHAUSTED" -> GeminiApiErrorKind.RateLimited
+        statusCode in 500..599 -> GeminiApiErrorKind.Server
+        else -> GeminiApiErrorKind.Unknown
     }
 }
 
@@ -205,6 +225,7 @@ fun geminiError(kind: GeminiApiErrorKind): GeminiApiError {
         GeminiApiErrorKind.InvalidResponse -> "Gemini replied in a format LUMA could not use."
         GeminiApiErrorKind.SafetyBlocked -> "Gemini blocked that test. Local mode still works."
         GeminiApiErrorKind.Server -> "Gemini is unavailable right now. Local mode still works."
+        GeminiApiErrorKind.ModelNotFound -> "Gemini does not know this model name. Local mode still works."
         GeminiApiErrorKind.Unknown -> "Gemini connection did not finish. Local mode still works."
     }
     return GeminiApiError(kind = kind, userMessage = message)

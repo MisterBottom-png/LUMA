@@ -214,5 +214,6 @@ internal fun GeminiApiErrorKind.settingsMessageRes(): Int = when (this) {
     GeminiApiErrorKind.InvalidResponse -> R.string.settings_gemini_error_invalid_response
     GeminiApiErrorKind.SafetyBlocked -> R.string.settings_gemini_error_safety_blocked
     GeminiApiErrorKind.Server -> R.string.settings_gemini_error_server
+    GeminiApiErrorKind.ModelNotFound -> R.string.settings_gemini_error_model_not_found
     GeminiApiErrorKind.Unknown -> R.string.settings_gemini_error_unknown
 }

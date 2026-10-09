@@ -58,6 +58,7 @@ class GeminiJsonValidatorTest {
                 }
             """.trimIndent(),
             fallbackRawText = "send manager the update",
+            now = 1_783_400_000_000L,
         )
 
         assertNotNull(result)
@@ -228,5 +229,42 @@ class GeminiJsonValidatorTest {
         val task = checkNotNull(result).last()
         assertEquals(SuggestedItemType.Task, task.suggestedType)
         assertEquals(expectedTask.suggestedReminderAt, task.suggestedReminderAt)
+    }
+
+    @Test
+    fun reminderTimesInThePastOrFarFutureAreRejected() {
+        val now = 1_800_000_000_000L
+        fun analysisWith(due: Long) = GeminiJsonValidator.captureAnalysis(
+            text = """{"suggestedType":"reminder","suggestedSpaceName":"Inbox","suggestedNextAction":"Call",
+                "confidence":0.8,"reminderSuggestion":{"dueAtEpochMillis":$due,"phrase":"then"}}""",
+            fallbackRawText = "call",
+            now = now,
+        )
+        assertNull(analysisWith(now - 3_600_000L)?.suggestedReminderAt)
+        assertNull(analysisWith(1_000L)?.suggestedReminderAt)
+        assertNull(analysisWith(4_070_908_800_000L)?.suggestedReminderAt)
+        assertNull(analysisWith(now - 3_600_000L)?.reminderPhrase)
+        assertEquals(now + 3_600_000L, analysisWith(now + 3_600_000L)?.suggestedReminderAt)
+    }
+
+    @Test
+    fun fencedJsonIsReadAndTruncatedJsonIsRejected() {
+        val fenced = "```json\n{\"suggestedType\":\"note\",\"suggestedSpaceName\":\"Inbox\"," +
+            "\"suggestedNextAction\":\"Keep\",\"confidence\":0.7}\n```"
+        assertEquals(SuggestedItemType.Note, GeminiJsonValidator.captureAnalysis(fenced, "x")?.suggestedType)
+        val truncated = "{\"suggestedType\":\"note\",\"suggestedSpaceName\":\"Inbox\",\"suggestedNextAc"
+        assertNull(GeminiJsonValidator.captureAnalysis(truncated, "x"))
+        assertNull(GeminiJsonValidator.brainDumpSuggestions("{\"items\":[{\"title\":\"a\"", emptyList()))
+    }
+
+    @Test
+    fun escapedQuotesAndUnicodeSurviveRealJsonParsing() {
+        val result = GeminiJsonValidator.captureAnalysis(
+            text = """{"suggestedType":"note","suggestedSpaceName":"Inbox","suggestedNextAction":"Hoia \"see\" alles",
+                "suggestedTitle":"Купить «молоко»","confidence":0.6}""",
+            fallbackRawText = "x",
+        )
+        assertEquals("Hoia \"see\" alles", result?.suggestedNextAction)
+        assertEquals("Купить «молоко»", result?.suggestedTitle)
     }
 }
