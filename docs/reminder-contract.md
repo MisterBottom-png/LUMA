@@ -2,4 +2,21 @@
 
 An event time, reminder target time, and notification offset are separate values. All user-facing times retain 24-hour behavior. Reminders are scheduled locally and receivers are not exported.
 
-The app asks for notification permission where required and handles denial without presenting a false success state. Reboot and package-replacement handling restore valid scheduled reminders. Date and timezone uncertainty is surfaced for user confirmation rather than guessed.
+The app asks for notification permission where required and handles denial without presenting a false success state. Date and timezone uncertainty is surfaced for user confirmation rather than guessed.
+
+## Delivery
+
+- Each reminder has one notification time: `snoozedUntil` if set, otherwise target time minus offset. `ReminderDeliveryPolicy` is the single place that decides whether that time is armed, delivered now (missed while the phone was off), or treated as already handled.
+- Exact alarms are used when Android allows them (`SCHEDULE_EXACT_ALARM`); otherwise an inexact alarm. A WorkManager job is always queued as a backup path. Whichever path runs first claims the delivery with one atomic SQL update, so a reminder is shown once.
+- Reboot, app update, exact-alarm permission change and app launch run a reconcile pass. Alarms are absolute instants, so a time-zone change does not move them. Reminders missed while the phone was off are shown once (a summary notification when more than three were missed); historical reminders are never re-fired after a migration or restore.
+- Editing title, Space or labels never re-arms a reminder; only a change of timing, enablement or completion does. A time in the past is never scheduled.
+- Settings > Capture & reminders shows whether notifications are allowed and whether exact timing is available, with links to the Android screens.
+
+## Notification actions
+
+- **Done** completes the reminder. A repeating reminder instead moves to its next occurrence and stays active.
+- **Snooze** moves only the notification time by 15 minutes; the target time and edited timestamp are unchanged.
+
+## Repeating reminders
+
+`repeatRule` stores the rule and the chosen time of day, for example `weekly@09:00`. Rules: daily, weekdays (Mon–Fri), weekly, monthly (counted from the anchor day, so the 31st falls back to the last day of shorter months). Nothing is created for the user. A spring-forward night moves only that one occurrence; later ones return to the chosen time. A long-missed repeat moves to the next future occurrence rather than producing a backlog. Moving the reminder to a new time moves later occurrences too. An unknown token behaves as a one-off reminder and is kept unchanged.

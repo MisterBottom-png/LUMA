@@ -5,21 +5,33 @@ This is the current evidence ledger. Superseded failures, repair narratives, and
 ## Snapshot
 
 ```text
-Updated: 2026-08-01
-Branch: master
-Baseline commit: 09c56f0e1cc566f8bfeaca6bb5cea824e6b9d25e
-Working tree: intentionally dirty and not reproducible from the baseline commit alone
+Updated: 2026-10-09
+Branch: ccr-eed43729-xsml4c (PR #4, integration of Hermes 2026-08-01 + currentsource + redesign)
+Previous baseline commit: 09c56f0e1cc566f8bfeaca6bb5cea824e6b9d25e
 Workplace identity purge: COMPLETE
 Cleanup baseline: COMPLETE
 MVP status: PASS for the implemented initial-MVP contract
-Confirmed release blockers: NONE
-Room schema: version 6
-Local export format: version 4; decoder accepts versions 1 through 4
+Confirmed release blockers: application-ID decision (com.orbit.app kept); connected-device test run on this branch
+Room schema: version 9 (explicit migrations 1→9)
+Local export format: version 5; decoder accepts versions 1 through 5
 ```
 
 The current working tree contains the application, tests, Room schemas, canonical documentation, project skills, and reviewer configuration described below. Do not infer current behavior from the baseline commit without the working-tree changes.
 
-## Current automated baseline
+## Integration branch (2026-10-09)
+
+See `docs/integration/RECONCILIATION_2026-10-09.md` for starting SHAs, conflict decisions and the full change list, and `docs/integration/MANUAL_ACCEPTANCE_2026-10-09.md` for the manual checks.
+
+| Gate | Result | Evidence |
+|---|---|---|
+| JVM tests (debug + release, Robolectric incl. Room and Compose) | PASS | `:app:testDebugUnitTest :app:testReleaseUnitTest` |
+| Lint | PASS | `:app:lintDebug :app:lintRelease`, 0 errors |
+| Release build + verifier | PASS | `:app:assembleRelease :app:bundleRelease`, `scripts/verify-release.ps1 -RequireBaselineProfiles` |
+| Instrumentation APK | PASS (built) | `:app:assembleDebugAndroidTest`; executed only by CI's emulator job |
+| Workplace privacy heuristic | PASS | strict checker |
+| Agent-stack contract (`tests/codex`, `validate_luma_codex_stack.py`) | FAIL (pre-existing) | Both expect the consolidated stack (9 skills, 3 reviewers); the repository has carried extra skills, reviewers and `.codex/skills` since the initial import. Not part of CI; unchanged here. |
+
+## Current automated baseline (2026-07-19, superseded by the table above)
 
 Run on 2026-07-19 against the current working tree:
 
@@ -51,7 +63,7 @@ Focused Spaces device evidence from 2026-08-01: manual confirmation covered Spac
 | Calendar V1 | Home week strip, full Day/Month destination, finalized-item projection, item routing, date-aware capture, note/task scheduling, and reminder integrity are implemented without external calendar sync. | Current Calendar and full JVM suites pass; Calendar instrumentation exists. | Current end-to-end physical acceptance and accessibility matrix remain open. |
 | Reminders | Local target time, independent notification offset, dedicated editing, scheduling abstraction, replacement, cancellation, boot/package reconciliation, and notification routing are implemented. | Current scheduling tests pass; prior API 36 scheduling, notification, reboot, and restore checks passed. | Re-run physical delivery checks after scheduler, permission, or manifest changes. |
 | Situation AI and Ask LUMA | Local situation analysis, bounded local retrieval, optional source-linked Gemini answers, source opening, and stale-result rejection are implemented. | Current analyzer, router, prompt, validator, and ask-state tests pass; prior API 36 Ask LUMA and IME checks passed. | No live-provider request was run in this cleanup; broader V2 expansion is deferred. |
-| Persistence and local data | Room version 6 stores core items, learning/history data, Brain Dump sessions, labels, and type-safe finalized-item label relationships. Export format 4 includes current local data and accepts versions 1 through 4 for restore. | Current format-4 codec/restore JVM tests pass; version-6 migration, label repository, and Room restore instrumentation compile and package; prior device checks cover earlier formats/schema transitions. | Run current version-6 migration and format-4 restore instrumentation on a connected target before a release claim. |
+| Persistence and local data | Room version 9 stores core items, learning/history data, Brain Dump sessions, labels and label relationships, capture suggestions, reminder delivery state and repeat rules. Export format 5 adds capture suggestions, learned rules and repeat rules, and accepts versions 1 through 5 for restore. See `docs/data-and-backup-policy.md`. | JVM (Robolectric) migration tests 1..8→9, 6→7, 7→8, 8→9 and export→restore round trips on real Room databases pass. | Run the instrumented migration and restore tests on a connected target before a release claim. |
 | Appearance and glass | Light, Dark, Auto, presets, custom backgrounds, contrast protection, and route-aware glass policies are implemented. | Current theme/glass tests and lint pass; prior API 36 custom-background matrix passed. | Re-run the visual matrix when theme, glass, insets, or typography changes. |
 | Accessibility | Semantics, selected states, practical touch targets, scalable layouts, and custom Calendar actions are present across core surfaces. | Current lint has zero errors and focused semantics tests pass; sampled prior physical behavior passed. | Complete hands-on assistive-technology traversal remains open. |
 | Project agent stack | One canonical `.agents/skills` tree and three bounded `.codex/agents` reviewers are configured. | Structural validator passes. | Runtime discovery is outside the structural validator. |

@@ -86,9 +86,14 @@ GitHub audit fixes, so the reconciliation is a real three-way merge:
 
 ## Data-model guarantees
 
-- Room stays at version 6 with the full `1→2→…→6` migration chain.
-- Backup format stays at version 4; versions 1–4 still decode.
-- No destructive migration was introduced.
+At the merge commit: Room stayed at version 6 with the full `1→2→…→6`
+migration chain and backup format 4 (versions 1–4 decode). No destructive
+migration was introduced.
+
+Later commits on this branch moved forward only, each with an explicit
+migration and tests: v7 (reminder delivery state), v8 (capture
+suggestions), v9 (repeat rule). Backup format 5 is a superset of 4; files
+of versions 1–5 restore. Details: `docs/data-and-backup-policy.md`.
 
 ## Verification after reconciliation
 
@@ -97,3 +102,31 @@ failures), `:app:testReleaseUnitTest`, `:app:lintRelease`,
 `:app:assembleDebugAndroidTest`, `:app:assembleRelease`,
 `:app:bundleRelease`, strict privacy check — all PASS.
 Device tests: NOT RUN locally; delegated to the API 36 CI job.
+
+## Work after the merge
+
+Grouped commits on top of the reconciliation (oldest first):
+
+| Commit | Area |
+|---|---|
+| e96cebc | Reminder delivery: one delivery per reminder (atomic claim), exact alarms with WorkManager backup, missed-reminder handling after restarts, Done/Snooze actions (Room v7) |
+| 21426bd | Multilingual time reader (en/et/ru) rewritten; asks when a time is unclear; table tests |
+| d3c10da | Gemini replies parsed with a JSON parser; key/model errors reported plainly |
+| 1641381 | Sent thoughts are never archived by closing a sheet; blank titles impossible; exports verified before writing |
+| 22aff80 | Learned rules stay visible after removing the Gemini key; whole database moves on device transfer |
+| 45db2f1 | Save-first capture model, To sort in Review, Ask LUMA rebuilt (Room v8, backup v5) |
+| 9cfe4e9 | Boot receiver unexported again (release allowlist) |
+| 0b62c52 | Four labelled tabs; Settings from Home; Capture & reminders settings; Glass effect; debounced settings writes; Space-name uniqueness |
+| 97ecd16 | Compose JVM tests run in the release unit-test variant |
+| dca1b27 | Localised suggestion chips; Unicode search off the main thread; tutorial Skip keeps chosen Spaces |
+| caab89b | Space cards with counts and next item; To sort entry on Spaces |
+| 818d004 | Share into LUMA; "New thought" shortcut and Quick Settings tile |
+| 4203c50 | Learned rules in backups, merged on restore |
+| 7f4f9a3 | AI history kept 90 days; accurate privacy copy |
+| 36e43fe | Dictation from Home |
+| 73a024c | Repeating reminders (Room v9) |
+
+Not done here, each waiting for an owner decision (see
+`docs/release-checklist.md`): application-ID change, home-screen widget,
+encrypted and automatic backups, "remind again until done", focus timer.
+
