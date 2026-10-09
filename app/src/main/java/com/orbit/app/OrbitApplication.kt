@@ -55,6 +55,11 @@ import com.orbit.app.reminders.WorkManagerReminderScheduler
 import com.orbit.app.security.AndroidKeystoreGeminiApiKeyStore
 import com.orbit.app.security.GeminiApiKeyStore
 import com.orbit.app.ui.localization.effectiveAppLocale
+import com.orbit.app.domain.capture.CaptureInbox
+import com.orbit.app.domain.capture.CaptureResolution
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 
 class OrbitApplication : Application() {
@@ -70,6 +75,9 @@ class OrbitApplication : Application() {
 
 class OrbitContainer(application: Application) {
     val applicationContext = application.applicationContext
+
+    /** Work that must finish even when the user leaves a screen (for example capture analysis). */
+    val applicationScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val database: OrbitDatabase by lazy { OrbitDatabase.getInstance(application) }
 
@@ -169,6 +177,34 @@ class OrbitContainer(application: Application) {
             reminderRepository = reminderRepository,
             transaction = RoomCaptureFinalizationTransaction(database),
             labelRepository = labelRepository,
+        )
+    }
+    val captureInbox: CaptureInbox by lazy {
+        CaptureInbox(
+            captureRepository = captureRepository,
+            suggestionDao = database.captureSuggestionDao(),
+            brainDumpRepository = brainDumpRepository,
+            spaceRepository = spaceRepository,
+            suggester = { rawText, allowedSpaces ->
+                aiRouter.analyzeCapture(
+                    rawText = rawText,
+                    settings = appSettingsRepository.settings.first(),
+                    allowedSpaces = allowedSpaces,
+                ).analysis
+            },
+            scope = applicationScope,
+        )
+    }
+    val captureResolution: CaptureResolution by lazy {
+        CaptureResolution(
+            captureRepository = captureRepository,
+            noteRepository = noteRepository,
+            taskRepository = taskRepository,
+            reminderRepository = reminderRepository,
+            spaceRepository = spaceRepository,
+            suggestionDao = database.captureSuggestionDao(),
+            confirmCaptureAction = confirmCaptureAction,
+            transaction = RoomCaptureFinalizationTransaction(database),
         )
     }
     val brainDumpActions: BrainDumpActions by lazy {

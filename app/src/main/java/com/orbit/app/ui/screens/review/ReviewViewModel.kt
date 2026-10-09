@@ -111,7 +111,26 @@ data class ReviewUiState(
     val weeklySummary: SourceLinkedAnswer? = null,
     val pendingTaskUndo: ReviewTaskUndoToken? = null,
     val staleLoopDays: Int = LocalReviewAnalyzer.DefaultStaleLoopDays,
-)
+    /** Every unresolved thought with LUMA's stored suggestion. */
+    val toSort: List<ToSortItem> = emptyList(),
+    val pendingSortUndo: SortUndoToken? = null,
+    val sortMessage: ReviewSortMessage? = null,
+) {
+    /** "All sorted" is only claimed when nothing at all is waiting. */
+    val nothingWaiting: Boolean
+        get() = toSort.isEmpty() && dueToday.isEmpty() && carryForwardSuggestions.isEmpty()
+}
+
+/** An undoable outcome from To sort. */
+sealed interface SortUndoToken {
+    val captureId: Long
+
+    data class Accepted(override val captureId: Long, val itemType: com.orbit.app.data.local.entity.SuggestedItemType, val itemId: Long) : SortUndoToken
+    data class LetGo(override val captureId: Long) : SortUndoToken
+    data class Hidden(override val captureId: Long) : SortUndoToken
+}
+
+enum class ReviewSortMessage { ActionFailed, NeedsChoice, Undone }
 
 internal data class ReviewData(
     val captures: List<CaptureEntity>,
@@ -121,6 +140,8 @@ internal data class ReviewData(
     val spaces: List<com.orbit.app.data.local.entity.SpaceEntity>,
     val settings: AppSettings,
     val brainDumpCaptureIds: Set<Long>,
+    val suggestions: Map<Long, com.orbit.app.data.local.entity.CaptureSuggestionEntity> = emptyMap(),
+    val brainDumpPending: Map<Long, Int> = emptyMap(),
 )
 
 class ReviewViewModel internal constructor(
@@ -144,6 +165,7 @@ class ReviewViewModel internal constructor(
     private val smallerAction = MutableStateFlow<ReviewSuggestion?>(null)
     private val weeklySummary = MutableStateFlow<SourceLinkedAnswer?>(null)
     private val pendingTaskUndo = MutableStateFlow<ReviewTaskUndoToken?>(null)
+    private val sortFeedback = MutableStateFlow<Pair<SortUndoToken?, ReviewSortMessage?>>(null to null)
     private var weeklyDataVersion = 0L
 
     private val corpus = combine(
@@ -166,8 +188,12 @@ class ReviewViewModel internal constructor(
         corpus,
         container.appSettingsRepository.settings,
         container.brainDumpRepository.observeSessions(),
-    ) { corpus, settings, sessions ->
+        container.database.captureSuggestionDao().observeAll(),
+        container.database.brainDumpDao().observePendingCounts(),
+    ) { corpus, settings, sessions, suggestions, pendingCounts ->
         ReviewData(
+            suggestions = suggestions.associateBy { it.captureId },
+            brainDumpPending = pendingCounts.associate { it.captureId to it.pending },
             captures = corpus.captures,
             notes = corpus.notes,
             tasks = corpus.tasks,
@@ -192,13 +218,68 @@ class ReviewViewModel internal constructor(
         smallerAction,
         weeklySummary,
         pendingTaskUndo,
-    ) { data, smallAction, summary, taskUndo ->
-        buildUiState(data, smallAction, summary, taskUndo)
+        sortFeedback,
+    ) { data, smallAction, summary, taskUndo, feedback ->
+        buildUiState(data, smallAction, summary, taskUndo).copy(
+            pendingSortUndo = feedback.first,
+            sortMessage = feedback.second,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ReviewUiState(),
     )
+
+    /** One tap: turn the thought into what LUMA suggested. */
+    fun acceptSuggestion(item: ToSortItem) {
+        viewModelScope.launch {
+            runCatching { container.captureResolution.acceptSuggestion(item.captureId) }
+                .onSuccess { accepted ->
+                    sortFeedback.value = if (accepted == null) {
+                        null to ReviewSortMessage.NeedsChoice
+                    } else {
+                        SortUndoToken.Accepted(item.captureId, accepted.itemType, accepted.itemId) to null
+                    }
+                }
+                .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
+        }
+    }
+
+    /** Hides LUMA's suggestion; the thought stays in To sort. */
+    fun hideSuggestion(item: ToSortItem) {
+        viewModelScope.launch {
+            runCatching { container.captureInbox.dismissSuggestion(item.captureId) }
+                .onSuccess { sortFeedback.value = SortUndoToken.Hidden(item.captureId) to null }
+                .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
+        }
+    }
+
+    /** The user explicitly lets a thought go (archived, with Undo). */
+    fun letGo(item: ToSortItem) {
+        viewModelScope.launch {
+            runCatching { container.captureResolution.archive(item.captureId) }
+                .onSuccess { sortFeedback.value = SortUndoToken.LetGo(item.captureId) to null }
+                .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
+        }
+    }
+
+    fun undoSort(token: SortUndoToken) {
+        viewModelScope.launch {
+            runCatching {
+                when (token) {
+                    is SortUndoToken.Accepted -> container.captureResolution.undo(token.captureId, token.itemType, token.itemId)
+                    is SortUndoToken.LetGo -> container.captureResolution.unarchive(token.captureId)
+                    is SortUndoToken.Hidden -> container.captureInbox.restoreSuggestion(token.captureId)
+                }
+            }
+                .onSuccess { sortFeedback.value = null to ReviewSortMessage.Undone }
+                .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
+        }
+    }
+
+    fun sortFeedbackShown() {
+        sortFeedback.value = null to null
+    }
 
     fun keepTaskActive(loop: ReviewLoop) = updateLoop(loop, actions::keepTaskActive)
 
@@ -358,18 +439,10 @@ class ReviewViewModel internal constructor(
                 )
             }
 
-        val openLoops = (
-            activeTasks.map { ReviewLoop(it.id, ReviewLoopType.Task, it.title, it.updatedAt) } +
-                inboxCaptures.map {
-                    ReviewLoop(
-                        it.id,
-                        ReviewLoopType.Capture,
-                        it.rawText,
-                        it.updatedAt,
-                        hasPendingBrainDump = it.id in data.brainDumpCaptureIds,
-                    )
-                }
-            ).sortedBy { it.updatedAt }
+        // Unresolved captures are handled in To sort, so open loops list tasks only.
+        val openLoops = activeTasks
+            .map { ReviewLoop(it.id, ReviewLoopType.Task, it.title, it.updatedAt) }
+            .sortedBy { it.updatedAt }
 
         return ReviewUiState(
             dueToday = dueToday,
@@ -411,6 +484,13 @@ class ReviewViewModel internal constructor(
             weeklySummary = summary,
             pendingTaskUndo = taskUndo,
             staleLoopDays = data.settings.staleLoopDays,
+            toSort = buildToSort(
+                captures = data.captures,
+                suggestions = data.suggestions,
+                brainDumpPending = data.brainDumpPending,
+                brainDumpCaptureIds = data.brainDumpCaptureIds,
+                now = now,
+            ),
         )
     }
 

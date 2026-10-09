@@ -24,6 +24,7 @@ import com.orbit.app.domain.model.GeminiConsent
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.orbitSettingsDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -34,6 +35,14 @@ interface AppSettingsRepository {
     val settings: Flow<AppSettings>
     suspend fun update(settings: AppSettings)
     suspend fun reset()
+
+    /**
+     * Changes settings from their current stored value, so two quick changes made
+     * from different screens cannot overwrite each other with a stale copy.
+     */
+    suspend fun edit(transform: (AppSettings) -> AppSettings) {
+        update(transform(settings.first()))
+    }
 }
 
 class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
@@ -46,8 +55,18 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
         }
         .map(::toAppSettings)
 
-    override suspend fun update(settings: AppSettings) {
+    override suspend fun edit(transform: (AppSettings) -> AppSettings) {
         dataStore.edit { preferences ->
+            write(preferences, transform(toAppSettings(preferences)))
+        }
+    }
+
+    override suspend fun update(settings: AppSettings) {
+        dataStore.edit { preferences -> write(preferences, settings) }
+    }
+
+    private fun write(preferences: androidx.datastore.preferences.core.MutablePreferences, settings: AppSettings) {
+        run {
             preferences[Keys.USER_NAME] = settings.userName
             preferences[Keys.THEME_MODE] = settings.themeMode.name
             preferences[Keys.TIME_FORMAT_MODE] = settings.timeFormatMode.name
@@ -75,6 +94,8 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             preferences[Keys.USE_GEMINI_FOR_REVIEW] = settings.useGeminiForReview
             preferences[Keys.HAS_COMPLETED_FIRST_TIME_TUTORIAL] =
                 settings.hasCompletedFirstTimeTutorial
+            preferences[Keys.SORT_RIGHT_AFTER_SAVING] = settings.sortRightAfterSaving
+            preferences[Keys.FOCUS_CAPTURE_ON_OPEN] = settings.focusCaptureOnOpen
         }
     }
 
@@ -152,6 +173,10 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             hasCompletedFirstTimeTutorial =
                 preferences[Keys.HAS_COMPLETED_FIRST_TIME_TUTORIAL]
                     ?: defaults.hasCompletedFirstTimeTutorial,
+            sortRightAfterSaving = preferences[Keys.SORT_RIGHT_AFTER_SAVING]
+                ?: defaults.sortRightAfterSaving,
+            focusCaptureOnOpen = preferences[Keys.FOCUS_CAPTURE_ON_OPEN]
+                ?: defaults.focusCaptureOnOpen,
         )
     }
 
@@ -208,5 +233,7 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
         val USE_GEMINI_FOR_REVIEW = booleanPreferencesKey("use_gemini_for_review")
         val HAS_COMPLETED_FIRST_TIME_TUTORIAL =
             booleanPreferencesKey("has_completed_first_time_tutorial")
+        val SORT_RIGHT_AFTER_SAVING = booleanPreferencesKey("sort_right_after_saving")
+        val FOCUS_CAPTURE_ON_OPEN = booleanPreferencesKey("focus_capture_on_open")
     }
 }

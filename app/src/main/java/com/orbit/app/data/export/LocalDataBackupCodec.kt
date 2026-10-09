@@ -1,6 +1,7 @@
 package com.orbit.app.data.export
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpItemOutcome
 import com.orbit.app.data.local.entity.BrainDumpReminderStatus
@@ -37,6 +38,8 @@ data class LocalDataSnapshot(
     val noteLabels: List<NoteLabelCrossRef> = emptyList(),
     val taskLabels: List<TaskLabelCrossRef> = emptyList(),
     val reminderLabels: List<ReminderLabelCrossRef> = emptyList(),
+    /** LUMA's stored suggestions for unresolved captures (format v5). */
+    val captureSuggestions: List<CaptureSuggestionEntity> = emptyList(),
 )
 
 data class LocalDataCounts(
@@ -62,7 +65,7 @@ class LocalDataValidationException(message: String) : IllegalArgumentException(m
 object LocalDataBackupCodec {
     const val Product = "LUMA"
     const val Format = "luma-local-json"
-    const val Version = 4
+    const val Version = 5
     const val MaximumInputBytes = 10 * 1024 * 1024
     const val MaximumStructureDepth = 64
 
@@ -100,6 +103,7 @@ object LocalDataBackupCodec {
             .put("noteLabels", snapshot.noteLabels.toJsonArray { it.toJson() })
             .put("taskLabels", snapshot.taskLabels.toJsonArray { it.toJson() })
             .put("reminderLabels", snapshot.reminderLabels.toJsonArray { it.toJson() })
+            .put("captureSuggestions", snapshot.captureSuggestions.toJsonArray { it.toJson() })
             .toString(2)
     }
 
@@ -156,6 +160,13 @@ object LocalDataBackupCodec {
             },
             reminderLabels = if (version >= 4L) {
                 root.requiredArray("reminderLabels").mapObjects("reminderLabels", ::decodeReminderLabel)
+            } else {
+                emptyList()
+            },
+            captureSuggestions = if (version >= 5L) {
+                root.optionalArray("captureSuggestions")
+                    ?.mapObjects("captureSuggestions", ::decodeCaptureSuggestion)
+                    .orEmpty()
             } else {
                 emptyList()
             },
@@ -288,8 +299,9 @@ object LocalDataBackupCodec {
         suggestedType = json.requiredEnum("suggestedType", SuggestedItemType.entries),
         suggestedSpaceName = json.requiredNonBlankString("suggestedSpaceName"),
         confidence = json.requiredFloatInRange("confidence", 0f, 1f),
-        tinyNextAction = json.requiredNonBlankString("tinyNextAction"),
-        reason = json.requiredNonBlankString("reason"),
+        // Optional explanations: Gemini may omit them and the UI then shows none.
+        tinyNextAction = json.requiredString("tinyNextAction"),
+        reason = json.requiredString("reason"),
         reminderStatus = json.requiredEnum("reminderStatus", BrainDumpReminderStatus.entries),
         suggestedReminderAt = json.optionalNonNegativeLong("suggestedReminderAt"),
         reminderPhrase = json.optionalString("reminderPhrase"),
@@ -297,6 +309,34 @@ object LocalDataBackupCodec {
         createdAt = json.requiredNonNegativeLong("createdAt"),
         updatedAt = json.requiredNonNegativeLong("updatedAt"),
     )
+
+    private fun decodeCaptureSuggestion(json: JSONObject): CaptureSuggestionEntity {
+        val status = json.requiredString("reminderTimeStatus")
+        if (status !in setOf("Unspecified", "Resolved", "NeedsClarification")) {
+            invalid("A capture suggestion has an unknown reminder status.")
+        }
+        return CaptureSuggestionEntity(
+            captureId = json.requiredPositiveLong("captureId"),
+            suggestedType = json.requiredEnum("suggestedType", SuggestedItemType.entries),
+            suggestedTitle = json.requiredNonBlankString("suggestedTitle"),
+            suggestedSpaceName = json.optionalString("suggestedSpaceName"),
+            suggestedLabels = json.optionalString("suggestedLabels").orEmpty(),
+            suggestedDueAt = json.optionalNonNegativeLong("suggestedDueAt"),
+            suggestedReminderAt = json.optionalNonNegativeLong("suggestedReminderAt"),
+            reminderTimeStatus = status,
+            reminderPhrase = json.optionalString("reminderPhrase"),
+            lifeSignal = json.optionalString("lifeSignal") ?: "None",
+            confidence = json.requiredFloatInRange("confidence", 0f, 1f),
+            analyzerSource = json.requiredNonBlankString("analyzerSource"),
+            typeReason = json.optionalString("typeReason").orEmpty(),
+            spaceReason = json.optionalString("spaceReason").orEmpty(),
+            nextAction = json.optionalString("nextAction").orEmpty(),
+            contextDateEpochDay = json.optionalLong("contextDateEpochDay"),
+            dismissed = json.optionalBoolean("dismissed") ?: false,
+            createdAt = json.requiredNonNegativeLong("createdAt"),
+            updatedAt = json.requiredNonNegativeLong("updatedAt"),
+        )
+    }
 
     private fun decodeLabel(json: JSONObject) = LabelEntity(
         id = json.requiredPositiveId(),
@@ -409,6 +449,14 @@ object LocalDataBackupCodec {
                 invalid("The export contains duplicate task label relationships.")
             }
         }
+        val suggestionCaptureIds = hashSetOf<Long>()
+        snapshot.captureSuggestions.forEach { suggestion ->
+            requireReference("capture suggestion captureId", suggestion.captureId, captureIds)
+            if (!suggestionCaptureIds.add(suggestion.captureId)) {
+                invalid("The export contains duplicate capture suggestions.")
+            }
+            suggestion.contextDateEpochDay?.let(::requireValidEpochDay)
+        }
         val reminderLabelKeys = hashSetOf<String>()
         snapshot.reminderLabels.forEach { relation ->
             requireReference("reminder label reminderId", relation.reminderId, reminderIds)
@@ -512,6 +560,17 @@ object LocalDataBackupCodec {
     private fun ReminderLabelCrossRef.toJson() = JSONObject()
         .put("reminderId", reminderId).put("labelId", labelId)
 
+    private fun CaptureSuggestionEntity.toJson() = JSONObject()
+        .put("captureId", captureId).put("suggestedType", suggestedType.name)
+        .put("suggestedTitle", suggestedTitle).put("suggestedSpaceName", suggestedSpaceName)
+        .put("suggestedLabels", suggestedLabels).put("suggestedDueAt", suggestedDueAt)
+        .put("suggestedReminderAt", suggestedReminderAt).put("reminderTimeStatus", reminderTimeStatus)
+        .put("reminderPhrase", reminderPhrase).put("lifeSignal", lifeSignal)
+        .put("confidence", confidence.toDouble()).put("analyzerSource", analyzerSource)
+        .put("typeReason", typeReason).put("spaceReason", spaceReason).put("nextAction", nextAction)
+        .put("contextDateEpochDay", contextDateEpochDay).put("dismissed", dismissed)
+        .put("createdAt", createdAt).put("updatedAt", updatedAt)
+
     private fun <T> List<T>.toJsonArray(transform: (T) -> JSONObject): JSONArray =
         JSONArray().also { array -> forEach { array.put(transform(it)) } }
 
@@ -520,6 +579,18 @@ object LocalDataBackupCodec {
 
     private fun JSONObject.requiredArray(name: String): JSONArray =
         value(name) as? JSONArray ?: invalid("Required array '$name' is missing or invalid.")
+
+    private fun JSONObject.optionalArray(name: String): JSONArray? = when (val value = value(name)) {
+        null, JSONObject.NULL -> null
+        is JSONArray -> value
+        else -> invalid("Optional array '$name' is invalid.")
+    }
+
+    private fun JSONObject.optionalBoolean(name: String): Boolean? = when (val value = value(name)) {
+        null, JSONObject.NULL -> null
+        is Boolean -> value
+        else -> invalid("Optional boolean '$name' is invalid.")
+    }
 
     private fun JSONObject.requiredString(name: String): String =
         value(name) as? String ?: invalid("Required text field '$name' is missing or invalid.")

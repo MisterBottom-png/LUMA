@@ -176,6 +176,7 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
                         runCatching { container.reminderScheduler.cancel(reminder.id) }
                     }
                     container.database.withTransaction {
+                        container.database.captureSuggestionDao().deleteAll()
                         container.database.labelDao().deleteAllNoteLabels()
                         container.database.labelDao().deleteAllTaskLabels()
                         container.database.labelDao().deleteAllReminderLabels()

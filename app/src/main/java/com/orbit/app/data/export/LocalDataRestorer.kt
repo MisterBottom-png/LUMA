@@ -94,6 +94,7 @@ class RoomLocalDataRestoreStore(
             noteLabels = database.labelDao().getAllNoteLabels(),
             taskLabels = database.labelDao().getAllTaskLabels(),
             reminderLabels = database.labelDao().getAllReminderLabels(),
+            captureSuggestions = database.captureSuggestionDao().getAll(),
         )
     }
 
@@ -102,6 +103,7 @@ class RoomLocalDataRestoreStore(
             val aliases = database.spaceAliasMemoryDao().observeAll().first()
             val suggestionHistory = database.aiSuggestionHistoryDao().observeAll().first()
 
+            database.captureSuggestionDao().deleteAll()
             database.labelDao().deleteAllNoteLabels()
             database.labelDao().deleteAllTaskLabels()
             database.labelDao().deleteAllReminderLabels()
@@ -125,6 +127,7 @@ class RoomLocalDataRestoreStore(
             database.labelDao().insertNoteLabels(snapshot.noteLabels)
             database.labelDao().insertTaskLabels(snapshot.taskLabels)
             database.labelDao().insertReminderLabels(snapshot.reminderLabels)
+            database.captureSuggestionDao().insertAll(snapshot.captureSuggestions)
 
             val restoredSpaceIds = snapshot.spaces.mapTo(hashSetOf()) { it.id }
             aliases.filter { it.spaceId in restoredSpaceIds }.forEach {

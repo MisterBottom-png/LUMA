@@ -230,6 +230,49 @@ data class ReminderEntity(
     val snoozedUntil: Long? = null,
 )
 
+/**
+ * LUMA's stored suggestion for an unresolved capture (Room v8). It is shown later
+ * in Review > To sort; nothing is created from it until the user confirms.
+ */
+@Entity(
+    tableName = "capture_suggestions",
+    foreignKeys = [
+        ForeignKey(
+            entity = CaptureEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["captureId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class CaptureSuggestionEntity(
+    @PrimaryKey val captureId: Long,
+    val suggestedType: SuggestedItemType,
+    val suggestedTitle: String,
+    /** Null means Inbox / no Space. */
+    val suggestedSpaceName: String? = null,
+    /** Label names separated by new lines. */
+    val suggestedLabels: String = "",
+    val suggestedDueAt: Long? = null,
+    val suggestedReminderAt: Long? = null,
+    /** Unspecified, Resolved or NeedsClarification. */
+    val reminderTimeStatus: String = "Unspecified",
+    val reminderPhrase: String? = null,
+    val lifeSignal: String = "None",
+    val confidence: Float,
+    val analyzerSource: String,
+    /** Reasons written by Gemini; empty for local suggestions (shown from resources). */
+    val typeReason: String = "",
+    val spaceReason: String = "",
+    val nextAction: String = "",
+    /** Day picked in Calendar when the thought was captured for that day. */
+    val contextDateEpochDay: Long? = null,
+    /** The user hid this suggestion; the capture itself stays in To sort. */
+    val dismissed: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
+)
+
 @Entity(
     tableName = "labels",
     indices = [Index(value = ["normalizedName"], unique = true)],

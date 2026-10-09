@@ -73,6 +73,8 @@ class BackupRoundTripRoomTest {
         assertEquals(original.reminderLabels, restored.reminderLabels)
         assertEquals(original.brainDumpSessions, restored.brainDumpSessions)
         assertEquals(original.brainDumpItems, restored.brainDumpItems)
+        assertEquals(1, original.captureSuggestions.size)
+        assertEquals(original.captureSuggestions, restored.captureSuggestions)
         assertEquals(
             original.reminders.map { it.copy(notificationWorkId = null, deliveredNotificationAt = null) },
             restored.reminders.map { it.copy(notificationWorkId = null, deliveredNotificationAt = null) },
@@ -168,5 +170,20 @@ class BackupRoundTripRoomTest {
         db.labelDao().insertNoteLabels(listOf(NoteLabelCrossRef(20, 1)))
         db.labelDao().insertTaskLabels(listOf(TaskLabelCrossRef(21, 2)))
         db.labelDao().insertReminderLabels(listOf(ReminderLabelCrossRef(31, 1)))
+        db.captureSuggestionDao().upsert(
+            com.orbit.app.data.local.entity.CaptureSuggestionEntity(
+                captureId = 10,
+                suggestedType = SuggestedItemType.Task,
+                suggestedTitle = "Unsorted thought",
+                suggestedSpaceName = "Home",
+                suggestedLabels = "Errands\nWeekend",
+                reminderTimeStatus = "Unspecified",
+                confidence = 0.7f,
+                analyzerSource = "Local",
+                contextDateEpochDay = 20_100,
+                createdAt = 3,
+                updatedAt = 3,
+            ),
+        )
     }
 }

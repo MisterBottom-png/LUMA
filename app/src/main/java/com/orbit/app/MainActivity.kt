@@ -24,6 +24,7 @@ import com.orbit.app.reminders.ReminderNotificationWorker
 import com.orbit.app.reminders.ReminderNotifier
 import com.orbit.app.reminders.ReminderRescheduleWorker
 import com.orbit.app.ui.localization.AppLanguage
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     private var reminderToOpen by mutableStateOf<Long?>(null)
@@ -38,6 +39,11 @@ class MainActivity : AppCompatActivity() {
             readLaunchIntent(intent)
             // Restores alarms lost to a force-stop and surfaces reminders missed meanwhile.
             ReminderRescheduleWorker.enqueue(this)
+            // Thoughts saved just before LUMA was closed get their suggestion now.
+            val container = (application as OrbitApplication).container
+            container.applicationScope.launch {
+                runCatching { container.captureInbox.analyzePending() }
+            }
         }
         enableEdgeToEdge()
 

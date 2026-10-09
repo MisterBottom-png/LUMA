@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -59,7 +60,8 @@ class ReviewScreenAccessibilityTest {
         composeRule.onNode(
             SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Review"),
         ).assertExists()
-        composeRule.onNode(isHeading()).assertExists()
+        // Review has a heading per section; the screen title must be one of them.
+        composeRule.onNode(isHeading() and hasText("Review")).assertExists()
     }
 
     @Test

@@ -11,6 +11,7 @@ import com.orbit.app.data.local.dao.AiCorrectionHistoryDao
 import com.orbit.app.data.local.dao.AiSuggestionHistoryDao
 import com.orbit.app.data.local.dao.BrainDumpDao
 import com.orbit.app.data.local.dao.CaptureDao
+import com.orbit.app.data.local.dao.CaptureSuggestionDao
 import com.orbit.app.data.local.dao.LabelDao
 import com.orbit.app.data.local.dao.LearnedRuleDao
 import com.orbit.app.data.local.dao.NoteDao
@@ -25,6 +26,7 @@ import com.orbit.app.data.local.entity.AiSuggestionHistoryEntity
 import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.data.local.entity.NoteEntity
@@ -57,8 +59,9 @@ import com.orbit.app.data.local.entity.TaskLabelCrossRef
         NoteLabelCrossRef::class,
         TaskLabelCrossRef::class,
         ReminderLabelCrossRef::class,
+        CaptureSuggestionEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(OrbitTypeConverters::class)
@@ -76,6 +79,7 @@ abstract class OrbitDatabase : RoomDatabase() {
     abstract fun spaceAliasMemoryDao(): SpaceAliasMemoryDao
     abstract fun brainDumpDao(): BrainDumpDao
     abstract fun labelDao(): LabelDao
+    abstract fun captureSuggestionDao(): CaptureSuggestionDao
 
     companion object {
         private const val DATABASE_NAME = "orbit.db"
@@ -412,6 +416,42 @@ abstract class OrbitDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Stores LUMA's suggestion next to each unresolved capture so sorting can
+         * happen later in Review (To sort) instead of right after saving.
+         */
+        val Migration7To8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `capture_suggestions` (
+                        `captureId` INTEGER NOT NULL,
+                        `suggestedType` TEXT NOT NULL,
+                        `suggestedTitle` TEXT NOT NULL,
+                        `suggestedSpaceName` TEXT,
+                        `suggestedLabels` TEXT NOT NULL,
+                        `suggestedDueAt` INTEGER,
+                        `suggestedReminderAt` INTEGER,
+                        `reminderTimeStatus` TEXT NOT NULL,
+                        `reminderPhrase` TEXT,
+                        `lifeSignal` TEXT NOT NULL,
+                        `confidence` REAL NOT NULL,
+                        `analyzerSource` TEXT NOT NULL,
+                        `typeReason` TEXT NOT NULL,
+                        `spaceReason` TEXT NOT NULL,
+                        `nextAction` TEXT NOT NULL,
+                        `contextDateEpochDay` INTEGER,
+                        `dismissed` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`captureId`),
+                        FOREIGN KEY(`captureId`) REFERENCES `captures`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+            }
+        }
+
         val AllMigrations: Array<Migration> = arrayOf(
             Migration1To2,
             Migration2To3,
@@ -419,6 +459,7 @@ abstract class OrbitDatabase : RoomDatabase() {
             Migration4To5,
             Migration5To6,
             Migration6To7,
+            Migration7To8,
         )
 
         @Volatile

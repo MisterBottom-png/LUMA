@@ -80,6 +80,8 @@ internal fun LocalDataSnapshot.sanitizedForExport(): LocalDataSnapshot {
             },
             brainDumpSessions = sanitized.brainDumpSessions.filter { it.captureId in captureIds },
             brainDumpItems = sanitized.brainDumpItems.filter { it.captureId in captureIds },
+            captureSuggestions = sanitized.captureSuggestions
+                .filter { it.captureId in captureIds && it.suggestedTitle.isNotBlank() },
         )
     }
 }

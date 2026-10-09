@@ -112,7 +112,7 @@ internal fun CaptureSuggestionSheet(
         runCatching { LocalDate.ofEpochDay(it) }.getOrNull()
     }
     var actionSetup by rememberSaveable(suggestion.captureId) {
-        mutableStateOf<ActionSetup?>(null)
+        mutableStateOf(if (suggestion.startWithReminderSetup) ActionSetup.Reminder else null)
     }
     var selectedActionName by rememberSaveable(suggestion.captureId) {
         mutableStateOf(defaultDecisionAction(analysis).name)

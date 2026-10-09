@@ -1,6 +1,15 @@
 package com.orbit.app.ui.screens.situation
 
+import android.content.Context
+import android.content.res.Configuration
 import android.text.format.DateFormat
+import com.orbit.app.R
+import com.orbit.app.domain.ai.AskLumaAnswerKind
+import com.orbit.app.domain.ai.AskLumaPromptAnswer
+import com.orbit.app.domain.ai.AskLumaPromptAnswerer
+import com.orbit.app.domain.ai.AskLumaQuestion
+import com.orbit.app.domain.analyzer.LocalReviewAnalyzer
+import com.orbit.app.ui.localization.effectiveAppLocale
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -116,6 +125,32 @@ class SituationAiViewModel(
         }
     }
 
+    /** Answers one of Review's Ask LUMA questions from local items; "nothing needed" is valid. */
+    fun askQuestion(question: AskLumaQuestion) {
+        viewModelScope.launch {
+            val data = context.first()
+            val localized = localizedContext()
+            val label = localized.getString(question.labelRes())
+            val result = AskLumaPromptAnswerer.answer(question, data.corpus, data.now)
+            val answer = SourceLinkedAnswer(
+                answer = result.toText(localized),
+                sourceItemIds = result.items.map { it.sourceId },
+                sourceItems = result.items,
+                fromGemini = false,
+            )
+            val submission = AskState(query = label).beginSubmission() ?: return@launch
+            askState.value = submission.loadingState
+                .completeSubmission(submission.question, answer, data.dataKey)
+        }
+    }
+
+    private fun localizedContext(): Context {
+        val base = container.applicationContext
+        return base.createConfigurationContext(
+            Configuration(base.resources.configuration).apply { setLocale(effectiveAppLocale(base)) },
+        )
+    }
+
     class Factory(private val container: OrbitContainer) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -212,3 +247,32 @@ internal data class AskSubmission(
 )
 
 private fun String.askQuestionKey(): String = trim().replace(Regex("\\s+"), " ")
+
+private fun AskLumaQuestion.labelRes(): Int = when (this) {
+    AskLumaQuestion.WhatNow -> R.string.review_ask_now
+    AskLumaQuestion.WhatCanWait -> R.string.review_ask_can_wait
+    AskLumaQuestion.DependsOnOthers -> R.string.review_ask_depends
+    AskLumaQuestion.SmallestStep -> R.string.review_ask_smallest
+    AskLumaQuestion.AnythingUrgent -> R.string.review_ask_urgent
+}
+
+internal fun AskLumaPromptAnswer.toText(context: Context): String {
+    val titles = items.joinToString(", ") { it.title }
+    return when (kind) {
+        AskLumaAnswerKind.StartWith -> context.getString(R.string.ask_answer_start_with, titles)
+        AskLumaAnswerKind.SortThoughts ->
+            context.resources.getQuantityString(R.plurals.ask_answer_sort_thoughts, count, count)
+        AskLumaAnswerKind.NothingNeeded -> context.getString(R.string.ask_answer_nothing_needed)
+        AskLumaAnswerKind.CanWait -> context.getString(R.string.ask_answer_can_wait, titles)
+        AskLumaAnswerKind.NothingCanWait -> context.getString(R.string.ask_answer_nothing_can_wait)
+        AskLumaAnswerKind.WaitingOnOthers -> context.getString(R.string.ask_answer_waiting, titles)
+        AskLumaAnswerKind.NothingWaiting -> context.getString(R.string.ask_answer_nothing_waiting)
+        AskLumaAnswerKind.SmallestStep -> context.getString(
+            R.string.ask_answer_smallest_step,
+            LocalReviewAnalyzer.makeSmallerText(items.first().title, effectiveAppLocale(context)),
+        )
+        AskLumaAnswerKind.NothingToBreakDown -> context.getString(R.string.ask_answer_nothing_to_break)
+        AskLumaAnswerKind.Urgent -> context.getString(R.string.ask_answer_urgent, titles)
+        AskLumaAnswerKind.NothingUrgent -> context.getString(R.string.ask_answer_nothing_urgent)
+    }
+}

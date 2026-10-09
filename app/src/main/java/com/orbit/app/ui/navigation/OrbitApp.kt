@@ -64,6 +64,9 @@ import com.orbit.app.ui.screens.tutorial.TutorialSpaceSetupViewModel
 import com.orbit.app.OrbitContainer
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.ui.screens.home.HomeCaptureViewModel
+import com.orbit.app.ui.screens.home.CaptureSortViewModel
+import com.orbit.app.ui.screens.home.CaptureSortHost
+import com.orbit.app.domain.ai.AskLumaQuestion
 import com.orbit.app.ui.time.currentOrbitTimeFormat
 import com.orbit.app.ui.theme.OrbitMotion
 import com.orbit.app.ui.localization.AppLanguage
@@ -84,6 +87,7 @@ fun OrbitApp(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val selectedRoute = backStackEntry?.destination?.route
     var showSituationAi by rememberSaveable { mutableStateOf(false) }
+    var situationAiQuestion by rememberSaveable { mutableStateOf<String?>(null) }
     var restoreSituationAiFocus by rememberSaveable { mutableStateOf(false) }
     var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
     val situationAiFocusRequester = remember { FocusRequester() }
@@ -195,19 +199,14 @@ fun OrbitApp(
                 composable(OrbitDestination.Home.route) { entry ->
                     val homeViewModel: HomeCaptureViewModel = viewModel(
                         factory = HomeCaptureViewModel.Factory(
-                            captureRepository = container.captureRepository,
-                            brainDumpRepository = container.brainDumpRepository,
-                            spaceRepository = container.spaceRepository,
+                            captureInbox = container.captureInbox,
                             appSettingsRepository = container.appSettingsRepository,
-                            aiRouter = container.aiRouter,
-                            confirmCaptureAction = container.confirmCaptureAction,
-                            brainDumpActions = container.brainDumpActions,
-                            reminderRepository = container.reminderRepository,
-                            recordAiLearningEvent = container.recordAiLearningEvent,
-                            proposeLearnedRule = container.proposeLearnedRule,
+                            quickReminder = container.captureResolution::createQuickReminder,
                             savedStateHandle = entry.savedStateHandle,
-                            applicationContext = container.applicationContext,
                         ),
+                    )
+                    val homeSortViewModel: CaptureSortViewModel = viewModel(
+                        factory = CaptureSortViewModel.factory(container, entry.savedStateHandle),
                     )
                     val homeWeekViewModel: HomeWeekViewModel = viewModel(
                         factory = HomeWeekViewModel.Factory(container.calendarRepository),
@@ -221,12 +220,13 @@ fun OrbitApp(
                         .collectAsStateWithLifecycle()
                     LaunchedEffect(brainDumpResumeCaptureId) {
                         brainDumpResumeCaptureId?.let { captureId ->
-                            homeViewModel.resumeBrainDump(captureId)
+                            homeSortViewModel.open(captureId)
                             entry.savedStateHandle[BrainDumpResumeContext.CaptureIdKey] = null
                         }
                     }
                     HomeScreen(
                         viewModel = homeViewModel,
+                        sortViewModel = homeSortViewModel,
                         weekUiState = homeWeekUiState,
                         calendarDateContext = CalendarCaptureContext.date(calendarCaptureEpochDay),
                         onCalendarDateContextConsumed = {
@@ -327,9 +327,12 @@ fun OrbitApp(
                         onItemSelected = { item -> navController.navigate(item.route()) },
                     )
                 }
-                composable(OrbitDestination.Review.route) {
+                composable(OrbitDestination.Review.route) { entry ->
                     val reviewViewModel: ReviewViewModel = viewModel(
                         factory = ReviewViewModel.Factory(container),
+                    )
+                    val reviewSortViewModel: CaptureSortViewModel = viewModel(
+                        factory = CaptureSortViewModel.factory(container, entry.savedStateHandle),
                     )
                     val reviewUiState by reviewViewModel.uiState.collectAsStateWithLifecycle()
                     ReviewScreen(
@@ -361,6 +364,23 @@ fun OrbitApp(
                             reviewViewModel::keepCarryForwardUnscheduled,
                         onCompleteCarryForward = reviewViewModel::completeCarryForward,
                         onWeeklyLookBackVisible = reviewViewModel::loadWeeklySummary,
+                        onAskLuma = { prompt ->
+                            situationAiQuestion = prompt?.name
+                            showSituationAi = true
+                        },
+                        onAcceptToSort = reviewViewModel::acceptSuggestion,
+                        onChangeToSort = { item -> reviewSortViewModel.open(item.captureId) },
+                        onHideSuggestion = reviewViewModel::hideSuggestion,
+                        onLetGo = reviewViewModel::letGo,
+                        onUndoSort = reviewViewModel::undoSort,
+                        onSortFeedbackShown = reviewViewModel::sortFeedbackShown,
+                        sortHost = { snackbarHostState ->
+                            CaptureSortHost(
+                                viewModel = reviewSortViewModel,
+                                timeFormat = timeFormat,
+                                snackbarHostState = snackbarHostState,
+                            )
+                        },
                     )
                 }
                 composable(OrbitDestination.Settings.route) {
@@ -556,6 +576,12 @@ fun OrbitApp(
                     factory = SituationAiViewModel.Factory(container),
                 )
                 val situationUiState by situationViewModel.uiState.collectAsStateWithLifecycle()
+                LaunchedEffect(situationAiQuestion) {
+                    situationAiQuestion
+                        ?.let { name -> runCatching { AskLumaQuestion.valueOf(name) }.getOrNull() }
+                        ?.let(situationViewModel::askQuestion)
+                    situationAiQuestion = null
+                }
                 SituationAiSheet(
                     uiState = situationUiState,
                     onDismiss = {

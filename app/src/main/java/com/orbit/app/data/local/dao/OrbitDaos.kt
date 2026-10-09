@@ -3,6 +3,7 @@ package com.orbit.app.data.local.dao
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
@@ -12,6 +13,7 @@ import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpItemOutcome
 import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.data.local.entity.NoteEntity
@@ -50,6 +52,35 @@ interface CaptureDao {
     suspend fun deleteById(id: Long)
 
     @Query("DELETE FROM captures")
+    suspend fun deleteAll()
+}
+
+data class BrainDumpPendingCount(val captureId: Long, val pending: Int)
+
+@Dao
+interface CaptureSuggestionDao {
+    @Query("SELECT * FROM capture_suggestions")
+    fun observeAll(): Flow<List<CaptureSuggestionEntity>>
+
+    @Query("SELECT * FROM capture_suggestions")
+    suspend fun getAll(): List<CaptureSuggestionEntity>
+
+    @Query("SELECT * FROM capture_suggestions WHERE captureId = :captureId")
+    suspend fun getByCaptureId(captureId: Long): CaptureSuggestionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: CaptureSuggestionEntity)
+
+    @Insert
+    suspend fun insertAll(entities: List<CaptureSuggestionEntity>)
+
+    @Query("UPDATE capture_suggestions SET dismissed = :dismissed, updatedAt = :updatedAt WHERE captureId = :captureId")
+    suspend fun setDismissed(captureId: Long, dismissed: Boolean, updatedAt: Long)
+
+    @Query("DELETE FROM capture_suggestions WHERE captureId = :captureId")
+    suspend fun deleteByCaptureId(captureId: Long)
+
+    @Query("DELETE FROM capture_suggestions")
     suspend fun deleteAll()
 }
 
@@ -102,6 +133,13 @@ interface BrainDumpDao {
 
     @Query("DELETE FROM brain_dump_items")
     suspend fun deleteAllItems()
+
+    /** Pending Brain Dump pieces per capture, for the To sort list. */
+    @Query(
+        "SELECT captureId, COUNT(*) AS pending FROM brain_dump_items " +
+            "WHERE outcome = 'Pending' GROUP BY captureId",
+    )
+    fun observePendingCounts(): Flow<List<BrainDumpPendingCount>>
 
     @Query("DELETE FROM brain_dump_sessions")
     suspend fun deleteAllSessions()

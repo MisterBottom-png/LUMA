@@ -1,6 +1,10 @@
 package com.orbit.app.ui.screens.home
 
 import android.Manifest
+import com.orbit.app.ui.components.rememberReducedMotion
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.annotation.StringRes
@@ -109,6 +113,7 @@ import kotlinx.coroutines.flow.collect
 @Composable
 fun HomeScreen(
     viewModel: HomeCaptureViewModel,
+    sortViewModel: CaptureSortViewModel,
     weekUiState: HomeWeekUiState,
     calendarDateContext: LocalDate?,
     onCalendarDateContextConsumed: () -> Unit,
@@ -144,41 +149,40 @@ fun HomeScreen(
         animationSpec = motionSpec,
         label = "homeHeaderOffsetY",
     )
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = viewModel::onNotificationPermissionResult,
-    )
     val homePaneTitle = stringResource(R.string.navigation_home)
+    val view = LocalView.current
+    val reduceMotion = rememberReducedMotion()
+    var savedConfirmationVisible by remember { mutableStateOf(false) }
+    val messageText = uiState.message?.takeIf { it != HomeMessage.Saved }?.let { stringResource(it.textRes) }
 
-    LaunchedEffect(uiState.notificationPermissionRequestPending) {
-        if (!uiState.notificationPermissionRequestPending) return@LaunchedEffect
-        viewModel.notificationPermissionRequestStarted()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            viewModel.onNotificationPermissionResult(granted = true)
-        } else {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
+    LaunchedEffect(uiState.savedPulse) {
+        if (uiState.savedPulse == 0) return@LaunchedEffect
+        // One soft buzz for the meaningful moment of letting a thought go.
+        view.performHapticFeedback(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                HapticFeedbackConstants.CONFIRM
+            } else {
+                HapticFeedbackConstants.KEYBOARD_TAP
+            },
+        )
+        if (calendarDateContext != null) onCalendarDateContextConsumed()
+        savedConfirmationVisible = true
+        viewModel.messageShown()
+        kotlinx.coroutines.delay(SavedConfirmationMillis)
+        savedConfirmationVisible = false
     }
 
-    LaunchedEffect(uiState.message, uiState.brainDumpInteraction) {
-        uiState.message?.takeIf { uiState.brainDumpInteraction == null }?.let { message ->
-            snackbarHostState.showSnackbar(message)
+    LaunchedEffect(messageText) {
+        messageText?.let { message ->
             viewModel.messageShown()
+            snackbarHostState.showSnackbar(message)
         }
     }
 
-    LaunchedEffect(calendarDateContext, uiState.suggestion) {
-        val contextEpochDay = calendarDateContext?.toEpochDay()
-        if (
-            contextEpochDay != null &&
-            uiState.suggestion?.calendarDateContextEpochDay == contextEpochDay
-        ) {
-            onCalendarDateContextConsumed()
+    LaunchedEffect(uiState.sortRequest) {
+        uiState.sortRequest?.let { request ->
+            sortViewModel.open(request.captureId, request.startWithReminderSetup)
+            viewModel.sortRequestHandled()
         }
     }
 
@@ -304,13 +308,25 @@ fun HomeScreen(
                     processingState = uiState.processingState,
                     onTextChanged = viewModel::onInputChanged,
                     onAnalyze = {
-                        viewModel.analyzeCapture(calendarDateContext?.toEpochDay())
+                        viewModel.send(calendarDateContext?.toEpochDay())
                     },
                     height = captureCardHeight,
                     imeVisible = imeVisible,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth(),
+                )
+            }
+
+            SavedConfirmation(visible = savedConfirmationVisible, reduceMotion = reduceMotion)
+            uiState.quickReminder?.let { question ->
+                QuickReminderCard(
+                    question = question,
+                    timeFormat = timeFormat,
+                    isWorking = uiState.isSettingReminder,
+                    onConfirm = viewModel::confirmQuickReminder,
+                    onChangeTime = viewModel::changeQuickReminderTime,
+                    onNotNow = viewModel::dismissQuickReminder,
                 )
             }
         }
@@ -325,54 +341,14 @@ fun HomeScreen(
         )
     }
 
-    uiState.suggestion?.let { suggestion ->
-        CaptureSuggestionSheet(
-            suggestion = suggestion,
-            timeFormat = timeFormat,
-            brainDumpInteraction = uiState.brainDumpInteraction,
-            brainDumpCallbacks = BrainDumpCallbacks(
-                onPrimaryAction = viewModel::commitBrainDumpPrimaryAction,
-                onEdit = viewModel::editBrainDumpItem,
-                onDraftChanged = viewModel::updateBrainDumpDraft,
-                onContinueFromEditor = viewModel::continueBrainDumpFromEditor,
-                onStepBack = viewModel::stepBackBrainDump,
-                onKeepInInbox = viewModel::keepBrainDumpInInbox,
-                onSkip = viewModel::skipBrainDump,
-                onUndoSkip = viewModel::undoBrainDumpSkip,
-                onRetry = viewModel::retryBrainDumpAction,
-                onFinishLater = viewModel::finishBrainDumpLater,
-                onDiscardRemaining = viewModel::discardRemainingBrainDumpSuggestions,
-                onCloseCompletion = viewModel::closeBrainDumpCompletion,
-            ),
-            isPerformingAction = uiState.isPerformingAction,
-            onSaveNote = viewModel::saveNote,
-            onCreateTask = viewModel::createTask,
-            onCreateReminder = viewModel::createReminder,
-            onKeepInInbox = viewModel::keepInInbox,
-            onCancel = viewModel::cancelSuggestion,
-            onDiscardBrainDumpDraftChanges = viewModel::discardBrainDumpDraftChanges,
-        )
-    }
-    uiState.learnedRuleProposal?.let { proposal ->
-        AlertDialog(
-            onDismissRequest = viewModel::dismissLearnedRuleProposal,
-            title = { Text(stringResource(R.string.core_learning_save_title)) },
-            text = {
-                Text(stringResource(R.string.core_learning_save_body, proposal.ruleText))
-            },
-            confirmButton = {
-                Button(onClick = viewModel::saveLearnedRuleProposal) {
-                    Text(stringResource(R.string.core_learning_save_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissLearnedRuleProposal) {
-                    Text(stringResource(R.string.core_learning_not_now))
-                }
-            },
-        )
-    }
+    CaptureSortHost(
+        viewModel = sortViewModel,
+        timeFormat = timeFormat,
+        snackbarHostState = snackbarHostState,
+    )
 }
+
+private const val SavedConfirmationMillis = 2_000L
 
 @Composable
 private fun CalendarCaptureContextBanner(

@@ -68,6 +68,21 @@ class OrbitDatabaseMigrationJvmTest {
     }
 
     private companion object {
-        const val CurrentVersion = 7
+        const val CurrentVersion = 8
+    }
+
+    @Test
+    fun migrate7To8AddsCaptureSuggestionsWithoutTouchingCaptures() = runBlocking {
+        val name = "jvm-migration-7-8.db"
+        SchemaDatabases.createAtVersion(name, 7) { db ->
+            db.execSQL(
+                "INSERT INTO captures (id, rawText, createdAt, updatedAt, status, suggestedType, " +
+                    "suggestedSpaceId, source, linkedItemId) VALUES (5, 'call the bank', 1, 1, 'Inbox', 'Task', NULL, 'Manual', NULL)",
+            )
+        }
+        val database = SchemaDatabases.openMigrated(name)
+        assertEquals("call the bank", database.captureDao().getById(5)?.rawText)
+        assertTrue(database.captureSuggestionDao().getAll().isEmpty())
+        database.close()
     }
 }

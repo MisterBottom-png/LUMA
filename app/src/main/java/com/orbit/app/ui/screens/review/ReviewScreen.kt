@@ -44,6 +44,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -73,6 +74,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
+import com.orbit.app.ui.screens.home.sortedMessageRes
 import com.orbit.app.domain.analyzer.ReviewLoop
 import com.orbit.app.domain.analyzer.ReviewLoopType
 import com.orbit.app.ui.components.GlassSurfaceStyle
@@ -134,6 +136,14 @@ fun ReviewScreen(
     onKeepCarryForwardUnscheduled: (ReviewItem) -> Unit,
     onCompleteCarryForward: (ReviewItem) -> Unit,
     onWeeklyLookBackVisible: () -> Unit,
+    onAskLuma: (AskLumaPrompt?) -> Unit = {},
+    onAcceptToSort: (ToSortItem) -> Unit = {},
+    onChangeToSort: (ToSortItem) -> Unit = {},
+    onHideSuggestion: (ToSortItem) -> Unit = {},
+    onLetGo: (ToSortItem) -> Unit = {},
+    onUndoSort: (SortUndoToken) -> Unit = {},
+    onSortFeedbackShown: () -> Unit = {},
+    sortHost: @Composable (SnackbarHostState) -> Unit = {},
 ) {
     val reviewContext by rememberReviewContext()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -142,14 +152,14 @@ fun ReviewScreen(
     val pendingTaskUndoMessage = pendingTaskUndo?.let { taskUndo ->
         stringResource(taskUndo.action.undoMessageRes())
     }
+    val sortUndo = uiState.pendingSortUndo
+    val sortUndoMessage = sortUndo?.let { stringResource(it.messageRes()) }
+    val sortMessage = uiState.sortMessage?.let { stringResource(it.messageRes()) }
     var showOpenLoops by rememberSaveable { mutableStateOf(false) }
     var showAllOpenLoops by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(reviewContext.period) {
-        if (reviewContext.period == ReviewPeriod.Midday) {
-            showOpenLoops = false
-            showAllOpenLoops = false
-        }
-    }
+    var showAllToSort by rememberSaveable { mutableStateOf(false) }
+    var showAllToday by rememberSaveable { mutableStateOf(false) }
+    var weeklyExpanded by rememberSaveable { mutableStateOf(false) }
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
@@ -161,7 +171,7 @@ fun ReviewScreen(
     val measuredHeaderClearance = with(LocalDensity.current) {
         headerHeightPx.toDp() + 20.dp
     }
-    val headerClearance = maxOf(statusBarTopPadding + 128.dp, measuredHeaderClearance)
+    val headerClearance = maxOf(statusBarTopPadding + 96.dp, measuredHeaderClearance)
     val reviewTitle = stringResource(R.string.core_review_title)
     LaunchedEffect(pendingTaskUndo?.operationId) {
         val taskUndo = pendingTaskUndo ?: return@LaunchedEffect
@@ -175,6 +185,23 @@ fun ReviewScreen(
             onUndoTaskMutation(taskUndo.operationId)
         } else {
             onTaskUndoExpired(taskUndo.operationId)
+        }
+    }
+    LaunchedEffect(sortUndo, sortMessage) {
+        when {
+            sortUndo != null && sortUndoMessage != null -> {
+                onSortFeedbackShown()
+                val result = snackbarHostState.showSnackbar(
+                    message = sortUndoMessage,
+                    actionLabel = undoLabel,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) onUndoSort(sortUndo)
+            }
+            sortMessage != null -> {
+                onSortFeedbackShown()
+                snackbarHostState.showSnackbar(sortMessage)
+            }
         }
     }
     Box(
@@ -197,52 +224,151 @@ fun ReviewScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            when (reviewContext.period) {
-                ReviewPeriod.Morning -> morningScan(uiState, timeFormat, onReviewItemSelected)
-                ReviewPeriod.Midday -> item { MiddayBreathingSpace() }
-                ReviewPeriod.Evening -> eveningSweep(
-                    uiState = uiState,
-                    onReviewItemSelected = onReviewItemSelected,
-                    onCarryForwardTomorrow = onCarryForwardTomorrow,
-                    onCarryForwardToDate = onCarryForwardToDate,
-                    onKeepCarryForwardUnscheduled = onKeepCarryForwardUnscheduled,
-                    onCompleteCarryForward = onCompleteCarryForward,
-                )
+            reviewSectionOrder(reviewContext.period).forEach { section ->
+                when (section) {
+                    ReviewSection.AskLuma -> {
+                        item(key = "ask") { AskLumaCard(onAskLuma) }
+                        item(key = "breathe") { BreathingMoment() }
+                        if (uiState.nothingWaiting) item(key = "all_sorted") { AllSortedCard() }
+                    }
+
+                    ReviewSection.ToSort -> if (uiState.toSort.isNotEmpty()) {
+                        item(key = "to_sort_heading") {
+                            SectionHeading(
+                                stringResource(R.string.review_to_sort_title),
+                                stringResource(R.string.review_to_sort_subtitle),
+                            )
+                        }
+                        val visible = if (showAllToSort) uiState.toSort else uiState.toSort.take(ReviewSectionPreviewSize)
+                        items(visible, key = { "to_sort_${it.captureId}" }) { item ->
+                            ToSortRow(
+                                item = item,
+                                timeFormat = timeFormat,
+                                onAccept = { onAcceptToSort(item) },
+                                onChange = { onChangeToSort(item) },
+                                onHideSuggestion = { onHideSuggestion(item) },
+                                onLetGo = { onLetGo(item) },
+                                modifier = Modifier.animateItem(
+                                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                                ),
+                            )
+                        }
+                        if (uiState.toSort.size > ReviewSectionPreviewSize) {
+                            item(key = "to_sort_more") {
+                                TextButton(onClick = { showAllToSort = !showAllToSort }) {
+                                    Text(
+                                        if (showAllToSort) {
+                                            stringResource(R.string.review_show_fewer)
+                                        } else {
+                                            stringResource(R.string.review_to_sort_show_all, uiState.toSort.size)
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    ReviewSection.Today -> {
+                        item(key = "today_heading") {
+                            SectionHeading(
+                                stringResource(R.string.review_today_title),
+                                stringResource(R.string.review_today_subtitle),
+                            )
+                        }
+                        if (uiState.dueToday.isEmpty()) {
+                            item(key = "today_empty") { EmptyMessage(stringResource(R.string.review_today_empty)) }
+                        } else {
+                            val visible = if (showAllToday) uiState.dueToday else uiState.dueToday.take(ReviewSectionPreviewSize)
+                            items(visible, key = { "due_${it.key}" }) { item ->
+                                ReviewItemRow(
+                                    item = item,
+                                    badge = if (item.schedule == ReviewItemSchedule.DateOnly) {
+                                        stringResource(R.string.core_today)
+                                    } else {
+                                        timeFormat.formatTime(item.timestamp)
+                                    },
+                                    onClick = reviewRowClick(item, onReviewItemSelected),
+                                )
+                            }
+                            if (uiState.dueToday.size > ReviewSectionPreviewSize) {
+                                item(key = "today_more") {
+                                    TextButton(onClick = { showAllToday = !showAllToday }) {
+                                        Text(
+                                            if (showAllToday) {
+                                                stringResource(R.string.review_show_fewer)
+                                            } else {
+                                                stringResource(
+                                                    R.string.review_show_more,
+                                                    uiState.dueToday.size - ReviewSectionPreviewSize,
+                                                )
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ReviewSection.CarryForward -> if (uiState.carryForwardSuggestions.isNotEmpty()) {
+                        item(key = "carry_heading") {
+                            SectionHeading(
+                                stringResource(R.string.review_carry_title),
+                                stringResource(R.string.review_carry_subtitle),
+                            )
+                        }
+                        items(uiState.carryForwardSuggestions, key = { "carry_${it.item.key}" }) { suggestion ->
+                            CarryForwardDecisionCard(
+                                suggestion = suggestion,
+                                onOpen = { onReviewItemSelected(suggestion.item) },
+                                onTomorrow = { onCarryForwardTomorrow(suggestion.item) },
+                                onChooseDate = { epochDay -> onCarryForwardToDate(suggestion.item, epochDay) },
+                                onKeepUnscheduled = { onKeepCarryForwardUnscheduled(suggestion.item) },
+                                onMarkComplete = { onCompleteCarryForward(suggestion.item) },
+                            )
+                        }
+                    }
+
+                    ReviewSection.WeeklyLookBack -> {
+                        item(key = "weekly_entry") {
+                            WeeklyLookBackEntry(
+                                expanded = weeklyExpanded,
+                                suggested = reviewContext.weeklyReviewAvailable,
+                                onToggle = { weeklyExpanded = !weeklyExpanded },
+                            )
+                        }
+                        if (weeklyExpanded) {
+                            item(key = "weekly_pager") { WeeklyReviewPager(uiState, onWeeklyLookBackVisible) }
+                        }
+                    }
+                }
             }
 
-            if (
-                reviewContext.period != ReviewPeriod.Midday &&
-                reviewContext.weeklyReviewAvailable
-            ) {
-                item { WeeklyReviewPager(uiState, onWeeklyLookBackVisible) }
-            }
-
-            if (reviewContext.period != ReviewPeriod.Midday) {
-                item {
-                    OpenLoopsAction(
-                        expanded = showOpenLoops,
-                        onClick = { showOpenLoops = !showOpenLoops },
-                    )
-                }
-                if (showOpenLoops) {
-                    openLoopsWorkflow(
-                        uiState = uiState,
-                        onKeepTaskActive = onKeepTaskActive,
-                        onConfirmCapture = onConfirmCapture,
-                        onArchive = onArchive,
-                        onCompleteTask = onCompleteTask,
-                        onDeferTask = onDeferTask,
-                        onDismissCapture = onDismissCapture,
-                        onMakeSmaller = onMakeSmaller,
-                        showAll = showAllOpenLoops,
-                        onShowAllChanged = { showAllOpenLoops = it },
-                    )
-                }
-                supportingReviewSections(
-                    uiState = uiState,
-                    onReviewItemSelected = onReviewItemSelected,
+            item(key = "open_loops_action") {
+                OpenLoopsAction(
+                    expanded = showOpenLoops,
+                    onClick = { showOpenLoops = !showOpenLoops },
                 )
             }
+            if (showOpenLoops) {
+                openLoopsWorkflow(
+                    uiState = uiState,
+                    onKeepTaskActive = onKeepTaskActive,
+                    onConfirmCapture = onConfirmCapture,
+                    onArchive = onArchive,
+                    onCompleteTask = onCompleteTask,
+                    onDeferTask = onDeferTask,
+                    onDismissCapture = onDismissCapture,
+                    onMakeSmaller = onMakeSmaller,
+                    showAll = showAllOpenLoops,
+                    onShowAllChanged = { showAllOpenLoops = it },
+                )
+            }
+            supportingReviewSections(
+                uiState = uiState,
+                onReviewItemSelected = onReviewItemSelected,
+            )
         }
 
         Column(
@@ -260,12 +386,6 @@ fun ReviewScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(
-                text = stringResource(R.string.core_review_subtitle),
-                modifier = Modifier.padding(top = 5.dp),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
         SnackbarHost(
             hostState = snackbarHostState,
@@ -275,10 +395,23 @@ fun ReviewScreen(
                     start = 16.dp,
                     top = 16.dp,
                     end = 16.dp,
-                    bottom = navigationBottomPadding + 16.dp,
+                    bottom = navigationBottomPadding + OrbitBottomNavigationDefaults.ContentClearance,
                 ),
         )
+        sortHost(snackbarHostState)
     }
+}
+
+private fun SortUndoToken.messageRes(): Int = when (this) {
+    is SortUndoToken.Accepted -> itemType.sortedMessageRes()
+    is SortUndoToken.LetGo -> R.string.review_sort_let_go
+    is SortUndoToken.Hidden -> R.string.review_sort_hidden
+}
+
+private fun ReviewSortMessage.messageRes(): Int = when (this) {
+    ReviewSortMessage.ActionFailed -> R.string.review_sort_failed
+    ReviewSortMessage.NeedsChoice -> R.string.review_sort_needs_choice
+    ReviewSortMessage.Undone -> R.string.core_sort_undone
 }
 
 @Composable
@@ -303,433 +436,9 @@ internal fun reviewContextRefreshDelayMillis(now: LocalDateTime): Long {
     return java.time.Duration.between(now, nextBoundary).toMillis().coerceAtLeast(1L)
 }
 
-@Composable
-private fun MiddayBreathingSpace() {
-    val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
-    var inhaling by remember { mutableStateOf(false) }
-    LaunchedEffect(motionEnabled) {
-        if (motionEnabled) {
-            kotlinx.coroutines.delay(250L)
-            inhaling = true
-            while (true) {
-                kotlinx.coroutines.delay(if (inhaling) 4_000L else 6_000L)
-                inhaling = !inhaling
-            }
-        } else {
-            inhaling = true
-        }
-    }
-    val breathScale by animateFloatAsState(
-        targetValue = if (motionEnabled && inhaling) 1f else 0.7f,
-        animationSpec = tween(durationMillis = if (inhaling) 4_000 else 6_000),
-        label = "middayBreathScale",
-    )
-    val breathAlpha by animateFloatAsState(
-        targetValue = if (motionEnabled && inhaling) 0.62f else 0.34f,
-        animationSpec = tween(durationMillis = if (inhaling) 4_000 else 6_000),
-        label = "middayBreathAlpha",
-    )
-    SoftGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        style = GlassSurfaceStyle.Prominent,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 28.dp, vertical = 36.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(220.dp)
-                    .graphicsLayer { scaleX = breathScale; scaleY = breathScale }
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = breathAlpha)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(154.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Spa,
-                        contentDescription = null,
-                        modifier = Modifier.size(42.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-            Text(
-                text = stringResource(
-                    if (motionEnabled) {
-                        if (inhaling) R.string.core_review_breathe_in else R.string.core_review_breathe_out
-                    } else {
-                        R.string.core_review_breathe_gently
-                    },
-                ),
-                modifier = Modifier
-                    .padding(top = 24.dp)
-                    .semantics { heading() },
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                text = stringResource(R.string.core_review_midday_subtitle),
-                modifier = Modifier.padding(top = 8.dp),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-private enum class WeeklyReviewPage {
-    LookBack,
-    LooseEnds,
-    LookAhead,
-}
-
-@Composable
-private fun WeeklyReviewPager(
-    uiState: ReviewUiState,
-    onLookBackVisible: () -> Unit,
-) {
-    val pages = WeeklyReviewPage.entries
-    val pagerState = rememberPagerState(initialPage = 1, pageCount = { pages.size })
-    LaunchedEffect(pagerState.currentPage) {
-        if (pages[pagerState.currentPage] == WeeklyReviewPage.LookBack) onLookBackVisible()
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeading(
-            stringResource(R.string.core_review_weekly_title),
-            stringResource(R.string.core_review_weekly_subtitle),
-        )
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(340.dp),
-            pageSpacing = 12.dp,
-        ) { page ->
-            WeeklyReviewPageCard(page = pages[page], uiState = uiState)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            pages.forEachIndexed { index, _ ->
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .size(if (pagerState.currentPage == index) 9.dp else 7.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (pagerState.currentPage == index) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f)
-                            },
-                        ),
-                )
-            }
-        }
-        Text(
-            text = stringResource(
-                R.string.core_review_page_position,
-                stringResource(pages[pagerState.currentPage].titleRes()),
-                pagerState.currentPage + 1,
-                pages.size,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun WeeklyReviewPageCard(page: WeeklyReviewPage, uiState: ReviewUiState) {
-    SoftGlassSurface(
-        modifier = Modifier.fillMaxSize(),
-        shape = MaterialTheme.shapes.extraLarge,
-        style = GlassSurfaceStyle.Prominent,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(22.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = stringResource(page.titleRes()),
-                modifier = Modifier.semantics { heading() },
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Text(
-                text = stringResource(page.subtitleRes()),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            when (page) {
-                WeeklyReviewPage.LookBack -> {
-                    Text(
-                        text = uiState.weeklySummary?.answer
-                            ?: stringResource(R.string.core_review_weekly_fallback),
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 6,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    WeeklyMetric(
-                        label = stringResource(R.string.core_review_local_sources_considered),
-                        count = uiState.weeklySummary?.sourceItemIds?.size ?: 0,
-                    )
-                    uiState.weeklySummary?.sourceItems?.firstOrNull()?.let { source ->
-                        Text(
-                            text = source.userVisibleLabel(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-
-                WeeklyReviewPage.LooseEnds -> {
-                    WeeklyMetric(stringResource(R.string.core_review_open_loops), uiState.openLoops.size)
-                    WeeklyMetric(stringResource(R.string.core_review_quiet_for_a_while), uiState.staleLoops.size)
-                    WeeklyMetric(stringResource(R.string.core_review_waiting), uiState.waitingFor.size)
-                    Text(
-                        text = stringResource(R.string.core_review_loose_ends_message),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                WeeklyReviewPage.LookAhead -> {
-                    WeeklyMetric(stringResource(R.string.core_review_due_today), uiState.dueToday.size)
-                    WeeklyMetric(
-                        stringResource(R.string.core_review_possible_carry_forwards),
-                        uiState.carryForwardSuggestions.size,
-                    )
-                    WeeklyMetric(stringResource(R.string.core_someday), uiState.someday.size)
-                    Text(
-                        text = stringResource(R.string.core_review_look_ahead_message),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WeeklyMetric(label: String, count: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
-}
-
-private fun androidx.compose.foundation.lazy.LazyListScope.morningScan(
-    uiState: ReviewUiState,
-    timeFormat: OrbitTimeFormat,
-    onReviewItemSelected: (ReviewItem) -> Unit,
-) {
-    item {
-        val summaryParts = buildList {
-            add(
-                pluralStringResource(
-                    R.plurals.core_review_due_count,
-                    uiState.dueToday.size,
-                    uiState.dueToday.size,
-                ),
-            )
-            add(
-                pluralStringResource(
-                    R.plurals.core_review_recent_capture_count,
-                    uiState.recentInboxCaptures.size,
-                    uiState.recentInboxCaptures.size,
-                ),
-            )
-            if (uiState.waitingFor.isNotEmpty()) {
-                add(
-                    pluralStringResource(
-                        R.plurals.core_review_waiting_count,
-                        uiState.waitingFor.size,
-                        uiState.waitingFor.size,
-                    ),
-                )
-            }
-        }
-        ReviewSummaryCard(
-            title = stringResource(R.string.core_review_morning_review),
-            text = summaryParts.joinToString(
-                stringResource(R.string.core_metadata_dot_separator),
-            ),
-            reviewState = reviewProgressLabel(uiState.unresolvedCaptures.size),
-        )
-    }
-    item {
-        SectionHeading(
-            stringResource(R.string.core_review_morning_scan),
-            stringResource(R.string.core_review_morning_scan_subtitle),
-        )
-    }
-    if (uiState.dueToday.isNotEmpty()) {
-        item { Subheading(stringResource(R.string.core_review_due_today)) }
-        items(uiState.dueToday, key = { "due_${it.key}" }) { item ->
-            ReviewItemRow(
-                item = item,
-                badge = if (item.schedule == ReviewItemSchedule.DateOnly) {
-                    stringResource(R.string.core_today)
-                } else {
-                    timeFormat.formatTime(item.timestamp)
-                },
-                onClick = reviewRowClick(item, onReviewItemSelected),
-                modifier = Modifier.animateItem(
-                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                ),
-            )
-        }
-    }
-    if (uiState.recentInboxCaptures.isNotEmpty()) {
-        item { Subheading(stringResource(R.string.core_review_recent_inbox_captures)) }
-        items(uiState.recentInboxCaptures, key = { "recent_${it.key}" }) { item ->
-            ReviewItemRow(
-                item = item,
-                badge = item.reviewReason?.let { stringResource(it.labelRes()) },
-                onClick = reviewRowClick(item, onReviewItemSelected),
-                modifier = Modifier.animateItem(
-                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                ),
-            )
-        }
-    }
-    if (uiState.morningSuggestion != null) item {
-        SmallActionCard(
-            title = stringResource(R.string.core_review_one_small_place),
-            suggestion = uiState.morningSuggestion,
-        )
-    }
-}
-
-private fun androidx.compose.foundation.lazy.LazyListScope.eveningSweep(
-    uiState: ReviewUiState,
-    onReviewItemSelected: (ReviewItem) -> Unit,
-    onCarryForwardTomorrow: (ReviewItem) -> Unit,
-    onCarryForwardToDate: (ReviewItem, Long) -> Unit,
-    onKeepCarryForwardUnscheduled: (ReviewItem) -> Unit,
-    onCompleteCarryForward: (ReviewItem) -> Unit,
-) {
-    item {
-        val unresolvedCount = uiState.unresolvedCaptures.size
-        val completedCount = uiState.completedToday.size
-        val carryCount = uiState.carryForwardSuggestions.size
-        ReviewSummaryCard(
-            title = stringResource(R.string.core_review_evening_review),
-            text = listOf(
-                pluralStringResource(
-                    R.plurals.core_review_unresolved_capture_count,
-                    unresolvedCount,
-                    unresolvedCount,
-                ),
-                pluralStringResource(
-                    R.plurals.core_review_done_today_count,
-                    completedCount,
-                    completedCount,
-                ),
-                pluralStringResource(
-                    R.plurals.core_review_carry_forward_count,
-                    carryCount,
-                    carryCount,
-                ),
-            ).joinToString(stringResource(R.string.core_metadata_dot_separator)),
-            reviewState = reviewProgressLabel(
-                uiState.unresolvedCaptures.size + uiState.carryForwardSuggestions.size,
-            ),
-        )
-    }
-    item {
-        SectionHeading(
-            stringResource(R.string.core_review_evening_review),
-            stringResource(R.string.core_review_evening_subtitle),
-        )
-    }
-    if (uiState.unresolvedCaptures.isNotEmpty()) {
-        item { Subheading(stringResource(R.string.core_review_unresolved_captures)) }
-        items(uiState.unresolvedCaptures, key = { "unresolved_${it.key}" }) { item ->
-            ReviewItemRow(
-                item = item,
-                badge = item.reviewReason?.let { stringResource(it.labelRes()) },
-                onClick = reviewRowClick(item, onReviewItemSelected),
-                modifier = Modifier.animateItem(
-                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                ),
-            )
-        }
-    }
-    if (uiState.completedToday.isNotEmpty()) {
-        item { Subheading(stringResource(R.string.core_review_done_today)) }
-        items(uiState.completedToday, key = { "completed_${it.key}" }) { item ->
-            ReviewItemRow(
-                item = item,
-                badge = stringResource(R.string.core_review_done_today),
-                onClick = reviewRowClick(item, onReviewItemSelected),
-                modifier = Modifier.animateItem(
-                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                ),
-            )
-        }
-    }
-    if (uiState.carryForwardSuggestions.isNotEmpty()) {
-        item { Subheading(stringResource(R.string.core_review_carry_forward)) }
-        items(
-            uiState.carryForwardSuggestions,
-            key = { "carry_${it.item.key}" },
-        ) { suggestion ->
-            CarryForwardDecisionCard(
-                suggestion = suggestion,
-                onOpen = { onReviewItemSelected(suggestion.item) },
-                onTomorrow = { onCarryForwardTomorrow(suggestion.item) },
-                onChooseDate = { epochDay ->
-                    onCarryForwardToDate(suggestion.item, epochDay)
-                },
-                onKeepUnscheduled = { onKeepCarryForwardUnscheduled(suggestion.item) },
-                onMarkComplete = { onCompleteCarryForward(suggestion.item) },
-                modifier = Modifier.animateItem(
-                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                ),
-            )
-        }
-    }
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CarryForwardDecisionCard(
+internal fun CarryForwardDecisionCard(
     suggestion: CarryForwardSuggestion,
     onOpen: () -> Unit,
     onTomorrow: () -> Unit,
@@ -958,7 +667,7 @@ private fun OpenLoopsAction(
 }
 
 @Composable
-private fun SectionHeading(title: String, subtitle: String) {
+internal fun SectionHeading(title: String, subtitle: String) {
     Column(modifier = Modifier.padding(top = 14.dp, bottom = 2.dp)) {
         Text(
             text = title,
@@ -989,7 +698,7 @@ private fun Subheading(title: String) {
 }
 
 @Composable
-private fun EmptyMessage(text: String) {
+internal fun EmptyMessage(text: String) {
     Text(
         text = text,
         modifier = Modifier.padding(vertical = 7.dp),
@@ -1029,7 +738,7 @@ private fun ReviewSummaryCard(title: String, text: String, reviewState: String) 
 }
 
 @Composable
-private fun ReviewItemRow(
+internal fun ReviewItemRow(
     item: ReviewItem,
     onClick: () -> Unit,
     badge: String?,
@@ -1315,18 +1024,4 @@ private fun ReviewSuggestionSource.labelRes(): Int = when (this) {
     ReviewSuggestionSource.Gemini -> R.string.core_review_suggested_by_gemini
     ReviewSuggestionSource.Local -> R.string.core_review_local_suggestion
     ReviewSuggestionSource.LocalFallback -> R.string.core_review_local_fallback
-}
-
-@StringRes
-private fun WeeklyReviewPage.titleRes(): Int = when (this) {
-    WeeklyReviewPage.LookBack -> R.string.core_review_look_back
-    WeeklyReviewPage.LooseEnds -> R.string.core_review_loose_ends
-    WeeklyReviewPage.LookAhead -> R.string.core_review_look_ahead
-}
-
-@StringRes
-private fun WeeklyReviewPage.subtitleRes(): Int = when (this) {
-    WeeklyReviewPage.LookBack -> R.string.core_review_look_back_subtitle
-    WeeklyReviewPage.LooseEnds -> R.string.core_review_loose_ends_subtitle
-    WeeklyReviewPage.LookAhead -> R.string.core_review_look_ahead_subtitle
 }

@@ -18,11 +18,14 @@ class HomeCaptureProcessingStateTest {
     }
 
     @Test
-    fun savingTransitionClearsPriorMessageBeforeAnalysisBegins() {
-        val saving = HomeCaptureUiState(message = "Previous status").beginCaptureSaving()
+    fun savingClearsEarlierFeedbackAndNeverWaitsForAnalysis() {
+        val saving = HomeCaptureUiState(
+            message = HomeMessage.KeptForLater,
+            quickReminder = QuickReminderQuestion(captureId = 1, title = "x", reminderAt = null, phrase = null),
+        ).beginCaptureSaving()
 
         assertEquals(CaptureProcessingState.Saving, saving.processingState)
         assertEquals(null, saving.message)
-        assertEquals(CaptureProcessingState.Analyzing, saving.beginCaptureAnalyzing().processingState)
+        assertEquals(null, saving.quickReminder)
     }
 }

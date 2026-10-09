@@ -1,0 +1,207 @@
+package com.orbit.app.domain.capture
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.orbit.app.data.local.OrbitDatabase
+import com.orbit.app.data.local.entity.CaptureStatus
+import com.orbit.app.data.local.entity.SpaceEntity
+import com.orbit.app.data.local.entity.SuggestedItemType
+import com.orbit.app.data.repository.RoomBrainDumpRepository
+import com.orbit.app.data.repository.RoomCaptureRepository
+import com.orbit.app.data.repository.RoomNoteRepository
+import com.orbit.app.data.repository.RoomReminderRepository
+import com.orbit.app.data.repository.RoomSpaceRepository
+import com.orbit.app.data.repository.RoomTaskRepository
+import com.orbit.app.data.repository.RoomLabelRepository
+import com.orbit.app.domain.analyzer.LocalRulesCaptureAnalyzer
+import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
+import com.orbit.app.domain.usecase.RoomCaptureFinalizationTransaction
+import com.orbit.app.testing.PolicyRecordingScheduler
+import com.orbit.app.testing.inMemoryOrbitDatabase
+import java.time.Instant
+import java.time.ZoneId
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class CaptureInboxRoomTest {
+    private lateinit var database: OrbitDatabase
+    private lateinit var scope: CoroutineScope
+    private val now = Instant.parse("2026-07-14T10:00:00Z").toEpochMilli()
+    private var suggesterFails = false
+
+    @Before
+    fun setUp() {
+        database = inMemoryOrbitDatabase()
+        // Background analysis is not launched automatically in these tests; each test
+        // calls analyze() explicitly so assertions are deterministic.
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        scope.cancel()
+    }
+
+    @After
+    fun tearDown() = database.close()
+
+    private fun inbox(): CaptureInbox = CaptureInbox(
+        captureRepository = RoomCaptureRepository(database.captureDao()),
+        suggestionDao = database.captureSuggestionDao(),
+        brainDumpRepository = RoomBrainDumpRepository(database.brainDumpDao()),
+        spaceRepository = RoomSpaceRepository(database.spaceDao()),
+        suggester = { text, _ ->
+            if (suggesterFails) error("analysis unavailable")
+            LocalRulesCaptureAnalyzer(now = { Instant.ofEpochMilli(now) }, zoneId = { ZoneId.of("Europe/Tallinn") })
+                .analyze(text)
+        },
+        scope = scope,
+        now = { now },
+    )
+
+    private fun resolution() = CaptureResolution(
+        captureRepository = RoomCaptureRepository(database.captureDao()),
+        noteRepository = RoomNoteRepository(database.noteDao()),
+        taskRepository = RoomTaskRepository(database.taskDao()),
+        reminderRepository = RoomReminderRepository(database.reminderDao(), PolicyRecordingScheduler { now }),
+        spaceRepository = RoomSpaceRepository(database.spaceDao()),
+        suggestionDao = database.captureSuggestionDao(),
+        confirmCaptureAction = ConfirmCaptureActionUseCase(
+            captureRepository = RoomCaptureRepository(database.captureDao()),
+            noteRepository = RoomNoteRepository(database.noteDao()),
+            taskRepository = RoomTaskRepository(database.taskDao()),
+            reminderRepository = RoomReminderRepository(database.reminderDao(), PolicyRecordingScheduler { now }),
+            transaction = RoomCaptureFinalizationTransaction(database),
+            labelRepository = RoomLabelRepository(database.labelDao()),
+        ),
+        transaction = RoomCaptureFinalizationTransaction(database),
+        now = { now },
+    )
+
+    @Test
+    fun aThoughtIsSafeInTheInboxBeforeAnyAnalysis() = runBlocking {
+        val id = inbox().save("  call the bank tomorrow  ")
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals("call the bank tomorrow", capture.rawText)
+        assertEquals(CaptureStatus.Inbox, capture.status)
+        assertNull(database.captureSuggestionDao().getByCaptureId(id))
+    }
+
+    @Test
+    fun analysisStoresASuggestionButNeverCreatesItems() = runBlocking {
+        database.spaceDao().insert(SpaceEntity(name = "Work", icon = "work", colorAccent = "#000000", sortOrder = 0))
+        val inbox = inbox()
+        val id = inbox.save("Send the quarterly report to the team")
+        inbox.analyze(id)
+
+        val suggestion = requireNotNull(database.captureSuggestionDao().getByCaptureId(id))
+        assertEquals(SuggestedItemType.Task, suggestion.suggestedType)
+        assertEquals(CaptureStatus.Inbox, database.captureDao().getById(id)?.status)
+        assertTrue(database.noteDao().observeAll().first().isEmpty())
+        assertTrue(database.taskDao().observeAll().first().isEmpty())
+        assertTrue(database.reminderDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun aFailedAnalysisLeavesTheThoughtInToSortWithoutASuggestion() = runBlocking {
+        suggesterFails = true
+        val inbox = inbox()
+        val id = inbox.save("something to think about")
+        assertNull(inbox.analyze(id))
+        assertEquals(CaptureStatus.Inbox, database.captureDao().getById(id)?.status)
+        assertNull(database.captureSuggestionDao().getByCaptureId(id))
+    }
+
+    @Test
+    fun pendingThoughtsAreAnalysedLaterAndOnlyOnce() = runBlocking {
+        val inbox = inbox()
+        val first = inbox.save("buy milk")
+        val second = inbox.save("remind me tomorrow at 9:00 to water plants")
+        assertEquals(2, inbox.analyzePending())
+        assertNotNull(database.captureSuggestionDao().getByCaptureId(first))
+        assertNotNull(database.captureSuggestionDao().getByCaptureId(second))
+        assertEquals(0, inbox.analyzePending())
+    }
+
+    @Test
+    fun aMultiLineDumpBecomesAPersistedBrainDumpSession() = runBlocking {
+        val inbox = inbox()
+        val id = inbox.save("buy milk\ncall the dentist\nremind me tomorrow at 1600 to pay rent")
+        inbox.analyze(id)
+        val session = RoomBrainDumpRepository(database.brainDumpDao()).getSession(id)
+        assertNotNull(session)
+        assertEquals(3, session?.items?.size)
+        assertEquals(CaptureStatus.Inbox, database.captureDao().getById(id)?.status)
+    }
+
+    @Test
+    fun hidingASuggestionKeepsTheThought() = runBlocking {
+        val inbox = inbox()
+        val id = inbox.save("an idea for the garden")
+        inbox.analyze(id)
+        inbox.dismissSuggestion(id)
+        assertTrue(database.captureSuggestionDao().getByCaptureId(id)?.dismissed == true)
+        assertEquals(CaptureStatus.Inbox, database.captureDao().getById(id)?.status)
+        inbox.restoreSuggestion(id)
+        assertTrue(database.captureSuggestionDao().getByCaptureId(id)?.dismissed == false)
+    }
+
+    @Test
+    fun acceptingASuggestionCreatesTheItemAndUndoPutsTheThoughtBack() = runBlocking {
+        val inbox = inbox()
+        val id = inbox.save("Send the quarterly report to the team")
+        inbox.analyze(id)
+        val resolution = resolution()
+
+        val accepted = requireNotNull(resolution.acceptSuggestion(id))
+        assertEquals(SuggestedItemType.Task, accepted.itemType)
+        assertEquals(CaptureStatus.Processed, database.captureDao().getById(id)?.status)
+        assertNotNull(database.taskDao().getById(accepted.itemId))
+
+        resolution.undo(id, accepted.itemType, accepted.itemId)
+        assertNull(database.taskDao().getById(accepted.itemId))
+        val restored = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, restored.status)
+        assertNull(restored.linkedItemId)
+    }
+
+    @Test
+    fun aReminderSuggestionWithoutAFutureTimeNeedsAChoiceFirst() = runBlocking {
+        val inbox = inbox()
+        val id = inbox.save("remind me to call grandma")
+        inbox.analyze(id)
+        assertNull(resolution().acceptSuggestion(id))
+        assertEquals(CaptureStatus.Inbox, database.captureDao().getById(id)?.status)
+        assertTrue(database.reminderDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun lettingGoArchivesAndUndoRestores() = runBlocking {
+        val id = inbox().save("old thought")
+        val resolution = resolution()
+        resolution.archive(id)
+        assertEquals(CaptureStatus.Archived, database.captureDao().getById(id)?.status)
+        resolution.unarchive(id)
+        assertEquals(CaptureStatus.Inbox, database.captureDao().getById(id)?.status)
+    }
+
+    @Test
+    fun theQuickReminderCreatesAReminderFromAUserTap() = runBlocking {
+        val inbox = inbox()
+        val id = inbox.save("remind me tomorrow at 9:00 to water plants")
+        inbox.analyze(id)
+        val at = now + 86_400_000L
+        resolution().createQuickReminder(id, "Water plants", at)
+        val reminder = database.reminderDao().observeAll().first().single()
+        assertEquals(at, reminder.dueAt)
+        assertEquals(CaptureStatus.Processed, database.captureDao().getById(id)?.status)
+    }
+}
