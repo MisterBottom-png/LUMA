@@ -371,6 +371,10 @@ private class FakeReminderDao : ReminderDao {
         MutableStateFlow(
             reminders.values.filter { it.dueAt >= startMillis && it.dueAt < endMillis },
         )
+    override fun observeRepeatingBefore(endMillis: Long): Flow<List<ReminderEntity>> =
+        MutableStateFlow(
+            reminders.values.filter { it.repeatRule != null && it.completedAt == null && it.dueAt < endMillis },
+        )
     override suspend fun getById(id: Long): ReminderEntity? = reminders[id]
 
     override suspend fun insert(entity: ReminderEntity): Long {

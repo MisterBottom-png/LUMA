@@ -99,6 +99,8 @@ private class RestoreReminderDao : ReminderDao {
     override fun observeAll(): Flow<List<ReminderEntity>> = flowOf(entities.values.toList())
     override fun observeCalendarRange(startMillis: Long, endMillis: Long): Flow<List<ReminderEntity>> =
         flowOf(entities.values.filter { it.dueAt >= startMillis && it.dueAt < endMillis })
+    override fun observeRepeatingBefore(endMillis: Long): Flow<List<ReminderEntity>> =
+        flowOf(entities.values.filter { it.repeatRule != null && it.completedAt == null && it.dueAt < endMillis })
     override suspend fun getById(id: Long): ReminderEntity? = entities[id]
 
     override suspend fun insert(entity: ReminderEntity): Long {

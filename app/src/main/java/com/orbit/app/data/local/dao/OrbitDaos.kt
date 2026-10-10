@@ -403,6 +403,10 @@ interface ReminderDao {
     @Query("SELECT * FROM reminders WHERE dueAt >= :startMillis AND dueAt < :endMillis")
     fun observeCalendarRange(startMillis: Long, endMillis: Long): Flow<List<ReminderEntity>>
 
+    /** Active repeating reminders whose current occurrence is before [endMillis]. */
+    @Query("SELECT * FROM reminders WHERE repeatRule IS NOT NULL AND completedAt IS NULL AND dueAt < :endMillis")
+    fun observeRepeatingBefore(endMillis: Long): Flow<List<ReminderEntity>>
+
     @Insert
     suspend fun insert(entity: ReminderEntity): Long
 

@@ -20,3 +20,5 @@ The app asks for notification permission where required and handles denial witho
 ## Repeating reminders
 
 `repeatRule` stores the rule with the chosen time of day (and, for monthly, the chosen day), for example `weekly@09:00` or `monthly@09:00/31`. Rules: daily, weekdays (Mon–Fri), weekly, monthly (the 31st falls back to the last day of shorter months and returns to the 31st afterwards). Nothing is created for the user. A spring-forward night moves only that one occurrence; later ones return to the chosen time. A long-missed repeat moves to the next future occurrence rather than producing a backlog. Moving the reminder to a new time moves later occurrences too. An unknown token behaves as a one-off reminder and is kept unchanged.
+
+The Calendar and the Home week strip show later occurrences ahead of time, marked with the repeat rule. They are computed for display only: one reminder row is stored and one notification is scheduled (for the current occurrence). Past days are never filled in for an overdue repeat, and opening a later occurrence opens the same reminder.

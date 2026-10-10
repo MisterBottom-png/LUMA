@@ -77,6 +77,7 @@ import com.orbit.app.R
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.selectable
 import com.orbit.app.reminders.ReminderRepeat
+import com.orbit.app.ui.localization.labelRes
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.LumaModalBottomSheet
@@ -584,14 +585,6 @@ private fun RepeatSheet(
         )
         Spacer(Modifier.navigationBarsPadding())
     }
-}
-
-private fun ReminderRepeat?.labelRes(): Int = when (this) {
-    null -> R.string.reminder_repeat_never
-    ReminderRepeat.Daily -> R.string.reminder_repeat_daily
-    ReminderRepeat.Weekdays -> R.string.reminder_repeat_weekdays
-    ReminderRepeat.Weekly -> R.string.reminder_repeat_weekly
-    ReminderRepeat.Monthly -> R.string.reminder_repeat_monthly
 }
 
 @OptIn(ExperimentalLayoutApi::class)

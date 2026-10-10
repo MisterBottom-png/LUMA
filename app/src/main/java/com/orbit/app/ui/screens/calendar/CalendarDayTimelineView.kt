@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
+import com.orbit.app.ui.localization.labelRes
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.domain.calendar.CalendarEntry
 import com.orbit.app.domain.calendar.CalendarEntryId
@@ -383,6 +384,7 @@ private fun CalendarEntry.cardDetails(): String {
     )
     val completedLabel = stringResource(R.string.core_completed)
     val reminderDetail = reminderDetail()
+    val repeatLabel = stringResource(repeat.labelRes())
     val separator = stringResource(R.string.core_metadata_pipe_separator)
     return buildList {
         add(typeLabel)
@@ -390,6 +392,7 @@ private fun CalendarEntry.cardDetails(): String {
             add(completedLabel)
         }
         reminderDetail?.let(::add)
+        repeat?.let { add(repeatLabel) }
     }.joinToString(separator)
 }
 
