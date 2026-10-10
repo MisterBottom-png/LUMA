@@ -23,7 +23,10 @@ import com.orbit.app.MainActivity
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.longClick
 import com.orbit.app.OrbitApplication
 import com.orbit.app.data.local.StarterSpaces
@@ -270,7 +273,13 @@ abstract class ScreenTour(private val theme: String) {
             compose.mainClock.advanceTimeBy(1_000)
             compose.waitForIdle()
         }
-        step("one by one") { compose.onNodeWithText("Sort one by one").performClick(); compose.waitForIdle() }
+        step("one by one") {
+            // Review orders its sections by time of day; after midday "To sort" comes
+            // first and its header may have scrolled out of the list.
+            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Sort one by one"))
+            compose.onNodeWithText("Sort one by one").performClick()
+            compose.waitForIdle()
+        }
         shot("$prefix-review-one-by-one")
         back()
         tapTab("Home")
