@@ -138,4 +138,9 @@
     <string name="ask_found_upcoming">These have dates coming up: %1$s.</string>
     <string name="ask_found_recent">These changed recently: %1$s.</string>
     <string name="ask_search_for">Search for “%1$s”</string>
+    <string name="ask_answer_no_date_set">No date set: %1$s.</string>
+    <plurals name="ask_answer_from_earlier">
+        <item quantity="one">Nothing new today; %d from earlier when you’re ready.</item>
+        <item quantity="other">Nothing new today; %d from earlier when you’re ready.</item>
+    </plurals>
 </resources>

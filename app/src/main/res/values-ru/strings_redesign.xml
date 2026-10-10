@@ -146,4 +146,11 @@
     <string name="ask_found_upcoming">Скоро срок: %1$s.</string>
     <string name="ask_found_recent">Недавно изменено: %1$s.</string>
     <string name="ask_search_for">Искать «%1$s»</string>
+    <string name="ask_answer_no_date_set">Без даты: %1$s.</string>
+    <plurals name="ask_answer_from_earlier">
+        <item quantity="one">Сегодня ничего нового. С прошлых дней ждёт %d, когда будете готовы.</item>
+        <item quantity="few">Сегодня ничего нового. С прошлых дней ждут %d, когда будете готовы.</item>
+        <item quantity="many">Сегодня ничего нового. С прошлых дней ждут %d, когда будете готовы.</item>
+        <item quantity="other">Сегодня ничего нового. С прошлых дней ждут %d, когда будете готовы.</item>
+    </plurals>
 </resources>

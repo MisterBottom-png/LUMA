@@ -138,4 +138,9 @@
     <string name="ask_found_upcoming">Kuupäev on tulekul: %1$s.</string>
     <string name="ask_found_recent">Hiljuti muutunud: %1$s.</string>
     <string name="ask_search_for">Otsi „%1$s“</string>
+    <string name="ask_answer_no_date_set">Kuupäev määramata: %1$s.</string>
+    <plurals name="ask_answer_from_earlier">
+        <item quantity="one">Täna pole midagi uut. Varasemast ootab %d, kui oled valmis.</item>
+        <item quantity="other">Täna pole midagi uut. Varasemast ootab %d, kui oled valmis.</item>
+    </plurals>
 </resources>

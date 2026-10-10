@@ -134,8 +134,8 @@ class SituationAiViewModel(
             val result = AskLumaPromptAnswerer.answer(question, data.corpus, data.now)
             val answer = SourceLinkedAnswer(
                 answer = result.toText(localized),
-                sourceItemIds = result.items.map { it.sourceId },
-                sourceItems = result.items,
+                sourceItemIds = result.sources.map { it.sourceId },
+                sourceItems = result.sources,
                 fromGemini = false,
             )
             val submission = AskState(query = label).beginSubmission() ?: return@launch
@@ -262,8 +262,14 @@ internal fun AskLumaPromptAnswer.toText(context: Context): String {
         AskLumaAnswerKind.StartWith -> context.getString(R.string.ask_answer_start_with, titles)
         AskLumaAnswerKind.SortThoughts ->
             context.resources.getQuantityString(R.plurals.ask_answer_sort_thoughts, count, count)
+        AskLumaAnswerKind.FromEarlier ->
+            context.resources.getQuantityString(R.plurals.ask_answer_from_earlier, count, count)
         AskLumaAnswerKind.NothingNeeded -> context.getString(R.string.ask_answer_nothing_needed)
-        AskLumaAnswerKind.CanWait -> context.getString(R.string.ask_answer_can_wait, titles)
+        AskLumaAnswerKind.CanWait -> listOfNotNull(
+            titles.takeIf { items.isNotEmpty() }?.let { context.getString(R.string.ask_answer_can_wait, it) },
+            undated.takeIf { it.isNotEmpty() }
+                ?.let { context.getString(R.string.ask_answer_no_date_set, it.joinToString(", ") { item -> item.title }) },
+        ).joinToString(" ")
         AskLumaAnswerKind.NothingCanWait -> context.getString(R.string.ask_answer_nothing_can_wait)
         AskLumaAnswerKind.WaitingOnOthers -> context.getString(R.string.ask_answer_waiting, titles)
         AskLumaAnswerKind.NothingWaiting -> context.getString(R.string.ask_answer_nothing_waiting)
