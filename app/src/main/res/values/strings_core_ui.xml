@@ -35,7 +35,7 @@
     <string name="core_home_show_previous_week">Show previous week</string>
     <string name="core_home_show_next_week">Show next week</string>
     <string name="core_home_week_number">Week %1$d</string>
-    <string name="core_home_save_and_analyze">Save and analyze capture</string>
+    <string name="core_home_save_and_analyze">Save thought</string>
     <string name="core_home_saving_capture">Saving privately</string>
     <string name="core_home_analyzing_capture">Preparing a suggestion</string>
     <string name="core_home_capture_input">Capture text</string>

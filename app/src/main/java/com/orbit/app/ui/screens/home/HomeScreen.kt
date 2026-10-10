@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -558,12 +559,15 @@ internal fun WeekStrip(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 BoxWithConstraints(modifier = sharedContentBounds) {
-                    val dayCapsuleWidth = minOf(HomeDayCapsuleMaxWidth, maxWidth / dates.size)
+                    // Every day is at least a 48 dp touch target. On a narrow phone the
+                    // row reaches a little into the page margins to make room.
+                    val rowWidth = maxOf(maxWidth, minOf(HomeDayMinTouch * dates.size, maxWidth + HomeWeekMarginBleed * 2))
+                    val dayCapsuleWidth = minOf(HomeDayCapsuleMaxWidth, rowWidth / dates.size)
                     val dayCapsuleHeight = HomeDayCapsuleHeight *
                         LocalDensity.current.fontScale.coerceAtLeast(1f)
                     val dayCapsuleShape = RoundedCornerShape(22.dp)
                     Row(
-                        modifier = sharedContentBounds,
+                        modifier = Modifier.requiredWidth(rowWidth),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         dates.forEach { date ->
@@ -973,6 +977,8 @@ private fun estimatedCaptureLineCount(text: String): Int = text
 private val HomeWeekCardHeight = 104.dp
 private val HomeDayCapsuleMaxWidth = 52.dp
 private val HomeDayCapsuleHeight = 64.dp
+private val HomeDayMinTouch = 48.dp
+private val HomeWeekMarginBleed = 16.dp
 private val HomeWeekCardScaledContentGrowth = 112.dp
 private val HomeCaptureGap = 28.dp
 private val CalendarCaptureContextBannerActionMinimumHeight = 48.dp

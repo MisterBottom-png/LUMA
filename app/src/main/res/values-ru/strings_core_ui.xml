@@ -30,7 +30,7 @@
     <string name="core_home_show_previous_week">Показать предыдущую неделю</string>
     <string name="core_home_show_next_week">Показать следующую неделю</string>
     <string name="core_home_week_number">Неделя %1$d</string>
-    <string name="core_home_save_and_analyze">Сохранить и проанализировать запись</string>
+    <string name="core_home_save_and_analyze">Сохранить мысль</string>
     <string name="core_home_saving_capture">Конфиденциальное сохранение</string>
     <string name="core_home_analyzing_capture">Подготовка предложения</string>
     <string name="core_home_capture_input">Текст записи</string>

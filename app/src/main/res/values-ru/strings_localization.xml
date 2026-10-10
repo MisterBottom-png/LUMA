@@ -185,7 +185,7 @@
     <string name="settings_reset_explanation">Удалите все локальные элементы и пространства на этом устройстве и начните заново. Это действие нельзя отменить.</string>
     <string name="settings_resetting">Сброс…</string>
     <string name="core_home_message_capture_save_failed">Не удалось сохранить эту запись. Ваш текст всё ещё здесь.</string>
-    <string name="core_home_message_kept_in_inbox">Оставлено во Входящих.</string>
+    <string name="core_home_message_kept_in_inbox">Оставлено в «Разобрать».</string>
     <string name="core_home_message_brain_dump_unavailable">Этот разбор мыслей больше не ожидает просмотра.</string>
     <string name="core_home_message_note_saved">Сохранено как заметка.</string>
     <string name="core_home_message_task_created">Задача создана.</string>

@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
@@ -234,6 +235,10 @@ fun OrbitApp(
                     val homeWeekViewModel: HomeWeekViewModel = viewModel(
                         factory = HomeWeekViewModel.Factory(container.calendarRepository),
                     )
+                    LifecycleResumeEffect(homeWeekViewModel) {
+                        homeWeekViewModel.refreshToday()
+                        onPauseOrDispose { }
+                    }
                     val homeWeekUiState by homeWeekViewModel.uiState.collectAsStateWithLifecycle()
                     val calendarCaptureEpochDay by entry.savedStateHandle
                         .getStateFlow<Long?>(CalendarCaptureContext.EpochDayKey, null)

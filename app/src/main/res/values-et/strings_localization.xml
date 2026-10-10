@@ -181,7 +181,7 @@
     <string name="settings_reset_explanation">Kustutage selle seadme kõik kohalikud üksused ja ruumid ning alustage puhtalt lehelt. Seda ei saa tagasi võtta.</string>
     <string name="settings_resetting">Lähtestamine…</string>
     <string name="core_home_message_capture_save_failed">Seda sisestust ei saanud salvestada. Sinu tekst on endiselt alles.</string>
-    <string name="core_home_message_kept_in_inbox">Jäeti sisendkausta.</string>
+    <string name="core_home_message_kept_in_inbox">Jäeti jaotisse „Sorteerida“.</string>
     <string name="core_home_message_brain_dump_unavailable">See mõtete korrastamine ei oota enam ülevaatamist.</string>
     <string name="core_home_message_note_saved">Salvestati märkmena.</string>
     <string name="core_home_message_task_created">Ülesanne loodi.</string>

@@ -30,7 +30,7 @@
     <string name="core_home_show_previous_week">Näita eelmist nädalat</string>
     <string name="core_home_show_next_week">Näita järgmist nädalat</string>
     <string name="core_home_week_number">%1$d. nädal</string>
-    <string name="core_home_save_and_analyze">Salvesta ja analüüsi sisestust</string>
+    <string name="core_home_save_and_analyze">Salvesta mõte</string>
     <string name="core_home_saving_capture">Salvestamine privaatselt</string>
     <string name="core_home_analyzing_capture">Soovituse ettevalmistamine</string>
     <string name="core_home_capture_input">Sisestuse tekst</string>

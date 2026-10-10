@@ -109,7 +109,7 @@ data class AppSettings(
     /** Opens the sorting sheet right after a capture is saved (the pre-redesign flow). */
     val sortRightAfterSaving: Boolean = false,
     /** Places the cursor in the Home capture box when Home opens. */
-    val focusCaptureOnOpen: Boolean = true,
+    val focusCaptureOnOpen: Boolean = false,
 )
 
 val AppSettings.hasCurrentGeminiConsent: Boolean

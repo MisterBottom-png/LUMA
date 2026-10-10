@@ -179,7 +179,7 @@
     <string name="core_starter_space_health">Health</string>
     <string name="core_starter_space_learning">Learning</string>
     <string name="core_home_message_capture_save_failed">Could not save that capture. Your text is still here.</string>
-    <string name="core_home_message_kept_in_inbox">Kept in Inbox.</string>
+    <string name="core_home_message_kept_in_inbox">Kept in To sort.</string>
     <string name="core_home_message_brain_dump_unavailable">That Brain Dump is no longer waiting for review.</string>
     <string name="core_home_message_note_saved">Saved as a note.</string>
     <string name="core_home_message_task_created">Task created.</string>
