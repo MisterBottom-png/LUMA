@@ -203,7 +203,7 @@ class BrainDumpSuggestionContentTest {
             }
         }
 
-        composeRule.onNodeWithText("That item did not save. The original dump is still in Inbox.")
+        composeRule.onNodeWithText(string(R.string.core_home_message_brain_dump_item_save_failed))
             .assertIsDisplayed()
         composeRule.onNodeWithText("Retry").performClick()
 
