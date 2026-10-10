@@ -89,7 +89,6 @@ internal fun taskWhenFor(dueAt: Long?, today: LocalDate, zone: ZoneId = ZoneId.s
  * "When" for tasks and reminders, and one button that says exactly what will happen.
  * Nothing is saved until that button is pressed.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CaptureSortContent(
     suggestion: CaptureSuggestion,
@@ -112,9 +111,95 @@ internal fun CaptureSortContent(
     onNotNow: () -> Unit,
 ) {
     val analysis = suggestion.analysis
+    SortForm(
+        key = suggestion.captureId,
+        timeFormat = timeFormat,
+        isPerformingAction = isPerformingAction,
+        title = title,
+        onTitleChanged = onTitleChanged,
+        suggestionLine = when {
+            analysis.analyzerFailed -> stringResource(R.string.core_capture_analysis_paused)
+            analysis.confidenceLevel == CaptureConfidence.Low -> stringResource(R.string.core_capture_keep_until_clearer)
+            else -> stringResource(R.string.sort_suggests, stringResource(suggestedActionLabel(analysis.suggestedType)))
+        },
+        why = if (analysis.analyzerFailed) {
+            null
+        } else {
+            listOf(
+                analysis.typeReason,
+                analysis.spaceReason,
+                stringResource(
+                    if (analysis.analyzerSource == CaptureAnalyzerSource.Gemini) {
+                        R.string.sort_source_gemini
+                    } else {
+                        R.string.sort_source_phone
+                    },
+                ),
+            ).filter { it.isNotBlank() }.joinToString(" ")
+        },
+        selectedAction = selectedAction,
+        onActionSelected = onActionSelected,
+        spaces = suggestion.spaceOptions,
+        selectedSpaceId = selectedSpaceId,
+        onSpaceSelected = onSpaceSelected,
+        selectedLabels = selectedLabels,
+        onRemoveLabel = onRemoveLabel,
+        taskDueAt = taskDueAt,
+        onTaskDueAtChanged = onTaskDueAtChanged,
+        reminderAt = reminderAt,
+        onReminderAtChanged = onReminderAtChanged,
+        initialDate = initialDate,
+        onConfirm = onConfirm,
+    ) {
+        TextButton(
+            onClick = onNotNow,
+            enabled = !isPerformingAction,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.sort_not_now),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * The shared body of every sort screen, used for a single thought and for one thought
+ * from a Brain Dump, so both look and work the same. [aboveButton] holds status lines;
+ * [below] holds the quiet way out ("Not now", "Back to the list").
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun SortForm(
+    key: Any,
+    timeFormat: OrbitTimeFormat,
+    isPerformingAction: Boolean,
+    title: String,
+    onTitleChanged: (String) -> Unit,
+    suggestionLine: String,
+    why: String?,
+    selectedAction: CaptureDecisionAction,
+    onActionSelected: (CaptureDecisionAction) -> Unit,
+    spaces: List<CaptureSpaceOption>,
+    selectedSpaceId: Long?,
+    onSpaceSelected: (Long?) -> Unit,
+    taskDueAt: Long?,
+    onTaskDueAtChanged: (Long?) -> Unit,
+    reminderAt: Long?,
+    onReminderAtChanged: (Long) -> Unit,
+    initialDate: LocalDate?,
+    onConfirm: () -> Unit,
+    selectedLabels: List<String> = emptyList(),
+    onRemoveLabel: (String) -> Unit = {},
+    aboveButton: @Composable () -> Unit = {},
+    below: @Composable () -> Unit,
+) {
     val context = LocalContext.current
-    var editingTitle by rememberSaveable(suggestion.captureId) { mutableStateOf(false) }
-    var showWhy by rememberSaveable(suggestion.captureId) { mutableStateOf(false) }
+    var editingTitle by rememberSaveable(key) { mutableStateOf(false) }
+    var showWhy by rememberSaveable(key) { mutableStateOf(false) }
 
     // The thought itself is the title. A small pencil makes it editable.
     if (editingTitle) {
@@ -168,18 +253,14 @@ internal fun CaptureSortContent(
             modifier = Modifier.size(16.dp),
         )
         Text(
-            text = when {
-                analysis.analyzerFailed -> stringResource(R.string.core_capture_analysis_paused)
-                analysis.confidenceLevel == CaptureConfidence.Low -> stringResource(R.string.core_capture_keep_until_clearer)
-                else -> stringResource(R.string.sort_suggests, stringResource(suggestedActionLabel(analysis.suggestedType)))
-            },
+            text = suggestionLine,
             modifier = Modifier
                 .weight(1f)
                 .padding(start = 8.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (!analysis.analyzerFailed) {
+        if (!why.isNullOrBlank()) {
             TextButton(
                 onClick = { showWhy = !showWhy },
                 contentPadding = PaddingValues(horizontal = 10.dp),
@@ -188,7 +269,7 @@ internal fun CaptureSortContent(
             }
         }
     }
-    if (showWhy) {
+    if (showWhy && !why.isNullOrBlank()) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -197,17 +278,7 @@ internal fun CaptureSortContent(
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
         ) {
             Text(
-                text = listOf(
-                    analysis.typeReason,
-                    analysis.spaceReason,
-                    stringResource(
-                        if (analysis.analyzerSource == CaptureAnalyzerSource.Gemini) {
-                            R.string.sort_source_gemini
-                        } else {
-                            R.string.sort_source_phone
-                        },
-                    ),
-                ).filter { it.isNotBlank() }.joinToString(" "),
+                text = why,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -235,7 +306,7 @@ internal fun CaptureSortContent(
         }
     }
 
-    if (selectedAction != CaptureDecisionAction.KeepInbox && suggestion.spaceOptions.isNotEmpty()) {
+    if (selectedAction != CaptureDecisionAction.KeepInbox && spaces.isNotEmpty()) {
         SortLabel(stringResource(R.string.sort_space))
         Row(
             modifier = Modifier
@@ -244,7 +315,7 @@ internal fun CaptureSortContent(
                 .selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            suggestion.spaceOptions.forEach { space ->
+            spaces.forEach { space ->
                 SortChip(
                     label = localizedSpaceName(space.name),
                     selected = selectedSpaceId == space.id,
@@ -333,6 +404,8 @@ internal fun CaptureSortContent(
         else -> Unit
     }
 
+    aboveButton()
+
     val needsTime = selectedAction == CaptureDecisionAction.CreateReminder && reminderAt == null
     Button(
         onClick = {
@@ -357,18 +430,7 @@ internal fun CaptureSortContent(
             )
         }
     }
-    TextButton(
-        onClick = onNotNow,
-        enabled = !isPerformingAction,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.sort_not_now),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    below()
 }
 
 @Composable
@@ -452,7 +514,7 @@ private fun CaptureDecisionAction.tileIcon(): ImageVector = when (this) {
     CaptureDecisionAction.KeepInbox -> Icons.Rounded.Inbox
 }
 
-private fun suggestedActionLabel(type: com.orbit.app.data.local.entity.SuggestedItemType): Int = when (type) {
+internal fun suggestedActionLabel(type: com.orbit.app.data.local.entity.SuggestedItemType): Int = when (type) {
     com.orbit.app.data.local.entity.SuggestedItemType.Task,
     com.orbit.app.data.local.entity.SuggestedItemType.MondayItem,
     -> R.string.sort_kind_task

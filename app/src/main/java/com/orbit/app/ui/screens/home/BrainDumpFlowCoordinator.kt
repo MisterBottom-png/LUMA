@@ -344,6 +344,15 @@ internal class BrainDumpFlowCoordinator(
     fun discardDraftChanges() {
         val current = _state.value ?: return
         if (isDurableActionInProgress()) return
+        if (current.stage == BrainDumpStage.Suggestion) {
+            // Changes made on the card are dropped; from the list, go back to the list.
+            if (current.openedFromOverview) {
+                backToOverview()
+            } else {
+                _state.value = current.copy(draft = current.initialDraft, status = null)
+            }
+            return
+        }
         val stage = when (current.stage) {
             BrainDumpStage.TaskSetup, BrainDumpStage.ReminderSetup -> BrainDumpStage.Edit
             BrainDumpStage.Edit -> BrainDumpStage.Suggestion

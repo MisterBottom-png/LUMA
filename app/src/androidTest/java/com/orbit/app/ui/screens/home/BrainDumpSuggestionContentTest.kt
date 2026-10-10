@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -43,15 +44,13 @@ class BrainDumpSuggestionContentTest {
             }
         }
 
+        // One thought from a dump uses the same sort sheet as a single thought.
         composeRule.onNodeWithText("Suggestion 2 of 6").assertIsDisplayed()
-        composeRule.onNodeWithText("Sort your thoughts").assertIsDisplayed()
-        composeRule.onNodeWithText("Type: Task").assertIsDisplayed()
-        composeRule.onNodeWithText("Space: Personal").assertIsDisplayed()
-        // The item title and the primary "Set up task" action share this text.
-        composeRule.onAllNodesWithText("Set up task").assertCountEquals(2)
-        composeRule.onAllNodesWithText("Set up task")[0].assertIsDisplayed()
-        composeRule.onAllNodesWithText("Set up task")[1].assertIsDisplayed()
-        composeRule.onNodeWithText("Edit details").assertIsDisplayed()
+        composeRule.onNodeWithText("Set up task").assertIsDisplayed()
+        composeRule.onNodeWithText("Tallele suggests a task").assertIsDisplayed()
+        composeRule.onNodeWithText("Task").assertIsSelected()
+        composeRule.onNodeWithText("Personal").assertIsSelected()
+        composeRule.onNodeWithText("Create task").assertIsDisplayed()
         composeRule.onNodeWithText("Finish later").assertIsDisplayed()
         composeRule.onAllNodesWithText("Keep this thought in Inbox").assertCountEquals(0)
 
@@ -78,10 +77,8 @@ class BrainDumpSuggestionContentTest {
             }
         }
 
-        composeRule.onNodeWithText("Why this?").performClick()
-        composeRule.onNodeWithText("Original source thought").assertIsDisplayed()
-        composeRule.onNodeWithText("This sounds actionable.").assertIsDisplayed()
-        composeRule.onNodeWithText("Take the smallest next step").assertIsDisplayed()
+        composeRule.onNodeWithText("Why?").performClick()
+        composeRule.onNodeWithText("This sounds actionable. Take the smallest next step").assertIsDisplayed()
 
         state.value = initial.copy(stage = BrainDumpStage.Edit)
         composeRule.waitForIdle()

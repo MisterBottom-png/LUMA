@@ -172,7 +172,9 @@ internal fun CaptureSuggestionSheet(
             }
         }
     }
+    // Sheets open fully, so the main button is always in view without dragging.
     val brainDumpSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
         confirmValueChange = { target ->
             if (!currentIsBrainDump || target != SheetValue.Hidden) {
                 true

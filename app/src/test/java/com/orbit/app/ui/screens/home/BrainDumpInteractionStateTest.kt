@@ -57,6 +57,17 @@ class BrainDumpInteractionStateTest {
                 actionInProgress = false,
             ),
         )
+        // The card itself can be changed now, so leaving it with changes asks first.
+        assertEquals(
+            BrainDumpDismissalDecision.ConfirmDiscard,
+            brainDumpDismissalDecision(
+                stage = BrainDumpStage.Suggestion,
+                initialDraft = initial,
+                draft = changed,
+                actionInProgress = false,
+                openedFromOverview = true,
+            ),
+        )
     }
 
     @Test

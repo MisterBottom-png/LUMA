@@ -297,6 +297,7 @@ abstract class ScreenTour(private val theme: String) {
             compose.waitUntil(10_000) { count("Finish later") == 0 }
             compose.waitForIdle()
         }
+        tapTab("Home")
     }
 
     @Test

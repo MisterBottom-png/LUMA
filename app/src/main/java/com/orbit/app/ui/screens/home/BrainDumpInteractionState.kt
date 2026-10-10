@@ -129,12 +129,13 @@ internal fun brainDumpDismissalDecision(
     actionInProgress -> BrainDumpDismissalDecision.Blocked
     stage == BrainDumpStage.Overview || stage == BrainDumpStage.Completion ->
         BrainDumpDismissalDecision.CloseSession
+    // A thought is now changed right on its card, so leaving it with changes asks first.
+    initialDraft != draft -> BrainDumpDismissalDecision.ConfirmDiscard
     stage == BrainDumpStage.Suggestion -> if (openedFromOverview) {
         BrainDumpDismissalDecision.StepBack
     } else {
         BrainDumpDismissalDecision.CloseSession
     }
-    initialDraft != draft -> BrainDumpDismissalDecision.ConfirmDiscard
     else -> BrainDumpDismissalDecision.StepBack
 }
 
