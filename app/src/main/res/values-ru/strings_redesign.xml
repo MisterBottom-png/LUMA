@@ -198,4 +198,6 @@
     <string name="core_home_adding_to_space">Добавляется в «%1$s»</string>
     <string name="search_to_sort_note">Мысли, которые вы ещё не разобрали.</string>
     <string name="home_open_search">Поиск</string>
+    <string name="calendar_toggle_day">День</string>
+    <string name="calendar_toggle_month">Месяц</string>
 </resources>

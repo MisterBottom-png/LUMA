@@ -186,4 +186,6 @@
     <string name="core_home_adding_to_space">Lisatakse ruumi %1$s</string>
     <string name="search_to_sort_note">Mõtted, mida sa pole veel sorteerinud.</string>
     <string name="home_open_search">Otsi</string>
+    <string name="calendar_toggle_day">Päev</string>
+    <string name="calendar_toggle_month">Kuu</string>
 </resources>

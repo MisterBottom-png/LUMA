@@ -186,4 +186,6 @@
     <string name="core_home_adding_to_space">Adding to %1$s</string>
     <string name="search_to_sort_note">Thoughts you have not sorted yet.</string>
     <string name="home_open_search">Search</string>
+    <string name="calendar_toggle_day">Day</string>
+    <string name="calendar_toggle_month">Month</string>
 </resources>

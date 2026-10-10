@@ -24,7 +24,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.NotificationsOff
-import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.automirrored.rounded.Assignment
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -277,7 +277,8 @@ private fun CalendarEntryRow(
                 Triple(Icons.Rounded.NotificationsOff, colors.onSurfaceVariant, R.string.core_calendar_notifications_off)
             entry.id.sourceType == CalendarItemType.Reminder -> Triple(Icons.Rounded.NotificationsNone, colors.primary, R.string.core_reminder)
             entry.id.sourceType == CalendarItemType.Task ->
-                Triple(Icons.Rounded.RadioButtonUnchecked, colors.onSurfaceVariant.copy(alpha = 0.7f), R.string.core_task)
+                // A plain task mark, not an empty ring that looks like a checkbox to tap.
+                Triple(Icons.AutoMirrored.Rounded.Assignment, colors.onSurfaceVariant.copy(alpha = 0.7f), R.string.core_task)
             else -> Triple(Icons.Rounded.Description, colors.onSurfaceVariant, R.string.core_note)
         }
         Icon(

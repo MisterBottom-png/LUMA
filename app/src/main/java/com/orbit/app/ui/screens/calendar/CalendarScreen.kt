@@ -47,7 +47,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
@@ -176,13 +178,26 @@ fun CalendarScreen(
                     Text(stringResource(R.string.core_today), style = MaterialTheme.typography.labelLarge)
                 }
             }
-            IconButton(
+            // A labelled switch: the word says which view it opens.
+            val toggleDescription = stringResource(if (isMonth) R.string.calendar_show_day else R.string.calendar_show_month)
+            TextButton(
                 onClick = { onViewSelected(if (isMonth) CalendarViewMode.Day else CalendarViewMode.Month) },
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .semantics { contentDescription = toggleDescription },
             ) {
                 Icon(
                     imageVector = if (isMonth) Icons.Rounded.ViewAgenda else Icons.Rounded.CalendarViewMonth,
-                    contentDescription = stringResource(if (isMonth) R.string.calendar_show_day else R.string.calendar_show_month),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(if (isMonth) R.string.calendar_toggle_day else R.string.calendar_toggle_month),
+                    modifier = Modifier.padding(start = 6.dp).clearAndSetSemantics { },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(onClick = onAddForSelectedDate) {
