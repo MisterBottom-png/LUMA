@@ -22,6 +22,7 @@ import com.orbit.app.ui.navigation.CalendarDestination
 import com.orbit.app.ui.navigation.OrbitDestination
 import org.junit.Assert.assertEquals
 import org.junit.Rule
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -54,5 +55,13 @@ class FloatingBottomNavigationJvmTest {
 
         composeRule.onNodeWithText("Review").performClick()
         assertEquals(OrbitDestination.Review, selected)
+    }
+
+    @Test
+    fun aSpacesOwnPageKeepsTheSpacesTabSelected() {
+        assertTrue(isBottomBarDestinationSelected("spaces/{spaceId}", OrbitDestination.Spaces))
+        assertTrue(isBottomBarDestinationSelected("spaces/unfiled", OrbitDestination.Spaces))
+        assertTrue(isBottomBarDestinationSelected("spaces", OrbitDestination.Spaces))
+        org.junit.Assert.assertFalse(isBottomBarDestinationSelected("spaces/{spaceId}", OrbitDestination.Home))
     }
 }

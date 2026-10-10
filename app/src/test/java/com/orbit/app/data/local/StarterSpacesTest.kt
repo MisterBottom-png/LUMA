@@ -32,4 +32,12 @@ class StarterSpacesTest {
         assertEquals(123L, space.createdAt)
         assertEquals(123L, space.updatedAt)
     }
+
+    @Test
+    fun newInstallsGetHouseholdWhileAnExistingHomeSpaceKeepsItsName() {
+        assertEquals("Household", StarterSpaces.templates.single { it.key == "home" }.storedName)
+        // A Space saved as "Home" by an earlier version still shows as Home in every language.
+        assertEquals(com.orbit.app.R.string.core_starter_space_home, com.orbit.app.ui.localization.starterSpaceNameRes("Home"))
+        assertEquals(com.orbit.app.R.string.core_starter_space_household, com.orbit.app.ui.localization.starterSpaceNameRes("Household"))
+    }
 }

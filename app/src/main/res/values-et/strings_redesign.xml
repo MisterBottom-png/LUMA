@@ -179,4 +179,9 @@
     <string name="ask_answer_failed">Praegu ei õnnestunud vastata. Sinu asjad on muutmata; proovi hetke pärast uuesti.</string>
     <string name="ask_characters_used">%1$d/%2$d</string>
     <string name="sort_type_later">Hiljem</string>
+    <string name="core_starter_space_household">Majapidamine</string>
+    <string name="spaces_hide_hint">Praegu nimekirjast väljas. Asjad jäävad alles.</string>
+    <string name="spaces_archive_hint">Ruumile, mida enam ei vaja. Asjad jäävad alles.</string>
+    <string name="spaces_add_thought">Lisa mõte ruumi %1$s</string>
+    <string name="core_home_adding_to_space">Lisatakse ruumi %1$s</string>
 </resources>

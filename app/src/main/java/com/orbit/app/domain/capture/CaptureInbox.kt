@@ -82,6 +82,7 @@ class CaptureInbox(
         rawText: String,
         source: CaptureSource = CaptureSource.Manual,
         contextDateEpochDay: Long? = null,
+        spaceId: Long? = null,
         onSaved: (Long) -> Unit = {},
     ): Long {
         val text = rawText.trim()
@@ -96,6 +97,8 @@ class CaptureInbox(
                 source = source,
                 // Kept on the thought, so analysis after a restart still knows the day.
                 contextDateEpochDay = contextDateEpochDay,
+                // Chosen by the user (a Space's "+"); it wins over any suggested Space.
+                suggestedSpaceId = spaceId,
             ),
         )
         onSaved(id)

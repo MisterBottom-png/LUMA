@@ -102,6 +102,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.orbit.app.R
+import com.orbit.app.ui.localization.localizedSpaceName
 import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarDuration
@@ -127,6 +128,8 @@ fun HomeScreen(
     calendarDateContext: LocalDate?,
     onCalendarDateContextConsumed: () -> Unit,
     onCalendarDateSelected: (LocalDate) -> Unit,
+    spaceContext: SpaceCaptureTarget? = null,
+    onSpaceContextConsumed: () -> Unit = {},
     onVisibleWeekChanged: (Int) -> Unit,
     userName: String,
     timeFormat: OrbitTimeFormat,
@@ -208,6 +211,7 @@ fun HomeScreen(
             },
         )
         if (calendarDateContext != null) onCalendarDateContextConsumed()
+        if (spaceContext != null) onSpaceContextConsumed()
         if (!reduceMotion && pendingSentText.isNotBlank()) {
             sentGhostText = pendingSentText
             launch {
@@ -329,6 +333,12 @@ fun HomeScreen(
                         onClear = onCalendarDateContextConsumed,
                     )
                 }
+                spaceContext?.let { space ->
+                    CaptureContextBanner(
+                        text = stringResource(R.string.core_home_adding_to_space, localizedSpaceName(space.name)),
+                        onClear = onSpaceContextConsumed,
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(if (imeVisible) OrbitSpacing.Large else HomeCaptureGap))
@@ -360,7 +370,7 @@ fun HomeScreen(
                     onTextChanged = viewModel::onInputChanged,
                     onAnalyze = {
                         pendingSentText = uiState.inputText
-                        viewModel.send(calendarDateContext?.toEpochDay())
+                        viewModel.send(calendarDateContext?.toEpochDay(), spaceContext?.id)
                     },
                     height = captureCardHeight,
                     imeVisible = imeVisible,
@@ -434,6 +444,20 @@ private fun CalendarCaptureContextBanner(
     val formatter = remember(locale) {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
     }
+    CaptureContextBanner(
+        text = stringResource(R.string.core_home_adding_for_date, date.format(formatter)),
+        onClear = onClear,
+    )
+}
+
+/** The Space a Space's "+" asked the next thought to go into. */
+data class SpaceCaptureTarget(val id: Long, val name: String)
+
+@Composable
+private fun CaptureContextBanner(
+    text: String,
+    onClear: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -444,10 +468,7 @@ private fun CalendarCaptureContextBanner(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(
-                R.string.core_home_adding_for_date,
-                date.format(formatter),
-            ),
+            text = text,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer,

@@ -191,4 +191,9 @@
     <string name="ask_answer_failed">Сейчас не получилось ответить. Ваши записи не изменились; попробуйте чуть позже.</string>
     <string name="ask_characters_used">%1$d/%2$d</string>
     <string name="sort_type_later">Позже</string>
+    <string name="core_starter_space_household">Хозяйство</string>
+    <string name="spaces_hide_hint">Пока скрыто из списка. Записи остаются на месте.</string>
+    <string name="spaces_archive_hint">Для пространства, которое больше не нужно. Записи остаются.</string>
+    <string name="spaces_add_thought">Добавить мысль в «%1$s»</string>
+    <string name="core_home_adding_to_space">Добавляется в «%1$s»</string>
 </resources>

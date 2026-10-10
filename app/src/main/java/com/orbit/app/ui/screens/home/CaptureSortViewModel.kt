@@ -198,9 +198,11 @@ class CaptureSortViewModel(
                 val spaceOptions = loadSpaceOptions()
                 val stored = suggestionDao.getByCaptureId(captureId)
                 val analysis = stored?.toAnalysis(capture.rawText) ?: manualFallbackAnalysis(capture.rawText)
-                val space = spaceOptions.firstOrNull {
-                    stored?.suggestedSpaceName != null && it.name.equals(stored.suggestedSpaceName, ignoreCase = true)
-                }
+                // A Space the user picked when saving wins over the suggested one.
+                val space = spaceOptions.firstOrNull { capture.suggestedSpaceId != null && it.id == capture.suggestedSpaceId }
+                    ?: spaceOptions.firstOrNull {
+                        stored?.suggestedSpaceName != null && it.name.equals(stored.suggestedSpaceName, ignoreCase = true)
+                    }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
