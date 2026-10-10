@@ -14,5 +14,15 @@
     <string name="spaces_detail_open_count">Открыто: %1$d</string>
     <string name="spaces_mark_done">Отметить «%1$s» как выполненное</string>
     <string name="spaces_mark_not_done">Снять отметку с «%1$s»</string>
+    <string name="calendar_pick_date">Выбрать дату</string>
+    <string name="calendar_show_day">Показать день</string>
+    <string name="calendar_show_month">Показать месяц</string>
+    <string name="calendar_today_prefix">Сегодня · %1$s</string>
+    <string name="calendar_free_until">Свободно до %1$s</string>
+    <string name="calendar_now">Сейчас, %1$s</string>
+    <string name="calendar_nothing_planned">Ничего не запланировано</string>
+    <string name="calendar_free_day">Свободный день. Добавьте что-нибудь, только если хотите.</string>
+    <string name="calendar_free_day_short">Ничего не запланировано. Свободный день.</string>
+    <string name="calendar_add_to_day">Добавить на этот день</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d заметка</item><item quantity="few">%1$d заметки</item><item quantity="many">%1$d заметок</item><item quantity="other">%1$d заметки</item></plurals>
 </resources>

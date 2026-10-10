@@ -155,9 +155,9 @@ abstract class ScreenTour(private val theme: String) {
         back()
         tapTab("Calendar")
         shot("$prefix-calendar-day")
-        step("month") { compose.onNodeWithText("Month").performClick(); compose.waitForIdle() }
+        step("month") { compose.onNodeWithContentDescription("Show the month").performClick(); compose.waitForIdle() }
         shot("$prefix-calendar-month")
-        step("day") { compose.onNodeWithText("Day").performClick(); compose.waitForIdle() }
+        step("day") { compose.onNodeWithContentDescription("Show the day").performClick(); compose.waitForIdle() }
         tapTab("Review")
         shot("$prefix-review")
         scrollDown("review")

@@ -27,7 +27,6 @@
     <string name="core_accessibility_separator" translatable="false">, </string>
     <string name="core_metadata_separator" translatable="false"> · </string>
     <string name="core_metadata_dot_separator" translatable="false"> · </string>
-    <string name="core_metadata_pipe_separator" translatable="false"> | </string>
 
     <!-- Home -->
     <string name="core_home_good_morning">Good morning</string>
@@ -45,30 +44,14 @@
 
     <!-- Calendar -->
     <string name="core_calendar_title">Calendar</string>
-    <string name="core_calendar_previous_month">Previous month</string>
-    <string name="core_calendar_next_month">Next month</string>
-    <string name="core_calendar_previous_day">Previous day</string>
-    <string name="core_calendar_next_day">Next day</string>
     <string name="core_calendar_show_previous_month">Show previous month</string>
     <string name="core_calendar_show_next_month">Show next month</string>
     <string name="core_calendar_show_previous_day">Show previous day</string>
     <string name="core_calendar_show_next_day">Show next day</string>
-    <string name="core_calendar_day">Day</string>
-    <string name="core_calendar_month">Month</string>
     <string name="core_calendar_add_for_day">Add for this day</string>
     <string name="core_calendar_outside_current_month">outside current month</string>
     <string name="core_calendar_any_time">Any time</string>
-    <string name="core_calendar_timeline">Timeline</string>
-    <string name="core_calendar_nothing_scheduled">Nothing is scheduled for this day.</string>
-    <string name="core_calendar_loading_day">Bringing this day into view…</string>
-    <string name="core_calendar_no_timed_items_today">No items are set for a specific time today.</string>
     <string name="core_calendar_notifications_off">Notifications off</string>
-    <string name="core_calendar_notification_timing_unavailable">Notification timing unavailable</string>
-    <string name="core_calendar_notification_at_target">Notification around target time</string>
-    <plurals name="core_calendar_notification_minutes_before">
-        <item quantity="one">Notification about %1$d minute before</item>
-        <item quantity="other">Notification about %1$d minutes before</item>
-    </plurals>
 
     <!-- Search and source rows -->
     <string name="core_search_title">Search</string>

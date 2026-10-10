@@ -51,6 +51,23 @@ class CalendarViewModelTest {
     }
 
     @Test
+    fun focusDate_keepsTheMonthView_andWeekStepsMoveSevenDays() {
+        val viewModel = viewModel(LocalDate.of(2026, 10, 10).toEpochDay().toString())
+        viewModel.setActiveView(CalendarViewMode.Month)
+
+        viewModel.focusDate(LocalDate.of(2026, 11, 3))
+
+        assertEquals(CalendarViewMode.Month, viewModel.uiState.value.activeView)
+        assertEquals(LocalDate.of(2026, 11, 3), viewModel.uiState.value.selectedDate)
+        assertEquals(YearMonth.of(2026, 11), viewModel.uiState.value.visibleMonth)
+
+        viewModel.showPreviousWeek()
+        assertEquals(LocalDate.of(2026, 10, 27), viewModel.uiState.value.selectedDate)
+        viewModel.showNextWeek()
+        assertEquals(LocalDate.of(2026, 11, 3), viewModel.uiState.value.selectedDate)
+    }
+
+    @Test
     fun monthNavigation_clampsSelectionToValidDay() {
         val viewModel = viewModel(LocalDate.of(2026, 1, 31).toEpochDay().toString())
 

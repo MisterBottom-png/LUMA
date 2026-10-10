@@ -14,5 +14,15 @@
     <string name="spaces_detail_open_count">%1$d avatud</string>
     <string name="spaces_mark_done">Märgi „%1$s“ tehtuks</string>
     <string name="spaces_mark_not_done">Märgi „%1$s“ tegemata</string>
+    <string name="calendar_pick_date">Vali kuupäev</string>
+    <string name="calendar_show_day">Näita päeva</string>
+    <string name="calendar_show_month">Näita kuud</string>
+    <string name="calendar_today_prefix">Täna · %1$s</string>
+    <string name="calendar_free_until">Vaba kuni %1$s</string>
+    <string name="calendar_now">Praegu, %1$s</string>
+    <string name="calendar_nothing_planned">Midagi pole plaanis</string>
+    <string name="calendar_free_day">Vaba päev. Lisa midagi ainult siis, kui tahad.</string>
+    <string name="calendar_free_day_short">Midagi pole plaanis. Vaba päev.</string>
+    <string name="calendar_add_to_day">Lisa sellele päevale</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d märge</item><item quantity="other">%1$d märget</item></plurals>
 </resources>

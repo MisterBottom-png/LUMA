@@ -100,17 +100,7 @@ class CalendarMonthGridTest {
         locale = locale,
     )
 
-    @Test
-    fun todayIsTheOnlyPersistentPill() {
-        assertEquals(CalendarDatePillState.Today, resolveCalendarDatePillState(true, false))
-        assertEquals(CalendarDatePillState.None, resolveCalendarDatePillState(false, false))
-    }
 
-    @Test
-    fun pressingDateProducesOnlyTransientPresentationStates() {
-        assertEquals(CalendarDatePillState.Pressed, resolveCalendarDatePillState(false, true))
-        assertEquals(CalendarDatePillState.TodayPressed, resolveCalendarDatePillState(true, true))
-    }
 
     private val CalendarMonthGrid.visibleCells: List<CalendarMonthCell>
         get() = weeks.flatten().filter { it.isInVisibleMonth }

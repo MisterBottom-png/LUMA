@@ -137,6 +137,20 @@ class CalendarViewModel @JvmOverloads constructor(
         )
     }
 
+    /** Selects a date and keeps the current view: a tap in the week strip or month grid. */
+    fun focusDate(date: LocalDate) {
+        updateState(
+            _uiState.value.copy(
+                selectedDate = date,
+                visibleMonth = YearMonth.from(date),
+            ),
+        )
+    }
+
+    fun showPreviousWeek() = moveSelectedDateBy(days = -7)
+
+    fun showNextWeek() = moveSelectedDateBy(days = 7)
+
     private fun moveSelectedDateBy(days: Long) {
         val selectedDate = _uiState.value.selectedDate.plusDays(days)
         updateState(

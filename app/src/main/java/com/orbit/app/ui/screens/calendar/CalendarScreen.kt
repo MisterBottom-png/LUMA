@@ -1,45 +1,37 @@
 package com.orbit.app.ui.screens.calendar
 
-import androidx.annotation.StringRes
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronLeft
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material3.Button
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material.icons.rounded.CalendarViewMonth
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -50,33 +42,41 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.orbit.app.R
-import com.orbit.app.ui.components.SoftGlassSurface
-import com.orbit.app.ui.components.GlassSurfaceStyle
-import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
+import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.domain.calendar.CalendarEntryId
-import com.orbit.app.ui.theme.OrbitShapes
-import com.orbit.app.ui.theme.OrbitSpacing
-import com.orbit.app.ui.theme.CalendarDimensions
+import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.theme.CalendarTypography
 import com.orbit.app.ui.time.OrbitTimeFormat
+import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import java.time.format.TextStyle
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
 import java.util.Locale
 
+/**
+ * Calendar: the month name is the title (tap it to jump to a date), a week strip like
+ * Home's sits under it, and the day reads as a short list. One small button switches
+ * between the day and the month; "Today" appears only when it would move.
+ */
 @Composable
 fun CalendarScreen(
     uiState: CalendarUiState,
@@ -84,449 +84,453 @@ fun CalendarScreen(
     onNextDay: () -> Unit,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
+    onPreviousWeek: () -> Unit = {},
+    onNextWeek: () -> Unit = {},
     onToday: () -> Unit,
     onViewSelected: (CalendarViewMode) -> Unit,
-    onDateSelected: (java.time.LocalDate) -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
     timeFormat: OrbitTimeFormat,
     onEntrySelected: (CalendarEntryId) -> Unit,
     onAddForSelectedDate: () -> Unit,
+    spaces: Map<Long, SpaceEntity> = emptyMap(),
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    val monthFormatter = remember(locale) {
-        DateTimeFormatter.ofPattern("LLLL yyyy", locale)
-    }
-    val selectedDateFormatter = remember(locale) {
-        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
-    }
-    val swipeThresholdPx = with(LocalDensity.current) { 64.dp.toPx() }
-    var horizontalDrag by remember(uiState.activeView, uiState.selectedDate, uiState.visibleMonth) {
-        mutableFloatStateOf(0f)
-    }
-    val calendarDragState = rememberDraggableState { delta -> horizontalDrag += delta }
-    val previousPage = {
-        if (uiState.activeView == CalendarViewMode.Day) onPreviousDay() else onPreviousMonth()
-    }
-    val nextPage = {
-        if (uiState.activeView == CalendarViewMode.Day) onNextDay() else onNextMonth()
-    }
+    val context = LocalContext.current
     val calendarTitle = stringResource(R.string.core_calendar_title)
-    val showPreviousDay = stringResource(R.string.core_calendar_show_previous_day)
-    val showPreviousMonth = stringResource(R.string.core_calendar_show_previous_month)
-    val showNextDay = stringResource(R.string.core_calendar_show_next_day)
-    val showNextMonth = stringResource(R.string.core_calendar_show_next_month)
-    val addForThisDay = stringResource(R.string.core_calendar_add_for_day)
+    val navigationBottomPadding = with(LocalDensity.current) {
+        WindowInsets.navigationBars.getBottom(this).toDp()
+    }
+    val isMonth = uiState.activeView == CalendarViewMode.Month
+    val shownMonth = if (isMonth) uiState.visibleMonth else YearMonth.from(uiState.selectedDate)
+    val monthName = remember(shownMonth, locale) {
+        shownMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
+            .replaceFirstChar { it.titlecase(locale) }
+    }
+    val showYear = isMonth || shownMonth.year != uiState.today.year
+    val pickDate = {
+        val date = uiState.selectedDate
+        DatePickerDialog(
+            context,
+            { _, year, month, day -> onDateSelected(LocalDate.of(year, month + 1, day)) },
+            date.year,
+            date.monthValue - 1,
+            date.dayOfMonth,
+        ).show()
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .navigationBarsPadding()
-            // Leaves room for the tab bar that floats over Calendar.
-            .padding(bottom = OrbitBottomNavigationDefaults.ContainerHeight)
-            .padding(horizontal = 20.dp, vertical = 12.dp)
             .semantics { paneTitle = calendarTitle },
-        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = calendarTitle,
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { heading() },
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            // Calendar is a tab now: no back arrow, and "Today" only when it would move.
-            if (isAwayFromToday(uiState)) {
-                TextButton(onClick = onToday, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text(stringResource(R.string.core_today))
-                }
-            }
-        }
-
-        SoftGlassSurface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = OrbitShapes.Prominent,
-            style = GlassSurfaceStyle.Prominent,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CalendarDimensions.ControlHorizontalPadding, vertical = CalendarDimensions.ControlVerticalPadding),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                if (uiState.activeView == CalendarViewMode.Month) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(CalendarDimensions.PagerVisualHeight),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        CalendarStepButton(
-                            contentDescription = stringResource(R.string.core_calendar_previous_month),
-                            onClick = onPreviousMonth,
-                        )
-                        Text(
-                            text = uiState.visibleMonth.format(monthFormatter),
-                            style = CalendarTypography.monthHeader,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        CalendarStepButton(
-                            contentDescription = stringResource(R.string.core_calendar_next_month),
-                            forward = true,
-                            onClick = onNextMonth,
-                        )
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(CalendarDimensions.PagerVisualHeight),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CalendarStepButton(
-                            contentDescription = stringResource(R.string.core_calendar_previous_day),
-                            onClick = onPreviousDay,
-                        )
-                        Text(
-                            text = uiState.selectedDate.format(selectedDateFormatter),
-                            modifier = Modifier.weight(1f),
-                            style = CalendarTypography.monthHeader,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                        )
-                        CalendarStepButton(
-                            contentDescription = stringResource(R.string.core_calendar_next_day),
-                            forward = true,
-                            onClick = onNextDay,
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(CalendarDimensions.ActionRowHeight).padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CalendarModeSegmentedControl(uiState.activeView, onViewSelected)
-                    Button(
-                        onClick = onAddForSelectedDate,
-                        modifier = Modifier.semantics {
-                            contentDescription = addForThisDay
-                        },
-                        shape = OrbitShapes.Standard,
-                        contentPadding = PaddingValues(
-                            horizontal = OrbitSpacing.Medium,
-                            vertical = OrbitSpacing.Small,
-                        ),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Text(
-                            text = stringResource(R.string.core_add),
-                            modifier = Modifier.padding(start = OrbitSpacing.Small),
-                        )
-                    }
-                }
-            }
-        }
-
-        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
-            contentAlignment = Alignment.Center,
+                .padding(start = 20.dp, top = 20.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            SoftGlassSurface(
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (uiState.activeView == CalendarViewMode.Day) {
-                            Modifier.fillMaxSize()
-                        } else {
-                            Modifier
-                        },
+                    .weight(1f)
+                    .clip(MaterialTheme.shapes.medium)
+                    .clickable(
+                        onClickLabel = stringResource(R.string.calendar_pick_date),
+                        role = Role.Button,
+                        onClick = pickDate,
                     )
-                    .draggable(
-                        state = calendarDragState,
-                        orientation = Orientation.Horizontal,
-                        onDragStarted = { horizontalDrag = 0f },
-                        onDragStopped = {
-                            when (calendarSwipeDateDelta(horizontalDrag, swipeThresholdPx)) {
-                                -1L -> previousPage()
-                                1L -> nextPage()
-                            }
-                            horizontalDrag = 0f
-                        },
-                    )
-                    .semantics {
-                        customActions = listOf(
-                            CustomAccessibilityAction(
-                                label = if (uiState.activeView == CalendarViewMode.Day) {
-                                    showPreviousDay
-                                } else {
-                                    showPreviousMonth
-                                },
-                                action = { previousPage(); true },
-                            ),
-                            CustomAccessibilityAction(
-                                label = if (uiState.activeView == CalendarViewMode.Day) {
-                                    showNextDay
-                                } else {
-                                    showNextMonth
-                                },
-                                action = { nextPage(); true },
-                            ),
-                        )
-                    },
-                shape = RoundedCornerShape(28.dp),
-                style = GlassSurfaceStyle.Standard,
+                    .semantics { heading() }
+                    .heightIn(min = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (uiState.activeView == CalendarViewMode.Month) {
-                    CalendarMonthOverview(
-                        uiState = uiState,
-                        locale = locale,
-                        onDateSelected = onDateSelected,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } else {
-                    CalendarDayTimelineView(
-                        uiState = uiState,
-                        timeFormat = timeFormat,
-                        onEntrySelected = onEntrySelected,
-                        modifier = Modifier.fillMaxSize(),
+                Text(
+                    text = monthName,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                )
+                if (showYear) {
+                    Text(
+                        text = shownMonth.year.toString(),
+                        modifier = Modifier.padding(start = 8.dp, top = 6.dp),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Normal,
+                            fontFeatureSettings = "tnum",
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp).size(22.dp),
+                )
+            }
+            if (isAwayFromToday(uiState)) {
+                FilledTonalButton(
+                    onClick = onToday,
+                    contentPadding = PaddingValues(horizontal = 14.dp),
+                    modifier = Modifier.height(36.dp),
+                ) {
+                    Text(stringResource(R.string.core_today), style = MaterialTheme.typography.labelLarge)
+                }
+            }
+            IconButton(
+                onClick = { onViewSelected(if (isMonth) CalendarViewMode.Day else CalendarViewMode.Month) },
+            ) {
+                Icon(
+                    imageVector = if (isMonth) Icons.Rounded.ViewAgenda else Icons.Rounded.CalendarViewMonth,
+                    contentDescription = stringResource(if (isMonth) R.string.calendar_show_day else R.string.calendar_show_month),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onAddForSelectedDate) {
+                Icon(
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = stringResource(R.string.core_calendar_add_for_day),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        val bottomPadding = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding
+        if (isMonth) {
+            CalendarMonthView(
+                uiState = uiState,
+                locale = locale,
+                timeFormat = timeFormat,
+                spaces = spaces,
+                onDateSelected = onDateSelected,
+                onPreviousMonth = onPreviousMonth,
+                onNextMonth = onNextMonth,
+                onEntrySelected = onEntrySelected,
+                bottomPadding = bottomPadding,
+            )
+        } else {
+            CalendarWeekStrip(
+                uiState = uiState,
+                locale = locale,
+                onDateSelected = onDateSelected,
+                onPreviousWeek = onPreviousWeek,
+                onNextWeek = onNextWeek,
+                modifier = Modifier.padding(start = 20.dp, top = 12.dp, end = 20.dp),
+            )
+            CalendarDayAgendaView(
+                uiState = uiState,
+                timeFormat = timeFormat,
+                spaces = spaces,
+                onEntrySelected = onEntrySelected,
+                onPreviousDay = onPreviousDay,
+                onNextDay = onNextDay,
+                onAddForSelectedDate = onAddForSelectedDate,
+                contentPadding = PaddingValues(start = 20.dp, top = 16.dp, end = 20.dp, bottom = bottomPadding),
+            )
+        }
+    }
+}
+
+/** The week of the selected day, on the page like Home's week. Swipe for the next or previous week. */
+@Composable
+private fun CalendarWeekStrip(
+    uiState: CalendarUiState,
+    locale: Locale,
+    onDateSelected: (LocalDate) -> Unit,
+    onPreviousWeek: () -> Unit = {},
+    onNextWeek: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    val firstDay = WeekFields.of(locale).firstDayOfWeek
+    val weekStart = uiState.selectedDate.with(TemporalAdjusters.previousOrSame(firstDay))
+    val swipeThreshold = with(LocalDensity.current) { 48.dp.toPx() }
+    var drag by remember(weekStart) { mutableFloatStateOf(0f) }
+    val previousWeek = stringResource(R.string.core_home_show_previous_week)
+    val nextWeek = stringResource(R.string.core_home_show_next_week)
+    val todayLabel = stringResource(R.string.core_today)
+    val hasItemsLabel = stringResource(R.string.core_has_scheduled_items)
+    val selectedLabel = stringResource(R.string.core_selected)
+    val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEEE d MMMM", locale) }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .draggable(
+                orientation = Orientation.Horizontal,
+                state = rememberDraggableState { delta -> drag += delta },
+                onDragStopped = {
+                    when (calendarSwipeDateDelta(drag, swipeThreshold)) {
+                        -1L -> onPreviousWeek()
+                        1L -> onNextWeek()
+                    }
+                    drag = 0f
+                },
+            )
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction(previousWeek) { onPreviousWeek(); true },
+                    CustomAccessibilityAction(nextWeek) { onNextWeek(); true },
+                )
+            },
+    ) {
+        (0L until 7L).forEach { offset ->
+            val date = weekStart.plusDays(offset)
+            val isToday = date == uiState.today
+            val isSelected = date == uiState.selectedDate
+            val hasItems = date in uiState.datesWithItems
+            val description = listOfNotNull(
+                date.format(dayFormatter),
+                todayLabel.takeIf { isToday },
+                selectedLabel.takeIf { isSelected },
+                hasItemsLabel.takeIf { hasItems },
+            ).joinToString(", ")
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(MaterialTheme.shapes.medium)
+                    .clickable(role = Role.Button) { onDateSelected(date) }
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = description
+                        selected = isSelected
+                    }
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = date.dayOfWeek.getDisplayName(TextStyle.NARROW_STANDALONE, locale),
+                    style = CalendarTypography.weekday,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                DateDisc(
+                    day = date.dayOfMonth,
+                    isToday = isToday,
+                    isSelected = isSelected,
+                    muted = false,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                ItemDot(visible = hasItems, isToday = isToday, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }
 }
 
+/** A date number: today is a filled accent disc, the selected day a thin accent ring. */
 @Composable
-private fun CalendarMonthOverview(
+internal fun DateDisc(
+    day: Int,
+    isToday: Boolean,
+    isSelected: Boolean,
+    muted: Boolean,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 40.dp,
+) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(if (isToday) colors.primary else Color.Transparent)
+            .then(
+                if (isSelected && !isToday) Modifier.border(1.5.dp, colors.primary, CircleShape) else Modifier,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = day.toString(),
+            style = CalendarTypography.monthDate.copy(
+                fontSize = 17.sp,
+                fontWeight = if (isToday || isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            ),
+            color = when {
+                isToday -> colors.onPrimary
+                muted -> colors.onSurfaceVariant
+                else -> colors.onSurface
+            },
+        )
+    }
+}
+
+@Composable
+internal fun ItemDot(visible: Boolean, isToday: Boolean, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(4.dp)
+            .background(
+                color = when {
+                    !visible -> Color.Transparent
+                    isToday -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                },
+                shape = CircleShape,
+            ),
+    )
+}
+
+/** The month as a calm grid of dates with dots, and the selected day's list under it. */
+@Composable
+private fun CalendarMonthView(
     uiState: CalendarUiState,
     locale: Locale,
-    onDateSelected: (java.time.LocalDate) -> Unit,
-    modifier: Modifier = Modifier,
+    timeFormat: OrbitTimeFormat,
+    spaces: Map<Long, SpaceEntity>,
+    onDateSelected: (LocalDate) -> Unit,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onEntrySelected: (CalendarEntryId) -> Unit,
+    bottomPadding: androidx.compose.ui.unit.Dp,
 ) {
-    val weekdayLabels = remember(locale) {
+    val grid = remember(uiState.visibleMonth, uiState.today, uiState.datesWithItems, locale) {
         buildCalendarMonthGrid(
             visibleMonth = uiState.visibleMonth,
             today = uiState.today,
-            datesWithItems = emptySet(),
+            datesWithItems = uiState.datesWithItems,
             locale = locale,
-        ).weekdayLabels
+        )
     }
-
-    Column(
-        modifier = modifier.padding(horizontal = 10.dp, vertical = 12.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(CalendarDimensions.WeekdayHeaderHeight),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            weekdayLabels.forEach { label ->
-                Text(
-                    text = label.shortLabel,
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics { contentDescription = label.contentDescription },
-                    style = CalendarTypography.weekday,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    maxLines = 1,
-                )
-            }
-        }
-
-        Crossfade(
-            targetState = uiState.visibleMonth,
-            modifier = Modifier.fillMaxWidth(),
-            animationSpec = tween(durationMillis = 160),
-            label = "calendarMonthMovement",
-        ) { visibleMonth ->
-            val grid = remember(
-                visibleMonth,
-                uiState.today,
-                uiState.datesWithItems,
-                locale,
-            ) {
-                buildCalendarMonthGrid(
-                    visibleMonth = visibleMonth,
-                    today = uiState.today,
-                    datesWithItems = uiState.datesWithItems,
-                    locale = locale,
-                )
-            }
-            CalendarMonthGridContent(
-                grid = grid,
-                locale = locale,
-                onDateSelected = onDateSelected,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CalendarMonthGridContent(
-    grid: CalendarMonthGrid,
-    locale: Locale,
-    onDateSelected: (java.time.LocalDate) -> Unit,
-) {
     val accessibilityLabels = CalendarMonthCellAccessibilityLabels(
         today = stringResource(R.string.core_today),
         outsideCurrentMonth = stringResource(R.string.core_calendar_outside_current_month),
         hasScheduledItems = stringResource(R.string.core_has_scheduled_items),
         separator = stringResource(R.string.core_accessibility_separator),
     )
-    Column(modifier = Modifier.fillMaxWidth()) {
-        grid.weeks.forEach { week ->
-            Row(
-                modifier = Modifier.fillMaxWidth().height(CalendarDimensions.MonthRowHeight),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                week.forEach { cell ->
-                    CalendarMonthDayCell(
-                        cell = cell,
-                        locale = locale,
-                        accessibilityLabels = accessibilityLabels,
-                        onClick = { onDateSelected(cell.date) },
+    val swipeThreshold = with(LocalDensity.current) { 64.dp.toPx() }
+    var drag by remember(uiState.visibleMonth) { mutableFloatStateOf(0f) }
+    val previousMonthLabel = stringResource(R.string.core_calendar_show_previous_month)
+    val nextMonthLabel = stringResource(R.string.core_calendar_show_next_month)
+    val selectedEntries = remember(uiState.entries, uiState.selectedDate) {
+        buildCalendarAgenda(
+            buildCalendarDayTimeline(
+                entries = uiState.entries,
+                selectedDate = uiState.selectedDate,
+                now = java.time.Instant.now(),
+                zoneId = java.time.ZoneId.systemDefault(),
+            ),
+        )
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 20.dp, top = 16.dp, end = 20.dp, bottom = bottomPadding),
+    ) {
+        item(key = "weekdays") {
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                grid.weekdayLabels.forEach { label ->
+                    Text(
+                        text = label.shortLabel,
                         modifier = Modifier
-                            .weight(1f),
+                            .weight(1f)
+                            .semantics { contentDescription = label.contentDescription },
+                        style = CalendarTypography.weekday,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
                     )
                 }
+            }
+        }
+        item(key = "grid") {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .draggable(
+                        orientation = Orientation.Horizontal,
+                        state = rememberDraggableState { delta -> drag += delta },
+                        onDragStopped = {
+                            when (calendarSwipeDateDelta(drag, swipeThreshold)) {
+                                -1L -> onPreviousMonth()
+                                1L -> onNextMonth()
+                            }
+                            drag = 0f
+                        },
+                    )
+                    .semantics {
+                        customActions = listOf(
+                            CustomAccessibilityAction(previousMonthLabel) { onPreviousMonth(); true },
+                            CustomAccessibilityAction(nextMonthLabel) { onNextMonth(); true },
+                        )
+                    },
+            ) {
+                grid.weeks.forEach { week ->
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        week.forEach { cell ->
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (cell.isInVisibleMonth) {
+                                    val isSelected = cell.date == uiState.selectedDate
+                                    Column(
+                                        modifier = Modifier
+                                            .clip(MaterialTheme.shapes.medium)
+                                            .clickable(role = Role.Button) { onDateSelected(cell.date) }
+                                            .semantics(mergeDescendants = true) {
+                                                contentDescription = calendarMonthCellContentDescription(
+                                                    cell,
+                                                    locale,
+                                                    accessibilityLabels,
+                                                )
+                                                selected = isSelected
+                                            }
+                                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    ) {
+                                        DateDisc(
+                                            day = cell.date.dayOfMonth,
+                                            isToday = cell.isToday,
+                                            isSelected = isSelected,
+                                            muted = cell.date.isBefore(uiState.today),
+                                            size = 36.dp,
+                                        )
+                                        ItemDot(
+                                            visible = cell.hasItems,
+                                            isToday = cell.isToday,
+                                            modifier = Modifier.padding(top = 3.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item(key = "day_title") {
+            CalendarDayTitle(
+                date = uiState.selectedDate,
+                today = uiState.today,
+                locale = locale,
+                modifier = Modifier.padding(top = 16.dp),
+            )
+        }
+        item(key = "day_list") {
+            if (selectedEntries.isEmpty) {
+                CalendarQuietDay(message = stringResource(R.string.calendar_free_day_short), action = null)
+            } else {
+                CalendarAgendaList(
+                    agenda = selectedEntries,
+                    timeFormat = timeFormat,
+                    spaces = spaces,
+                    onEntrySelected = onEntrySelected,
+                    compact = true,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CalendarMonthDayCell(
-    cell: CalendarMonthCell,
-    locale: Locale,
-    accessibilityLabels: CalendarMonthCellAccessibilityLabels,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val pillState = resolveCalendarDatePillState(cell.isToday, isPressed)
-    val backgroundColor by animateColorAsState(
-        targetValue = when (pillState) {
-            CalendarDatePillState.Today -> MaterialTheme.colorScheme.primaryContainer
-            CalendarDatePillState.TodayPressed -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f)
-            CalendarDatePillState.Pressed -> MaterialTheme.colorScheme.secondaryContainer
-            CalendarDatePillState.None -> Color.Transparent
-        },
-        animationSpec = tween(durationMillis = 120),
-        label = "calendarDateSelection",
-    )
-    val dateColor = when {
-        pillState == CalendarDatePillState.Today || pillState == CalendarDatePillState.TodayPressed -> MaterialTheme.colorScheme.onPrimaryContainer
-        pillState == CalendarDatePillState.Pressed -> MaterialTheme.colorScheme.onSecondaryContainer
-        cell.isInVisibleMonth -> MaterialTheme.colorScheme.onSurface
-        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.52f)
-    }
-
-    Column(
+internal fun CalendarDayTitle(date: LocalDate, today: LocalDate, locale: Locale, modifier: Modifier = Modifier) {
+    val formatter = remember(locale) { DateTimeFormatter.ofPattern("EEEE d MMMM", locale) }
+    val dayText = date.format(formatter).replaceFirstChar { it.titlecase(locale) }
+    Text(
+        text = if (date == today) stringResource(R.string.calendar_today_prefix, dayText) else dayText,
         modifier = modifier
-            .padding(vertical = 2.dp)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = onClick,
-            )
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                contentDescription = calendarMonthCellContentDescription(
-                    cell,
-                    locale,
-                    accessibilityLabels,
-                )
-            },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Box(
-            modifier = Modifier.size(CalendarDimensions.DateVisualDiameter).clip(CircleShape).background(backgroundColor),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = cell.date.dayOfMonth.toString(),
-                style = CalendarTypography.monthDate,
-                color = dateColor,
-                maxLines = 1,
-            )
-        }
-        Box(
-            modifier = Modifier
-                .height(8.dp)
-                .padding(top = 2.dp)
-                .size(CalendarDimensions.EventDotDiameter)
-                .background(
-                    color = if (!cell.hasItems) Color.Transparent else when (pillState) {
-                        CalendarDatePillState.Today, CalendarDatePillState.TodayPressed -> MaterialTheme.colorScheme.onPrimaryContainer
-                        CalendarDatePillState.Pressed -> MaterialTheme.colorScheme.onSecondaryContainer
-                        CalendarDatePillState.None -> MaterialTheme.colorScheme.primary
-                    },
-                    shape = RoundedCornerShape(2.dp),
-                ),
-        )
-    }
-}
-
-@Composable
-private fun CalendarStepButton(
-    contentDescription: String,
-    forward: Boolean = false,
-    onClick: () -> Unit,
-) {
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier.size(48.dp),
-    ) {
-        Icon(
-            imageVector = if (forward) Icons.Rounded.ChevronRight else Icons.Rounded.ChevronLeft,
-            contentDescription = contentDescription,
-        )
-    }
-}
-
-@Composable
-private fun CalendarModeSegmentedControl(
-    selectedMode: CalendarViewMode,
-    onModeSelected: (CalendarViewMode) -> Unit,
-) {
-    SingleChoiceSegmentedButtonRow {
-        CalendarViewMode.entries.forEachIndexed { index, mode ->
-            SegmentedButton(
-                selected = selectedMode == mode,
-                onClick = { onModeSelected(mode) },
-                shape = SegmentedButtonDefaults.itemShape(index, CalendarViewMode.entries.size),
-                colors = SegmentedButtonDefaults.colors(
-                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    inactiveContainerColor = Color.Transparent,
-                    inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-                icon = {},
-                label = { Text(stringResource(mode.labelRes()), style = CalendarTypography.modeLabel) },
-            )
-        }
-    }
-}
-
-@StringRes
-private fun CalendarViewMode.labelRes(): Int = when (this) {
-    CalendarViewMode.Day -> R.string.core_calendar_day
-    CalendarViewMode.Month -> R.string.core_calendar_month
+            .fillMaxWidth()
+            .padding(start = 4.dp, bottom = 10.dp)
+            .semantics { heading() },
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp),
+        color = MaterialTheme.colorScheme.onBackground,
+    )
 }
 
 internal fun calendarSwipeDateDelta(horizontalDrag: Float, threshold: Float): Long = when {

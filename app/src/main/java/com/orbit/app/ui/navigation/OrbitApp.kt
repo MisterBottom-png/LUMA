@@ -489,15 +489,20 @@ fun OrbitApp(
                         factory = CalendarViewModel.Factory(container.calendarRepository),
                     )
                     val calendarUiState by calendarViewModel.uiState.collectAsStateWithLifecycle()
+                    val calendarSpaces by remember { container.spaceRepository.observeAll() }
+                        .collectAsStateWithLifecycle(initialValue = emptyList())
                     CalendarScreen(
                         uiState = calendarUiState,
                         onPreviousDay = calendarViewModel::showPreviousDay,
                         onNextDay = calendarViewModel::showNextDay,
                         onPreviousMonth = calendarViewModel::showPreviousMonth,
                         onNextMonth = calendarViewModel::showNextMonth,
+                        onPreviousWeek = calendarViewModel::showPreviousWeek,
+                        onNextWeek = calendarViewModel::showNextWeek,
                         onToday = calendarViewModel::showToday,
                         onViewSelected = calendarViewModel::setActiveView,
-                        onDateSelected = calendarViewModel::selectDate,
+                        onDateSelected = calendarViewModel::focusDate,
+                        spaces = remember(calendarSpaces) { calendarSpaces.associateBy { it.id } },
                         timeFormat = timeFormat,
                         onEntrySelected = { entryId ->
                             navController.navigate(entryId.toItemDetailRoute()) {

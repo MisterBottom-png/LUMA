@@ -38,30 +38,14 @@
     <string name="core_home_capture_placeholder">Mis sul mõttes on?</string>
 
     <string name="core_calendar_title">Kalender</string>
-    <string name="core_calendar_previous_month">Eelmine kuu</string>
-    <string name="core_calendar_next_month">Järgmine kuu</string>
-    <string name="core_calendar_previous_day">Eelmine päev</string>
-    <string name="core_calendar_next_day">Järgmine päev</string>
     <string name="core_calendar_show_previous_month">Näita eelmist kuud</string>
     <string name="core_calendar_show_next_month">Näita järgmist kuud</string>
     <string name="core_calendar_show_previous_day">Näita eelmist päeva</string>
     <string name="core_calendar_show_next_day">Näita järgmist päeva</string>
-    <string name="core_calendar_day">Päev</string>
-    <string name="core_calendar_month">Kuu</string>
     <string name="core_calendar_add_for_day">Lisa sellele päevale</string>
     <string name="core_calendar_outside_current_month">väljaspool praegust kuud</string>
     <string name="core_calendar_any_time">Kindla ajata</string>
-    <string name="core_calendar_timeline">Ajajoon</string>
-    <string name="core_calendar_nothing_scheduled">Sellele päevale pole midagi ajastatud.</string>
-    <string name="core_calendar_loading_day">Päeva kuvamine…</string>
-    <string name="core_calendar_no_timed_items_today">Täna pole kindlale kellaajale määratud üksusi.</string>
     <string name="core_calendar_notifications_off">Teavitused on väljas</string>
-    <string name="core_calendar_notification_timing_unavailable">Teavituse aeg pole saadaval</string>
-    <string name="core_calendar_notification_at_target">Teavitus umbes sihtajal</string>
-    <plurals name="core_calendar_notification_minutes_before">
-        <item quantity="one">Teavitus umbes %1$d minut enne</item>
-        <item quantity="other">Teavitus umbes %1$d minutit enne</item>
-    </plurals>
 
     <string name="core_search_title">Otsi</string>
     <string name="core_search_local_data">Otsi kohalikest andmetest</string>

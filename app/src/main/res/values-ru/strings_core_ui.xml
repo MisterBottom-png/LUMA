@@ -38,32 +38,14 @@
     <string name="core_home_capture_placeholder">Что у тебя на уме?</string>
 
     <string name="core_calendar_title">Календарь</string>
-    <string name="core_calendar_previous_month">Предыдущий месяц</string>
-    <string name="core_calendar_next_month">Следующий месяц</string>
-    <string name="core_calendar_previous_day">Предыдущий день</string>
-    <string name="core_calendar_next_day">Следующий день</string>
     <string name="core_calendar_show_previous_month">Показать предыдущий месяц</string>
     <string name="core_calendar_show_next_month">Показать следующий месяц</string>
     <string name="core_calendar_show_previous_day">Показать предыдущий день</string>
     <string name="core_calendar_show_next_day">Показать следующий день</string>
-    <string name="core_calendar_day">День</string>
-    <string name="core_calendar_month">Месяц</string>
     <string name="core_calendar_add_for_day">Добавить на этот день</string>
     <string name="core_calendar_outside_current_month">за пределами текущего месяца</string>
     <string name="core_calendar_any_time">Без точного времени</string>
-    <string name="core_calendar_timeline">Шкала времени</string>
-    <string name="core_calendar_nothing_scheduled">На этот день ничего не запланировано.</string>
-    <string name="core_calendar_loading_day">Подготовка дня…</string>
-    <string name="core_calendar_no_timed_items_today">Сегодня нет элементов с точным временем.</string>
     <string name="core_calendar_notifications_off">Уведомления выключены</string>
-    <string name="core_calendar_notification_timing_unavailable">Время уведомления недоступно</string>
-    <string name="core_calendar_notification_at_target">Уведомление примерно в заданное время</string>
-    <plurals name="core_calendar_notification_minutes_before">
-        <item quantity="one">Уведомление примерно за %1$d минуту</item>
-        <item quantity="few">Уведомление примерно за %1$d минуты</item>
-        <item quantity="many">Уведомление примерно за %1$d минут</item>
-        <item quantity="other">Уведомление примерно за %1$d минуты</item>
-    </plurals>
 
     <string name="core_search_title">Поиск</string>
     <string name="core_search_local_data">Поиск в локальных данных</string>

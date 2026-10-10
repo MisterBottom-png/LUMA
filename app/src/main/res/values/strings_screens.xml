@@ -14,5 +14,15 @@
     <string name="spaces_detail_open_count">%1$d open</string>
     <string name="spaces_mark_done">Mark %1$s done</string>
     <string name="spaces_mark_not_done">Mark %1$s not done</string>
+    <string name="calendar_pick_date">Pick a date</string>
+    <string name="calendar_show_day">Show the day</string>
+    <string name="calendar_show_month">Show the month</string>
+    <string name="calendar_today_prefix">Today · %1$s</string>
+    <string name="calendar_free_until">Free until %1$s</string>
+    <string name="calendar_now">Now, %1$s</string>
+    <string name="calendar_nothing_planned">Nothing planned</string>
+    <string name="calendar_free_day">A free day. Add something only if you want to.</string>
+    <string name="calendar_free_day_short">Nothing planned. A free day.</string>
+    <string name="calendar_add_to_day">Add to this day</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d note</item><item quantity="other">%1$d notes</item></plurals>
 </resources>
