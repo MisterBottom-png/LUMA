@@ -126,7 +126,7 @@ Grouped commits on top of the reconciliation (oldest first):
 | 36e43fe | Dictation from Home |
 | 73a024c | Repeating reminders (Room v9) |
 
-Not done here, each waiting for an owner decision (see
-`docs/release-checklist.md`): application-ID change, home-screen widget,
-encrypted and automatic backups, "remind again until done", focus timer.
+Owner decisions (see `docs/release-checklist.md`): the application ID changed
+to `com.tallele.app`. Left out for now: home-screen widget, encrypted and
+automatic backups, "remind again until done", focus timer.
 

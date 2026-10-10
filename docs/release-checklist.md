@@ -16,13 +16,15 @@
 - [ ] Confirm portrait remains locked through rotation attempts.
 - [ ] Review restore/export, reminder, permission, Gemini consent, and locale flows manually.
 
-## Owner decisions open on this branch
+## Owner decisions on this branch
 
 - [x] **Application ID and name (decided 2026-10-09).** The product is **Tallele** with application ID `com.tallele.app`; the Kotlin namespace stays `com.orbit.app`. The release verifier pins `com.tallele.app` (`-ExpectedPackageName`) and checks the app's own classes against `-CodeNamespace com.orbit.app`.
 - [ ] Phones with a build installed as `com.orbit.app` get Tallele as a separate app: move data with Settings > Local data > Export, then Restore in Tallele. Uninstall the old build afterwards.
-- [ ] Home-screen widget: needs an exported, unprotected `AppWidgetProvider` receiver, which widens the release export allowlist.
-- [ ] Encrypted and automatic weekly backups: key handling (passphrase vs. device-bound key) and where automatic copies are written.
-- [ ] "Remind again until done": cadence and limits.
+- [x] **Not now (decided 2026-10-10):**
+  - Home-screen widget. It would need an exported, unprotected `AppWidgetProvider` receiver, which widens the release export allowlist.
+  - Encrypted and automatic backups. Backups stay manual (Export / Restore).
+  - "Remind again until done". Each reminder notifies once; Snooze stays.
+  - Focus timer.
 
 ## Distribution boundary
 
