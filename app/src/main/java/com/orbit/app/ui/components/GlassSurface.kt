@@ -461,8 +461,8 @@ internal fun softGlassContainerAlpha(
 
     if (style == GlassSurfaceStyle.Sheet) {
         // Sheets and dialogs are drawn without blur, so anything lighter lets the list
-        // behind read through the sheet's own text. They stay solid.
-        return SolidSurfaceAlpha
+        // behind read through the sheet's own text. They are fully opaque.
+        return 1f
     }
 
     if (style == GlassSurfaceStyle.HomeNavigation) {

@@ -89,6 +89,7 @@ import com.orbit.app.ui.theme.OrbitMotion
 internal enum class SearchFeedbackState {
     StartTyping,
     MinimumQuery,
+    Searching,
     EmptyResults,
     Results,
 }
@@ -96,6 +97,7 @@ internal enum class SearchFeedbackState {
 internal fun SearchUiState.feedbackState(): SearchFeedbackState = when {
     query.isBlank() -> SearchFeedbackState.StartTyping
     query.trim().length < 2 -> SearchFeedbackState.MinimumQuery
+    results.isEmpty() && searching -> SearchFeedbackState.Searching
     results.isEmpty() -> SearchFeedbackState.EmptyResults
     else -> SearchFeedbackState.Results
 }
@@ -211,6 +213,9 @@ internal fun SearchContent(
             SearchFeedbackState.MinimumQuery -> item(key = "min") {
                 QuietLine(stringResource(R.string.core_search_minimum_query))
             }
+
+            // A short pause while the words are looked up: show nothing rather than "nothing found".
+            SearchFeedbackState.Searching -> Unit
 
             SearchFeedbackState.EmptyResults -> item(key = "empty") {
                 CalmSearchEmptyState(onClearSearch = { onQueryChanged("") })

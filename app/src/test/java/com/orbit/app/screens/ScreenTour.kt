@@ -8,6 +8,7 @@ import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -233,18 +234,31 @@ abstract class ScreenTour(private val theme: String) {
         step("cancel edit") { compose.onNodeWithText("Cancel").performClick(); compose.waitForIdle() }
         step("search") { compose.onNodeWithContentDescription("Search").performClick(); compose.waitForIdle() }
         shot("$prefix-search")
-        step("type search") { compose.onNode(hasSetTextAction()).performTextInput("the"); compose.waitForIdle() }
+        step("type search") {
+            compose.onNode(hasSetTextAction()).performTextInput("report")
+            compose.waitUntil(10_000) { count("Send the quarterly report") > 0 }
+        }
         shot("$prefix-search-results")
         back()
         back()
         tapTab("Review")
         step("review menu") { compose.onAllNodesWithText("Renew passport")[0].performTouchInput { longClick() }; compose.waitForIdle() }
         shot("$prefix-review-menu")
-        step("change sheet") { compose.onNodeWithText("Change").performClick(); compose.waitForIdle() }
+        step("change sheet") {
+            compose.onNodeWithText("Change").performClick()
+            compose.waitUntil(10_000) { count("Not now") > 0 }
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
+        }
         shot("$prefix-review-change")
-        step("more choices") { compose.onNodeWithText("Change action").performScrollTo().performClick(); compose.waitForIdle() }
+        step("as a reminder") { compose.onNodeWithText("Reminder").performClick(); compose.waitForIdle() }
         shot("$prefix-review-change-choices")
-        step("close sheet") { compose.onNodeWithText("Not now", substring = true).performScrollTo().performClick(); compose.waitForIdle() }
+        step("close sheet") {
+            compose.onNodeWithText("Not now").performScrollTo().performClick()
+            compose.waitUntil(10_000) { count("Not now") == 0 }
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
+        }
         step("one by one") { compose.onNodeWithText("Sort one by one").performClick(); compose.waitForIdle() }
         shot("$prefix-review-one-by-one")
         back()
@@ -260,6 +274,29 @@ abstract class ScreenTour(private val theme: String) {
         shot("$prefix-guide-4")
         step("leave guide") { compose.onNodeWithText("Skip").performClick(); compose.waitForIdle() }
         back()
+        brainDump(prefix)
+    }
+
+    /** A messy list written in one go opens as a calm list of thoughts to tick and save. */
+    private fun brainDump(prefix: String) {
+        tapTab("Home")
+        capture("Call the bank about the card\nBuy dog food\nShopping:\n- milk\n- eggs\nBook the dentist next week")
+        tapTab("Review")
+        step("open dump") {
+            compose.onAllNodesWithText("Call the bank", substring = true)[0].performScrollTo().performClick()
+            compose.waitUntil(10_000) { count("Finish later") > 0 }
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
+        }
+        shot("$prefix-brain-dump")
+        step("open one") { compose.onAllNodesWithText("Buy dog food", substring = true).onLast().performClick(); compose.waitForIdle() }
+        shot("$prefix-brain-dump-one")
+        step("back to list") { compose.onNodeWithText("Back to the list").performScrollTo().performClick(); compose.waitForIdle() }
+        step("finish later") {
+            compose.onNodeWithText("Finish later").performScrollTo().performClick()
+            compose.waitUntil(10_000) { count("Finish later") == 0 }
+            compose.waitForIdle()
+        }
     }
 
     @Test

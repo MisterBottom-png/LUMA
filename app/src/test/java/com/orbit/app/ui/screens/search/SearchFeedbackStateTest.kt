@@ -17,6 +17,8 @@ class SearchFeedbackStateTest {
     fun shortAndUnmatchedQueriesRemainDistinctFromTypingGuidance() {
         assertEquals(SearchFeedbackState.MinimumQuery, SearchUiState(query = "a").feedbackState())
         assertEquals(SearchFeedbackState.EmptyResults, SearchUiState(query = "absent").feedbackState())
+        // While the newest words are still being looked up, "nothing found" is not shown yet.
+        assertEquals(SearchFeedbackState.Searching, SearchUiState(query = "absent", searching = true).feedbackState())
     }
 
     @Test

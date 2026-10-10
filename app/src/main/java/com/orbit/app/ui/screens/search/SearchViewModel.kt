@@ -15,6 +15,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -25,6 +26,8 @@ data class SearchUiState(
     val results: List<LocalSearchResult> = emptyList(),
     val filter: SearchFilter = SearchFilter.All,
     val spaces: List<SearchSpace> = emptyList(),
+    /** True while the newest words are still being looked up, so "nothing found" never flashes. */
+    val searching: Boolean = false,
 )
 
 /** The chips under the search bar. Archived shows only archived items. */
@@ -70,11 +73,12 @@ class SearchViewModel(
     @OptIn(FlowPreview::class)
     private val results = combine(query.debounce(SearchDebounceMillis), includeArchived, corpus) {
             currentQuery, showArchived, data ->
-        localSearch.search(currentQuery, data, showArchived)
+        currentQuery to localSearch.search(currentQuery, data, showArchived)
     }.flowOn(searchDispatcher)
 
     // The typed query is shown immediately; only the results wait for the debounce.
-    val uiState = combine(query, includeArchived, results, filter, spaces) { currentQuery, showArchived, found, chosen, allSpaces ->
+    val uiState = combine(query, includeArchived, results.onStart { emit("" to emptyList()) }, filter, spaces) {
+            currentQuery, showArchived, (foundFor, found), chosen, allSpaces ->
         SearchUiState(
             query = currentQuery,
             includeArchived = showArchived,
@@ -84,6 +88,7 @@ class SearchViewModel(
                 .filterNot { it.hidden || it.archived }
                 .sortedBy { it.sortOrder }
                 .map { SearchSpace(it.id, it.name, it.icon, it.colorAccent) },
+            searching = currentQuery.isNotBlank() && foundFor != currentQuery,
         )
     }.stateIn(
         scope = viewModelScope,

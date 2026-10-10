@@ -116,7 +116,7 @@ class GlassRolePolicyTest {
                         glassStrength = strength,
                         hasCustomBackground = hasCustomBackground,
                     )
-                    assertTrue(alpha >= 0.96f)
+                    assertEquals(1f, alpha)
                 }
             }
         }
