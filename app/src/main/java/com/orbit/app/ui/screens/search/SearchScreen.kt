@@ -453,13 +453,16 @@ private fun SearchResultRow(
 }
 
 /** Marks every place the typed word appears, ignoring case. */
-internal fun String.withMatch(query: String, highlight: Color): AnnotatedString = buildAnnotatedString {
-    append(this@withMatch)
-    if (query.length < 2) return@buildAnnotatedString
-    var start = this@withMatch.indexOf(query, ignoreCase = true)
-    while (start >= 0) {
-        addStyle(SpanStyle(background = highlight), start, start + query.length)
-        start = this@withMatch.indexOf(query, start + query.length, ignoreCase = true)
+internal fun String.withMatch(query: String, highlight: Color): AnnotatedString {
+    val source = this
+    return buildAnnotatedString {
+        append(source)
+        if (query.length < 2) return@buildAnnotatedString
+        var start = source.indexOf(query, ignoreCase = true)
+        while (start >= 0) {
+            addStyle(SpanStyle(background = highlight), start, start + query.length)
+            start = source.indexOf(query, start + query.length, ignoreCase = true)
+        }
     }
 }
 
