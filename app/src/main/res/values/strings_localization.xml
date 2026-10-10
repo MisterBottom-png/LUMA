@@ -18,7 +18,7 @@
     <string name="core_hide">Hide</string>
     <string name="core_collapse">Collapse</string>
     <string name="core_search">Search</string>
-    <string name="core_inbox">Inbox</string>
+    <string name="core_inbox">No Space</string>
     <string name="core_type">Type</string>
     <string name="core_place">Place</string>
     <string name="core_name">Name</string>
@@ -27,11 +27,11 @@
     <string name="core_disabled">Disabled</string>
 
     <string name="core_capture_action_save_note">Save as note</string>
-    <string name="core_capture_action_save_as_note">Save note</string>
-    <string name="core_capture_action_create_task">Create task</string>
+    <string name="core_capture_action_save_as_note">Save as note</string>
+    <string name="core_capture_action_create_task">Make it a task</string>
     <string name="core_capture_action_remind_me">Remind me</string>
     <string name="core_capture_action_set_reminder">Set reminder</string>
-    <string name="core_capture_action_keep_in_inbox">Keep in Inbox</string>
+    <string name="core_capture_action_keep_in_inbox">Keep in To sort</string>
     <string name="core_capture_for_date">For %1$s</string>
     <string name="core_capture_brain_dump_title">Sort your thoughts</string>
     <string name="core_capture_suggested_item">Suggested item</string>
@@ -42,12 +42,12 @@
     <string name="core_capture_discard_remaining_title">Discard remaining suggestions?</string>
     <string name="core_capture_discard_remaining_message">This archives your original note and discards the remaining suggestions. Items you already saved will stay.</string>
     <string name="core_capture_analysis_paused">Analysis paused. The raw capture is saved locally.</string>
-    <string name="core_capture_keep_until_clearer">This can stay in Inbox until it becomes clearer.</string>
+    <string name="core_capture_keep_until_clearer">This can stay in To sort until it becomes clearer.</string>
     <string name="core_capture_no_due_date">No due date</string>
     <string name="core_capture_add_due_date_time">Add due date and time</string>
     <string name="core_capture_change_date_time">Change date and time</string>
     <string name="core_capture_choose_date_time">Choose date and time</string>
-    <string name="core_capture_create_reminder">Create reminder</string>
+    <string name="core_capture_create_reminder">Set reminder</string>
     <string name="core_capture_monday_item">Monday item</string>
 
     <string name="core_spaces_title">Spaces</string>
@@ -106,7 +106,7 @@
     <string name="core_item_detail_choose_date_and_time">Choose date and time</string>
     <string name="core_item_detail_date_only">Date only</string>
     <string name="core_item_detail_remove_schedule">Remove schedule</string>
-    <string name="core_item_detail_create_task">Create task</string>
+    <string name="core_item_detail_create_task">Make it a task</string>
     <string name="core_item_detail_make_smaller_explanation">Turn this into one tiny next action. Nothing changes until you choose.</string>
     <string name="core_item_detail_archived_note">Archived note</string>
     <string name="core_item_detail_active">Active</string>
@@ -126,7 +126,7 @@
     <string name="core_item_detail_status_someday">Someday</string>
     <string name="core_item_detail_status_completed_reminder">Completed reminder</string>
     <string name="core_item_detail_status_processed">Processed</string>
-    <string name="core_item_detail_status_inbox">Inbox</string>
+    <string name="core_item_detail_status_inbox">To sort</string>
     <string name="core_item_detail_saved">Saved.</string>
     <string name="core_item_detail_save_failed">Could not save this item.</string>
     <string name="core_item_detail_schedule_updated">Schedule updated.</string>
@@ -183,19 +183,19 @@
     <string name="core_home_message_brain_dump_unavailable">That Brain Dump is no longer waiting for review.</string>
     <string name="core_home_message_note_saved">Saved as a note.</string>
     <string name="core_home_message_task_created">Task created.</string>
-    <string name="core_home_message_capture_action_failed">That action did not finish. Your capture is still in the Inbox.</string>
-    <string name="core_home_message_brain_dump_item_save_failed">That item did not save. The original dump is still in Inbox.</string>
+    <string name="core_home_message_capture_action_failed">That action did not finish. Your thought is still in To sort.</string>
+    <string name="core_home_message_brain_dump_item_save_failed">That item did not save. The original thought is still in To sort.</string>
     <string name="core_home_message_preference_save_failed">That preference could not be saved. You can try again.</string>
     <string name="core_home_brain_dump_resume_summary">A multi-part capture ready to review.</string>
     <string name="core_home_brain_dump_review_split">Review the split suggestions one at a time.</string>
-    <string name="core_home_fallback_next_action">Keep this in Inbox for now.</string>
+    <string name="core_home_fallback_next_action">Keep this in To sort for now.</string>
     <string name="core_home_fallback_type_reason">Analysis paused, so no type is being forced.</string>
-    <string name="core_home_fallback_space_reason">Inbox keeps the raw capture safe until you choose.</string>
+    <string name="core_home_fallback_space_reason">To sort keeps the thought safe until you choose.</string>
     <string name="core_brain_dump_progress">Suggestion %1$d of %2$d</string>
     <string name="core_brain_dump_more">More Brain Dump actions</string>
     <string name="core_brain_dump_why_this">Why this?</string>
     <string name="core_brain_dump_hide_why">Hide explanation</string>
-    <string name="core_brain_dump_keep_thought">Keep this thought in Inbox</string>
+    <string name="core_brain_dump_keep_thought">Keep this thought in To sort</string>
     <string name="core_brain_dump_skip_thought">Skip this thought</string>
     <string name="core_brain_dump_finish_later">Finish later</string>
     <string name="core_brain_dump_discard_edits_title">Discard current edits?</string>
@@ -203,7 +203,7 @@
     <string name="core_brain_dump_discard_edits">Discard edits</string>
     <string name="core_brain_dump_thoughts_sorted">Thoughts sorted</string>
     <string name="core_brain_dump_saved_count">%1$d saved</string>
-    <string name="core_brain_dump_inbox_count">%1$d kept in Inbox</string>
+    <string name="core_brain_dump_inbox_count">%1$d kept in To sort</string>
     <string name="core_brain_dump_skipped_count">%1$d skipped</string>
     <string name="core_brain_dump_undo">Undo</string>
     <string name="core_brain_dump_retry">Retry</string>

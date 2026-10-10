@@ -190,4 +190,5 @@
     <string name="review_to_sort_accept_short">Сохранить</string>
     <string name="ask_answer_failed">Сейчас не получилось ответить. Ваши записи не изменились; попробуйте чуть позже.</string>
     <string name="ask_characters_used">%1$d/%2$d</string>
+    <string name="sort_type_later">Позже</string>
 </resources>

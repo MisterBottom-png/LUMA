@@ -328,7 +328,7 @@ internal fun SortForm(
         ) {
             spaces.forEach { space ->
                 SortChip(
-                    label = localizedSpaceName(space.name),
+                    label = if (space.id == null) stringResource(R.string.core_inbox) else localizedSpaceName(space.name),
                     selected = selectedSpaceId == space.id,
                     enabled = !isPerformingAction,
                     onClick = { onSpaceSelected(if (selectedSpaceId == space.id) null else space.id) },
@@ -519,7 +519,7 @@ private fun CaptureDecisionAction.tileLabelRes(): Int = when (this) {
     CaptureDecisionAction.CreateTask -> R.string.core_task
     CaptureDecisionAction.CreateReminder -> R.string.core_reminder
     CaptureDecisionAction.SaveNote -> R.string.core_note
-    CaptureDecisionAction.KeepInbox -> R.string.core_inbox
+    CaptureDecisionAction.KeepInbox -> R.string.sort_type_later
 }
 
 private fun CaptureDecisionAction.tileIcon(): ImageVector = when (this) {

@@ -51,12 +51,12 @@ class BrainDumpSuggestionContentTest {
         composeRule.onNodeWithText("Tallele suggests a task").assertIsDisplayed()
         composeRule.onNodeWithText("Task").assertIsSelected()
         composeRule.onNodeWithText("Personal").assertIsSelected()
-        composeRule.onNodeWithText("Create task").assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.core_capture_action_create_task)).assertIsDisplayed()
         composeRule.onNodeWithText("Finish later").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Keep this thought in Inbox").assertCountEquals(0)
+        composeRule.onAllNodesWithText(string(R.string.core_brain_dump_keep_thought)).assertCountEquals(0)
 
         composeRule.onNodeWithContentDescription("More Brain Dump actions").performClick()
-        composeRule.onNodeWithText("Keep this thought in Inbox").assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.core_brain_dump_keep_thought)).assertIsDisplayed()
         composeRule.onNodeWithText("Skip this thought").assertIsDisplayed()
         composeRule.onNodeWithText("Discard remaining suggestions").assertIsDisplayed()
     }
@@ -106,7 +106,7 @@ class BrainDumpSuggestionContentTest {
         }
 
         composeRule.onNodeWithText("Choose a reminder date and time first.").assertIsDisplayed()
-        composeRule.onNodeWithText("Create reminder").assertIsNotEnabled()
+        composeRule.onNodeWithText(string(R.string.core_capture_create_reminder)).assertIsNotEnabled()
     }
 
     @Test
