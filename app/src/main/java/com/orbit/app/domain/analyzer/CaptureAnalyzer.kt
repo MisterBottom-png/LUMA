@@ -267,7 +267,12 @@ class LocalRulesCaptureAnalyzer(
             ),
             reminderPossible = reminderPossible,
             suggestedReminderAt = reminderTime.epochMillis,
-            taskDateEpochDay = taskDueDate?.dateEpochDay,
+            // A task keeps the day of a parsed time ("tomorrow at 16:00" is a task for
+            // tomorrow); the time itself stays for the user who makes it a reminder.
+            taskDateEpochDay = taskDueDate?.dateEpochDay
+                ?: reminderTime.epochMillis
+                    ?.takeIf { suggestedType == SuggestedItemType.Task && reminderTime.status == ReminderTimeStatus.Resolved }
+                    ?.let { Instant.ofEpochMilli(it).atZone(currentZone).toLocalDate().toEpochDay() },
             reminderPhrase = reminderTime.phrase ?: taskDueDate?.phrase,
             reminderTimeStatus = reminderTime.status,
             lifeSignal = lifeSignalFor(normalized, rulePacks),

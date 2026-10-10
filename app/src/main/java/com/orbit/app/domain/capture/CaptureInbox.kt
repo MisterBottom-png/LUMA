@@ -279,7 +279,7 @@ internal fun BrainDumpSuggestion.toEntity(
     // Brain Dump rows have no date-only column; a task's day is kept as a placeholder
     // and read back as a day (see TaskDatePlaceholder).
     suggestedReminderAt = suggestedReminderAt
-        ?: taskDateEpochDay?.takeIf { suggestedType.isTaskLike() }?.let { TaskDatePlaceholder.encode(it, zoneId) },
+        ?: taskDateEpochDay?.takeIf { suggestedType.isTaskLike() }?.let { TaskDatePlaceholder.encode(it) },
     reminderPhrase = reminderPhrase,
     createdAt = timestamp,
     updatedAt = timestamp,
