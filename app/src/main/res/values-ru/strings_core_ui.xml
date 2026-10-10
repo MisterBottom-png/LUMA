@@ -57,7 +57,7 @@
     <string name="core_source_row_accessibility_with_date">%1$s: %2$s, %3$s. Открыть</string>
     <string name="core_open_item_type">Открыть: %1$s</string>
 
-    <string name="core_situation_title">Ситуационный ИИ</string>
+    <string name="core_situation_title">Ваш обзор</string>
     <string name="core_situation_subtitle">Локальный обзор того, что требует внимания</string>
     <string name="core_situation_close">Закрыть ситуационный ИИ</string>
     <string name="core_situation_ask_luma">Спросить Tallele</string>

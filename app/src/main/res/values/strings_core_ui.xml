@@ -65,7 +65,7 @@
     <string name="core_open_item_type">Open %1$s</string>
 
     <!-- Situation AI -->
-    <string name="core_situation_title">Situation AI</string>
+    <string name="core_situation_title">Your overview</string>
     <string name="core_situation_subtitle">A local view of what needs your attention</string>
     <string name="core_situation_close">Close Situation AI</string>
     <string name="core_situation_ask_luma">Ask Tallele</string>

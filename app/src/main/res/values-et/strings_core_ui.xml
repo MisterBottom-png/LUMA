@@ -57,7 +57,7 @@
     <string name="core_source_row_accessibility_with_date">%1$s: %2$s, %3$s. Ava</string>
     <string name="core_open_item_type">Ava: %1$s</string>
 
-    <string name="core_situation_title">Olukorra AI</string>
+    <string name="core_situation_title">Sinu ülevaade</string>
     <string name="core_situation_subtitle">Kohalik vaade sellele, mis vajab sinu tähelepanu</string>
     <string name="core_situation_close">Sulge olukorra AI</string>
     <string name="core_situation_ask_luma">Küsi Tallelelt</string>

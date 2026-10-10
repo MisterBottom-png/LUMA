@@ -65,13 +65,24 @@ class SituationAiAskStateTest {
     }
 
     @Test
-    fun displayedAnswerIsInvalidatedWhenLocalDataChanges() {
-        val submission = AskState(query = "What is next?").beginSubmission()
-        requireNotNull(submission)
-        val answered = submission.loadingState.completeSubmission(submission.question, answer, dataKey = 10)
+    fun theAnswerStaysUntilTheQuestionIsEdited() {
+        val answered = completedState("What is next?")
 
-        assertSame(answer, answered.answerFor(10))
-        assertNull(answered.answerFor(11))
+        assertSame(answer, answered.withQuery("What is next? ").answer)
+        assertNull(answered.withQuery("What is next for the garden?").answer)
+    }
+
+    @Test
+    fun aFailingAnswerBecomesACalmLineAndCancellationIsPassedOn() = kotlinx.coroutines.runBlocking {
+        val calm = SourceLinkedAnswer("Could not answer right now.", emptyList(), emptyList(), fromGemini = false)
+
+        val result = answerOrCalmFailure({ calm }) { error("database closed") }
+        assertSame(calm, result)
+
+        val cancelled = runCatching {
+            answerOrCalmFailure({ calm }) { throw kotlinx.coroutines.CancellationException("sheet closed") }
+        }.exceptionOrNull()
+        assertTrue(cancelled is kotlinx.coroutines.CancellationException)
     }
 
     private fun completedState(question: String): AskState {

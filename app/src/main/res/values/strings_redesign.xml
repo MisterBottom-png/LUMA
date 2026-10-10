@@ -176,4 +176,6 @@
     <string name="review_ask_own">Ask your own…</string>
     <string name="review_weekly_loading">Looking back over your week…</string>
     <string name="review_to_sort_accept_short">Save</string>
+    <string name="ask_answer_failed">Could not answer right now. Your items are unchanged; try again in a moment.</string>
+    <string name="ask_characters_used">%1$d/%2$d</string>
 </resources>

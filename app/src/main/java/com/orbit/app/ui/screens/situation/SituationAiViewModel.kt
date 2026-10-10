@@ -94,7 +94,8 @@ class SituationAiViewModel(
             isLoading = false,
             analysis = data.analysis,
             askQuery = ask.query,
-            askAnswer = ask.answerFor(data.dataKey),
+            // The answer stays until the question is edited (not just until the next minute).
+            askAnswer = ask.answer,
             isAsking = ask.isAsking,
         )
     }.stateIn(
@@ -112,13 +113,12 @@ class SituationAiViewModel(
         askState.value = submission.loadingState
         viewModelScope.launch {
             try {
-                val data = context.first()
-                val sources = retriever.retrieve(submission.question, data.corpus, limit = 10, now = data.now)
-                val answer = container.aiRouter.askLuma(
-                    question = submission.question,
-                    sources = sources,
-                )
-                askState.value = askState.value.completeSubmission(submission.question, answer, data.dataKey)
+                val answer = answerOrCalmFailure(::failedAnswer) {
+                    val data = context.first()
+                    val sources = retriever.retrieve(submission.question, data.corpus, limit = 10, now = data.now)
+                    container.aiRouter.askLuma(question = submission.question, sources = sources)
+                }
+                askState.value = askState.value.completeSubmission(submission.question, answer)
             } finally {
                 askState.value = askState.value.finishSubmission(submission.question)
             }
@@ -128,21 +128,29 @@ class SituationAiViewModel(
     /** Answers one of Review's Ask LUMA questions from local items; "nothing needed" is valid. */
     fun askQuestion(question: AskLumaQuestion) {
         viewModelScope.launch {
-            val data = context.first()
             val localized = localizedContext()
             val label = localized.getString(question.labelRes())
-            val result = AskLumaPromptAnswerer.answer(question, data.corpus, data.now)
-            val answer = SourceLinkedAnswer(
-                answer = result.toText(localized),
-                sourceItemIds = result.sources.map { it.sourceId },
-                sourceItems = result.sources,
-                fromGemini = false,
-            )
+            val answer = answerOrCalmFailure(::failedAnswer) {
+                val data = context.first()
+                val result = AskLumaPromptAnswerer.answer(question, data.corpus, data.now)
+                SourceLinkedAnswer(
+                    answer = result.toText(localized),
+                    sourceItemIds = result.sources.map { it.sourceId },
+                    sourceItems = result.sources,
+                    fromGemini = false,
+                )
+            }
             val submission = AskState(query = label).beginSubmission() ?: return@launch
-            askState.value = submission.loadingState
-                .completeSubmission(submission.question, answer, data.dataKey)
+            askState.value = submission.loadingState.completeSubmission(submission.question, answer)
         }
     }
+
+    private fun failedAnswer() = SourceLinkedAnswer(
+        answer = localizedContext().getString(R.string.ask_answer_failed),
+        sourceItemIds = emptyList(),
+        sourceItems = emptyList(),
+        fromGemini = false,
+    )
 
     private fun localizedContext(): Context {
         val base = container.applicationContext
@@ -163,15 +171,26 @@ class SituationAiViewModel(
         val analysis: SituationAnalysis,
         val corpus: SearchCorpus,
         val now: Long,
-    ) {
-        val dataKey = SituationDataKey(corpus = corpus, minuteBucket = now / MinuteMillis)
-    }
+    )
 
-    private data class SituationDataKey(val corpus: SearchCorpus, val minuteBucket: Long)
-
-    private companion object {
+    companion object {
         const val MaxAskQueryLength = 140
     }
+}
+
+/**
+ * Runs [answer]; a failure becomes the calm [failure] answer instead of a crash or an
+ * endless spinner. Cancellation (the sheet closing) is passed on.
+ */
+internal suspend fun answerOrCalmFailure(
+    failure: () -> SourceLinkedAnswer,
+    answer: suspend () -> SourceLinkedAnswer,
+): SourceLinkedAnswer = try {
+    answer()
+} catch (cancelled: kotlinx.coroutines.CancellationException) {
+    throw cancelled
+} catch (_: Exception) {
+    failure()
 }
 
 private fun localMinuteTicker() = flow {
@@ -189,7 +208,6 @@ internal data class AskState(
     val answer: SourceLinkedAnswer? = null,
     val isAsking: Boolean = false,
     private val answeredQuestionKey: String? = null,
-    private val answeredDataKey: Any? = null,
     private val activeQuestionKey: String? = null,
 ) {
     fun withQuery(value: String): AskState {
@@ -198,7 +216,6 @@ internal data class AskState(
             query = value,
             answer = answer.takeIf { answerStillCurrent },
             answeredQuestionKey = answeredQuestionKey.takeIf { answerStillCurrent },
-            answeredDataKey = answeredDataKey.takeIf { answerStillCurrent },
         )
     }
 
@@ -211,13 +228,12 @@ internal data class AskState(
                 answer = null,
                 isAsking = true,
                 answeredQuestionKey = null,
-                answeredDataKey = null,
                 activeQuestionKey = question.askQuestionKey(),
             ),
         )
     }
 
-    fun completeSubmission(question: String, result: SourceLinkedAnswer, dataKey: Any? = null): AskState {
+    fun completeSubmission(question: String, result: SourceLinkedAnswer): AskState {
         val questionKey = question.askQuestionKey()
         if (activeQuestionKey != questionKey) return this
         val answerStillCurrent = query.askQuestionKey() == questionKey
@@ -225,13 +241,9 @@ internal data class AskState(
             answer = result.takeIf { answerStillCurrent },
             isAsking = false,
             answeredQuestionKey = questionKey.takeIf { answerStillCurrent },
-            answeredDataKey = dataKey.takeIf { answerStillCurrent },
             activeQuestionKey = null,
         )
     }
-
-    fun answerFor(dataKey: Any): SourceLinkedAnswer? =
-        answer.takeIf { answeredDataKey == null || answeredDataKey == dataKey }
 
     fun finishSubmission(question: String): AskState =
         if (activeQuestionKey == question.askQuestionKey()) {

@@ -176,4 +176,6 @@
     <string name="review_ask_own">Küsi oma küsimus…</string>
     <string name="review_weekly_loading">Vaatan su nädala üle…</string>
     <string name="review_to_sort_accept_short">Salvesta</string>
+    <string name="ask_answer_failed">Praegu ei õnnestunud vastata. Sinu asjad on muutmata; proovi hetke pärast uuesti.</string>
+    <string name="ask_characters_used">%1$d/%2$d</string>
 </resources>
