@@ -132,8 +132,9 @@ class HomeCaptureViewModel(
             ?.let { runCatching { LocalDate.ofEpochDay(it).toEpochDay() }.getOrNull() }
         _uiState.update(HomeCaptureUiState::beginCaptureSaving)
         viewModelScope.launch {
-            val captureId = try {
-                captureInbox.save(rawText, contextDateEpochDay = safeContext)
+            try {
+                // Registered before analysis starts, so a fast result is not missed.
+                captureInbox.save(rawText, contextDateEpochDay = safeContext) { id -> awaitingAnalysisFor = id }
             } catch (_: Exception) {
                 // Nothing was saved: keep the text in the box so it is not lost.
                 _uiState.update {
@@ -141,7 +142,6 @@ class HomeCaptureViewModel(
                 }
                 return@launch
             }
-            awaitingAnalysisFor = captureId
             savedStateHandle[DraftTextKey] = ""
             _uiState.update {
                 it.copy(

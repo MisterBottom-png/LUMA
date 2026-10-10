@@ -67,12 +67,15 @@ class CaptureInbox(
 
     /**
      * Saves the raw thought in the Inbox and returns its id. The thought is safe
-     * once this returns; analysis continues in the background.
+     * once this returns; analysis continues in the background. [onSaved] runs with
+     * the id before analysis starts, so a caller waiting for this capture's
+     * [events] cannot miss a fast result.
      */
     suspend fun save(
         rawText: String,
         source: CaptureSource = CaptureSource.Manual,
         contextDateEpochDay: Long? = null,
+        onSaved: (Long) -> Unit = {},
     ): Long {
         val text = rawText.trim()
         require(text.isNotEmpty()) { "A capture cannot be blank" }
@@ -86,6 +89,7 @@ class CaptureInbox(
                 source = source,
             ),
         )
+        onSaved(id)
         scope.launch { analyze(id, contextDateEpochDay) }
         return id
     }

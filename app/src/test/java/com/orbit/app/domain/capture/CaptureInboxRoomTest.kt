@@ -19,12 +19,14 @@ import com.orbit.app.testing.PolicyRecordingScheduler
 import com.orbit.app.testing.inMemoryOrbitDatabase
 import java.time.Instant
 import java.time.ZoneId
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -53,12 +55,13 @@ class CaptureInboxRoomTest {
     @After
     fun tearDown() = database.close()
 
-    private fun inbox(): CaptureInbox = CaptureInbox(
+    private fun inbox(scope: CoroutineScope = this.scope, onAnalysis: () -> Unit = {}): CaptureInbox = CaptureInbox(
         captureRepository = RoomCaptureRepository(database.captureDao()),
         suggestionDao = database.captureSuggestionDao(),
         brainDumpRepository = RoomBrainDumpRepository(database.brainDumpDao()),
         spaceRepository = RoomSpaceRepository(database.spaceDao()),
         suggester = { text, _ ->
+            onAnalysis()
             if (suggesterFails) error("analysis unavailable")
             LocalRulesCaptureAnalyzer(now = { Instant.ofEpochMilli(now) }, zoneId = { ZoneId.of("Europe/Tallinn") })
                 .analyze(text)
@@ -93,6 +96,24 @@ class CaptureInboxRoomTest {
         assertEquals("call the bank tomorrow", capture.rawText)
         assertEquals(CaptureStatus.Inbox, capture.status)
         assertNull(database.captureSuggestionDao().getByCaptureId(id))
+    }
+
+    @Test
+    fun theSavedIdIsHandedOverBeforeAnalysisCanReportBack() = runBlocking {
+        val liveScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        var awaited: Long? = null
+        var awaitedWhenAnalysed: Long? = null
+        val analysed = CompletableDeferred<Unit>()
+        val inbox = inbox(liveScope) {
+            awaitedWhenAnalysed = awaited
+            analysed.complete(Unit)
+        }
+
+        val id = inbox.save("call the bank tomorrow") { awaited = it }
+        withTimeout(5_000) { analysed.await() }
+        liveScope.cancel()
+
+        assertEquals(id, awaitedWhenAnalysed)
     }
 
     @Test
