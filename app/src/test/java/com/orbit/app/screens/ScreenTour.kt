@@ -19,6 +19,8 @@ import com.orbit.app.MainActivity
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.longClick
 import com.orbit.app.OrbitApplication
 import com.orbit.app.data.local.StarterSpaces
 import com.orbit.app.data.local.entity.NoteEntity
@@ -178,6 +180,46 @@ abstract class ScreenTour(private val theme: String) {
         back()
     }
 
+    /** The smaller screens: guide, Space editor, menus, Search and the sort sheet. */
+    private fun extraScreens(prefix: String) {
+        tapTab("Spaces")
+        step("new space") { compose.onNodeWithText("New Space").performScrollTo().performClick(); compose.waitForIdle() }
+        shot("$prefix-space-create")
+        step("cancel create") { compose.onNodeWithText("Cancel").performClick(); compose.waitForIdle() }
+        step("space menu") { compose.onAllNodesWithText("Work")[0].performTouchInput { longClick() }; compose.waitForIdle() }
+        shot("$prefix-space-menu")
+        step("edit space") { compose.onNodeWithText("Edit").performClick(); compose.waitForIdle() }
+        shot("$prefix-space-edit")
+        step("cancel edit") { compose.onNodeWithText("Cancel").performClick(); compose.waitForIdle() }
+        step("search") { compose.onNodeWithContentDescription("Search").performClick(); compose.waitForIdle() }
+        shot("$prefix-search")
+        step("type search") { compose.onNode(hasSetTextAction()).performTextInput("the"); compose.waitForIdle() }
+        shot("$prefix-search-results")
+        back()
+        back()
+        tapTab("Review")
+        step("review menu") { compose.onAllNodesWithText("Renew passport")[0].performTouchInput { longClick() }; compose.waitForIdle() }
+        shot("$prefix-review-menu")
+        step("change sheet") { compose.onNodeWithText("Change").performClick(); compose.waitForIdle() }
+        shot("$prefix-review-change")
+        step("more choices") { compose.onNodeWithText("Change action").performScrollTo().performClick(); compose.waitForIdle() }
+        shot("$prefix-review-change-choices")
+        step("close sheet") { compose.onNodeWithText("Not now", substring = true).performScrollTo().performClick(); compose.waitForIdle() }
+        step("one by one") { compose.onNodeWithText("Sort one by one").performClick(); compose.waitForIdle() }
+        shot("$prefix-review-one-by-one")
+        back()
+        tapTab("Home")
+        step("settings") { compose.onNodeWithContentDescription("Open settings").performClick(); compose.waitForIdle() }
+        step("guide") { compose.onNodeWithText("First-time guide").performScrollTo().performClick(); compose.waitForIdle() }
+        shot("$prefix-guide-1")
+        repeat(3) { step("next") { compose.onNodeWithText("Next").performClick(); compose.waitForIdle() } }
+        shot("$prefix-guide-4")
+        repeat(3) { step("next") { compose.onNodeWithText("Next").performClick(); compose.waitForIdle() } }
+        shot("$prefix-guide-7")
+        step("leave guide") { compose.onNodeWithText("Skip").performClick(); compose.waitForIdle() }
+        back()
+    }
+
     @Test
     fun tour() {
         assumeTrue("set LUMA_SCREENS_DIR to render the screens", outDir != null)
@@ -189,6 +231,7 @@ abstract class ScreenTour(private val theme: String) {
         shot("01-home")
 
         mainScreens("a")
+        extraScreens("x")
 
         // The same screens in the violet look (accent + background).
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick() }
