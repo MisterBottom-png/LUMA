@@ -25,3 +25,13 @@ class HomeAfterSavingTest {
         assertEquals(AfterSaving.AskForTime, afterSaving(analysis, sortRightAfterSaving = false, addedForCalendarDay = false, now.toEpochMilli()))
     }
 }
+
+class SortPrimaryButtonTest {
+    @Test
+    fun theButtonWaitsUntilAReminderHasATime() {
+        org.junit.Assert.assertFalse(sortPrimaryEnabled(isPerformingAction = false, title = "Call the bank", needsTime = true))
+        org.junit.Assert.assertTrue(sortPrimaryEnabled(isPerformingAction = false, title = "Call the bank", needsTime = false))
+        org.junit.Assert.assertFalse(sortPrimaryEnabled(isPerformingAction = false, title = " ", needsTime = false))
+        org.junit.Assert.assertFalse(sortPrimaryEnabled(isPerformingAction = true, title = "Call the bank", needsTime = false))
+    }
+}

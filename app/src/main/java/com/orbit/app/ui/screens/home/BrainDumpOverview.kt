@@ -71,7 +71,12 @@ internal fun BrainDumpOverview(
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = pluralStringResource(R.plurals.brain_overview_subtitle, rows.size, rows.size),
+            // "Ticked ones look clear" only when something is ticked.
+            text = pluralStringResource(
+                if (tickedCount > 0) R.plurals.brain_overview_subtitle else R.plurals.brain_overview_subtitle_none_ticked,
+                rows.size,
+                rows.size,
+            ),
             modifier = Modifier.padding(top = 4.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

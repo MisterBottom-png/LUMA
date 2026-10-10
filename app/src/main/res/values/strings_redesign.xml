@@ -188,4 +188,9 @@
     <string name="home_open_search">Search</string>
     <string name="calendar_toggle_day">Day</string>
     <string name="calendar_toggle_month">Month</string>
+    <string name="sort_pick_time_first">Choose a time above to set the reminder.</string>
+    <plurals name="brain_overview_subtitle_none_ticked">
+        <item quantity="one">%1$d thought. Tap it to sort it.</item>
+        <item quantity="other">%1$d thoughts. Tap a row to sort it.</item>
+    </plurals>
 </resources>

@@ -200,4 +200,11 @@
     <string name="home_open_search">Поиск</string>
     <string name="calendar_toggle_day">День</string>
     <string name="calendar_toggle_month">Месяц</string>
+    <string name="sort_pick_time_first">Выберите время выше, чтобы поставить напоминание.</string>
+    <plurals name="brain_overview_subtitle_none_ticked">
+        <item quantity="one">%1$d мысль. Нажмите на строку, чтобы разобрать.</item>
+        <item quantity="few">%1$d мысли. Нажмите на строку, чтобы разобрать.</item>
+        <item quantity="many">%1$d мыслей. Нажмите на строку, чтобы разобрать.</item>
+        <item quantity="other">%1$d мысли. Нажмите на строку, чтобы разобрать.</item>
+    </plurals>
 </resources>

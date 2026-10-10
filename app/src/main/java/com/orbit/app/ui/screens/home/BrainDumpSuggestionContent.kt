@@ -197,16 +197,48 @@ private fun BrainDumpSuggestionCard(
     val selectedAction = if (keepInInbox) CaptureDecisionAction.KeepInbox else draft.type.sortAction()
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.core_brain_dump_progress, state.itemNumber, state.totalItems),
-            modifier = Modifier
-                .padding(bottom = 6.dp)
-                .focusRequester(progressFocusRequester)
-                .focusable()
-                .semantics { heading() },
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        // The thought's actions sit beside its heading, where they are found.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.core_brain_dump_progress, state.itemNumber, state.totalItems),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(bottom = 6.dp)
+                    .focusRequester(progressFocusRequester)
+                    .focusable()
+                    .semantics { heading() },
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Box {
+                IconButton(
+                    onClick = { showMore = true },
+                    enabled = !state.actionInProgress,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = stringResource(R.string.core_brain_dump_more),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                BrainDumpActionMenu(
+                    expanded = showMore,
+                    onDismiss = { showMore = false },
+                    onKeepInInbox = {
+                        showMore = false
+                        callbacks.onKeepInInbox()
+                    },
+                    onSkip = {
+                        showMore = false
+                        callbacks.onSkip()
+                    },
+                    onDiscardRemaining = {
+                        showMore = false
+                        showDiscardConfirmation = true
+                    },
+                )
+            }
+        }
         SortForm(
             key = item.id,
             timeFormat = timeFormat,
@@ -246,7 +278,6 @@ private fun BrainDumpSuggestionCard(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(
@@ -259,34 +290,6 @@ private fun BrainDumpSuggestionCard(
                             if (state.openedFromOverview) R.string.brain_overview_back else R.string.core_brain_dump_finish_later,
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Box {
-                    IconButton(
-                        onClick = { showMore = true },
-                        enabled = !state.actionInProgress,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = stringResource(R.string.core_brain_dump_more),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    BrainDumpActionMenu(
-                        expanded = showMore,
-                        onDismiss = { showMore = false },
-                        onKeepInInbox = {
-                            showMore = false
-                            callbacks.onKeepInInbox()
-                        },
-                        onSkip = {
-                            showMore = false
-                            callbacks.onSkip()
-                        },
-                        onDiscardRemaining = {
-                            showMore = false
-                            showDiscardConfirmation = true
-                        },
                     )
                 }
             }

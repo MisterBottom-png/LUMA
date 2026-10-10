@@ -188,4 +188,9 @@
     <string name="home_open_search">Otsi</string>
     <string name="calendar_toggle_day">Päev</string>
     <string name="calendar_toggle_month">Kuu</string>
+    <string name="sort_pick_time_first">Vali ülalt aeg, et meeldetuletus seada.</string>
+    <plurals name="brain_overview_subtitle_none_ticked">
+        <item quantity="one">%1$d mõte. Puuduta seda, et sorteerida.</item>
+        <item quantity="other">%1$d mõtet. Puuduta rida, et seda sorteerida.</item>
+    </plurals>
 </resources>
