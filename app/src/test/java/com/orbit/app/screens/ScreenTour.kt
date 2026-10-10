@@ -15,6 +15,17 @@ import androidx.work.Configuration
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.orbit.app.MainActivity
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
+import com.orbit.app.OrbitApplication
+import com.orbit.app.data.local.StarterSpaces
+import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.TaskEntity
+import java.time.LocalDate
+import java.time.ZoneId
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -96,46 +107,99 @@ abstract class ScreenTour(private val theme: String) {
         compose.waitForIdle()
     }
 
+    private fun scrollDown(name: String) = step("scroll $name") {
+        compose.onAllNodes(hasScrollAction())
+            .fetchSemanticsNodes()
+            .withIndex()
+            .maxByOrNull { it.value.boundsInRoot.height }
+            ?.let { compose.onAllNodes(hasScrollAction())[it.index].performTouchInput { swipeUp(durationMillis = 400) } }
+        compose.waitForIdle()
+    }
+
+    /** Realistic content, so Spaces, Calendar and Review are judged with data, not empty states. */
+    private fun seed() = step("seed") {
+        val container = (compose.activity.application as OrbitApplication).container
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        fun at(day: LocalDate, h: Int, m: Int = 0) = day.atTime(h, m).atZone(zone).toInstant().toEpochMilli()
+        runBlocking {
+            val ids = StarterSpaces.templates.take(5).mapIndexed { i, t ->
+                t.key to container.spaceRepository.insert(StarterSpaces.spaceFor(t, sortOrder = i))
+            }.toMap()
+            val tasks = container.taskRepository
+            tasks.insert(TaskEntity(title = "Send the quarterly report", spaceId = ids["work"], dueAt = at(today, 11)))
+            tasks.insert(TaskEntity(title = "Book a car service", spaceId = ids["personal"], dueAt = at(today.minusDays(2), 10)))
+            tasks.insert(TaskEntity(title = "Fix the kitchen tap", spaceId = ids["home"]))
+            tasks.insert(TaskEntity(title = "Prepare slides for Monday", spaceId = ids["work"], dueAt = at(today.plusDays(3), 9)))
+            tasks.insert(TaskEntity(title = "Pay the electricity bill", spaceId = ids["money"], dueAt = at(today.minusDays(1), 9)))
+            tasks.insert(TaskEntity(title = "Stretch for ten minutes", spaceId = ids["health"], scheduledDateEpochDay = today.toEpochDay()))
+            val reminders = container.reminderRepository
+            reminders.insert(ReminderEntity(title = "Call the dentist", spaceId = ids["health"], dueAt = at(today, 9, 30)))
+            reminders.insert(ReminderEntity(title = "Team stand-up", spaceId = ids["work"], dueAt = at(today, 14)))
+            reminders.insert(ReminderEntity(title = "Pick up the parcel", spaceId = ids["home"], dueAt = at(today, 17, 30)))
+            reminders.insert(ReminderEntity(title = "Water the plants", spaceId = ids["home"], dueAt = at(today.plusDays(1), 8)))
+            val notes = container.noteRepository
+            notes.insert(NoteEntity(title = "Gift ideas", body = "Book, scarf, concert tickets", spaceId = ids["personal"]))
+            notes.insert(NoteEntity(title = "Garden plan", body = "Tulips by the fence", spaceId = ids["home"]))
+        }
+        compose.waitForIdle()
+    }
+
+    private fun mainScreens(prefix: String) {
+        tapTab("Spaces")
+        shot("$prefix-spaces")
+        scrollDown("spaces")
+        shot("$prefix-spaces-scrolled")
+        step("open Work") { compose.onAllNodesWithText("Work")[0].performClick(); compose.waitForIdle() }
+        shot("$prefix-space-detail")
+        back()
+        tapTab("Calendar")
+        shot("$prefix-calendar-day")
+        step("month") { compose.onNodeWithText("Month").performClick(); compose.waitForIdle() }
+        shot("$prefix-calendar-month")
+        step("day") { compose.onNodeWithText("Day").performClick(); compose.waitForIdle() }
+        tapTab("Review")
+        shot("$prefix-review")
+        scrollDown("review")
+        shot("$prefix-review-scrolled")
+        scrollDown("review 2")
+        shot("$prefix-review-scrolled2")
+        tapTab("Home")
+        step("settings") { compose.onNodeWithContentDescription("Open settings").performClick() }
+        shot("$prefix-settings")
+        step("system") { compose.onNodeWithText("System", substring = true).performClick() }
+        shot("$prefix-settings-system")
+        back()
+        step("appearance") { compose.onNodeWithText("Appearance", substring = true).performClick() }
+        shot("$prefix-settings-appearance")
+        back()
+        back()
+    }
+
     @Test
     fun tour() {
         assumeTrue("set LUMA_SCREENS_DIR to render the screens", outDir != null)
         step("first launch") { compose.waitUntil(30_000) { count("Skip") > 0 } }
         shot("00-tutorial")
         step("skip guide") { compose.onNodeWithText("Skip").performClick() }
-        shot("01-home-empty")
-
+        seed()
         listOf("Renew passport", "Ideas for the garden", "Buy milk and coffee").forEach(::capture)
-        shot("02-home-after-send")
-        step("type") { compose.onNodeWithContentDescription("Capture text").performTextInput("Call the dentist") }
-        shot("03-home-typing")
+        shot("01-home")
 
-        tapTab("Spaces")
-        shot("04-spaces")
-        tapTab("Calendar")
-        shot("05-calendar")
-        tapTab("Review")
-        shot("06-review")
-        tapTab("Home")
+        mainScreens("a")
+
+        // The same screens in the violet look (accent + background).
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick() }
-        shot("07-settings")
         step("appearance") { compose.onNodeWithText("Appearance", substring = true).performClick() }
-        shot("08-appearance")
-
-        // Same screens in the violet look (accent + background), closer to a personalised phone.
         step("colors") { compose.onNodeWithText("Colors").performClick(); compose.waitForIdle() }
         step("violet accent") { compose.onAllNodesWithText("Tallele violet", substring = true)[0].performClick() }
-        shot("09-colors-violet")
         back()
         step("background") { compose.onNodeWithText("Background").performClick(); compose.waitForIdle() }
         step("violet mist") { compose.onAllNodesWithText("Violet Mist", substring = true)[0].performClick() }
         back()
         back()
         back()
-        shot("10-violet-home")
-        tapTab("Spaces")
-        shot("11-violet-spaces")
-        tapTab("Review")
-        shot("12-violet-review")
+        mainScreens("v")
 
         outDir?.let { dir ->
             File(dir, "$theme-problems.txt").writeText(problems.joinToString("\n").ifEmpty { "none" })
