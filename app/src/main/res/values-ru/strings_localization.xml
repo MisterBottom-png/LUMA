@@ -100,7 +100,7 @@
     <string name="core_item_detail_details">Сведения</string>
     <string name="core_item_detail_type">Тип</string>
     <string name="core_item_detail_schedule">Расписание</string>
-    <string name="core_item_detail_life_state">Состояние</string>
+    <string name="core_item_detail_life_state">Статус</string>
     <string name="core_item_detail_not_applicable">Не применяется</string>
     <string name="core_item_detail_space">Пространство</string>
     <string name="core_item_detail_created">Создано: %1$s</string>
@@ -119,7 +119,7 @@
     <string name="core_item_detail_active">Активно</string>
     <string name="core_item_detail_not_scheduled">Не запланировано</string>
     <string name="core_reminder_detail_notification">Уведомление</string>
-    <string name="core_reminder_detail_delivery">Доставка</string>
+    <string name="core_reminder_detail_delivery">Когда уведомить</string>
     <string name="core_reminder_detail_disable_notification">Отключить уведомление</string>
     <string name="core_reminder_detail_enable_notification">Включить уведомление</string>
     <string name="core_item_detail_type_note">Заметка</string>

@@ -153,4 +153,24 @@
         <item quantity="many">Сегодня ничего нового. С прошлых дней ждут %d, когда будете готовы.</item>
         <item quantity="other">Сегодня ничего нового. С прошлых дней ждут %d, когда будете готовы.</item>
     </plurals>
+    <string name="item_discard_title">Отменить изменения?</string>
+    <string name="item_discard_body">Изменения в названии и заметках будут потеряны.</string>
+    <string name="item_discard_confirm">Не сохранять</string>
+    <string name="item_keep_editing">Продолжить</string>
+    <string name="item_type_change_title">Изменить тип?</string>
+    <string name="item_type_change_loses">Это удалит %1$s.</string>
+    <string name="item_loss_repeat">повтор</string>
+    <string name="item_loss_notification">уведомление</string>
+    <string name="item_loss_status">статус «%1$s»</string>
+    <string name="item_type_change_confirm">Изменить</string>
+    <string name="item_delete_note_title">Удалить эту заметку?</string>
+    <string name="item_delete_task_title">Удалить эту задачу?</string>
+    <string name="item_delete_reminder_title">Удалить это напоминание?</string>
+    <string name="item_delete_capture_title">Удалить эту мысль?</string>
+    <string name="item_delete_archivable_body">Это нельзя будет вернуть. Чтобы просто убрать с глаз, используйте архив.</string>
+    <string name="item_delete_reminder_body">Оно исчезнет навсегда и больше не напомнит. Напоминания нельзя архивировать.</string>
+    <string name="item_notify_me">Уведомлять меня</string>
+    <string name="item_offsets_need_notifications">Включите «Уведомлять меня», чтобы выбрать время.</string>
+    <string name="item_making_smaller">Ищу шаг поменьше…</string>
+    <string name="core_list_and_separator">\u0020и\u0020</string>
 </resources>

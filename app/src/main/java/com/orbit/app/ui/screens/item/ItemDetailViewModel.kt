@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.item
 
+import com.orbit.app.data.local.statusAfterRestore
 import android.content.res.Configuration
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
@@ -58,6 +59,12 @@ data class ItemDetailUiState(
     val closeAfterDelete: Boolean = false,
     val archiveUndoOperationId: Long? = null,
     val scheduleUndoOperationId: Long? = null,
+    /** Undo for the type change that just happened (shown on the new type's screen). */
+    val typeUndoOperationId: Long? = null,
+    /** Undo for a reminder time just changed. */
+    val reminderTimeUndoOperationId: Long? = null,
+    /** "Make smaller" is asking Gemini or the local rules. */
+    val isMakingSmaller: Boolean = false,
     val message: String? = null,
     val convertedToType: ItemDetailType? = null,
     val saveCompletedAt: Long? = null,
@@ -88,7 +95,11 @@ class ItemDetailViewModel(
         noteRepository = container.noteRepository,
         taskRepository = container.taskRepository,
         captureRepository = container.captureRepository,
+        archivedTaskStatus = container.archivedTaskStatusMemory,
     )
+    private var nextUndoId = 1L
+    private var typeUndo: Pair<Long, TypeConversionSnapshot>? = null
+    private var reminderTimeUndo: Pair<Long, Long>? = null
     private val scheduleActions = ItemScheduleActions(
         noteRepository = container.noteRepository,
         taskRepository = container.taskRepository,
@@ -96,7 +107,14 @@ class ItemDetailViewModel(
     private val typeConversion = ItemTypeConversion(container.database, container.reminderScheduler)
 
     init {
-        load()
+        val handedOver = container.pendingTypeChanges.take(itemId)
+        if (handedOver != null) {
+            val operationId = nextUndoId++
+            typeUndo = operationId to handedOver
+            load(message = localized(R.string.core_item_detail_type_changed), typeUndoOperationId = operationId)
+        } else {
+            load()
+        }
     }
 
     fun save(title: String, body: String, spaceId: Long?) {
@@ -164,8 +182,16 @@ class ItemDetailViewModel(
                         container.reminderRepository.update(
                             it.copy(dueAt = timed.epochMillis, updatedAt = System.currentTimeMillis()),
                         )
+                        it.dueAt
                     }
-                }.onSuccess { load(message = localized(R.string.core_item_detail_schedule_updated)) }
+                }.onSuccess { previousDueAt ->
+                    val operationId = previousDueAt?.let { nextUndoId++ }
+                    reminderTimeUndo = operationId?.let { it to requireNotNull(previousDueAt) }
+                    load(
+                        message = localized(R.string.core_item_detail_schedule_updated),
+                        reminderTimeUndoOperationId = operationId,
+                    )
+                }
                     .onFailure { load(message = localized(R.string.core_item_detail_schedule_update_failed)) }
                 return@launch
             }
@@ -272,9 +298,16 @@ class ItemDetailViewModel(
                         container.noteRepository.update(it.copy(archived = false, updatedAt = now))
                     }
                     ItemDetailType.Task -> container.taskRepository.getById(itemId)?.let {
+                        // Back to how it was before it was archived, not always Open.
+                        val status = it.statusAfterRestore(container.archivedTaskStatusMemory)
                         container.taskRepository.update(
-                            it.copy(status = TaskStatus.Open, completedAt = null, updatedAt = now),
+                            it.copy(
+                                status = status,
+                                completedAt = if (status == TaskStatus.Done) it.completedAt ?: now else null,
+                                updatedAt = now,
+                            ),
                         )
+                        container.archivedTaskStatusMemory.forget(itemId)
                     }
                     ItemDetailType.Capture -> container.captureRepository.getById(itemId)?.let {
                         container.captureRepository.update(
@@ -429,16 +462,25 @@ class ItemDetailViewModel(
 
     fun makeSmaller() {
         val state = _uiState.value
-        if (state.isLoading || state.isMissing) return
+        if (state.isLoading || state.isMissing || state.isMakingSmaller) return
+        _uiState.update { it.copy(isMakingSmaller = true) }
         val sourceText = state.title
             .ifBlank { state.body }
             .ifBlank { state.rawText }
             .ifBlank { localized(R.string.core_item_detail_default_source) }
         viewModelScope.launch {
-            val settings = container.appSettingsRepository.settings.first()
-            val routedAction = container.aiRouter.makeSmaller(sourceText, settings)
+            val routedAction = try {
+                val settings = container.appSettingsRepository.settings.first()
+                container.aiRouter.makeSmaller(sourceText, settings)
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                _uiState.update { it.copy(isMakingSmaller = false, message = localized(R.string.core_item_detail_update_failed)) }
+                return@launch
+            }
             _uiState.update {
                 it.copy(
+                    isMakingSmaller = false,
                     tinyActionSuggestion = TinyActionSuggestion(
                         sourceKey = "${state.type.name}_${state.itemId}",
                         sourceTitle = sourceText,
@@ -459,11 +501,14 @@ class ItemDetailViewModel(
         if (targetType == currentType || targetType == ItemDetailType.Capture) return
         val dueAt = reminderDueAt ?: _uiState.value.scheduledAt
         viewModelScope.launch {
+            val before = runCatching { typeConversion.snapshot(currentType, itemId) }.getOrNull()
             runCatching { typeConversion.convert(currentType, itemId, targetType, dueAt) }
                 .onSuccess { outcome ->
                     when (outcome) {
                         TypeConversionOutcome.Converted -> {
                             currentType = targetType
+                            // The new type's screen takes over and offers Undo.
+                            before?.let { container.pendingTypeChanges.put(itemId, it) }
                             load(message = localized(R.string.core_item_detail_type_changed), convertedToType = targetType)
                         }
                         TypeConversionOutcome.Conflict -> load(
@@ -474,6 +519,40 @@ class ItemDetailViewModel(
                     }
                 }
                 .onFailure { load(message = localized(R.string.core_item_detail_type_change_failed)) }
+        }
+    }
+
+    /** Undo for a type change: the item returns as it was, then its own screen opens. */
+    fun undoTypeChange(operationId: Long) {
+        val (pendingId, snapshot) = typeUndo ?: return
+        if (pendingId != operationId) return
+        typeUndo = null
+        viewModelScope.launch {
+            runCatching { typeConversion.undo(snapshot, currentType, itemId) }
+                .onSuccess { restored ->
+                    if (restored) {
+                        currentType = snapshot.type
+                        load(message = localized(R.string.core_sort_undone), convertedToType = snapshot.type)
+                    } else {
+                        load(message = localized(R.string.core_sort_undo_failed))
+                    }
+                }
+                .onFailure { load(message = localized(R.string.core_sort_undo_failed)) }
+        }
+    }
+
+    /** Undo for a reminder's new time. */
+    fun undoReminderTime(operationId: Long) {
+        val (pendingId, previousDueAt) = reminderTimeUndo ?: return
+        if (pendingId != operationId) return
+        reminderTimeUndo = null
+        viewModelScope.launch {
+            runCatching {
+                container.reminderRepository.getById(itemId)?.let {
+                    container.reminderRepository.update(it.copy(dueAt = previousDueAt, updatedAt = System.currentTimeMillis()))
+                }
+            }.onSuccess { load(message = localized(R.string.core_item_detail_schedule_restored)) }
+                .onFailure { load(message = localized(R.string.core_item_detail_schedule_restore_failed)) }
         }
     }
 
@@ -511,18 +590,26 @@ class ItemDetailViewModel(
     fun messageShown(
         archiveUndoOperationId: Long? = null,
         scheduleUndoOperationId: Long? = null,
+        typeUndoOperationId: Long? = null,
+        reminderTimeUndoOperationId: Long? = null,
     ) {
         archiveUndoOperationId?.let(archiveUndo::expire)
         scheduleUndoOperationId?.let(scheduleActions::expire)
+        if (typeUndoOperationId != null && typeUndo?.first == typeUndoOperationId) typeUndo = null
+        if (reminderTimeUndoOperationId != null && reminderTimeUndo?.first == reminderTimeUndoOperationId) reminderTimeUndo = null
         _uiState.update { state ->
             if (
                 (archiveUndoOperationId == null || state.archiveUndoOperationId == archiveUndoOperationId) &&
-                (scheduleUndoOperationId == null || state.scheduleUndoOperationId == scheduleUndoOperationId)
+                (scheduleUndoOperationId == null || state.scheduleUndoOperationId == scheduleUndoOperationId) &&
+                (typeUndoOperationId == null || state.typeUndoOperationId == typeUndoOperationId) &&
+                (reminderTimeUndoOperationId == null || state.reminderTimeUndoOperationId == reminderTimeUndoOperationId)
             ) {
                 state.copy(
                     message = null,
                     archiveUndoOperationId = null,
                     scheduleUndoOperationId = null,
+                    typeUndoOperationId = null,
+                    reminderTimeUndoOperationId = null,
                 )
             } else {
                 state
@@ -536,6 +623,8 @@ class ItemDetailViewModel(
         scheduleUndoOperationId: Long? = null,
         convertedToType: ItemDetailType? = null,
         saveCompletedAt: Long? = null,
+        typeUndoOperationId: Long? = null,
+        reminderTimeUndoOperationId: Long? = null,
     ) {
         viewModelScope.launch {
             val spaces = container.spaceRepository.observeAll().replaySafeFirst()
@@ -579,6 +668,8 @@ class ItemDetailViewModel(
             _uiState.value = loaded.copy(
                 convertedToType = convertedToType,
                 saveCompletedAt = saveCompletedAt,
+                typeUndoOperationId = typeUndoOperationId,
+                reminderTimeUndoOperationId = reminderTimeUndoOperationId,
             )
         }
     }

@@ -143,4 +143,24 @@
         <item quantity="one">Täna pole midagi uut. Varasemast ootab %d, kui oled valmis.</item>
         <item quantity="other">Täna pole midagi uut. Varasemast ootab %d, kui oled valmis.</item>
     </plurals>
+    <string name="item_discard_title">Loobud muudatustest?</string>
+    <string name="item_discard_body">Pealkirja ja märkmete muudatused lähevad kaduma.</string>
+    <string name="item_discard_confirm">Ära salvesta</string>
+    <string name="item_keep_editing">Jätka muutmist</string>
+    <string name="item_type_change_title">Muuda tüüpi?</string>
+    <string name="item_type_change_loses">See eemaldab %1$s.</string>
+    <string name="item_loss_repeat">korduse</string>
+    <string name="item_loss_notification">teavituse</string>
+    <string name="item_loss_status">oleku „%1$s“</string>
+    <string name="item_type_change_confirm">Muuda</string>
+    <string name="item_delete_note_title">Kustutad selle märkme?</string>
+    <string name="item_delete_task_title">Kustutad selle ülesande?</string>
+    <string name="item_delete_reminder_title">Kustutad selle meeldetuletuse?</string>
+    <string name="item_delete_capture_title">Kustutad selle mõtte?</string>
+    <string name="item_delete_archivable_body">See kaob jäädavalt. Kui tahad selle lihtsalt silmist ära panna, kasuta arhiveerimist.</string>
+    <string name="item_delete_reminder_body">See kaob jäädavalt ega tuleta enam meelde. Meeldetuletusi ei saa arhiveerida.</string>
+    <string name="item_notify_me">Teavita mind</string>
+    <string name="item_offsets_need_notifications">Lülita sisse „Teavita mind“, et aega valida.</string>
+    <string name="item_making_smaller">Otsin väiksemat sammu…</string>
+    <string name="core_list_and_separator">\u0020ja\u0020</string>
 </resources>

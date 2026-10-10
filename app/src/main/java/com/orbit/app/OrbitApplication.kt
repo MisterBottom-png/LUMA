@@ -216,6 +216,14 @@ class OrbitContainer(application: Application) {
         )
     }
 
+    /** A task's status from before it was archived, so restoring returns it. */
+    val archivedTaskStatusMemory: com.orbit.app.data.local.ArchivedTaskStatusMemory by lazy {
+        com.orbit.app.data.local.SharedPreferencesArchivedTaskStatusMemory(applicationContext)
+    }
+
+    /** Hands a type change's Undo to the screen that shows the new type. */
+    val pendingTypeChanges = com.orbit.app.ui.screens.item.PendingTypeChanges()
+
     /** What saving a reminder achieved, read from Android's current notification settings. */
     val reminderSaveOutcomes: ReminderSaveOutcomes by lazy {
         ReminderSaveOutcomes(

@@ -93,7 +93,7 @@
     <string name="core_item_detail_details">Details</string>
     <string name="core_item_detail_type">Type</string>
     <string name="core_item_detail_schedule">Schedule</string>
-    <string name="core_item_detail_life_state">Life state</string>
+    <string name="core_item_detail_life_state">Status</string>
     <string name="core_item_detail_not_applicable">Not applicable</string>
     <string name="core_item_detail_space">Space</string>
     <string name="core_item_detail_created">Created %1$s</string>
@@ -113,7 +113,7 @@
     <string name="core_item_detail_not_scheduled">Not scheduled</string>
 
     <string name="core_reminder_detail_notification">Notification</string>
-    <string name="core_reminder_detail_delivery">Delivery</string>
+    <string name="core_reminder_detail_delivery">When to notify</string>
     <string name="core_reminder_detail_disable_notification">Disable notification</string>
     <string name="core_reminder_detail_enable_notification">Enable notification</string>
     <string name="core_item_detail_type_note">Note</string>

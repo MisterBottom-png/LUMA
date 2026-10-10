@@ -96,7 +96,7 @@
     <string name="core_item_detail_details">Üksikasjad</string>
     <string name="core_item_detail_type">Tüüp</string>
     <string name="core_item_detail_schedule">Ajakava</string>
-    <string name="core_item_detail_life_state">Eluseisund</string>
+    <string name="core_item_detail_life_state">Olek</string>
     <string name="core_item_detail_not_applicable">Pole kohaldatav</string>
     <string name="core_item_detail_space">Ruum</string>
     <string name="core_item_detail_created">Loodud %1$s</string>
@@ -115,7 +115,7 @@
     <string name="core_item_detail_active">Aktiivne</string>
     <string name="core_item_detail_not_scheduled">Ajastamata</string>
     <string name="core_reminder_detail_notification">Teavitus</string>
-    <string name="core_reminder_detail_delivery">Edastus</string>
+    <string name="core_reminder_detail_delivery">Millal teavitada</string>
     <string name="core_reminder_detail_disable_notification">Lülita teavitus välja</string>
     <string name="core_reminder_detail_enable_notification">Lülita teavitus sisse</string>
     <string name="core_item_detail_type_note">Märge</string>

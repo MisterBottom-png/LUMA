@@ -178,6 +178,7 @@ class ReviewViewModel internal constructor(
             taskRepository = container.taskRepository,
         ),
         brainDumpActions = container.brainDumpActions,
+        archivedTaskStatus = container.archivedTaskStatusMemory,
     ),
     private val taskUndoController: ReviewTaskUndoController = ReviewTaskUndoController(
         container.taskRepository,
@@ -720,6 +721,8 @@ internal class ReviewActions(
     private val now: () -> Long = System::currentTimeMillis,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
+    private val archivedTaskStatus: com.orbit.app.data.local.ArchivedTaskStatusMemory =
+        com.orbit.app.data.local.ArchivedTaskStatusMemory.None,
 ) {
     suspend fun keepTaskActive(loop: ReviewLoop) {
         require(loop.type == ReviewLoopType.Task)
@@ -750,6 +753,7 @@ internal class ReviewActions(
     suspend fun archive(loop: ReviewLoop): ReviewTaskMutation? = when (loop.type) {
         ReviewLoopType.Task -> taskRepository.getById(loop.id)?.let { task ->
             val updated = task.copy(status = TaskStatus.Archived, updatedAt = now())
+            archivedTaskStatus.remember(task.id, task.status)
             taskRepository.update(updated)
             ReviewTaskMutation(
                 action = ReviewTaskMutationAction.Archived,
