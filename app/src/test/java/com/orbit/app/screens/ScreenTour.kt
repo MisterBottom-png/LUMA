@@ -3,6 +3,9 @@ package com.orbit.app.screens
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -83,10 +86,47 @@ abstract class ScreenTour(private val theme: String) {
         // captureToImage never completes under Robolectric.
         val view = compose.activity.window.decorView
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
-        view.draw(Canvas(bitmap))
+        val canvas = Canvas(bitmap)
+        view.draw(canvas)
+        drawOtherWindows(canvas, view)
         val dir = requireNotNull(outDir)
         dir.mkdirs()
         File(dir, "$theme-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    /**
+     * Dialogs, menus and sheets live in their own windows, which drawing the activity
+     * alone leaves out. Draw them on top, in the order they were added, with the dim a
+     * dialog window asks for.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun drawOtherWindows(canvas: Canvas, activityRoot: View) {
+        val global = Class.forName("android.view.WindowManagerGlobal").getMethod("getInstance").invoke(null)
+        val views = global.javaClass.getDeclaredField("mViews").apply { isAccessible = true }.get(global) as List<View>
+        views.filter { it !== activityRoot && it.isAttachedToWindow && it.visibility == View.VISIBLE && it.width > 0 }
+            .forEach { root ->
+                val params = root.layoutParams as? WindowManager.LayoutParams
+                if (params != null && params.flags and WindowManager.LayoutParams.FLAG_DIM_BEHIND != 0) {
+                    canvas.drawColor(android.graphics.Color.argb((params.dimAmount * 255).toInt(), 0, 0, 0))
+                }
+                val gravity = params?.gravity ?: Gravity.NO_GRAVITY
+                val horizontal = gravity and Gravity.HORIZONTAL_GRAVITY_MASK
+                val vertical = gravity and Gravity.VERTICAL_GRAVITY_MASK
+                val x = when (horizontal) {
+                    Gravity.CENTER_HORIZONTAL -> (activityRoot.width - root.width) / 2 + (params?.x ?: 0)
+                    Gravity.RIGHT, Gravity.END -> activityRoot.width - root.width - (params?.x ?: 0)
+                    else -> params?.x ?: 0
+                }
+                val y = when (vertical) {
+                    Gravity.CENTER_VERTICAL -> (activityRoot.height - root.height) / 2 + (params?.y ?: 0)
+                    Gravity.BOTTOM -> activityRoot.height - root.height - (params?.y ?: 0)
+                    else -> params?.y ?: 0
+                }
+                canvas.save()
+                canvas.translate(x.toFloat(), y.toFloat())
+                root.draw(canvas)
+                canvas.restore()
+            }
     }
 
     private fun back() = step("back") {
