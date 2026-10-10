@@ -255,6 +255,15 @@ interface LabelDao {
     @Query("SELECT * FROM reminder_labels ORDER BY reminderId, labelId")
     suspend fun getAllReminderLabels(): List<ReminderLabelCrossRef>
 
+    @Query("SELECT labelId FROM note_labels WHERE noteId = :noteId")
+    suspend fun getLabelIdsForNote(noteId: Long): List<Long>
+
+    @Query("SELECT labelId FROM task_labels WHERE taskId = :taskId")
+    suspend fun getLabelIdsForTask(taskId: Long): List<Long>
+
+    @Query("SELECT labelId FROM reminder_labels WHERE reminderId = :reminderId")
+    suspend fun getLabelIdsForReminder(reminderId: Long): List<Long>
+
     @Insert
     suspend fun insertNoteLabels(relations: List<NoteLabelCrossRef>)
 

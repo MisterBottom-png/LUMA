@@ -3,8 +3,11 @@ package com.orbit.app.ui.screens.item
 import androidx.room.withTransaction
 import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.ui.navigation.ItemDetailType
@@ -37,12 +40,16 @@ internal class ItemTypeConversion(
 
         val converted = database.withTransaction {
             if (targetExists(targetType, itemId)) return@withTransaction TypeConversionOutcome.Conflict
-            when (sourceType) {
+            // Read before the source row goes: deleting it cascades its label links.
+            val labelIds = labelIdsOf(sourceType, itemId)
+            val outcome = when (sourceType) {
                 ItemDetailType.Note -> convertNote(itemId, targetType, reminderDueAt)
                 ItemDetailType.Task -> convertTask(itemId, targetType, reminderDueAt)
                 ItemDetailType.Reminder -> convertReminder(itemId, targetType)
                 ItemDetailType.Capture -> TypeConversionOutcome.Unsupported
             }
+            if (outcome == TypeConversionOutcome.Converted) attachLabels(targetType, itemId, labelIds)
+            outcome
         }
         if (converted == TypeConversionOutcome.Converted) {
             if (sourceType == ItemDetailType.Reminder) runCatching { reminderScheduler.cancel(itemId) }
@@ -54,6 +61,27 @@ internal class ItemTypeConversion(
             }
         }
         return converted
+    }
+
+    private suspend fun labelIdsOf(type: ItemDetailType, id: Long): List<Long> {
+        val labels = database.labelDao()
+        return when (type) {
+            ItemDetailType.Note -> labels.getLabelIdsForNote(id)
+            ItemDetailType.Task -> labels.getLabelIdsForTask(id)
+            ItemDetailType.Reminder -> labels.getLabelIdsForReminder(id)
+            ItemDetailType.Capture -> emptyList()
+        }
+    }
+
+    private suspend fun attachLabels(type: ItemDetailType, id: Long, labelIds: List<Long>) {
+        if (labelIds.isEmpty()) return
+        val labels = database.labelDao()
+        when (type) {
+            ItemDetailType.Note -> labels.insertNoteLabels(labelIds.map { NoteLabelCrossRef(id, it) })
+            ItemDetailType.Task -> labels.insertTaskLabels(labelIds.map { TaskLabelCrossRef(id, it) })
+            ItemDetailType.Reminder -> labels.insertReminderLabels(labelIds.map { ReminderLabelCrossRef(id, it) })
+            ItemDetailType.Capture -> Unit
+        }
     }
 
     private suspend fun targetExists(type: ItemDetailType, id: Long): Boolean = when (type) {
