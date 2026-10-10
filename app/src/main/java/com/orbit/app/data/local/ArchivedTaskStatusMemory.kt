@@ -1,6 +1,7 @@
 package com.orbit.app.data.local
 
 import android.content.Context
+import androidx.core.content.edit
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskStatus
 
@@ -28,14 +29,14 @@ class SharedPreferencesArchivedTaskStatusMemory(context: Context) : ArchivedTask
 
     override fun remember(taskId: Long, status: TaskStatus) {
         if (status == TaskStatus.Archived) return
-        preferences.edit().putString(taskId.toString(), status.name).apply()
+        preferences.edit { putString(taskId.toString(), status.name) }
     }
 
     override fun recall(taskId: Long): TaskStatus? = preferences.getString(taskId.toString(), null)
         ?.let { name -> TaskStatus.entries.firstOrNull { it.name == name } }
 
     override fun forget(taskId: Long) {
-        preferences.edit().remove(taskId.toString()).apply()
+        preferences.edit { remove(taskId.toString()) }
     }
 }
 

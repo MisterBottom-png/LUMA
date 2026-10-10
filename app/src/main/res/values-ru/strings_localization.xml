@@ -92,8 +92,6 @@
         <item quantity="many">%1$d скрытых пространств</item>
         <item quantity="other">%1$d скрытого пространства</item>
     </plurals>
-    <string name="core_item_detail_delete_item_title">Удалить элемент?</string>
-    <string name="core_item_detail_delete_item_message">Элемент будет удалён из локального хранилища. Если он может понадобиться позже, отправьте его в архив.</string>
     <string name="core_item_detail_unavailable">Этот элемент больше недоступен.</string>
     <string name="core_item_detail_title_field">Название</string>
     <string name="core_item_detail_notes_field">Заметки</string>
@@ -120,8 +118,6 @@
     <string name="core_item_detail_not_scheduled">Не запланировано</string>
     <string name="core_reminder_detail_notification">Уведомление</string>
     <string name="core_reminder_detail_delivery">Когда уведомить</string>
-    <string name="core_reminder_detail_disable_notification">Отключить уведомление</string>
-    <string name="core_reminder_detail_enable_notification">Включить уведомление</string>
     <string name="core_item_detail_type_note">Заметка</string>
     <string name="core_item_detail_type_task">Задача</string>
     <string name="core_item_detail_type_reminder">Напоминание</string>

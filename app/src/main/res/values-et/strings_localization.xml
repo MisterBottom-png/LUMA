@@ -88,8 +88,6 @@
         <item quantity="one">%1$d peidetud ruum</item>
         <item quantity="other">%1$d peidetud ruumi</item>
     </plurals>
-    <string name="core_item_detail_delete_item_title">Kas kustutada üksus?</string>
-    <string name="core_item_detail_delete_item_message">See eemaldab üksuse kohalikust salvestusruumist. Kui seda võib hiljem vaja minna, arhiveeri see.</string>
     <string name="core_item_detail_unavailable">See üksus pole enam saadaval.</string>
     <string name="core_item_detail_title_field">Pealkiri</string>
     <string name="core_item_detail_notes_field">Märkmed</string>
@@ -116,8 +114,6 @@
     <string name="core_item_detail_not_scheduled">Ajastamata</string>
     <string name="core_reminder_detail_notification">Teavitus</string>
     <string name="core_reminder_detail_delivery">Millal teavitada</string>
-    <string name="core_reminder_detail_disable_notification">Lülita teavitus välja</string>
-    <string name="core_reminder_detail_enable_notification">Lülita teavitus sisse</string>
     <string name="core_item_detail_type_note">Märge</string>
     <string name="core_item_detail_type_task">Ülesanne</string>
     <string name="core_item_detail_type_reminder">Meeldetuletus</string>

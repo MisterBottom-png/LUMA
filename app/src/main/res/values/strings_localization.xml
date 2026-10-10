@@ -85,8 +85,6 @@
     <plurals name="core_spaces_item_count"><item quantity="one">%1$d item</item><item quantity="other">%1$d items</item></plurals>
     <plurals name="core_spaces_hidden_count"><item quantity="one">%1$d hidden Space</item><item quantity="other">%1$d hidden Spaces</item></plurals>
 
-    <string name="core_item_detail_delete_item_title">Delete item?</string>
-    <string name="core_item_detail_delete_item_message">This removes the item from local storage. Archive when you may want it later.</string>
     <string name="core_item_detail_unavailable">This item is no longer available.</string>
     <string name="core_item_detail_title_field">Title</string>
     <string name="core_item_detail_notes_field">Notes</string>
@@ -114,8 +112,6 @@
 
     <string name="core_reminder_detail_notification">Notification</string>
     <string name="core_reminder_detail_delivery">When to notify</string>
-    <string name="core_reminder_detail_disable_notification">Disable notification</string>
-    <string name="core_reminder_detail_enable_notification">Enable notification</string>
     <string name="core_item_detail_type_note">Note</string>
     <string name="core_item_detail_type_task">Task</string>
     <string name="core_item_detail_type_reminder">Reminder</string>
