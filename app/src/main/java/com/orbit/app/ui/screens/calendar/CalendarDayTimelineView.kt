@@ -162,7 +162,7 @@ internal fun CalendarAgendaList(
         if (agenda.anytime.isNotEmpty()) {
             GroupedCard {
                 agenda.anytime.forEachIndexed { index, entry ->
-                    if (index > 0) GroupDivider(startInset = 92.dp)
+                    if (index > 0) GroupDivider(startInset = 104.dp)
                     CalendarEntryRow(
                         entry = entry,
                         timeText = anyTime,
@@ -180,7 +180,7 @@ internal fun CalendarAgendaList(
                     rows.forEach { row ->
                         when (row) {
                             is CalendarAgendaRow.Item -> {
-                                if (previousWasItem) GroupDivider(startInset = 92.dp)
+                                if (previousWasItem) GroupDivider(startInset = 104.dp)
                                 CalendarEntryRow(
                                     entry = row.entry,
                                     timeText = timeFormat.formatTime(row.start.toEpochMilli()),
@@ -230,7 +230,7 @@ private fun CalendarEntryRow(
     ) {
         Text(
             text = timeText,
-            modifier = Modifier.width(64.dp),
+            modifier = Modifier.width(76.dp),
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
@@ -303,7 +303,7 @@ private fun CalendarNowRow(timeText: String) {
     ) {
         Text(
             text = timeText,
-            modifier = Modifier.width(64.dp),
+            modifier = Modifier.width(76.dp),
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.SemiBold,
                 fontFeatureSettings = "tnum",
@@ -331,7 +331,7 @@ private fun CalendarFreeRow(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .height(34.dp)
-            .padding(start = 92.dp, end = 16.dp),
+            .padding(start = 104.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

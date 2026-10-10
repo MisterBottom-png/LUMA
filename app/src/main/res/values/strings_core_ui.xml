@@ -23,9 +23,9 @@
     <string name="core_untitled_task">Untitled task</string>
     <string name="core_untitled_reminder">Untitled reminder</string>
     <string name="core_sources">Sources</string>
-    <string name="core_accessibility_separator" translatable="false">, </string>
-    <string name="core_metadata_separator" translatable="false"> · </string>
-    <string name="core_metadata_dot_separator" translatable="false"> · </string>
+    <string name="core_accessibility_separator" translatable="false">", "</string>
+    <string name="core_metadata_separator" translatable="false">" · "</string>
+    <string name="core_metadata_dot_separator" translatable="false">" · "</string>
 
     <!-- Home -->
     <string name="core_home_good_morning">Good morning</string>

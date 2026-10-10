@@ -65,7 +65,7 @@ fun Modifier.orbitScrollEdgeFade(
                 brush = Brush.verticalGradient(
                     colorStops = arrayOf(
                         0f to Color.Transparent,
-                        0.68f to Color.Transparent,
+                        0.8f to Color.Transparent,
                         1f to Color.Black,
                     ),
                     startY = 0f,

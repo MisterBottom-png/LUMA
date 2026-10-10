@@ -216,8 +216,9 @@ internal fun SettingsHome(
             )
         }
 
+        // One row needs no "AI" heading above an "AI" row.
         SettingsGroupBlock(
-            title = stringResource(R.string.settings_ai_title),
+            title = null,
             footer = stringResource(R.string.settings_ai_footer),
         ) {
             SettingsLinkRow(
@@ -328,12 +329,12 @@ internal fun RemindersGroup(
 
 @Composable
 internal fun SettingsGroupBlock(
-    title: String,
+    title: String?,
     footer: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column {
-        SectionHeader(title = title)
+        title?.let { SectionHeader(title = it) }
         GroupedCard(content = content)
         footer?.let {
             Text(
