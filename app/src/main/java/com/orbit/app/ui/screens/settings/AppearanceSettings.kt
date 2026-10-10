@@ -430,6 +430,13 @@ private fun AppearanceGlassSection(
     )
     AppearanceCard {
         SettingsGroup(title = stringResource(R.string.settings_image_blur)) {
+            if (settings.customBackgroundUri == null) {
+                Text(
+                    text = stringResource(R.string.settings_blur_needs_image_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BackgroundBlur.entries.forEach { choice ->
                     FilterChip(

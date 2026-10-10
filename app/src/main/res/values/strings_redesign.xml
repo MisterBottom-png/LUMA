@@ -193,4 +193,11 @@
         <item quantity="one">%1$d thought. Tap it to sort it.</item>
         <item quantity="other">%1$d thoughts. Tap a row to sort it.</item>
     </plurals>
+    <string name="settings_last_export">Last export: %1$s</string>
+    <string name="settings_never_exported">No export made on this phone yet.</string>
+    <string name="settings_gemini_needed_hint">These turn on once Gemini is chosen, agreed to and has a key.</string>
+    <string name="settings_key_needed_hint">Add a key first to test the connection.</string>
+    <string name="settings_learning_needed_hint">Turn on learning above to share it.</string>
+    <string name="settings_reset_appearance_body">Theme, colors, background, glass and text color go back to how they started. Your items and other settings stay as they are.</string>
+    <string name="settings_blur_needs_image_hint">Blur applies to your own image.</string>
 </resources>

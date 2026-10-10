@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -120,6 +121,9 @@ internal fun SettingsHome(
             )
         }
 
+        // Reminders come first: whether they can reach you matters more than how things look.
+        RemindersGroup(settings = settings, onSettingsChanged = onSettingsChanged)
+
         SettingsGroupBlock(title = stringResource(R.string.settings_appearance_title)) {
             ControlBlock(icon = Icons.Filled.Contrast, title = stringResource(R.string.settings_theme)) {
                 ChoiceRow(
@@ -196,8 +200,6 @@ internal fun SettingsHome(
                 onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Glass)) },
             )
         }
-
-        RemindersGroup(settings = settings, onSettingsChanged = onSettingsChanged)
 
         SettingsGroupBlock(title = stringResource(R.string.settings_section_language_time)) {
             SettingsLinkRow(
@@ -284,11 +286,15 @@ internal fun SettingsHome(
         AlertDialog(
             onDismissRequest = { showResetConfirmation = false },
             title = { Text(stringResource(R.string.settings_reset_appearance)) },
+            text = { Text(stringResource(R.string.settings_reset_appearance_body)) },
             confirmButton = {
-                TextButton(onClick = {
-                    onSettingsChanged(settings.withDefaultAppearance())
-                    showResetConfirmation = false
-                }) { Text(stringResource(R.string.settings_reset_appearance)) }
+                TextButton(
+                    onClick = {
+                        onSettingsChanged(settings.withDefaultAppearance())
+                        showResetConfirmation = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.settings_reset_appearance)) }
             },
             dismissButton = {
                 TextButton(onClick = { showResetConfirmation = false }) {

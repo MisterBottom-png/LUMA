@@ -193,4 +193,11 @@
         <item quantity="one">%1$d mõte. Puuduta seda, et sorteerida.</item>
         <item quantity="other">%1$d mõtet. Puuduta rida, et seda sorteerida.</item>
     </plurals>
+    <string name="settings_last_export">Viimane eksport: %1$s</string>
+    <string name="settings_never_exported">Selles telefonis pole veel eksporti tehtud.</string>
+    <string name="settings_gemini_needed_hint">Need lülituvad sisse, kui Gemini on valitud, nõusolek antud ja võti lisatud.</string>
+    <string name="settings_key_needed_hint">Lisa esmalt võti, et ühendust testida.</string>
+    <string name="settings_learning_needed_hint">Lülita ülal õppimine sisse, et seda jagada.</string>
+    <string name="settings_reset_appearance_body">Teema, värvid, taust, klaas ja tekstivärv lähevad tagasi algseadetele. Sinu asjad ja muud sätted jäävad samaks.</string>
+    <string name="settings_blur_needs_image_hint">Hägusus kehtib sinu enda pildile.</string>
 </resources>

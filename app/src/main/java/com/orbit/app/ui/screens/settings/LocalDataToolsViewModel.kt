@@ -34,6 +34,8 @@ data class LocalDataToolsUiState(
     val restoreMessage: LocalDataToolsMessage? = null,
     val errorMessage: LocalDataToolsMessage? = null,
     val isRetryingReminderSetup: Boolean = false,
+    /** When this phone last made an export; null if never. */
+    val lastExportAt: Long? = null,
 ) {
     /** A restore finished but reminders could not all be set up on this phone. */
     val canRetryReminderSetup: Boolean
@@ -70,25 +72,38 @@ internal fun restoreFailureMessage(failure: Throwable): LocalDataToolsMessage =
         LocalDataToolsMessage.RestoreFailed
     }
 
+/** Which button a message belongs next to. */
+internal enum class LocalDataArea { Export, Restore, Reset }
+
+internal fun LocalDataToolsMessage.area(): LocalDataArea = when (this) {
+    LocalDataToolsMessage.ExportFailed, LocalDataToolsMessage.ExportUnverified -> LocalDataArea.Export
+    LocalDataToolsMessage.ResetCompleted, LocalDataToolsMessage.ResetFailed -> LocalDataArea.Reset
+    else -> LocalDataArea.Restore
+}
+
 class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel() {
-    private val _uiState = MutableStateFlow(LocalDataToolsUiState())
+    private val _uiState = MutableStateFlow(LocalDataToolsUiState(lastExportAt = container.lastExportMemory.lastExportAt()))
     val uiState: StateFlow<LocalDataToolsUiState> = _uiState.asStateFlow()
 
     fun exportJson(destination: Uri?) {
         if (destination == null) return
         if (_uiState.value.isExporting) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isExporting = true, errorMessage = null) }
+            // A new action clears the last one's messages.
+            _uiState.update { it.copy(isExporting = true, errorMessage = null, restoreMessage = null, exportCompleted = false) }
             runCatching {
                 withContext(Dispatchers.IO) {
                     container.localDataExporter.exportJson(destination)
                 }
             }
                 .onSuccess {
-                    _uiState.value = LocalDataToolsUiState(exportCompleted = true)
+                    val at = System.currentTimeMillis()
+                    container.lastExportMemory.recordExport(at)
+                    _uiState.value = LocalDataToolsUiState(exportCompleted = true, lastExportAt = at)
                 }
                 .onFailure { failure ->
                     _uiState.value = LocalDataToolsUiState(
+                        lastExportAt = container.lastExportMemory.lastExportAt(),
                         errorMessage = if (failure is LocalDataExportVerificationException) {
                             LocalDataToolsMessage.ExportUnverified
                         } else {
@@ -103,7 +118,7 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
         if (uri == null || _uiState.value.isPreparingRestore || _uiState.value.isRestoring) return
         viewModelScope.launch {
             _uiState.update {
-                it.copy(isPreparingRestore = true, restorePlan = null, errorMessage = null)
+                it.copy(isPreparingRestore = true, restorePlan = null, errorMessage = null, restoreMessage = null, exportCompleted = false)
             }
             runCatching {
                 withContext(Dispatchers.IO) {
@@ -167,7 +182,7 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
     fun resetAllData() {
         if (_uiState.value.isRestoring || _uiState.value.isResetting) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isResetting = true, errorMessage = null) }
+            _uiState.update { it.copy(isResetting = true, errorMessage = null, restoreMessage = null, exportCompleted = false) }
             runCatching {
                 withContext(Dispatchers.IO) {
                     // Cancel every scheduled notification first so none can fire

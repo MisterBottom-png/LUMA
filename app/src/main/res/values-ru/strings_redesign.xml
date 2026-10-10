@@ -207,4 +207,11 @@
         <item quantity="many">%1$d мыслей. Нажмите на строку, чтобы разобрать.</item>
         <item quantity="other">%1$d мысли. Нажмите на строку, чтобы разобрать.</item>
     </plurals>
+    <string name="settings_last_export">Последний экспорт: %1$s</string>
+    <string name="settings_never_exported">На этом телефоне ещё не было экспорта.</string>
+    <string name="settings_gemini_needed_hint">Они включатся, когда выбран Gemini, дано согласие и добавлен ключ.</string>
+    <string name="settings_key_needed_hint">Сначала добавьте ключ, чтобы проверить подключение.</string>
+    <string name="settings_learning_needed_hint">Включите обучение выше, чтобы делиться им.</string>
+    <string name="settings_reset_appearance_body">Тема, цвета, фон, стекло и цвет текста вернутся к исходным. Ваши записи и другие настройки останутся прежними.</string>
+    <string name="settings_blur_needs_image_hint">Размытие применяется к вашему изображению.</string>
 </resources>

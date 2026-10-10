@@ -221,6 +221,11 @@ class OrbitContainer(application: Application) {
         com.orbit.app.data.local.SharedPreferencesArchivedTaskStatusMemory(applicationContext)
     }
 
+    /** When this phone last made an export. */
+    val lastExportMemory: com.orbit.app.data.local.LastExportMemory by lazy {
+        com.orbit.app.data.local.SharedPreferencesLastExportMemory(applicationContext)
+    }
+
     /** Hands a type change's Undo to the screen that shows the new type. */
     val pendingTypeChanges = com.orbit.app.ui.screens.item.PendingTypeChanges()
 
