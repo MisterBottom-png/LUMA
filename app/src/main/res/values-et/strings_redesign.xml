@@ -200,4 +200,7 @@
     <string name="settings_learning_needed_hint">Lülita ülal õppimine sisse, et seda jagada.</string>
     <string name="settings_reset_appearance_body">Teema, värvid, taust, klaas ja tekstivärv lähevad tagasi algseadetele. Sinu asjad ja muud sätted jäävad samaks.</string>
     <string name="settings_blur_needs_image_hint">Hägusus kehtib sinu enda pildile.</string>
+    <string name="tutorial_done">Valmis</string>
+    <string name="tutorial_spaces_picked">Valitud: %1$s</string>
+    <string name="tutorial_spaces_none_picked">Midagi pole veel valitud. Ruume saad lisada igal ajal.</string>
 </resources>

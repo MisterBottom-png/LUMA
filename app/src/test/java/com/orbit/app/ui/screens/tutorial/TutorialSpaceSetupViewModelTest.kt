@@ -90,3 +90,12 @@ class TutorialSpaceSetupViewModelTest {
         }
     }
 }
+
+class TutorialPrimaryLabelTest {
+    @Test
+    fun replayingTheGuideEndsWithDone() {
+        org.junit.Assert.assertEquals(com.orbit.app.R.string.tutorial_done, tutorialPrimaryLabel(isLastPage = true, isReplay = true))
+        org.junit.Assert.assertEquals(com.orbit.app.R.string.tutorial_start, tutorialPrimaryLabel(isLastPage = true, isReplay = false))
+        org.junit.Assert.assertEquals(com.orbit.app.R.string.tutorial_continue, tutorialPrimaryLabel(isLastPage = false, isReplay = true))
+    }
+}

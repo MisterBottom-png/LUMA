@@ -214,4 +214,7 @@
     <string name="settings_learning_needed_hint">Включите обучение выше, чтобы делиться им.</string>
     <string name="settings_reset_appearance_body">Тема, цвета, фон, стекло и цвет текста вернутся к исходным. Ваши записи и другие настройки останутся прежними.</string>
     <string name="settings_blur_needs_image_hint">Размытие применяется к вашему изображению.</string>
+    <string name="tutorial_done">Готово</string>
+    <string name="tutorial_spaces_picked">Выбрано: %1$s</string>
+    <string name="tutorial_spaces_none_picked">Пока ничего не выбрано. Пространства можно добавить в любое время.</string>
 </resources>

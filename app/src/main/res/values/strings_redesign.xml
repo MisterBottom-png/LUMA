@@ -200,4 +200,7 @@
     <string name="settings_learning_needed_hint">Turn on learning above to share it.</string>
     <string name="settings_reset_appearance_body">Theme, colors, background, glass and text color go back to how they started. Your items and other settings stay as they are.</string>
     <string name="settings_blur_needs_image_hint">Blur applies to your own image.</string>
+    <string name="tutorial_done">Done</string>
+    <string name="tutorial_spaces_picked">Picked: %1$s</string>
+    <string name="tutorial_spaces_none_picked">None picked yet. You can add Spaces any time.</string>
 </resources>
