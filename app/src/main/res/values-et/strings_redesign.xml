@@ -129,7 +129,6 @@
     <string name="analysis_confidence_high">kõrge</string>
     <string name="analysis_confidence_medium">keskmine</string>
     <string name="analysis_confidence_low">madal</string>
-    <string name="spaces_card_next">Järgmine: %1$s · %2$s</string>
     <plurals name="spaces_to_sort_waiting">
         <item quantity="one">%1$d mõte ootab ülevaates</item>
         <item quantity="other">%1$d mõtet ootab ülevaates</item>

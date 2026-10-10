@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for the 2026-10 redesign of Spaces, Calendar, Review and Settings. -->
+<resources>
+    <string name="spaces_section_yours">Sinu ruumid</string>
+    <string name="spaces_new_space">Uus ruum</string>
+    <string name="spaces_next_earlier">Varasem · %1$s</string>
+    <string name="spaces_next_line">%1$s · %2$s</string>
+    <string name="spaces_nothing_yet">Siin pole veel midagi</string>
+    <string name="spaces_section_earlier">Varasemast</string>
+    <string name="spaces_section_no_date">Kuupäevata</string>
+    <string name="spaces_section_notes">Märkmed</string>
+    <string name="spaces_done_show">%1$d tehtud · Näita</string>
+    <string name="spaces_done_hide">Peida tehtud</string>
+    <string name="spaces_detail_open_count">%1$d avatud</string>
+    <string name="spaces_mark_done">Märgi „%1$s“ tehtuks</string>
+    <string name="spaces_mark_not_done">Märgi „%1$s“ tegemata</string>
+    <plurals name="spaces_detail_note_count"><item quantity="one">%1$d märge</item><item quantity="other">%1$d märget</item></plurals>
+</resources>

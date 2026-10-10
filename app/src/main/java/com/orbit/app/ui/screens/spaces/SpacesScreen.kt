@@ -1,6 +1,24 @@
 package com.orbit.app.ui.screens.spaces
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.NotificationsNone
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.unit.sp
+import com.orbit.app.ui.components.GroupDivider
+import com.orbit.app.ui.components.GroupedCard
+import com.orbit.app.ui.components.GroupedListShape
+import com.orbit.app.ui.components.SectionHeader
+import com.orbit.app.ui.components.TintedIconChip
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -32,7 +50,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
@@ -40,16 +57,12 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lightbulb
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Person
@@ -57,12 +70,10 @@ import androidx.compose.material.icons.rounded.Pets
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,11 +84,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -107,7 +118,6 @@ import com.orbit.app.ui.components.calmPressHaptics
 import com.orbit.app.ui.components.orbitScrollEdgeFade
 import com.orbit.app.ui.localization.localizedSpaceName
 import com.orbit.app.ui.time.OrbitTimeFormat
-import com.orbit.app.ui.theme.OrbitShapes
 import com.orbit.app.ui.theme.OrbitSpacing
 import com.orbit.app.ui.theme.OrbitMotion
 
@@ -136,17 +146,6 @@ private val accentChoices = listOf(
     "#E0A84F",
 )
 
-internal data class SpaceFeedItem(
-    val reference: SpaceItemReference,
-    val icon: ImageVector,
-    val title: String,
-    val subtitle: String,
-    val timestamp: Long,
-    val sortTimestamp: Long = timestamp,
-)
-
-internal enum class SpaceFeedOrder { RecentFirst, TargetSoonest }
-
 private data class SpaceDetailTarget(
     val space: SpaceEntity?,
     val isUnfiled: Boolean,
@@ -172,6 +171,8 @@ fun SpacesScreen(
     onOpenSearch: () -> Unit,
     onItemSelected: (SpaceItemReference) -> Unit,
     onOpenToSort: () -> Unit = {},
+    onOpenToday: () -> Unit = {},
+    onToggleDone: (SpaceItemReference) -> Unit = {},
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
     var editingSpace by remember { mutableStateOf<SpaceEntity?>(null) }
@@ -210,6 +211,7 @@ fun SpacesScreen(
                 uiState = uiState,
                 timeFormat = timeFormat,
                 onOpenToSort = onOpenToSort,
+                onOpenToday = onOpenToday,
                 onCreate = { showCreateDialog = true },
                 onSelect = { onSpaceSelected(it.id) },
                 onSelectUnfiled = onUnfiledSelected,
@@ -227,6 +229,7 @@ fun SpacesScreen(
                 timeFormat = timeFormat,
                 onBack = { onSpaceSelected(null) },
                 onMoveItem = { itemToMove = it },
+                onToggleDone = onToggleDone,
                 onUndoMove = onUndoMove,
                 hasUndoMove = uiState.moveUndo != null,
                 hasMoveFailure = uiState.moveFailure != null,
@@ -284,6 +287,7 @@ private fun SpacesOverview(
     uiState: SpacesUiState,
     timeFormat: OrbitTimeFormat,
     onOpenToSort: () -> Unit,
+    onOpenToday: () -> Unit,
     onCreate: () -> Unit,
     onSelect: (SpaceEntity) -> Unit,
     onSelectUnfiled: () -> Unit,
@@ -304,9 +308,10 @@ private fun SpacesOverview(
     }
     var headerHeightPx by remember { mutableIntStateOf(0) }
     val measuredHeaderClearance = with(LocalDensity.current) {
-        headerHeightPx.toDp() + 20.dp
+        headerHeightPx.toDp() + 16.dp
     }
-    val headerClearance = maxOf(statusTopPadding + 128.dp, measuredHeaderClearance)
+    val headerClearance = maxOf(statusTopPadding + 84.dp, measuredHeaderClearance)
+    val now = remember(uiState) { System.currentTimeMillis() }
     Box(modifier = Modifier.fillMaxSize()) {
         androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier
@@ -316,99 +321,87 @@ private fun SpacesOverview(
                     bottom = OrbitBottomNavigationDefaults.ContentClearance,
                 ),
             contentPadding = PaddingValues(
-                start = 24.dp,
+                start = 20.dp,
                 top = headerClearance,
-                end = 24.dp,
+                end = 20.dp,
                 bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (uiState.toSortCount > 0) {
-                item(key = "to_sort") {
-                    ToSortEntryCard(count = uiState.toSortCount, onClick = onOpenToSort)
+            item(key = "tiles") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CountTile(
+                        icon = Icons.Rounded.Inbox,
+                        color = MaterialTheme.colorScheme.primary,
+                        count = uiState.toSortCount,
+                        label = stringResource(R.string.review_to_sort_title),
+                        onClick = onOpenToSort,
+                        modifier = Modifier.weight(1f),
+                    )
+                    CountTile(
+                        icon = Icons.Rounded.WbSunny,
+                        color = TodayTileColor,
+                        count = uiState.todayCount,
+                        label = stringResource(R.string.core_today),
+                        onClick = onOpenToday,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
-            if (visible.isEmpty()) {
-                item {
-                    EmptySpacesCard(onCreate)
-                }
+            item(key = "yours_label") {
+                SectionHeader(
+                    title = stringResource(R.string.spaces_section_yours),
+                    modifier = Modifier.padding(top = 26.dp),
+                )
+            }
+            if (visible.isEmpty() && !uiState.hasUnfiledItems) {
+                item(key = "empty") { EmptySpacesCard(onCreate) }
             } else {
-                items(visible.size, key = { visible[it].id }) { index ->
-                    val space = visible[index]
-                    SpaceCard(
-                        space = space,
-                        itemCount = uiState.itemCounts[space.id] ?: 0,
-                        nextItem = uiState.nextItems[space.id],
-                        timeFormat = timeFormat,
-                        canMoveUp = index > 0,
-                        canMoveDown = index < visible.lastIndex,
-                        onClick = { onSelect(space) },
-                        onEdit = { onEdit(space) },
-                        onHide = { onHide(space.id) },
-                        onArchive = { onArchive(space.id) },
-                        onMoveUp = { onMove(space.id, -1) },
-                        onMoveDown = { onMove(space.id, 1) },
-                        modifier = Modifier.animateItem(
-                            fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                            placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                            fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                        ),
-                    )
+                item(key = "spaces") {
+                    GroupedCard {
+                        visible.forEachIndexed { index, space ->
+                            if (index > 0) GroupDivider(startInset = 64.dp)
+                            SpaceRow(
+                                space = space,
+                                openCount = uiState.openCounts[space.id] ?: 0,
+                                itemCount = uiState.itemCounts[space.id] ?: 0,
+                                nextItem = uiState.nextItems[space.id],
+                                now = now,
+                                timeFormat = timeFormat,
+                                canMoveUp = index > 0,
+                                canMoveDown = index < visible.lastIndex,
+                                onClick = { onSelect(space) },
+                                onEdit = { onEdit(space) },
+                                onHide = { onHide(space.id) },
+                                onArchive = { onArchive(space.id) },
+                                onMoveUp = { onMove(space.id, -1) },
+                                onMoveDown = { onMove(space.id, 1) },
+                            )
+                        }
+                        if (uiState.hasUnfiledItems) {
+                            if (visible.isNotEmpty()) GroupDivider(startInset = 64.dp)
+                            UnfiledRow(onClick = onSelectUnfiled)
+                        }
+                    }
                 }
             }
-
-            if (uiState.hasUnfiledItems) {
-                item(key = "unfiled") {
-                    UnfiledCard(
-                        onClick = onSelectUnfiled,
-                        modifier = Modifier.animateItem(
-                            fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                            placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                            fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                        ),
-                    )
+            item(key = "new_space") {
+                TextButton(
+                    onClick = onCreate,
+                    modifier = Modifier.padding(top = 6.dp).heightIn(min = 48.dp),
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.spaces_new_space), style = MaterialTheme.typography.labelLarge)
                 }
             }
-
-            if (uiState.archivedSpaces.isNotEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.core_spaces_archived),
-                        modifier = Modifier.padding(top = 20.dp, bottom = 2.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                items(
-                    uiState.archivedSpaces.size,
-                    key = { "inactive_${uiState.archivedSpaces[it].id}" },
-                ) { index ->
-                    InactiveSpaceRow(
-                        space = uiState.archivedSpaces[index],
-                        onRestore = onRestore,
-                        modifier = Modifier.animateItem(
-                            fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                            placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                            fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                        ),
-                    )
-                }
-            }
-
-            if (uiState.hiddenSpaces.isNotEmpty()) {
-                item(key = "hidden_disclosure") {
-                    HiddenSpacesDisclosure(
-                        count = uiState.hiddenSpaces.size,
+            val inactive = uiState.archivedSpaces + uiState.hiddenSpaces
+            if (inactive.isNotEmpty()) {
+                item(key = "inactive") {
+                    InactiveSpacesSection(
+                        spaces = inactive,
                         expanded = hiddenExpanded,
                         onToggle = { hiddenExpanded = !hiddenExpanded },
-                        spaces = uiState.hiddenSpaces,
                         onRestore = onRestore,
-                        modifier = Modifier.animateItem(
-                            fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                            placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                            fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                        ),
                     )
                 }
             }
@@ -418,72 +411,79 @@ private fun SpacesOverview(
             modifier = Modifier
                 .fillMaxWidth()
                 .onSizeChanged { headerHeightPx = it.height }
-                .padding(start = 24.dp, top = statusTopPadding + 26.dp, end = 24.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(start = 20.dp, top = statusTopPadding + 20.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.core_spaces_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground,
+            Text(
+                text = stringResource(R.string.core_spaces_title),
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() },
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            IconButton(onClick = onOpenSearch) {
+                Icon(
+                    Icons.Rounded.Search,
+                    contentDescription = stringResource(R.string.core_search),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(
-                    text = stringResource(R.string.core_spaces_subtitle),
-                    modifier = Modifier.padding(top = 5.dp),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilledTonalIconButton(onClick = onOpenSearch) {
-                    Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.core_search))
-                }
-                FilledTonalIconButton(onClick = onCreate) {
-                    Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.core_spaces_create))
-                }
             }
         }
     }
 }
 
-/** Unsorted thoughts are not in any Space yet; this points to where they wait. */
+/** Amber for the Today tile: the only warm colour on the screen, so "today" is found at a glance. */
+private val TodayTileColor = Color(0xFFC98A1B)
+
+/** A fixed bucket above the list: an icon, a large count and a name. */
 @Composable
-private fun ToSortEntryCard(count: Int, onClick: () -> Unit) {
+private fun CountTile(
+    icon: ImageVector,
+    color: Color,
+    count: Int,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     SoftGlassSurface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        style = GlassSurfaceStyle.Prominent,
+        modifier = modifier,
+        shape = GroupedListShape,
+        style = GlassSurfaceStyle.Standard,
     ) {
-        Column(
-            modifier = Modifier
-                .heightIn(min = 56.dp)
-                .padding(horizontal = 18.dp, vertical = 14.dp),
-        ) {
+        Column(modifier = Modifier.padding(start = 14.dp, top = 14.dp, end = 16.dp, bottom = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TintedIconChip(icon = icon, color = color, size = 34.dp)
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontSize = 26.sp,
+                        lineHeight = 30.sp,
+                        fontFeatureSettings = "tnum",
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
             Text(
-                text = stringResource(R.string.review_to_sort_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                text = label,
+                modifier = Modifier.padding(top = 14.dp),
+                style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = pluralStringResource(R.plurals.spaces_to_sort_waiting, count, count),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SpaceCard(
+private fun SpaceRow(
     space: SpaceEntity,
+    openCount: Int,
     itemCount: Int,
     nextItem: SpaceNextItem?,
+    now: Long,
     timeFormat: OrbitTimeFormat,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
@@ -493,226 +493,157 @@ private fun SpaceCard(
     onArchive: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    SoftGlassSurface(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-    ) {
+    val optionsLabel = stringResource(R.string.core_spaces_options)
+    val subtitle = when {
+        nextItem != null && nextItem.isEarlier -> stringResource(R.string.spaces_next_earlier, nextItem.title)
+        nextItem != null -> stringResource(
+            R.string.spaces_next_line,
+            whenLabel(nextItem.at, nextItem.hasTime, now, timeFormat),
+            nextItem.title,
+        )
+        itemCount > 0 -> pluralStringResource(R.plurals.core_spaces_item_count, itemCount, itemCount)
+        else -> stringResource(R.string.spaces_nothing_yet)
+    }
+    Box {
         Row(
-            modifier = Modifier.padding(start = 16.dp, top = 15.dp, bottom = 15.dp, end = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = { menuExpanded = true },
+                    onLongClickLabel = optionsLabel,
+                )
+                .heightIn(min = 64.dp)
+                .padding(start = 14.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SpaceIcon(space, modifier = Modifier.size(48.dp))
+            SpaceIcon(space)
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 14.dp),
+                    .padding(start = 14.dp, end = 8.dp),
             ) {
                 Text(
                     text = localizedSpaceName(space.name),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 22.sp),
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = pluralStringResource(R.plurals.core_spaces_item_count, itemCount, itemCount),
+                    text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                nextItem?.let { next ->
-                    Text(
-                        text = stringResource(
-                            R.string.spaces_card_next,
-                            next.title,
-                            if (next.hasTime) timeFormat.formatWeekdayDateTime(next.at) else timeFormat.formatDate(next.at),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
-            Box {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(
-                        Icons.Rounded.MoreVert,
-                        contentDescription = stringResource(R.string.core_spaces_options),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                    modifier = Modifier.calmPressHaptics(),
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.core_edit)) },
-                        leadingIcon = { Icon(space.icon.asImageVector(), contentDescription = null) },
-                        onClick = { menuExpanded = false; onEdit() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.core_spaces_move_up)) },
-                        leadingIcon = { Icon(Icons.Rounded.ArrowUpward, contentDescription = null) },
-                        enabled = canMoveUp,
-                        onClick = { menuExpanded = false; onMoveUp() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.core_spaces_move_down)) },
-                        leadingIcon = { Icon(Icons.Rounded.ArrowDownward, contentDescription = null) },
-                        enabled = canMoveDown,
-                        onClick = { menuExpanded = false; onMoveDown() },
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.core_hide)) },
-                        leadingIcon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
-                        onClick = { menuExpanded = false; onHide() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.core_archive)) },
-                        leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
-                        onClick = { menuExpanded = false; onArchive() },
-                    )
-                }
+            if (openCount > 0) {
+                Text(
+                    text = openCount.toString(),
+                    modifier = Modifier.padding(end = 4.dp),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
+            RowChevron()
         }
-    }
-}
-
-@Composable
-private fun UnfiledCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SoftGlassSurface(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
         ) {
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Rounded.Folder,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            Text(
-                text = stringResource(R.string.core_spaces_unfiled),
-                modifier = Modifier.padding(start = 14.dp),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.core_edit)) },
+                leadingIcon = { Icon(space.icon.asImageVector(), contentDescription = null) },
+                onClick = { menuExpanded = false; onEdit() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.core_spaces_move_up)) },
+                leadingIcon = { Icon(Icons.Rounded.ArrowUpward, contentDescription = null) },
+                enabled = canMoveUp,
+                onClick = { menuExpanded = false; onMoveUp() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.core_spaces_move_down)) },
+                leadingIcon = { Icon(Icons.Rounded.ArrowDownward, contentDescription = null) },
+                enabled = canMoveDown,
+                onClick = { menuExpanded = false; onMoveDown() },
+            )
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.core_hide)) },
+                leadingIcon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
+                onClick = { menuExpanded = false; onHide() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.core_archive)) },
+                leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
+                onClick = { menuExpanded = false; onArchive() },
             )
         }
     }
 }
 
 @Composable
-private fun InactiveSpaceRow(
-    space: SpaceEntity,
-    onRestore: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SoftGlassSurface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SpaceIcon(space, modifier = Modifier.size(38.dp))
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp),
-            ) {
-                Text(
-                    text = localizedSpaceName(space.name),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(
-                        if (space.archived) R.string.core_spaces_archived else R.string.core_spaces_hidden,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            TextButton(onClick = { onRestore(space.id) }) { Text(stringResource(R.string.core_restore)) }
-        }
-    }
+private fun RowChevron() {
+    Icon(
+        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        modifier = Modifier.size(20.dp),
+    )
 }
 
 @Composable
-private fun HiddenSpacesDisclosure(
-    count: Int,
+private fun UnfiledRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = 64.dp)
+            .padding(start = 14.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TintedIconChip(icon = Icons.Rounded.Folder, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = stringResource(R.string.core_spaces_unfiled),
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 14.dp, end = 8.dp),
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 22.sp),
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        RowChevron()
+    }
+}
+
+/** Hidden and archived Spaces, folded behind one quiet line. */
+@Composable
+private fun InactiveSpacesSection(
+    spaces: List<SpaceEntity>,
     expanded: Boolean,
     onToggle: () -> Unit,
-    spaces: List<SpaceEntity>,
     onRestore: (Long) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        // Disclosure toggle row
-        SoftGlassSurface(
+    Column(modifier = Modifier.fillMaxWidth()) {
+        TextButton(
             onClick = onToggle,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = if (expanded) 0.dp else 20.dp),
-            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.heightIn(min = 48.dp),
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    text = if (expanded) {
-                        stringResource(R.string.core_spaces_hide_hidden)
-                    } else {
-                        pluralStringResource(R.plurals.core_spaces_hidden_count, count, count)
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
-                    contentDescription = stringResource(
-                        if (expanded) R.string.core_collapse else R.string.core_expand,
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
+            Text(
+                text = if (expanded) {
+                    stringResource(R.string.core_spaces_hide_hidden)
+                } else {
+                    pluralStringResource(R.plurals.core_spaces_hidden_count, spaces.size, spaces.size)
+                },
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-
-        // Expandable list of hidden spaces
         AnimatedVisibility(
             visible = expanded,
             enter = fadeIn(tween(OrbitMotion.StandardDurationMillis)) +
@@ -720,17 +651,37 @@ private fun HiddenSpacesDisclosure(
             exit = fadeOut(tween(OrbitMotion.QuickDurationMillis)) +
                 shrinkVertically(tween(OrbitMotion.StandardDurationMillis)),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                spaces.forEach { space ->
-                    InactiveSpaceRow(
-                        space = space,
-                        onRestore = onRestore,
-                    )
+            GroupedCard {
+                spaces.forEachIndexed { index, space ->
+                    if (index > 0) GroupDivider(startInset = 64.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 60.dp)
+                            .padding(start = 14.dp, end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SpaceIcon(space)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 14.dp),
+                        ) {
+                            Text(
+                                text = localizedSpaceName(space.name),
+                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 22.sp),
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = stringResource(
+                                    if (space.archived) R.string.core_spaces_archived else R.string.core_spaces_hidden,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        TextButton(onClick = { onRestore(space.id) }) { Text(stringResource(R.string.core_restore)) }
+                    }
                 }
             }
         }
@@ -739,10 +690,7 @@ private fun HiddenSpacesDisclosure(
 
 @Composable
 private fun EmptySpacesCard(onCreate: () -> Unit) {
-    SoftGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-    ) {
+    GroupedCard {
         Column(
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -755,11 +703,33 @@ private fun EmptySpacesCard(onCreate: () -> Unit) {
             Text(
                 text = stringResource(R.string.core_spaces_none_visible_subtitle),
                 modifier = Modifier.padding(top = 6.dp, bottom = 14.dp),
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Button(onClick = onCreate) { Text(stringResource(R.string.core_spaces_create)) }
         }
     }
+}
+
+/**
+ * When something is due, said the short way: "Today 11:00", "Tomorrow", "Tue 09:00",
+ * or a date further out. The time comes first so it never gets cut off.
+ */
+@Composable
+internal fun whenLabel(at: Long, hasTime: Boolean, now: Long, timeFormat: OrbitTimeFormat): String {
+    val zone = java.time.ZoneId.systemDefault()
+    val locale = LocalConfiguration.current.locales[0]
+    val day = java.time.Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
+    val today = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val time = if (hasTime) timeFormat.formatTime(at) else null
+    val dayText = when {
+        day == today -> stringResource(R.string.core_today)
+        day == today.plusDays(1) -> stringResource(R.string.core_tomorrow)
+        day.isAfter(today) && day.isBefore(today.plusDays(7)) ->
+            day.format(java.time.format.DateTimeFormatter.ofPattern("EEE", locale))
+        else -> timeFormat.formatDate(at)
+    }
+    return if (time != null) "$dayText $time" else dayText
 }
 
 @Composable
@@ -769,24 +739,19 @@ private fun SpaceDetail(
     timeFormat: OrbitTimeFormat,
     onBack: () -> Unit,
     onMoveItem: (SpaceItemReference) -> Unit,
+    onToggleDone: (SpaceItemReference) -> Unit,
     onUndoMove: () -> Unit,
     hasUndoMove: Boolean,
     hasMoveFailure: Boolean,
     onRetryMove: () -> Unit,
     onItemSelected: (SpaceItemReference) -> Unit,
 ) {
-    val feedPresentation = SpaceFeedPresentation(
-        note = stringResource(R.string.core_spaces_feed_note),
-        untitledNote = stringResource(R.string.core_untitled_note),
-        task = stringResource(R.string.core_spaces_feed_task),
-        taskDone = stringResource(R.string.core_spaces_feed_task_done),
-        archived = stringResource(R.string.core_spaces_feed_archived),
-        waitingFor = stringResource(R.string.core_spaces_feed_waiting_for),
-        someday = stringResource(R.string.core_spaces_feed_someday),
-        reminder = stringResource(R.string.core_spaces_feed_reminder, "%s"),
-        subtitle = stringResource(R.string.core_spaces_feed_subtitle, "%1\$s", "%2\$s"),
-    )
-    val sections = remember(contents) { contents.sectioned(System.currentTimeMillis()) }
+    // Items ticked on this visit stay where they were (shown as done), so the list does not
+    // jump under the finger; they move to "done" the next time the Space opens.
+    val keepInPlace = remember { mutableStateListOf<SpaceItemReference>() }
+    var showDone by rememberSaveable { mutableStateOf(false) }
+    val now = remember(contents) { System.currentTimeMillis() }
+    val agenda = remember(contents, keepInPlace.toList()) { contents.agenda(now, keepInPlace = keepInPlace.toSet()) }
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
@@ -795,9 +760,13 @@ private fun SpaceDetail(
     }
     var headerHeightPx by remember { mutableIntStateOf(0) }
     val measuredHeaderClearance = with(LocalDensity.current) {
-        headerHeightPx.toDp() + 20.dp
+        headerHeightPx.toDp() + 8.dp
     }
-    val headerClearance = maxOf(statusTopPadding + 152.dp, measuredHeaderClearance)
+    val headerClearance = maxOf(statusTopPadding + 140.dp, measuredHeaderClearance)
+    val toggle: (SpaceItemReference) -> Unit = { reference ->
+        if (reference !in keepInPlace) keepInPlace.add(reference)
+        onToggleDone(reference)
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         androidx.compose.foundation.lazy.LazyColumn(
@@ -808,111 +777,129 @@ private fun SpaceDetail(
                     bottom = OrbitBottomNavigationDefaults.ContentClearance,
                 ),
             contentPadding = PaddingValues(
-                start = 24.dp,
+                start = 20.dp,
                 top = headerClearance,
-                end = 24.dp,
+                end = 20.dp,
                 bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
             ),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-
-        if (contents.size == 0) {
-            item {
-                SoftGlassSurface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                ) {
-                    Column(modifier = Modifier.padding(24.dp)) {
+            if (contents.size == 0) {
+                item(key = "quiet") {
+                    GroupedCard {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                text = stringResource(R.string.core_spaces_quiet_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = stringResource(R.string.core_spaces_quiet_subtitle),
+                                modifier = Modifier.padding(top = 6.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+            if (hasUndoMove || hasMoveFailure) {
+                item(key = "move_feedback") {
+                    TextButton(
+                        onClick = if (hasMoveFailure) onRetryMove else onUndoMove,
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .semantics { liveRegion = LiveRegionMode.Polite },
+                    ) {
                         Text(
-                            text = stringResource(R.string.core_spaces_quiet_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            stringResource(if (hasMoveFailure) R.string.core_spaces_move_retry else R.string.core_spaces_undo_move),
+                            style = MaterialTheme.typography.labelLarge,
                         )
+                    }
+                }
+            }
+            val sections = listOf(
+                R.string.core_today to agenda.today,
+                R.string.spaces_section_earlier to agenda.earlier,
+                R.string.core_spaces_upcoming to agenda.upcoming,
+                R.string.spaces_section_no_date to agenda.noDate,
+            )
+            sections.forEachIndexed { sectionIndex, (heading, rows) ->
+                if (rows.isEmpty()) return@forEachIndexed
+                item(key = "section_$sectionIndex") {
+                    Column(modifier = Modifier.padding(bottom = 20.dp)) {
+                        SectionHeader(title = stringResource(heading))
+                        GroupedCard {
+                            rows.forEachIndexed { index, row ->
+                                if (index > 0) GroupDivider(startInset = 56.dp)
+                                AgendaRow(
+                                    item = row,
+                                    trailing = agendaTrailing(row, sectionIndex, now, timeFormat),
+                                    onOpen = { onItemSelected(row.reference) },
+                                    onToggle = { toggle(row.reference) },
+                                    onMove = { onMoveItem(row.reference) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (agenda.notes.isNotEmpty()) {
+                item(key = "notes") {
+                    Column(modifier = Modifier.padding(bottom = 20.dp)) {
+                        SectionHeader(title = stringResource(R.string.spaces_section_notes))
+                        GroupedCard {
+                            agenda.notes.forEachIndexed { index, note ->
+                                if (index > 0) GroupDivider()
+                                NoteRow(
+                                    note = note,
+                                    onOpen = { onItemSelected(SpaceItemReference(SpaceItemType.Note, note.id)) },
+                                    onMove = { onMoveItem(SpaceItemReference(SpaceItemType.Note, note.id)) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (agenda.done.isNotEmpty()) {
+                item(key = "done_toggle") {
+                    TextButton(
+                        onClick = { showDone = !showDone },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
                         Text(
-                            text = stringResource(R.string.core_spaces_quiet_subtitle),
-                            modifier = Modifier.padding(top = 6.dp),
+                            text = if (showDone) {
+                                stringResource(R.string.spaces_done_hide)
+                            } else {
+                                stringResource(R.string.spaces_done_show, agenda.done.size)
+                            },
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+                if (showDone) {
+                    item(key = "done_list") {
+                        GroupedCard {
+                            agenda.done.forEachIndexed { index, row ->
+                                if (index > 0) GroupDivider(startInset = 56.dp)
+                                AgendaRow(
+                                    item = row,
+                                    trailing = null,
+                                    onOpen = { onItemSelected(row.reference) },
+                                    onToggle = { toggle(row.reference) },
+                                    onMove = { onMoveItem(row.reference) },
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        if (hasUndoMove) {
-            item(key = "space_move_undo") {
-                SoftGlassSurface(
-                    onClick = onUndoMove,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                ) {
-                    Text(
-                        text = stringResource(R.string.core_spaces_undo_move),
-                        modifier = Modifier.padding(OrbitSpacing.Medium),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-            }
-        }
-
-        if (hasMoveFailure) {
-            item(key = "space_move_failure") {
-                SoftGlassSurface(
-                    onClick = onRetryMove,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                ) {
-                    Text(
-                        text = stringResource(R.string.core_spaces_move_retry),
-                        modifier = Modifier.padding(OrbitSpacing.Medium),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-            }
-        }
-
-        val groupedFeeds = listOf(
-            R.string.core_spaces_needs_attention to sections.needsAttention.asFeedItems(
-                timeFormat,
-                feedPresentation,
-                SpaceFeedOrder.TargetSoonest,
-            ),
-            R.string.core_spaces_upcoming to sections.upcoming.asFeedItems(
-                timeFormat,
-                feedPresentation,
-                SpaceFeedOrder.TargetSoonest,
-            ),
-            R.string.core_spaces_recent_reference to sections.recentAndReference.asFeedItems(timeFormat, feedPresentation),
-        )
-        groupedFeeds.forEachIndexed { sectionIndex, (heading, sectionFeed) ->
-            if (sectionFeed.isEmpty()) return@forEachIndexed
-            item(key = "space_section_$sectionIndex") {
-                Text(
-                    text = stringResource(heading),
-                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            items(sectionFeed, key = { "${sectionIndex}_${it.reference.type}_${it.reference.id}" }) { item ->
-                SpaceFeedRow(
-                    item = item,
-                    onClick = { onItemSelected(item.reference) },
-                    onMove = { onMoveItem(item.reference) },
-                    modifier = Modifier.animateItem(
-                        fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                        placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                        fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                    ),
-                )
-            }
-        }
-        }
-
         Column(
             modifier = Modifier
                 .onSizeChanged { headerHeightPx = it.height }
-                .padding(start = 24.dp, top = statusTopPadding + 20.dp, end = 24.dp),
+                .padding(start = 8.dp, top = statusTopPadding + 12.dp, end = 20.dp),
         ) {
             IconButton(onClick = onBack) {
                 Icon(
@@ -922,198 +909,186 @@ private fun SpaceDetail(
                 )
             }
             Row(
-                modifier = Modifier.padding(top = 8.dp, bottom = 18.dp),
+                modifier = Modifier.padding(start = 12.dp, top = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (space != null) {
-                    SpaceIcon(space, modifier = Modifier.size(58.dp))
+                    SpaceIcon(space, size = 44.dp, iconSize = 24.dp)
                 } else {
-                    Surface(
-                        modifier = Modifier.size(58.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.Folder,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                    TintedIconChip(
+                        icon = Icons.Rounded.Folder,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        size = 44.dp,
+                        iconSize = 24.dp,
+                    )
                 }
-                Column(modifier = Modifier.padding(start = 16.dp)) {
+                Column(modifier = Modifier.padding(start = 14.dp)) {
                     Text(
                         text = if (space != null) {
                             localizedSpaceName(space.name)
                         } else {
                             stringResource(R.string.core_spaces_unfiled)
                         },
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
-            }
-        }
-    }
-}
-
-internal data class SpaceFeedPresentation(
-    val note: String = "Note",
-    val untitledNote: String = "Untitled note",
-    val task: String = "Task",
-    val taskDone: String = "Task · Done",
-    val archived: String = "Archived",
-    val waitingFor: String = "Waiting for",
-    val someday: String = "Someday",
-    val reminder: String = "Reminder · %s",
-    val subtitle: String = "%s · %s",
-)
-
-internal fun SpaceContents.asFeedItems(
-    timeFormat: OrbitTimeFormat,
-    presentation: SpaceFeedPresentation = SpaceFeedPresentation(),
-    order: SpaceFeedOrder = SpaceFeedOrder.RecentFirst,
-): List<SpaceFeedItem> {
-    val items = buildList {
-    notes.mapTo(this) { note ->
-        SpaceFeedItem(
-            reference = SpaceItemReference(SpaceItemType.Note, note.id),
-            icon = Icons.Rounded.Description,
-            title = note.title.ifBlank { presentation.untitledNote },
-            subtitle = presentation.note,
-            timestamp = note.updatedAt,
-        )
-    }
-    tasks.mapTo(this) { task ->
-        SpaceFeedItem(
-            reference = SpaceItemReference(SpaceItemType.Task, task.id),
-            icon = task.status.feedIcon(),
-            title = task.title,
-            subtitle = feedSubtitle(task.status.feedLabel(presentation), task.notes, presentation),
-            timestamp = task.updatedAt,
-            sortTimestamp = task.dueAt ?: task.scheduledDateEpochDay?.let { dateEpochDay ->
-                java.time.LocalDate.ofEpochDay(dateEpochDay)
-                    .atStartOfDay(java.time.ZoneId.systemDefault())
-                    .toInstant()
-                    .toEpochMilli()
-            } ?: task.updatedAt,
-        )
-    }
-    reminders.mapTo(this) { reminder ->
-        SpaceFeedItem(
-            reference = SpaceItemReference(SpaceItemType.Reminder, reminder.id),
-            icon = Icons.Rounded.Notifications,
-            title = reminder.title,
-            subtitle = feedSubtitle(
-                presentation.reminder.format(timeFormat.formatShortDateTime(reminder.dueAt)),
-                reminder.notes,
-                presentation,
-            ),
-            timestamp = reminder.dueAt,
-        )
-    }
-    }
-    return when (order) {
-        SpaceFeedOrder.RecentFirst -> items.sortedByDescending { it.timestamp }
-        SpaceFeedOrder.TargetSoonest -> items.sortedBy { it.sortTimestamp }
-    }
-}
-
-private fun feedSubtitle(
-    badge: String,
-    preview: String,
-    presentation: SpaceFeedPresentation,
-): String = if (preview.isBlank()) badge else presentation.subtitle.format(badge, preview)
-
-private fun com.orbit.app.data.local.entity.TaskStatus.feedLabel(
-    presentation: SpaceFeedPresentation,
-): String = when (this) {
-    com.orbit.app.data.local.entity.TaskStatus.Open -> presentation.task
-    com.orbit.app.data.local.entity.TaskStatus.Done -> presentation.taskDone
-    com.orbit.app.data.local.entity.TaskStatus.Archived -> presentation.archived
-    com.orbit.app.data.local.entity.TaskStatus.WaitingFor -> presentation.waitingFor
-    com.orbit.app.data.local.entity.TaskStatus.Someday -> presentation.someday
-}
-
-private fun com.orbit.app.data.local.entity.TaskStatus.feedIcon(): ImageVector = when (this) {
-    com.orbit.app.data.local.entity.TaskStatus.Done -> Icons.Rounded.CheckCircle
-    else -> Icons.Rounded.CheckBoxOutlineBlank
-}
-
-@Composable
-private fun SpaceItemRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String?,
-    onClick: () -> Unit,
-    onMove: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SoftGlassSurface(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 13.dp),
-            ) {
-                Text(
-                    text = title,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                subtitle?.let {
-                    Text(
-                        text = it,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    val openCount = agenda.today.size + agenda.earlier.size + agenda.upcoming.size + agenda.noDate.size -
+                        (agenda.today + agenda.earlier + agenda.upcoming + agenda.noDate).count { it.isDone }
+                    Text(
+                        text = listOfNotNull(
+                            stringResource(R.string.spaces_detail_open_count, openCount),
+                            agenda.notes.size.takeIf { it > 0 }?.let {
+                                pluralStringResource(R.plurals.spaces_detail_note_count, it, it)
+                            },
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            IconButton(onClick = onMove) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.DriveFileMove,
-                    contentDescription = stringResource(R.string.core_spaces_move_item),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
 
+/** Today shows the time; earlier shows the day it was due; upcoming shows when. */
 @Composable
-private fun SpaceFeedRow(
-    item: SpaceFeedItem,
-    onClick: () -> Unit,
+private fun agendaTrailing(item: SpaceAgendaItem, sectionIndex: Int, now: Long, timeFormat: OrbitTimeFormat): String? {
+    val at = item.at ?: return null
+    return when (sectionIndex) {
+        0 -> if (item.hasTime) timeFormat.formatTime(at) else stringResource(R.string.core_calendar_any_time)
+        1 -> timeFormat.formatDate(at)
+        else -> whenLabel(at, item.hasTime, now, timeFormat)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AgendaRow(
+    item: SpaceAgendaItem,
+    trailing: String?,
+    onOpen: () -> Unit,
+    onToggle: () -> Unit,
     onMove: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    SpaceItemRow(
-        icon = item.icon,
-        title = item.title,
-        subtitle = item.subtitle,
-        onClick = onClick,
-        onMove = onMove,
-        modifier = modifier,
-    )
+    var menuExpanded by remember { mutableStateOf(false) }
+    val moveLabel = stringResource(R.string.core_spaces_move_item)
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onOpen,
+                    onLongClick = { menuExpanded = true },
+                    onLongClickLabel = moveLabel,
+                )
+                .heightIn(min = 56.dp)
+                .padding(start = 4.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (item.isReminder && !item.isDone) {
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.NotificationsNone,
+                        contentDescription = stringResource(R.string.core_reminder),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            } else {
+                IconButton(onClick = onToggle) {
+                    Icon(
+                        imageVector = if (item.isDone) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                        contentDescription = stringResource(
+                            if (item.isDone) R.string.spaces_mark_not_done else R.string.spaces_mark_done,
+                            item.title,
+                        ),
+                        tint = if (item.isDone) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        },
+                    )
+                }
+            }
+            Text(
+                text = item.title,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 4.dp, end = 8.dp),
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 22.sp),
+                color = if (item.isDone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            trailing?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontFeatureSettings = "tnum"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        }
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(moveLabel) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.DriveFileMove, contentDescription = null) },
+                onClick = { menuExpanded = false; onMove() },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun NoteRow(
+    note: com.orbit.app.data.local.entity.NoteEntity,
+    onOpen: () -> Unit,
+    onMove: () -> Unit,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val moveLabel = stringResource(R.string.core_spaces_move_item)
+    Box {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onOpen,
+                    onLongClick = { menuExpanded = true },
+                    onLongClickLabel = moveLabel,
+                )
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Text(
+                text = note.title.ifBlank { stringResource(R.string.core_untitled_note) },
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 22.sp),
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (note.body.isNotBlank()) {
+                Text(
+                    text = note.body,
+                    modifier = Modifier.padding(top = 2.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(moveLabel) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.DriveFileMove, contentDescription = null) },
+                onClick = { menuExpanded = false; onMove() },
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -1361,21 +1336,19 @@ private fun MoveItemDialog(
 }
 
 @Composable
-private fun SpaceIcon(space: SpaceEntity, modifier: Modifier = Modifier) {
-    Surface(
+private fun SpaceIcon(
+    space: SpaceEntity,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 36.dp,
+    iconSize: androidx.compose.ui.unit.Dp = 20.dp,
+) {
+    TintedIconChip(
+        icon = space.icon.asImageVector(),
+        color = space.colorAccent.asColor(),
         modifier = modifier,
-        shape = CircleShape,
-        color = space.colorAccent.asColor().copy(alpha = 0.16f),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = space.icon.asImageVector(),
-                contentDescription = null,
-                tint = space.colorAccent.asColor(),
-                modifier = Modifier.size(24.dp),
-            )
-        }
-    }
+        size = size,
+        iconSize = iconSize,
+    )
 }
 
 private fun String.asImageVector(): ImageVector = when (this) {

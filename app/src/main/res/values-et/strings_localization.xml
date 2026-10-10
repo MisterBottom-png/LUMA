@@ -71,7 +71,6 @@
     <string name="core_capture_create_reminder">Loo meeldetuletus</string>
     <string name="core_capture_monday_item">Esmaspäeva üksus</string>
     <string name="core_spaces_title">Ruumid</string>
-    <string name="core_spaces_subtitle">Oma koht igale elu osale.</string>
     <string name="core_spaces_create">Loo ruum</string>
     <string name="core_spaces_edit">Muuda ruumi</string>
     <string name="core_spaces_options">Ruumi valikud</string>
@@ -85,9 +84,7 @@
     <string name="core_spaces_back">Tagasi ruumide juurde</string>
     <string name="core_spaces_quiet_title">See ruum on vaikne</string>
     <string name="core_spaces_quiet_subtitle">Siia salvestatud märkmed, ülesanded ja meeldetuletused kuvatakse koos.</string>
-    <string name="core_spaces_needs_attention">Vajab tähelepanu</string>
     <string name="core_spaces_upcoming">Tulekul</string>
-    <string name="core_spaces_recent_reference">Hiljutine ja viited</string>
     <string name="core_spaces_move_item">Liiguta üksus</string>
     <string name="core_spaces_move_to">Liiguta kohta</string>
     <string name="core_spaces_move_empty">Muud ruumi pole saadaval.</string>
@@ -143,14 +140,6 @@
     <string name="core_reminder_detail_delivery">Edastus</string>
     <string name="core_reminder_detail_disable_notification">Lülita teavitus välja</string>
     <string name="core_reminder_detail_enable_notification">Lülita teavitus sisse</string>
-    <string name="core_spaces_feed_note">Märge</string>
-    <string name="core_spaces_feed_task">Ülesanne</string>
-    <string name="core_spaces_feed_task_done">Ülesanne · tehtud</string>
-    <string name="core_spaces_feed_archived">Arhiveeritud</string>
-    <string name="core_spaces_feed_waiting_for">Ootel</string>
-    <string name="core_spaces_feed_someday">Kunagi hiljem</string>
-    <string name="core_spaces_feed_reminder">Meeldetuletus · %1$s</string>
-    <string name="core_spaces_feed_subtitle">%1$s · %2$s</string>
     <string name="core_item_detail_type_note">Märge</string>
     <string name="core_item_detail_type_task">Ülesanne</string>
     <string name="core_item_detail_type_reminder">Meeldetuletus</string>

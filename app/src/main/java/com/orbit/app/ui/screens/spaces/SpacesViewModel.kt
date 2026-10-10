@@ -27,35 +27,97 @@ data class SpaceContents(
     val size: Int get() = notes.size + tasks.size + reminders.size
 }
 
-data class SpaceContentSections(
-    val needsAttention: SpaceContents,
-    val upcoming: SpaceContents,
-    val recentAndReference: SpaceContents,
+/** One task or reminder in an opened Space. [at] is null for a task with no date. */
+internal data class SpaceAgendaItem(
+    val reference: SpaceItemReference,
+    val title: String,
+    val at: Long?,
+    val hasTime: Boolean,
+    val isReminder: Boolean,
+    val isDone: Boolean,
 )
 
-internal fun SpaceContents.sectioned(now: Long): SpaceContentSections {
-    val today = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-        .toEpochDay()
-    val attentionTasks = tasks.filter {
-        it.status == TaskStatus.Open &&
-            ((it.dueAt != null && it.dueAt < now) ||
-                (it.scheduledDateEpochDay != null && it.scheduledDateEpochDay <= today))
+internal data class SpaceAgenda(
+    val today: List<SpaceAgendaItem>,
+    val earlier: List<SpaceAgendaItem>,
+    val upcoming: List<SpaceAgendaItem>,
+    val noDate: List<SpaceAgendaItem>,
+    val notes: List<NoteEntity>,
+    val done: List<SpaceAgendaItem>,
+)
+
+/**
+ * Splits an opened Space by day: today, from earlier, upcoming, no date, notes, and done.
+ * Items in [keepInPlace] were ticked on this visit: they stay in their day section,
+ * shown as done, instead of jumping to "done" under the finger.
+ */
+internal fun SpaceContents.agenda(
+    now: Long,
+    zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    keepInPlace: Set<SpaceItemReference> = emptySet(),
+): SpaceAgenda {
+    val today = java.time.Instant.ofEpochMilli(now).atZone(zoneId).toLocalDate()
+    val todayStart = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
+    val tomorrowStart = today.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+    val todayRows = mutableListOf<SpaceAgendaItem>()
+    val earlierRows = mutableListOf<SpaceAgendaItem>()
+    val upcomingRows = mutableListOf<SpaceAgendaItem>()
+    val noDateRows = mutableListOf<Pair<Long, SpaceAgendaItem>>()
+    val doneRows = mutableListOf<Pair<Long, SpaceAgendaItem>>()
+
+    fun place(item: SpaceAgendaItem, finishedAt: Long?, updatedAt: Long) {
+        if (item.isDone && item.reference !in keepInPlace) {
+            doneRows += (finishedAt ?: updatedAt) to item
+            return
+        }
+        val at = item.at
+        when {
+            at == null -> noDateRows += updatedAt to item
+            at < todayStart -> earlierRows += item
+            at < tomorrowStart -> todayRows += item
+            else -> upcomingRows += item
+        }
     }
-    val attentionReminders = reminders.filter { it.completedAt == null && it.dueAt < now }
-    val upcomingTasks = tasks.filter {
-        it.status == TaskStatus.Open &&
-            ((it.dueAt != null && it.dueAt >= now) ||
-                (it.scheduledDateEpochDay != null && it.scheduledDateEpochDay > today))
+
+    tasks.filter { it.status != TaskStatus.Archived }.forEach { task ->
+        val dayStart = task.scheduledDateEpochDay?.let {
+            java.time.LocalDate.ofEpochDay(it).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        }
+        place(
+            SpaceAgendaItem(
+                reference = SpaceItemReference(SpaceItemType.Task, task.id),
+                title = task.title,
+                at = task.dueAt ?: dayStart,
+                hasTime = task.dueAt != null,
+                isReminder = false,
+                isDone = task.status == TaskStatus.Done,
+            ),
+            finishedAt = task.completedAt,
+            updatedAt = task.updatedAt,
+        )
     }
-    val upcomingReminders = reminders.filter { it.completedAt == null && it.dueAt >= now }
-    return SpaceContentSections(
-        needsAttention = SpaceContents(tasks = attentionTasks, reminders = attentionReminders),
-        upcoming = SpaceContents(tasks = upcomingTasks, reminders = upcomingReminders),
-        recentAndReference = SpaceContents(
-            notes = notes,
-            tasks = tasks.filterNot { it in attentionTasks || it in upcomingTasks },
-            reminders = reminders.filterNot { it in attentionReminders || it in upcomingReminders },
-        ),
+    reminders.forEach { reminder ->
+        place(
+            SpaceAgendaItem(
+                reference = SpaceItemReference(SpaceItemType.Reminder, reminder.id),
+                title = reminder.title,
+                at = reminder.dueAt,
+                hasTime = true,
+                isReminder = true,
+                isDone = reminder.completedAt != null,
+            ),
+            finishedAt = reminder.completedAt,
+            updatedAt = reminder.updatedAt,
+        )
+    }
+    val byTime = compareBy<SpaceAgendaItem>({ it.at ?: Long.MAX_VALUE }, { !it.hasTime }, { it.title })
+    return SpaceAgenda(
+        today = todayRows.sortedWith(compareBy<SpaceAgendaItem>({ it.hasTime }, { it.at ?: 0L }, { it.title })),
+        earlier = earlierRows.sortedWith(byTime),
+        upcoming = upcomingRows.sortedWith(byTime),
+        noDate = noDateRows.sortedByDescending { it.first }.map { it.second },
+        notes = notes.filter { !it.archived }.sortedByDescending { it.updatedAt },
+        done = doneRows.sortedByDescending { it.first }.map { it.second },
     )
 }
 
@@ -69,6 +131,10 @@ data class SpacesUiState(
     val hasUnfiledItems: Boolean = false,
     val selectedContents: SpaceContents = SpaceContents(),
     val itemCounts: Map<Long, Int> = emptyMap(),
+    /** Open tasks and reminders per Space: the number shown on the overview. */
+    val openCounts: Map<Long, Int> = emptyMap(),
+    /** Open tasks and reminders due today, across every Space and none. */
+    val todayCount: Int = 0,
     /** The earliest upcoming open task or reminder per Space, for the overview card. */
     val nextItems: Map<Long, SpaceNextItem> = emptyMap(),
     /** Saved thoughts not yet sorted; they live in Review > To sort. */
@@ -77,8 +143,16 @@ data class SpacesUiState(
     val moveFailure: SpaceMoveFailure? = null,
 )
 
-/** [hasTime] is false for a task planned for a day, which must not read as 00:00. */
-data class SpaceNextItem(val title: String, val at: Long, val hasTime: Boolean = true)
+/**
+ * [hasTime] is false for a task planned for a day, which must not read as 00:00.
+ * [isEarlier] marks an item whose time has passed, shown only when nothing is ahead.
+ */
+data class SpaceNextItem(
+    val title: String,
+    val at: Long,
+    val hasTime: Boolean = true,
+    val isEarlier: Boolean = false,
+)
 
 data class SpaceMoveUndo(val item: SpaceItemReference, val previousSpaceId: Long?)
 
@@ -166,6 +240,8 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
                 tasks = contents.tasks,
                 reminders = contents.reminders,
             ),
+            openCounts = calculateSpaceOpenCounts(spaces, contents.tasks, contents.reminders),
+            todayCount = calculateTodayCount(contents.tasks, contents.reminders, System.currentTimeMillis()),
             moveUndo = feedback.undo,
             moveFailure = feedback.failure,
         )
@@ -270,6 +346,37 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
         }
     }
 
+    /** Ticks a task off, or back on. A reminder is marked done the way its detail screen does it. */
+    fun toggleDone(item: SpaceItemReference) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            runCatching {
+                when (item.type) {
+                    SpaceItemType.Task -> container.taskRepository.getById(item.id)?.let {
+                        val reopening = it.status == TaskStatus.Done
+                        container.taskRepository.update(
+                            it.copy(
+                                status = if (reopening) TaskStatus.Open else TaskStatus.Done,
+                                completedAt = if (reopening) null else now,
+                                updatedAt = now,
+                            ),
+                        )
+                    }
+                    SpaceItemType.Reminder -> container.reminderRepository.getById(item.id)?.let {
+                        container.reminderRepository.update(
+                            if (it.completedAt == null) {
+                                com.orbit.app.reminders.ReminderRepeats.markDone(it, now)
+                            } else {
+                                it.copy(completedAt = null, updatedAt = now)
+                            },
+                        )
+                    }
+                    SpaceItemType.Note -> Unit
+                }
+            }
+        }
+    }
+
     fun retryFailedMove() {
         moveFailure.value?.let { moveItem(it.item, it.targetSpaceId) }
     }
@@ -353,26 +460,70 @@ internal fun calculateSpaceNextItems(
     now: Long,
     zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault(),
 ): Map<Long, SpaceNextItem> {
-    val candidates = buildList {
-        tasks.filter { it.status == TaskStatus.Open && it.spaceId != null }.forEach { task ->
-            when {
-                task.dueAt != null -> if (task.dueAt >= now) add(task.spaceId!! to SpaceNextItem(task.title, task.dueAt))
-                task.scheduledDateEpochDay != null -> {
-                    val dayStart = java.time.LocalDate.ofEpochDay(task.scheduledDateEpochDay)
-                        .atStartOfDay(zoneId).toInstant().toEpochMilli()
-                    if (dayStart >= startOfDay(now, zoneId)) {
-                        add(task.spaceId!! to SpaceNextItem(task.title, dayStart, hasTime = false))
-                    }
+    val todayStart = startOfDay(now, zoneId)
+    val ahead = mutableListOf<Pair<Long, SpaceNextItem>>()
+    val earlier = mutableListOf<Pair<Long, SpaceNextItem>>()
+    tasks.filter { it.status == TaskStatus.Open && it.spaceId != null }.forEach { task ->
+        when {
+            task.dueAt != null -> if (task.dueAt >= now) {
+                ahead += task.spaceId!! to SpaceNextItem(task.title, task.dueAt)
+            } else {
+                earlier += task.spaceId!! to SpaceNextItem(task.title, task.dueAt, isEarlier = true)
+            }
+            task.scheduledDateEpochDay != null -> {
+                val dayStart = java.time.LocalDate.ofEpochDay(task.scheduledDateEpochDay)
+                    .atStartOfDay(zoneId).toInstant().toEpochMilli()
+                if (dayStart >= todayStart) {
+                    ahead += task.spaceId!! to SpaceNextItem(task.title, dayStart, hasTime = false)
+                } else {
+                    earlier += task.spaceId!! to SpaceNextItem(task.title, dayStart, hasTime = false, isEarlier = true)
                 }
             }
         }
-        reminders.filter { it.completedAt == null && it.spaceId != null && it.dueAt >= now }.forEach {
-            add(it.spaceId!! to SpaceNextItem(it.title, it.dueAt))
+    }
+    reminders.filter { it.completedAt == null && it.spaceId != null }.forEach {
+        if (it.dueAt >= now) {
+            ahead += it.spaceId!! to SpaceNextItem(it.title, it.dueAt)
+        } else {
+            earlier += it.spaceId!! to SpaceNextItem(it.title, it.dueAt, isEarlier = true)
         }
     }
-    return candidates
-        .groupBy({ it.first }, { it.second })
-        .mapValues { (_, items) -> items.minBy { it.at } }
+    val next = ahead.groupBy({ it.first }, { it.second }).mapValues { (_, items) -> items.minBy { it.at } }
+    val waiting = earlier.groupBy({ it.first }, { it.second }).mapValues { (_, items) -> items.minBy { it.at } }
+    return waiting + next
+}
+
+/** Open tasks (not done or archived) and reminders not yet handled, per Space. Notes are not counted. */
+internal fun calculateSpaceOpenCounts(
+    spaces: List<SpaceEntity>,
+    tasks: List<TaskEntity>,
+    reminders: List<ReminderEntity>,
+): Map<Long, Int> {
+    val counts = spaces.associate { it.id to 0 }.toMutableMap()
+    tasks.filter { it.status != TaskStatus.Done && it.status != TaskStatus.Archived }
+        .forEach { task -> task.spaceId?.let { id -> counts.computeIfPresent(id) { _, n -> n + 1 } } }
+    reminders.filter { it.completedAt == null }
+        .forEach { reminder -> reminder.spaceId?.let { id -> counts.computeIfPresent(id) { _, n -> n + 1 } } }
+    return counts
+}
+
+/** Open tasks and unhandled reminders that fall on today, in any Space or none. */
+internal fun calculateTodayCount(
+    tasks: List<TaskEntity>,
+    reminders: List<ReminderEntity>,
+    now: Long,
+    zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+): Int {
+    val today = java.time.Instant.ofEpochMilli(now).atZone(zoneId).toLocalDate()
+    fun isToday(at: Long) = java.time.Instant.ofEpochMilli(at).atZone(zoneId).toLocalDate() == today
+    val openTasks = tasks.count { task ->
+        task.status == TaskStatus.Open && (
+            (task.dueAt != null && isToday(task.dueAt)) ||
+                (task.dueAt == null && task.scheduledDateEpochDay == today.toEpochDay())
+            )
+    }
+    val openReminders = reminders.count { it.completedAt == null && isToday(it.dueAt) }
+    return openTasks + openReminders
 }
 
 private fun startOfDay(now: Long, zoneId: java.time.ZoneId): Long =

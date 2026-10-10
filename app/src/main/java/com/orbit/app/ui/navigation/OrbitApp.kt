@@ -1,5 +1,6 @@
 package com.orbit.app.ui.navigation
 
+import java.time.LocalDate
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -319,6 +320,8 @@ fun OrbitApp(
                         onItemSelected = { item ->
                             navController.navigate(item.route())
                         },
+                        onOpenToday = { navController.navigateToCalendar(LocalDate.now()) },
+                        onToggleDone = spacesViewModel::toggleDone,
                     )
                 }
                 composable(SpaceDetailDestination.UnfiledRoute) {
@@ -343,6 +346,7 @@ fun OrbitApp(
                         onUnfiledSelected = {},
                         onOpenSearch = { navController.navigate(SearchDestination.Route) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
+                        onToggleDone = spacesViewModel::toggleDone,
                     )
                 }
                 composable(
@@ -373,6 +377,7 @@ fun OrbitApp(
                         onUnfiledSelected = {},
                         onOpenSearch = { navController.navigate(SearchDestination.Route) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
+                        onToggleDone = spacesViewModel::toggleDone,
                     )
                 }
                 composable(OrbitDestination.Review.route) { entry ->

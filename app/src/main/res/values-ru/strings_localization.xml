@@ -71,7 +71,6 @@
     <string name="core_capture_create_reminder">Создать напоминание</string>
     <string name="core_capture_monday_item">На понедельник</string>
     <string name="core_spaces_title">Пространства</string>
-    <string name="core_spaces_subtitle">Место для каждой части жизни.</string>
     <string name="core_spaces_create">Создать пространство</string>
     <string name="core_spaces_edit">Изменить пространство</string>
     <string name="core_spaces_options">Параметры пространства</string>
@@ -85,9 +84,7 @@
     <string name="core_spaces_back">Вернуться к пространствам</string>
     <string name="core_spaces_quiet_title">В этом пространстве тихо</string>
     <string name="core_spaces_quiet_subtitle">Заметки, задачи и напоминания, сохранённые здесь, появятся вместе.</string>
-    <string name="core_spaces_needs_attention">Требует внимания</string>
     <string name="core_spaces_upcoming">Предстоящее</string>
-    <string name="core_spaces_recent_reference">Недавнее и справочное</string>
     <string name="core_spaces_move_item">Переместить элемент</string>
     <string name="core_spaces_move_to">Переместить в</string>
     <string name="core_spaces_move_empty">Других пространств нет.</string>
@@ -147,14 +144,6 @@
     <string name="core_reminder_detail_delivery">Доставка</string>
     <string name="core_reminder_detail_disable_notification">Отключить уведомление</string>
     <string name="core_reminder_detail_enable_notification">Включить уведомление</string>
-    <string name="core_spaces_feed_note">Заметка</string>
-    <string name="core_spaces_feed_task">Задача</string>
-    <string name="core_spaces_feed_task_done">Задача · выполнена</string>
-    <string name="core_spaces_feed_archived">В архиве</string>
-    <string name="core_spaces_feed_waiting_for">В ожидании</string>
-    <string name="core_spaces_feed_someday">Когда-нибудь</string>
-    <string name="core_spaces_feed_reminder">Напоминание · %1$s</string>
-    <string name="core_spaces_feed_subtitle">%1$s · %2$s</string>
     <string name="core_item_detail_type_note">Заметка</string>
     <string name="core_item_detail_type_task">Задача</string>
     <string name="core_item_detail_type_reminder">Напоминание</string>

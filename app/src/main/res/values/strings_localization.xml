@@ -73,7 +73,6 @@
     <string name="core_capture_monday_item">Monday item</string>
 
     <string name="core_spaces_title">Spaces</string>
-    <string name="core_spaces_subtitle">A place for each part of life.</string>
     <string name="core_spaces_create">Create Space</string>
     <string name="core_spaces_edit">Edit Space</string>
     <string name="core_spaces_options">Space options</string>
@@ -87,9 +86,7 @@
     <string name="core_spaces_back">Back to Spaces</string>
     <string name="core_spaces_quiet_title">This Space is quiet</string>
     <string name="core_spaces_quiet_subtitle">Notes, tasks, and reminders saved here will appear together.</string>
-    <string name="core_spaces_needs_attention">Needs attention</string>
     <string name="core_spaces_upcoming">Upcoming</string>
-    <string name="core_spaces_recent_reference">Recent and reference</string>
     <string name="core_spaces_move_item">Move item</string>
     <string name="core_spaces_move_to">Move to</string>
     <string name="core_spaces_move_empty">No other Space is available.</string>
@@ -141,14 +138,6 @@
     <string name="core_reminder_detail_delivery">Delivery</string>
     <string name="core_reminder_detail_disable_notification">Disable notification</string>
     <string name="core_reminder_detail_enable_notification">Enable notification</string>
-    <string name="core_spaces_feed_note">Note</string>
-    <string name="core_spaces_feed_task">Task</string>
-    <string name="core_spaces_feed_task_done">Task · Done</string>
-    <string name="core_spaces_feed_archived">Archived</string>
-    <string name="core_spaces_feed_waiting_for">Waiting for</string>
-    <string name="core_spaces_feed_someday">Someday</string>
-    <string name="core_spaces_feed_reminder">Reminder · %1$s</string>
-    <string name="core_spaces_feed_subtitle">%1$s · %2$s</string>
     <string name="core_item_detail_type_note">Note</string>
     <string name="core_item_detail_type_task">Task</string>
     <string name="core_item_detail_type_reminder">Reminder</string>

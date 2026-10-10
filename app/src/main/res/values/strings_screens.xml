@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for the 2026-10 redesign of Spaces, Calendar, Review and Settings. -->
+<resources>
+    <string name="spaces_section_yours">Your Spaces</string>
+    <string name="spaces_new_space">New Space</string>
+    <string name="spaces_next_earlier">Earlier · %1$s</string>
+    <string name="spaces_next_line">%1$s · %2$s</string>
+    <string name="spaces_nothing_yet">Nothing here yet</string>
+    <string name="spaces_section_earlier">From earlier</string>
+    <string name="spaces_section_no_date">No date</string>
+    <string name="spaces_section_notes">Notes</string>
+    <string name="spaces_done_show">%1$d done · Show</string>
+    <string name="spaces_done_hide">Hide done</string>
+    <string name="spaces_detail_open_count">%1$d open</string>
+    <string name="spaces_mark_done">Mark %1$s done</string>
+    <string name="spaces_mark_not_done">Mark %1$s not done</string>
+    <plurals name="spaces_detail_note_count"><item quantity="one">%1$d note</item><item quantity="other">%1$d notes</item></plurals>
+</resources>
