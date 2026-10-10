@@ -229,4 +229,67 @@ class TaskDateParityTest {
         assertNull(resolution().acceptSuggestion(captureId))
         assertEquals(CaptureStatus.Inbox, database.captureDao().getById(captureId)?.status)
     }
+
+    @Test
+    fun aTaskWithAClockTimeIsTheSameDateOnlyTaskEverywhere() = runBlocking {
+        val text = "Call the dentist tomorrow at 16:00"
+        val inbox = inbox(Locale.ENGLISH)
+
+        val oneTapId = inbox.save(text)
+        inbox.analyze(oneTapId)
+        val stored = requireNotNull(database.captureSuggestionDao().getByCaptureId(oneTapId))
+        assertEquals(SuggestedItemType.Task, stored.suggestedType)
+        val accepted = requireNotNull(resolution().acceptSuggestion(oneTapId))
+        assertDayOnly("one tap", task(accepted.itemId))
+
+        val sheetId = inbox.save(text)
+        inbox.analyze(sheetId)
+        val analysis = requireNotNull(database.captureSuggestionDao().getByCaptureId(sheetId)).toAnalysis(text)
+        val due = initialTaskDue(analysis, calendarDateContext = null)
+        assertDayOnly("sheet", task(confirm().createTask(sheetId, null, analysis.suggestedTitle, due.at, due.dayEpochDay)))
+        // The time stays on the suggestion, for when the user makes it a reminder instead.
+        assertEquals(LocalDate.ofEpochDay(tomorrow).atTime(16, 0).atZone(zone).toInstant().toEpochMilli(), analysis.suggestedReminderAt)
+
+        val dumpId = inbox.save("$text\n$text")
+        inbox.analyze(dumpId)
+        val row = requireNotNull(database.brainDumpDao().getItems(dumpId).firstOrNull())
+        val item = com.orbit.app.domain.analyzer.BrainDumpSuggestion(
+            id = row.sourceKey,
+            rawText = row.rawText,
+            title = row.suggestedTitle,
+            suggestedType = row.suggestedType,
+            suggestedSpaceName = row.suggestedSpaceName,
+            confidence = row.confidence,
+            tinyNextAction = row.tinyNextAction,
+            reason = row.reason,
+            suggestedReminderAt = row.reminderTime(zone),
+            taskDateEpochDay = row.taskDateEpochDay(zone),
+        )
+        val draft = initialBrainDumpDraft(item, emptyList())
+        assertNull("Brain Dump draft has no time", draft.scheduledAt)
+        assertEquals("Brain Dump draft day", tomorrow, draft.scheduledDateEpochDay)
+    }
+
+    @Test
+    fun aBrainDumpTaskDayIsKeptWhenTheTimeZoneChanges() {
+        val encoded = TaskDatePlaceholder.encode(tomorrow)
+        val row = com.orbit.app.data.local.entity.BrainDumpItemEntity(
+            captureId = 1,
+            sourceKey = "a",
+            ordinal = 0,
+            rawText = "Buy milk tomorrow",
+            suggestedTitle = "Buy milk",
+            suggestedType = SuggestedItemType.Task,
+            suggestedSpaceName = "",
+            confidence = 0.8f,
+            tinyNextAction = "",
+            reason = "",
+            suggestedReminderAt = encoded,
+        )
+        listOf("Pacific/Auckland", "Europe/Tallinn", "America/Los_Angeles").forEach { id ->
+            val other = ZoneId.of(id)
+            assertEquals(id, tomorrow, row.taskDateEpochDay(other))
+            assertNull(id, row.reminderTime(other))
+        }
+    }
 }
