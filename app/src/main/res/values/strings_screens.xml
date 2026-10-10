@@ -56,6 +56,23 @@
     <string name="review_to_sort_open">Open the thought</string>
     <string name="review_menu_let_go">Let it go</string>
     <string name="review_to_sort_let_go_hint">Moves it to the archive</string>
+    <string name="sort_edit_title">Edit the wording</string>
+    <string name="sort_suggests">Tallele suggests %1$s</string>
+    <string name="sort_kind_task">a task</string>
+    <string name="sort_kind_reminder">a reminder</string>
+    <string name="sort_kind_note">a note</string>
+    <string name="sort_why">Why?</string>
+    <string name="sort_why_hide">Hide</string>
+    <string name="sort_source_phone">Suggested on this phone.</string>
+    <string name="sort_source_gemini">Suggested with Gemini.</string>
+    <string name="sort_space">Space</string>
+    <string name="sort_when">When</string>
+    <string name="sort_no_date">No date</string>
+    <string name="sort_pick_date">Pick a date</string>
+    <string name="sort_remind_me">Remind me</string>
+    <string name="sort_tomorrow_at">Tomorrow %1$s</string>
+    <string name="sort_pick_time">Pick a time</string>
+    <string name="sort_not_now">Not now</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d note</item><item quantity="other">%1$d notes</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorted %1$d thought</item><item quantity="other">Sorted %1$d thoughts</item></plurals>
 </resources>

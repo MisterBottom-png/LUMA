@@ -56,6 +56,23 @@
     <string name="review_to_sort_open">Открыть мысль</string>
     <string name="review_menu_let_go">Отпустить</string>
     <string name="review_to_sort_let_go_hint">Перемещает в архив</string>
+    <string name="sort_edit_title">Изменить текст</string>
+    <string name="sort_suggests">Tallele предлагает: %1$s</string>
+    <string name="sort_kind_task">задача</string>
+    <string name="sort_kind_reminder">напоминание</string>
+    <string name="sort_kind_note">заметка</string>
+    <string name="sort_why">Почему?</string>
+    <string name="sort_why_hide">Скрыть</string>
+    <string name="sort_source_phone">Предложено на этом телефоне.</string>
+    <string name="sort_source_gemini">Предложено с помощью Gemini.</string>
+    <string name="sort_space">Пространство</string>
+    <string name="sort_when">Когда</string>
+    <string name="sort_no_date">Без даты</string>
+    <string name="sort_pick_date">Выбрать дату</string>
+    <string name="sort_remind_me">Напомнить</string>
+    <string name="sort_tomorrow_at">Завтра %1$s</string>
+    <string name="sort_pick_time">Выбрать время</string>
+    <string name="sort_not_now">Не сейчас</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d заметка</item><item quantity="few">%1$d заметки</item><item quantity="many">%1$d заметок</item><item quantity="other">%1$d заметки</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Разобрана %1$d мысль</item><item quantity="few">Разобраны %1$d мысли</item><item quantity="many">Разобрано %1$d мыслей</item><item quantity="other">Разобрано %1$d мысли</item></plurals>
 </resources>

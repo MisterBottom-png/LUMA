@@ -18,16 +18,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import com.orbit.app.ui.components.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
@@ -44,9 +40,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -123,7 +117,6 @@ internal fun CaptureSuggestionSheet(
     var selectedLabels by rememberSaveable(suggestion.captureId) {
         mutableStateOf(suggestion.analysis.suggestedLabels)
     }
-    val noteTitle = analysis.suggestedTitle.ifBlank { analysis.rawText }
     var taskTitle by rememberSaveable(suggestion.captureId) {
         mutableStateOf(
             analysis.suggestedTitle
@@ -145,6 +138,9 @@ internal fun CaptureSuggestionSheet(
     }
     var reminderAt by rememberSaveable(suggestion.captureId) {
         mutableStateOf(analysis.suggestedReminderAt)
+    }
+    var itemTitle by rememberSaveable(suggestion.captureId) {
+        mutableStateOf(analysis.suggestedTitle.ifBlank { analysis.rawText })
     }
     var showDiscardEditsConfirmation by rememberSaveable(suggestion.captureId) {
         mutableStateOf(false)
@@ -226,13 +222,10 @@ internal fun CaptureSuggestionSheet(
                     .padding(horizontal = 24.dp)
                     .padding(top = 20.dp),
             ) {
-                if (analysis.brainDumpItems.isEmpty()) {
-                    SheetHeading()
-                }
                 calendarDateContext?.let { date ->
                     CalendarDateContextLabel(date)
                 }
-                Spacer(modifier = Modifier.height(22.dp))
+                Spacer(modifier = Modifier.height(if (calendarDateContext != null) 16.dp else 4.dp))
 
                 when (actionSetup) {
                     ActionSetup.Task -> TaskSetup(
@@ -276,32 +269,38 @@ internal fun CaptureSuggestionSheet(
                             callbacks = requireNotNull(callbacks),
                         )
                     } else {
-                        SuggestedActions(
+                        CaptureSortContent(
                             suggestion = suggestion,
+                            timeFormat = timeFormat,
                             isPerformingAction = isPerformingAction,
+                            title = itemTitle,
+                            onTitleChanged = { itemTitle = it },
                             selectedAction = selectedAction,
                             selectedSpaceId = selectedSpaceId,
                             selectedLabels = selectedLabels,
+                            taskDueAt = taskDueAt,
+                            onTaskDueAtChanged = { taskDueAt = it },
+                            reminderAt = reminderAt,
+                            onReminderAtChanged = { reminderAt = it },
+                            initialDate = calendarDateContext,
                             onActionSelected = { selectedActionName = it.name },
                             onSpaceSelected = { selectedSpaceId = it },
                             onRemoveLabel = { name -> selectedLabels = selectedLabels - name },
-                            onSaveNote = {
+                            onConfirm = {
                                 confirmAction {
-                                    onSaveNote(noteTitle, selectedSpaceId, selectedLabels)
+                                    when (selectedAction) {
+                                        CaptureDecisionAction.SaveNote ->
+                                            onSaveNote(itemTitle, selectedSpaceId, selectedLabels)
+                                        CaptureDecisionAction.CreateTask ->
+                                            onCreateTask(itemTitle, taskDueAt, selectedSpaceId, selectedLabels)
+                                        CaptureDecisionAction.CreateReminder -> reminderAt?.let { dueAt ->
+                                            onCreateReminder(itemTitle, dueAt, selectedSpaceId, null, selectedLabels)
+                                        }
+                                        CaptureDecisionAction.KeepInbox -> onKeepInInbox()
+                                    }
                                 }
                             },
-                            onCreateTask = {
-                                selectedActionName = CaptureDecisionAction.CreateTask.name
-                                actionSetup = ActionSetup.Task
-                            },
-                            onCreateReminder = {
-                                selectedActionName = CaptureDecisionAction.CreateReminder.name
-                                actionSetup = ActionSetup.Reminder
-                            },
-                            onKeepInInbox = {
-                                confirmAction(onKeepInInbox)
-                            },
-                            onCancel = onCancel,
+                            onNotNow = onCancel,
                         )
                     }
                 }
@@ -333,32 +332,6 @@ internal fun CaptureSuggestionSheet(
                 }
             },
         )
-    }
-}
-
-@Composable
-private fun SheetHeading() {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.AutoAwesome,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Column {
-            Text(
-                text = stringResource(R.string.core_capture_suggestion_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = stringResource(R.string.core_capture_suggestion_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
@@ -705,222 +678,6 @@ private fun BrainDumpReview(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(stringResource(R.string.core_capture_back_to_suggestion))
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun SuggestedActions(
-    suggestion: CaptureSuggestion,
-    isPerformingAction: Boolean,
-    selectedAction: CaptureDecisionAction,
-    selectedSpaceId: Long?,
-    selectedLabels: List<String>,
-    onActionSelected: (CaptureDecisionAction) -> Unit,
-    onSpaceSelected: (Long?) -> Unit,
-    onRemoveLabel: (String) -> Unit,
-    onSaveNote: () -> Unit,
-    onCreateTask: () -> Unit,
-    onCreateReminder: () -> Unit,
-    onKeepInInbox: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    val analysis = suggestion.analysis
-    var showWhy by rememberSaveable(suggestion.captureId) { mutableStateOf(false) }
-    var showAlternatives by rememberSaveable(suggestion.captureId) { mutableStateOf(false) }
-    val selectedSpaceName = suggestion.spaceOptions
-        .firstOrNull { it.id == selectedSpaceId }
-        ?.name
-        ?: stringResource(R.string.core_inbox)
-
-    Text(
-        text = analysis.suggestedTitle.ifBlank { analysis.rawText },
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurface,
-    )
-    if (analysis.summary.isNotBlank() && analysis.summary != analysis.suggestedTitle) {
-        Text(
-            text = analysis.summary,
-            modifier = Modifier.padding(top = 6.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-    if (analysis.analyzerFailed) {
-        Text(
-            text = stringResource(R.string.core_capture_analysis_paused),
-            modifier = Modifier.padding(top = 10.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    } else if (analysis.confidenceLevel == CaptureConfidence.Low) {
-        Text(
-            text = stringResource(R.string.core_capture_keep_until_clearer),
-            modifier = Modifier.padding(top = 10.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-    Text(
-        text = stringResource(R.string.core_capture_suggestion),
-        modifier = Modifier.padding(top = 18.dp, bottom = 10.dp),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        SuggestionChip(stringResource(analysis.analyzerSource.labelRes()))
-        SuggestionChip(analysis.suggestedType.displayName())
-        SuggestionChip(selectedSpaceName)
-        SuggestionChip(
-            stringResource(R.string.core_capture_confidence, stringResource(analysis.confidenceLevel.labelRes())),
-        )
-        analysis.lifeSignal.labelResOrNull()?.let { SuggestionChip(stringResource(it)) }
-        if (analysis.suggestedReminderAt != null) {
-            SuggestionChip(analysis.reminderPhrase ?: stringResource(R.string.core_capture_time_suggested))
-        }
-        analysis.suggestionChips
-            .filterNot { chip ->
-                chip.equals(analysis.suggestedType.displayName(), ignoreCase = true) ||
-                    chip.equals(selectedSpaceName, ignoreCase = true)
-            }
-            .take(3)
-            .forEach { chip -> SuggestionChip(chip) }
-    }
-    if (selectedLabels.isNotEmpty()) {
-        FlowRow(
-            modifier = Modifier.padding(top = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            selectedLabels.forEach { label ->
-                TextButton(onClick = { onRemoveLabel(label) }, enabled = !isPerformingAction) {
-                    Text("$label ×")
-                }
-            }
-        }
-    }
-
-    TextButton(
-        onClick = { showWhy = !showWhy },
-        modifier = Modifier.padding(top = 8.dp),
-    ) {
-        Text(stringResource(if (showWhy) R.string.core_capture_hide_why else R.string.core_capture_why_this))
-    }
-    if (showWhy) {
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(
-                text = analysis.typeReason,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = analysis.spaceReason,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-
-    Button(
-        onClick = {
-            when (selectedAction) {
-                CaptureDecisionAction.SaveNote -> onSaveNote()
-                CaptureDecisionAction.CreateTask -> onCreateTask()
-                CaptureDecisionAction.CreateReminder -> onCreateReminder()
-                CaptureDecisionAction.KeepInbox -> onKeepInInbox()
-            }
-        },
-        enabled = !isPerformingAction,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 18.dp),
-    ) {
-        if (isPerformingAction) {
-            CircularProgressIndicator(
-                modifier = Modifier.height(20.dp),
-                strokeWidth = 2.dp,
-            )
-        } else {
-            Text(stringResource(selectedAction.primaryLabelRes))
-        }
-    }
-
-    TextButton(onClick = { showAlternatives = !showAlternatives }) {
-        Text(stringResource(if (showAlternatives) R.string.core_capture_hide_choices else R.string.core_capture_change_action))
-    }
-
-    if (showAlternatives) {
-        Text(
-            text = stringResource(R.string.core_action),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        FlowRow(
-            modifier = Modifier.padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            decisionActions().forEach { action ->
-                ChoiceButton(
-                    text = stringResource(action.labelRes),
-                    selected = selectedAction == action,
-                    enabled = !isPerformingAction,
-                    onClick = { onActionSelected(action) },
-                )
-            }
-        }
-
-        Text(
-            text = stringResource(R.string.core_place),
-            modifier = Modifier.padding(top = 16.dp),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        FlowRow(
-            modifier = Modifier.padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            suggestion.spaceOptions.forEach { space ->
-                ChoiceButton(
-                    text = localizedSpaceName(space.name),
-                    selected = selectedSpaceId == space.id,
-                    enabled = !isPerformingAction,
-                    onClick = { onSpaceSelected(space.id) },
-                )
-            }
-        }
-    }
-
-    HorizontalDivider(
-        modifier = Modifier.padding(top = 14.dp),
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-    )
-    TextButton(
-        onClick = onCancel,
-        enabled = !isPerformingAction,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp),
-    ) {
-        Text(stringResource(R.string.core_capture_not_now_keep))
-    }
-}
-
-@Composable
-private fun SuggestionChip(text: String) {
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
     }
 }
 
