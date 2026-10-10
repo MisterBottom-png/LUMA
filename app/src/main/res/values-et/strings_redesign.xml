@@ -14,7 +14,6 @@
     <string name="settings_reminder_setup_restored">Meeldetuletused on selles telefonis taas seadistatud.</string>
     <string name="settings_reminder_setup_still_failing">Mõnda meeldetuletust ei õnnestunud ikka seadistada. Sinu kirjed on alles; kontrolli teavituste sätteid ja proovi uuesti.</string>
     <string name="settings_gemini_error_model_not_found">Gemini ei tunne seda mudeli nime. Kontrolli mudelit AI sätetes. Kohalik režiim töötab edasi.</string>
-    <string name="core_capture_not_now_keep">Mitte praegu – jäta sisendkausta</string>
     <string name="settings_gemini_key_remove_failed">Võtit ei õnnestunud eemaldada. Proovi uuesti; midagi muud ei muutunud.</string>
     <string name="settings_learned_rule_update_failed">Seda reeglit ei õnnestunud muuta. Teised reeglid on muutmata.</string>
     <string name="core_sort_open_failed">Seda mõtet ei saanud praegu avada. See on endiselt turvaliselt sorteerimise ootel.</string>
@@ -108,14 +107,6 @@
     <string name="spaces_name_taken">Sul on juba ruum nimega „%1$s”.</string>
     <string name="spaces_name_taken_archived">„%1$s” on arhiveeritud. Kas taastad selle, selle asemel et teise teha?</string>
     <string name="spaces_name_taken_hidden">„%1$s” on peidetud. Kas näitad seda uuesti, selle asemel et teise teha?</string>
-    <string name="analysis_source_local">Kohalik soovitus</string>
-    <string name="analysis_source_gemini">Gemini soovitus</string>
-    <string name="analysis_signal_waiting_for">Ootab</string>
-    <string name="analysis_signal_someday">Kunagi hiljem</string>
-    <string name="analysis_signal_reflection">Mõtisklus</string>
-    <string name="analysis_confidence_high">kõrge</string>
-    <string name="analysis_confidence_medium">keskmine</string>
-    <string name="analysis_confidence_low">madal</string>
     <plurals name="spaces_to_sort_waiting">
         <item quantity="one">%1$d mõte ootab ülevaates</item>
         <item quantity="other">%1$d mõtet ootab ülevaates</item>

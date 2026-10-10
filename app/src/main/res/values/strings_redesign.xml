@@ -14,7 +14,6 @@
     <string name="settings_reminder_setup_restored">Reminders are set up on this phone again.</string>
     <string name="settings_reminder_setup_still_failing">Some reminders still could not be set up. Your items are safe; check notification settings and try again.</string>
     <string name="settings_gemini_error_model_not_found">Gemini does not recognise this model name. Check the model in AI settings. Local mode still works.</string>
-    <string name="core_capture_not_now_keep">Not now – keep it in Inbox</string>
     <string name="settings_gemini_key_remove_failed">The key could not be removed. Try again; nothing else changed.</string>
     <string name="settings_learned_rule_update_failed">That rule could not be changed. Your other rules are unchanged.</string>
     <string name="core_sort_open_failed">This thought could not be opened right now. It is still safe in To sort.</string>
@@ -108,14 +107,6 @@
     <string name="spaces_name_taken">You already have a Space called “%1$s”.</string>
     <string name="spaces_name_taken_archived">“%1$s” is archived. Restore it instead of making a second one?</string>
     <string name="spaces_name_taken_hidden">“%1$s” is hidden. Show it again instead of making a second one?</string>
-    <string name="analysis_source_local">Local suggestion</string>
-    <string name="analysis_source_gemini">Suggested by Gemini</string>
-    <string name="analysis_signal_waiting_for">Waiting for</string>
-    <string name="analysis_signal_someday">Someday</string>
-    <string name="analysis_signal_reflection">Reflection</string>
-    <string name="analysis_confidence_high">High</string>
-    <string name="analysis_confidence_medium">Medium</string>
-    <string name="analysis_confidence_low">Low</string>
     <plurals name="spaces_to_sort_waiting">
         <item quantity="one">%1$d thought is waiting in Review</item>
         <item quantity="other">%1$d thoughts are waiting in Review</item>

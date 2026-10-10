@@ -2,7 +2,6 @@ package com.orbit.app.ui.screens.tutorial
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -29,13 +28,11 @@ class FirstTimeTutorialScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("A home for thoughts before they become plans.")
-            .assertIsDisplayed()
-        composeRule.onNodeWithText("Step 1 of 7").assertIsDisplayed()
-        composeRule.onNodeWithText("Back").assertIsNotEnabled()
-        composeRule.onNodeWithText("Next").performClick()
-        composeRule.onNodeWithText("Capture thoughts and orient yourself in time.")
-            .assertIsDisplayed()
+        composeRule.onNodeWithText("Write it down. Sort it later.").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Step 1 of 4").assertExists()
+        composeRule.onNodeWithText("Back").assertDoesNotExist()
+        composeRule.onNodeWithText("Continue").performClick()
+        composeRule.onNodeWithText("Tallele suggests. You decide.").assertIsDisplayed()
     }
 
     @Test
@@ -50,11 +47,10 @@ class FirstTimeTutorialScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("A home for thoughts before they become plans.")
+        composeRule.onNodeWithText("Write it down. Sort it later.")
             .performTouchInput { swipeLeft() }
 
-        composeRule.onNodeWithText("Capture thoughts and orient yourself in time.")
-            .assertIsDisplayed()
+        composeRule.onNodeWithText("Tallele suggests. You decide.").assertIsDisplayed()
     }
 
     @Test
@@ -92,9 +88,9 @@ class FirstTimeTutorialScreenTest {
             }
         }
 
-        repeat(4) { composeRule.onNodeWithText("Next").performClick() }
+        repeat(2) { composeRule.onNodeWithText("Continue").performClick() }
 
-        composeRule.onNodeWithText("Choose a few Spaces").assertIsDisplayed()
+        composeRule.onNodeWithText("Pick your Spaces").assertIsDisplayed()
         composeRule.onNodeWithText("Home").performClick()
         composeRule.onNodeWithContentDescription("Add Space").assertIsDisplayed()
     }

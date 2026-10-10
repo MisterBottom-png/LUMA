@@ -48,7 +48,6 @@
 
     <string name="core_search_title">Otsi</string>
     <string name="core_search_local_data">Otsi kõigest, mille oled salvestanud</string>
-    <string name="core_search_include_archived">Kaasa arhiveeritud</string>
     <string name="core_search_start_typing">Kirjuta sõna märkmest, ülesandest või meeldetuletusest.</string>
     <string name="core_search_minimum_query">Sisesta vähemalt kaks märki.</string>
     <string name="core_search_empty">Siit ei leitud veel midagi.</string>

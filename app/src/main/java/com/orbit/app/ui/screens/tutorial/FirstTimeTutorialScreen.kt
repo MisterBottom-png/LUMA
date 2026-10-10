@@ -2,17 +2,14 @@ package com.orbit.app.ui.screens.tutorial
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,18 +27,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import com.orbit.app.ui.components.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -64,12 +53,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
 import com.orbit.app.data.local.StarterSpaces
-import com.orbit.app.ui.components.GlassSurfaceStyle
-import com.orbit.app.ui.components.SoftGlassSurface
-import com.orbit.app.ui.theme.OrbitShapes
-import com.orbit.app.ui.theme.OrbitSpacing
 import com.orbit.app.ui.localization.localizedStarterSpaceName
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.Surface
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.unit.sp
+import com.orbit.app.ui.components.TintedIconChip
+import com.orbit.app.ui.components.GroupDivider
+import com.orbit.app.ui.screens.spaces.asColor
+import com.orbit.app.ui.screens.spaces.asImageVector
+import com.orbit.app.ui.localization.localizedSpaceName
 
 @Composable
 fun FirstTimeTutorialScreen(
@@ -107,104 +108,92 @@ fun FirstTimeTutorialScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = OrbitSpacing.Large),
+            .windowInsetsPadding(WindowInsets.safeDrawing),
+        contentAlignment = Alignment.TopCenter,
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 64.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxSize()
+                .widthIn(max = 560.dp)
+                .padding(horizontal = 24.dp),
         ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            TextButton(
-                // Skipping the guide keeps any Spaces already chosen; with none chosen
-                // the setup step finishes immediately.
-                onClick = {
-                    if (spaceSetupState.canConfigure) onFinishSpaceSetup(::finishOnce) else finishOnce()
-                },
-                enabled = !leaving && !spaceSetupState.isSaving,
-            ) {
-                Text(stringResource(R.string.tutorial_skip))
-            }
-        }
-
-        HorizontalPager(
-            state = pagerState,
-            userScrollEnabled = !leaving,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-        ) { pageIndex ->
-            TutorialPageContent(
-                page = pages[pageIndex],
-                spaceSetupState = spaceSetupState,
-                onToggleSpaceTemplate = onToggleSpaceTemplate,
-                onAddCustomSpace = onAddCustomSpace,
-                onRemoveCustomSpace = onRemoveCustomSpace,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        TutorialProgress(
-            currentPage = currentPage,
-            pageCount = pages.size,
-            enabled = !leaving,
-            onPageSelected = { page ->
-                scope.launch { pagerState.animateScrollToPage(page) }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = OrbitSpacing.Medium),
-            horizontalArrangement = Arrangement.spacedBy(OrbitSpacing.Medium),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(
-                onClick = {
-                    scope.launch { pagerState.animateScrollToPage(currentPage - 1) }
-                },
-                enabled = currentPage > 0 && !leaving,
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 52.dp),
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(R.string.tutorial_back))
+                TutorialProgress(
+                    currentPage = currentPage,
+                    pageCount = pages.size,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    // Skipping the guide keeps any Spaces already chosen; with none chosen
+                    // the setup step finishes immediately.
+                    onClick = {
+                        if (spaceSetupState.canConfigure) onFinishSpaceSetup(::finishOnce) else finishOnce()
+                    },
+                    enabled = !leaving && !spaceSetupState.isSaving,
+                    modifier = Modifier.padding(start = 8.dp),
+                ) {
+                    Text(stringResource(R.string.tutorial_skip), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
+
+            HorizontalPager(
+                state = pagerState,
+                userScrollEnabled = !leaving,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) { pageIndex ->
+                TutorialPageContent(
+                    page = pages[pageIndex],
+                    spaceSetupState = spaceSetupState,
+                    onToggleSpaceTemplate = onToggleSpaceTemplate,
+                    onAddCustomSpace = onAddCustomSpace,
+                    onRemoveCustomSpace = onRemoveCustomSpace,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+
             Button(
                 onClick = {
                     if (isLastPage) {
-                        if (spaceSetupState.canConfigure) {
-                            onFinishSpaceSetup(::finishOnce)
-                        } else {
-                            finishOnce()
-                        }
+                        if (spaceSetupState.canConfigure) onFinishSpaceSetup(::finishOnce) else finishOnce()
                     } else {
                         scope.launch { pagerState.animateScrollToPage(currentPage + 1) }
                     }
                 },
                 enabled = !leaving,
                 modifier = Modifier
-                    .weight(1.35f)
-                    .heightIn(min = 52.dp),
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+                    .heightIn(min = 56.dp),
             ) {
                 Text(
-                    stringResource(
-                        if (isLastPage) R.string.tutorial_start else R.string.tutorial_next,
-                    ),
+                    text = stringResource(if (isLastPage) R.string.tutorial_start else R.string.tutorial_continue),
+                    style = MaterialTheme.typography.titleSmall,
                 )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (currentPage > 0) {
+                    TextButton(
+                        onClick = { scope.launch { pagerState.animateScrollToPage(currentPage - 1) } },
+                        enabled = !leaving,
+                    ) {
+                        Text(stringResource(R.string.tutorial_back), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
     }
@@ -219,336 +208,369 @@ private fun TutorialPageContent(
     onRemoveCustomSpace: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier = modifier) {
-        val wideLayout = maxWidth >= 600.dp
-        if (wideLayout) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = OrbitSpacing.Medium),
-                horizontalArrangement = Arrangement.spacedBy(OrbitSpacing.Huge),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TutorialCopy(
-                    page = page,
-                    spaceSetupState = spaceSetupState,
-                    onToggleSpaceTemplate = onToggleSpaceTemplate,
-                    onAddCustomSpace = onAddCustomSpace,
-                    onRemoveCustomSpace = onRemoveCustomSpace,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .verticalScroll(rememberScrollState()),
-                )
-                TutorialIllustrationCard(
-                    illustration = page.illustration,
-                    modifier = Modifier
-                        .weight(0.82f)
-                        .heightIn(min = 260.dp, max = 430.dp),
-                )
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(vertical = OrbitSpacing.Small),
-                verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Large),
-            ) {
-                TutorialCopy(
-                    page = page,
-                    spaceSetupState = spaceSetupState,
-                    onToggleSpaceTemplate = onToggleSpaceTemplate,
-                    onAddCustomSpace = onAddCustomSpace,
-                    onRemoveCustomSpace = onRemoveCustomSpace,
-                )
-                TutorialIllustrationCard(
-                    illustration = page.illustration,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 150.dp, max = 220.dp),
-                )
-                Spacer(modifier = Modifier.height(OrbitSpacing.Small))
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(top = 12.dp, bottom = 8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 280.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            when (page.illustration) {
+                TutorialIllustration.Write -> WriteDemo()
+                TutorialIllustration.Suggest -> SuggestDemo()
+                TutorialIllustration.Spaces -> if (spaceSetupState.canConfigure) {
+                    TutorialSpacePicker(
+                        state = spaceSetupState,
+                        onToggleTemplate = onToggleSpaceTemplate,
+                        onAddCustomSpace = onAddCustomSpace,
+                        onRemoveCustomSpace = onRemoveCustomSpace,
+                    )
+                } else {
+                    SpacesDemo()
+                }
+                TutorialIllustration.Private -> PrivateDemo()
             }
         }
-    }
-}
-
-@Composable
-private fun TutorialCopy(
-    page: FirstTimeTutorialPage,
-    spaceSetupState: TutorialSpaceSetupUiState,
-    onToggleSpaceTemplate: (String) -> Unit,
-    onAddCustomSpace: (String) -> Unit,
-    onRemoveCustomSpace: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Large),
-    ) {
-        Text(
-            text = stringResource(page.stepRes),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
-        )
         Text(
             text = stringResource(page.titleRes),
-            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier
+                .padding(top = 28.dp)
+                .semantics { heading() },
+            style = MaterialTheme.typography.headlineMedium.copy(fontSize = 30.sp, lineHeight = 36.sp),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground,
         )
         Text(
             text = stringResource(page.bodyRes),
-            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(top = 10.dp),
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, lineHeight = 25.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        SoftGlassSurface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = OrbitShapes.Standard,
-            style = GlassSurfaceStyle.Standard,
-        ) {
-            Column(
-                modifier = Modifier.padding(OrbitSpacing.Large),
-                verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Small),
-            ) {
-                Text(
-                    text = stringResource(page.principleTitleRes),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = stringResource(page.principleBodyRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+    }
+}
+
+/** A thin bar per step; the filled part is where the user is. */
+@Composable
+private fun TutorialProgress(
+    currentPage: Int,
+    pageCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    val label = stringResource(R.string.tutorial_progress, currentPage + 1, pageCount)
+    Row(
+        modifier = modifier.clearAndSetSemantics { contentDescription = label },
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        repeat(pageCount) { page ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (page <= currentPage) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+                        },
+                    ),
+            )
+        }
+    }
+}
+
+/** Demo pieces are pictures of the app, so screen readers skip them. */
+@Composable
+private fun DemoCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics { },
+        shape = RoundedCornerShape(26.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
+    ) {
+        Column(modifier = Modifier.padding(20.dp), content = content)
+    }
+}
+
+@Composable
+private fun WriteDemo() {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        DemoCard {
+            Text(
+                text = stringResource(R.string.tutorial_demo_thought),
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp, lineHeight = 26.sp),
+            )
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.End) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.ArrowUpward, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+                }
             }
         }
-        if (page.illustration == TutorialIllustration.Spaces && spaceSetupState.canConfigure) {
-            TutorialSpaceSetupPanel(
-                state = spaceSetupState,
-                onToggleTemplate = onToggleSpaceTemplate,
-                onAddCustomSpace = onAddCustomSpace,
-                onRemoveCustomSpace = onRemoveCustomSpace,
-            )
+        Row(
+            modifier = Modifier.clearAndSetSemantics { },
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DemoChip(stringResource(R.string.tutorial_demo_other_1), faded = true)
+            DemoChip(stringResource(R.string.tutorial_demo_other_2), faded = true)
         }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TutorialSpaceSetupPanel(
+private fun SuggestDemo() {
+    DemoCard {
+        Text(
+            text = stringResource(R.string.tutorial_demo_title),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Row(modifier = Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            Text(
+                text = stringResource(R.string.review_one_suggests),
+                modifier = Modifier.padding(start = 6.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        FlowRow(
+            modifier = Modifier.padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DemoChip(stringResource(R.string.core_reminder))
+            DemoChip(stringResource(R.string.core_tomorrow))
+            DemoChip(localizedSpaceName("Health"))
+        }
+        Row(modifier = Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                modifier = Modifier
+                    .weight(2f)
+                    .heightIn(min = 44.dp)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    stringResource(R.string.core_capture_action_set_reminder),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 44.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    stringResource(R.string.review_to_sort_change),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpacesDemo() {
+    DemoCard {
+        StarterSpaces.templates.take(4).forEachIndexed { index, template ->
+            if (index > 0) Spacer(modifier = Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TintedIconChip(icon = template.icon.asImageVector(), color = template.colorAccent.asColor())
+                Text(
+                    text = localizedStarterSpaceName(template),
+                    modifier = Modifier.padding(start = 12.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrivateDemo() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(88.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest, RoundedCornerShape(30.dp))
+                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), RoundedCornerShape(30.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(38.dp))
+        }
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 20.dp),
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
+        ) {
+            Column {
+                listOf(R.string.tutorial_private_1, R.string.tutorial_private_2, R.string.tutorial_private_3)
+                    .forEachIndexed { index, line ->
+                        if (index > 0) GroupDivider(startInset = 36.dp)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                            Text(
+                                text = stringResource(line),
+                                modifier = Modifier.padding(start = 12.dp),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
+                            )
+                        }
+                    }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DemoChip(text: String, faded: Boolean = false) {
+    Box(
+        modifier = Modifier
+            .background(
+                if (faded) {
+                    MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.7f)
+                } else {
+                    MaterialTheme.colorScheme.primaryContainer
+                },
+                RoundedCornerShape(14.dp),
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (faded) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+    }
+}
+
+/** First run only: the real Space picker, so the guide ends with Spaces that fit. */
+@Composable
+private fun TutorialSpacePicker(
     state: TutorialSpaceSetupUiState,
     onToggleTemplate: (String) -> Unit,
     onAddCustomSpace: (String) -> Unit,
     onRemoveCustomSpace: (String) -> Unit,
 ) {
     var customName by rememberSaveable { mutableStateOf("") }
-    SoftGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = OrbitShapes.Standard,
-        style = GlassSurfaceStyle.Standard,
-    ) {
-        Column(
-            modifier = Modifier.padding(OrbitSpacing.Large),
-            verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Medium),
-        ) {
-            Text(
-                text = stringResource(R.string.tutorial_space_setup_title),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = stringResource(R.string.tutorial_space_setup_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(OrbitSpacing.Small)) {
-                StarterSpaces.templates.forEach { template ->
-                    FilterChip(
-                        selected = template.key in state.selectedTemplateKeys,
-                        onClick = { onToggleTemplate(template.key) },
-                        enabled = !state.isSaving,
-                        label = { Text(localizedStarterSpaceName(template)) },
-                    )
-                }
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(OrbitSpacing.Small),
-            ) {
-                OutlinedTextField(
-                    value = customName,
-                    onValueChange = { customName = it },
-                    modifier = Modifier.weight(1f),
-                    enabled = !state.isSaving,
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.tutorial_space_setup_name)) },
-                )
-                IconButton(
-                    onClick = {
-                        onAddCustomSpace(customName)
-                        customName = ""
-                    },
-                    enabled = customName.isNotBlank() && !state.isSaving,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = stringResource(R.string.tutorial_space_setup_add),
-                    )
-                }
-            }
-            state.customNames.forEach { name ->
-                TextButton(
-                    onClick = { onRemoveCustomSpace(name) },
-                    enabled = !state.isSaving,
-                ) {
-                    Text(stringResource(R.string.tutorial_space_setup_remove, name))
-                }
-            }
-            if (state.saveFailed) {
-                Text(
-                    text = stringResource(R.string.tutorial_space_setup_error),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TutorialProgress(
-    currentPage: Int,
-    pageCount: Int,
-    enabled: Boolean,
-    onPageSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.tutorial_progress, currentPage + 1, pageCount),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(pageCount) { page ->
-                val isSelected = page == currentPage
-                val stepLabel = stringResource(R.string.tutorial_go_to_step, page + 1)
-                IconButton(
-                    onClick = { onPageSelected(page) },
-                    enabled = enabled,
-                    modifier = Modifier.semantics {
-                        selected = isSelected
-                        contentDescription = stepLabel
-                    },
-                ) {
-                    Box(
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        StarterSpaces.templates.chunked(2).forEach { rowTemplates ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                rowTemplates.forEach { template ->
+                    val selected = template.key in state.selectedTemplateKeys
+                    Surface(
                         modifier = Modifier
-                            .size(if (isSelected) 20.dp else 12.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.outlineVariant
-                                },
+                            .weight(1f)
+                            .heightIn(min = 56.dp)
+                            .toggleable(
+                                value = selected,
+                                enabled = !state.isSaving,
+                                role = Role.Checkbox,
+                                onValueChange = { onToggleTemplate(template.key) },
                             ),
-                    )
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = if (selected) 1f else 0.6f),
+                        border = if (selected) {
+                            BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                        } else {
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
+                        },
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            TintedIconChip(
+                                icon = template.icon.asImageVector(),
+                                color = template.colorAccent.asColor(),
+                                size = 32.dp,
+                                iconSize = 18.dp,
+                            )
+                            Text(
+                                text = localizedStarterSpaceName(template),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 10.dp),
+                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .then(
+                                        if (selected) {
+                                            Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
+                                        } else {
+                                            Modifier.border(1.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f), CircleShape)
+                                        },
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (selected) {
+                                    Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+                    }
                 }
+                if (rowTemplates.size == 1) Spacer(modifier = Modifier.weight(1f))
             }
         }
-    }
-}
-
-@Composable
-private fun TutorialIllustrationCard(
-    illustration: TutorialIllustration,
-    modifier: Modifier = Modifier,
-) {
-    val visual = tutorialIllustrationVisual(illustration)
-    SoftGlassSurface(
-        modifier = modifier.clearAndSetSemantics { },
-        shape = OrbitShapes.Prominent,
-        style = GlassSurfaceStyle.Prominent,
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(OrbitSpacing.ExtraLarge),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(132.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f)),
-                contentAlignment = Alignment.Center,
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = customName,
+                onValueChange = { customName = it },
+                modifier = Modifier.weight(1f),
+                enabled = !state.isSaving,
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                label = { Text(stringResource(R.string.tutorial_space_setup_name)) },
+            )
+            IconButton(
+                onClick = {
+                    onAddCustomSpace(customName)
+                    customName = ""
+                },
+                enabled = customName.isNotBlank() && !state.isSaving,
             ) {
-                Icon(
-                    imageVector = visual.icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(56.dp),
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Small),
-            ) {
-                repeat(visual.rowCount) { index ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(10.dp)
-                            .clip(RoundedCornerShape(5.dp))
-                            .background(
-                                if (index == visual.accentRow) {
-                                    MaterialTheme.colorScheme.secondaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
-                                },
-                            ),
-                    ) {}
-                }
+                Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.tutorial_space_setup_add))
             }
         }
+        state.customNames.forEach { name ->
+            TextButton(onClick = { onRemoveCustomSpace(name) }, enabled = !state.isSaving) {
+                Text(stringResource(R.string.tutorial_space_setup_remove, name))
+            }
+        }
+        if (state.saveFailed) {
+            Text(
+                text = stringResource(R.string.tutorial_space_setup_error),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
-}
-
-private data class TutorialIllustrationVisual(
-    val icon: ImageVector,
-    val rowCount: Int,
-    val accentRow: Int,
-)
-
-private fun tutorialIllustrationVisual(
-    illustration: TutorialIllustration,
-): TutorialIllustrationVisual = when (illustration) {
-    TutorialIllustration.Idea ->
-        TutorialIllustrationVisual(Icons.Rounded.Inbox, rowCount = 1, accentRow = 0)
-    TutorialIllustration.Home ->
-        TutorialIllustrationVisual(Icons.Rounded.CalendarMonth, rowCount = 2, accentRow = 1)
-    TutorialIllustration.Confirm ->
-        TutorialIllustrationVisual(Icons.Rounded.CheckCircle, rowCount = 2, accentRow = 0)
-    TutorialIllustration.BrainDump ->
-        TutorialIllustrationVisual(Icons.Rounded.ViewAgenda, rowCount = 3, accentRow = 1)
-    TutorialIllustration.Spaces ->
-        TutorialIllustrationVisual(Icons.Rounded.GridView, rowCount = 3, accentRow = 2)
-    TutorialIllustration.Review ->
-        TutorialIllustrationVisual(Icons.Rounded.AutoAwesome, rowCount = 2, accentRow = 0)
-    TutorialIllustration.Control ->
-        TutorialIllustrationVisual(Icons.Rounded.Lock, rowCount = 3, accentRow = 0)
 }

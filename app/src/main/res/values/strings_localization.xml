@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="core_action">Action</string>
     <string name="core_action_undo">Undo</string>
     <string name="core_action_delete">Delete</string>
     <string name="core_action_cancel">Cancel</string>
@@ -11,7 +10,6 @@
     <string name="core_action_complete">Complete</string>
     <string name="core_cancel">Cancel</string>
     <string name="core_close">Close</string>
-    <string name="core_create">Create</string>
     <string name="core_edit">Edit</string>
     <string name="core_save">Save</string>
     <string name="core_remove">Remove</string>
@@ -25,7 +23,6 @@
     <string name="core_place">Place</string>
     <string name="core_name">Name</string>
     <string name="core_icon">Icon</string>
-    <string name="core_accent">Accent</string>
     <string name="core_enabled">Enabled</string>
     <string name="core_disabled">Disabled</string>
 
@@ -35,8 +32,6 @@
     <string name="core_capture_action_remind_me">Remind me</string>
     <string name="core_capture_action_set_reminder">Set reminder</string>
     <string name="core_capture_action_keep_in_inbox">Keep in Inbox</string>
-    <string name="core_capture_suggestion_title">A gentle suggestion</string>
-    <string name="core_capture_suggestion_subtitle">You decide what happens next.</string>
     <string name="core_capture_for_date">For %1$s</string>
     <string name="core_capture_brain_dump_title">Sort your thoughts</string>
     <string name="core_capture_brain_dump_subtitle">Your original note is saved privately. Decide about one suggestion at a time.</string>
@@ -57,13 +52,6 @@
     <string name="core_capture_back_to_suggestion">Back to suggestion</string>
     <string name="core_capture_analysis_paused">Analysis paused. The raw capture is saved locally.</string>
     <string name="core_capture_keep_until_clearer">This can stay in Inbox until it becomes clearer.</string>
-    <string name="core_capture_suggestion">Suggestion</string>
-    <string name="core_capture_confidence">%1$s confidence</string>
-    <string name="core_capture_time_suggested">A time was suggested</string>
-    <string name="core_capture_hide_why">Hide why</string>
-    <string name="core_capture_why_this">Why this?</string>
-    <string name="core_capture_hide_choices">Hide choices</string>
-    <string name="core_capture_change_action">Change action</string>
     <string name="core_capture_no_due_date">No due date</string>
     <string name="core_capture_add_due_date_time">Add due date and time</string>
     <string name="core_capture_change_date_time">Change date and time</string>

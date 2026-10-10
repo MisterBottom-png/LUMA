@@ -97,6 +97,22 @@
     <string name="search_group_archived">В архиве</string>
     <string name="search_look_in_space">Заглянуть в пространство</string>
     <string name="search_stays_on_phone">Поиск не покидает этот телефон.</string>
+    <string name="tutorial_write_title">Запишите. Разберёте потом.</string>
+    <string name="tutorial_write_body">Записывайте любую мысль как есть. Тип, дату или место заранее выбирать не нужно.</string>
+    <string name="tutorial_suggest_title">Tallele предлагает. Решаете вы.</string>
+    <string name="tutorial_suggest_body">Она предлагает тип, время и пространство. Ничто не станет задачей или напоминанием, пока вы не согласитесь.</string>
+    <string name="tutorial_spaces_pick_title">Выберите пространства</string>
+    <string name="tutorial_spaces_pick_body">Пространство объединяет одну часть жизни. Выберите несколько сейчас — изменить их можно в любое время.</string>
+    <string name="tutorial_private_title">Приватно по умолчанию</string>
+    <string name="tutorial_private_body">Tallele полностью работает без интернета.</string>
+    <string name="tutorial_private_1">Ваши мысли хранятся на этом телефоне.</string>
+    <string name="tutorial_private_2">Gemini помогает, только если вы его включите.</string>
+    <string name="tutorial_private_3">Разрешение на уведомления запрашивается при первом напоминании.</string>
+    <string name="tutorial_continue">Продолжить</string>
+    <string name="tutorial_demo_thought">позвонить стоматологу завтра в 9</string>
+    <string name="tutorial_demo_other_1">идеи для сада</string>
+    <string name="tutorial_demo_other_2">продлить паспорт</string>
+    <string name="tutorial_demo_title">Позвонить стоматологу</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d заметка</item><item quantity="few">%1$d заметки</item><item quantity="many">%1$d заметок</item><item quantity="other">%1$d заметки</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Разобрана %1$d мысль</item><item quantity="few">Разобраны %1$d мысли</item><item quantity="many">Разобрано %1$d мыслей</item><item quantity="other">Разобрано %1$d мысли</item></plurals>
     <plurals name="brain_overview_subtitle"><item quantity="one">%1$d мысль. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item><item quantity="few">%1$d мысли. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item><item quantity="many">%1$d мыслей. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item><item quantity="other">%1$d мысли. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item></plurals>

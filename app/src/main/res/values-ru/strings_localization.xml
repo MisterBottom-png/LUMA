@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="core_action">Действие</string>
     <string name="core_action_undo">Отменить</string>
     <string name="core_action_delete">Удалить</string>
     <string name="core_action_cancel">Отмена</string>
@@ -11,7 +10,6 @@
     <string name="core_action_complete">Завершить</string>
     <string name="core_cancel">Отмена</string>
     <string name="core_close">Закрыть</string>
-    <string name="core_create">Создать</string>
     <string name="core_edit">Изменить</string>
     <string name="core_save">Сохранить</string>
     <string name="core_remove">Удалить</string>
@@ -25,7 +23,6 @@
     <string name="core_place">Место</string>
     <string name="core_name">Название</string>
     <string name="core_icon">Значок</string>
-    <string name="core_accent">Акцент</string>
     <string name="core_enabled">Включено</string>
     <string name="core_disabled">Выключено</string>
     <string name="core_capture_action_save_note">Сохранить как заметку</string>
@@ -34,8 +31,6 @@
     <string name="core_capture_action_remind_me">Напомнить</string>
     <string name="core_capture_action_set_reminder">Создать напоминание</string>
     <string name="core_capture_action_keep_in_inbox">Оставить во входящих</string>
-    <string name="core_capture_suggestion_title">Мягкое предложение</string>
-  <string name="core_capture_suggestion_subtitle">Следующий шаг можно выбрать свободно.</string>
     <string name="core_capture_for_date">На %1$s</string>
     <string name="core_capture_brain_dump_title">Разберите мысли</string>
     <string name="core_capture_brain_dump_subtitle">Исходная запись надёжно сохранена. Решайте по одному предложению за раз.</string>
@@ -56,13 +51,6 @@
     <string name="core_capture_back_to_suggestion">Назад к предложению</string>
     <string name="core_capture_analysis_paused">Анализ приостановлен. Исходная запись сохранена локально.</string>
     <string name="core_capture_keep_until_clearer">Можно оставить это во входящих, пока не станет яснее.</string>
-    <string name="core_capture_suggestion">Предложение</string>
-    <string name="core_capture_confidence">уверенность: %1$s</string>
-    <string name="core_capture_time_suggested">Предложено время</string>
-    <string name="core_capture_hide_why">Скрыть объяснение</string>
-    <string name="core_capture_why_this">Почему так?</string>
-    <string name="core_capture_hide_choices">Скрыть варианты</string>
-    <string name="core_capture_change_action">Изменить действие</string>
     <string name="core_capture_no_due_date">Без срока</string>
     <string name="core_capture_add_due_date_time">Добавить срок и время</string>
     <string name="core_capture_change_date_time">Изменить дату и время</string>

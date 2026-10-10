@@ -16,7 +16,6 @@
     <string name="settings_reminder_setup_restored">Напоминания снова настроены на этом телефоне.</string>
     <string name="settings_reminder_setup_still_failing">Некоторые напоминания всё ещё не удалось настроить. Ваши записи в сохранности; проверьте настройки уведомлений и попробуйте снова.</string>
     <string name="settings_gemini_error_model_not_found">Gemini не знает такую модель. Проверьте название модели в настройках ИИ. Локальный режим продолжит работать.</string>
-    <string name="core_capture_not_now_keep">Не сейчас – оставить во Входящих</string>
     <string name="settings_gemini_key_remove_failed">Не удалось удалить ключ. Попробуйте снова; больше ничего не изменилось.</string>
     <string name="settings_learned_rule_update_failed">Не удалось изменить это правило. Остальные правила не изменились.</string>
     <string name="core_sort_open_failed">Сейчас не удалось открыть эту мысль. Она по-прежнему в безопасности в разделе «Разобрать».</string>
@@ -114,14 +113,6 @@
     <string name="spaces_name_taken">Пространство «%1$s» уже есть.</string>
     <string name="spaces_name_taken_archived">Пространство «%1$s» в архиве. Восстановить его вместо создания второго?</string>
     <string name="spaces_name_taken_hidden">Пространство «%1$s» скрыто. Показать его снова вместо создания второго?</string>
-    <string name="analysis_source_local">Локальное предложение</string>
-    <string name="analysis_source_gemini">Предложено Gemini</string>
-    <string name="analysis_signal_waiting_for">Ожидание</string>
-    <string name="analysis_signal_someday">Когда-нибудь</string>
-    <string name="analysis_signal_reflection">Размышление</string>
-    <string name="analysis_confidence_high">высокая</string>
-    <string name="analysis_confidence_medium">средняя</string>
-    <string name="analysis_confidence_low">низкая</string>
     <plurals name="spaces_to_sort_waiting">
         <item quantity="one">%1$d мысль ждёт в обзоре</item>
         <item quantity="few">%1$d мысли ждут в обзоре</item>

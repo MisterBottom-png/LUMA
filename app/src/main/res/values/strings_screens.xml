@@ -97,6 +97,22 @@
     <string name="search_group_archived">Archived</string>
     <string name="search_look_in_space">Look inside a Space</string>
     <string name="search_stays_on_phone">Search stays on this phone.</string>
+    <string name="tutorial_write_title">Write it down. Sort it later.</string>
+    <string name="tutorial_write_body">Put any thought in, the way it comes. You don’t need to pick a type, a date or a place first.</string>
+    <string name="tutorial_suggest_title">Tallele suggests. You decide.</string>
+    <string name="tutorial_suggest_body">It offers a type, a time and a Space. Nothing becomes a task or reminder until you say yes.</string>
+    <string name="tutorial_spaces_pick_title">Pick your Spaces</string>
+    <string name="tutorial_spaces_pick_body">A Space keeps one part of life together. Choose a few now; you can change them any time.</string>
+    <string name="tutorial_private_title">Private by default</string>
+    <string name="tutorial_private_body">Tallele works fully without the internet.</string>
+    <string name="tutorial_private_1">Your thoughts are kept on this phone.</string>
+    <string name="tutorial_private_2">Gemini helps only if you turn it on.</string>
+    <string name="tutorial_private_3">Notifications are asked for with your first reminder.</string>
+    <string name="tutorial_continue">Continue</string>
+    <string name="tutorial_demo_thought">call the dentist tomorrow at 9</string>
+    <string name="tutorial_demo_other_1">ideas for the garden</string>
+    <string name="tutorial_demo_other_2">renew passport</string>
+    <string name="tutorial_demo_title">Call the dentist</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d note</item><item quantity="other">%1$d notes</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorted %1$d thought</item><item quantity="other">Sorted %1$d thoughts</item></plurals>
     <plurals name="brain_overview_subtitle"><item quantity="one">%1$d thought. Ticked ones look clear; tap a row to change it.</item><item quantity="other">%1$d thoughts. Ticked ones look clear; tap a row to change it.</item></plurals>

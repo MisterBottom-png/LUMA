@@ -97,6 +97,22 @@
     <string name="search_group_archived">Arhiveeritud</string>
     <string name="search_look_in_space">Vaata ruumi sisse</string>
     <string name="search_stays_on_phone">Otsing jääb sellesse telefoni.</string>
+    <string name="tutorial_write_title">Kirjuta üles. Sorteeri hiljem.</string>
+    <string name="tutorial_write_body">Kirjuta iga mõte üles nii, nagu see tuleb. Liiki, kuupäeva ega kohta ei pea enne valima.</string>
+    <string name="tutorial_suggest_title">Tallele soovitab. Sina otsustad.</string>
+    <string name="tutorial_suggest_body">See pakub liiki, aega ja ruumi. Midagi ei saa ülesandeks ega meeldetuletuseks enne, kui ütled jah.</string>
+    <string name="tutorial_spaces_pick_title">Vali oma ruumid</string>
+    <string name="tutorial_spaces_pick_body">Ruum hoiab üht eluosa koos. Vali praegu mõned; neid saab alati muuta.</string>
+    <string name="tutorial_private_title">Vaikimisi privaatne</string>
+    <string name="tutorial_private_body">Tallele töötab täielikult ka ilma internetita.</string>
+    <string name="tutorial_private_1">Sinu mõtted hoitakse selles telefonis.</string>
+    <string name="tutorial_private_2">Gemini aitab ainult siis, kui selle sisse lülitad.</string>
+    <string name="tutorial_private_3">Teavitusi küsitakse esimese meeldetuletuse juures.</string>
+    <string name="tutorial_continue">Jätka</string>
+    <string name="tutorial_demo_thought">helista homme kell 9 hambaarstile</string>
+    <string name="tutorial_demo_other_1">ideed aia jaoks</string>
+    <string name="tutorial_demo_other_2">uuenda passi</string>
+    <string name="tutorial_demo_title">Helista hambaarstile</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d märge</item><item quantity="other">%1$d märget</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorteeritud %1$d mõte</item><item quantity="other">Sorteeritud %1$d mõtet</item></plurals>
     <plurals name="brain_overview_subtitle"><item quantity="one">%1$d mõte. Märgitud näivad selged; rea muutmiseks puuduta seda.</item><item quantity="other">%1$d mõtet. Märgitud näivad selged; rea muutmiseks puuduta seda.</item></plurals>

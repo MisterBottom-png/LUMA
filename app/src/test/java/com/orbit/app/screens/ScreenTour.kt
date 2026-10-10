@@ -252,10 +252,12 @@ abstract class ScreenTour(private val theme: String) {
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick(); compose.waitForIdle() }
         step("guide") { compose.onNodeWithText("First-time guide").performScrollTo().performClick(); compose.waitForIdle() }
         shot("$prefix-guide-1")
-        repeat(3) { step("next") { compose.onNodeWithText("Next").performClick(); compose.waitForIdle() } }
+        step("next") { compose.onNodeWithText("Continue").performClick(); compose.waitForIdle() }
+        shot("$prefix-guide-2")
+        step("next") { compose.onNodeWithText("Continue").performClick(); compose.waitForIdle() }
+        shot("$prefix-guide-3")
+        step("next") { compose.onNodeWithText("Continue").performClick(); compose.waitForIdle() }
         shot("$prefix-guide-4")
-        repeat(3) { step("next") { compose.onNodeWithText("Next").performClick(); compose.waitForIdle() } }
-        shot("$prefix-guide-7")
         step("leave guide") { compose.onNodeWithText("Skip").performClick(); compose.waitForIdle() }
         back()
     }

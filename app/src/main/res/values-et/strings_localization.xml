@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="core_action">Toiming</string>
     <string name="core_action_undo">Võta tagasi</string>
     <string name="core_action_delete">Kustuta</string>
     <string name="core_action_cancel">Tühista</string>
@@ -11,7 +10,6 @@
     <string name="core_action_complete">Lõpeta</string>
     <string name="core_cancel">Tühista</string>
     <string name="core_close">Sulge</string>
-    <string name="core_create">Loo</string>
     <string name="core_edit">Muuda</string>
     <string name="core_save">Salvesta</string>
     <string name="core_remove">Eemalda</string>
@@ -25,7 +23,6 @@
     <string name="core_place">Koht</string>
     <string name="core_name">Nimi</string>
     <string name="core_icon">Ikoon</string>
-    <string name="core_accent">Rõhuvärv</string>
     <string name="core_enabled">Sees</string>
     <string name="core_disabled">Väljas</string>
     <string name="core_capture_action_save_note">Salvesta märkmena</string>
@@ -34,8 +31,6 @@
     <string name="core_capture_action_remind_me">Tuleta meelde</string>
     <string name="core_capture_action_set_reminder">Määra meeldetuletus</string>
     <string name="core_capture_action_keep_in_inbox">Jäta sisendkausta</string>
-    <string name="core_capture_suggestion_title">Õrn soovitus</string>
-  <string name="core_capture_suggestion_subtitle">Järgmise sammu võib valida vabalt.</string>
     <string name="core_capture_for_date">Kuupäevaks %1$s</string>
     <string name="core_capture_brain_dump_title">Korrasta oma mõtted</string>
     <string name="core_capture_brain_dump_subtitle">Algne märge on privaatselt salvestatud. Otsusta iga soovituse üle eraldi.</string>
@@ -56,13 +51,6 @@
     <string name="core_capture_back_to_suggestion">Tagasi soovituse juurde</string>
     <string name="core_capture_analysis_paused">Analüüs on peatatud. Algne sisestus on kohalikult salvestatud.</string>
     <string name="core_capture_keep_until_clearer">See võib jääda sisendkausta, kuni pilt on selgem.</string>
-    <string name="core_capture_suggestion">Soovitus</string>
-    <string name="core_capture_confidence">kindlus: %1$s</string>
-    <string name="core_capture_time_suggested">Soovitati aega</string>
-    <string name="core_capture_hide_why">Peida põhjendus</string>
-    <string name="core_capture_why_this">Miks nii?</string>
-    <string name="core_capture_hide_choices">Peida valikud</string>
-    <string name="core_capture_change_action">Muuda toimingut</string>
     <string name="core_capture_no_due_date">Tähtaega pole</string>
     <string name="core_capture_add_due_date_time">Lisa tähtaeg ja kellaaeg</string>
     <string name="core_capture_change_date_time">Muuda kuupäeva ja kellaaega</string>

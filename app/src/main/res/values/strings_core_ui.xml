@@ -55,7 +55,6 @@
     <!-- Search and source rows -->
     <string name="core_search_title">Search</string>
     <string name="core_search_local_data">Search everything you saved</string>
-    <string name="core_search_include_archived">Include archived</string>
     <string name="core_search_start_typing">Type a word from a note, task or reminder.</string>
     <string name="core_search_minimum_query">Type at least two characters.</string>
     <string name="core_search_empty">Nothing found here yet.</string>

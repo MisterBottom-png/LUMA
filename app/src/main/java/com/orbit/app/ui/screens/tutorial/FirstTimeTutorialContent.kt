@@ -3,80 +3,40 @@ package com.orbit.app.ui.screens.tutorial
 import androidx.annotation.StringRes
 import com.orbit.app.R
 
+/** What each guide page shows above its words: a small piece of the real app. */
 internal enum class TutorialIllustration {
-    Idea,
-    Home,
-    Confirm,
-    BrainDump,
+    Write,
+    Suggest,
     Spaces,
-    Review,
-    Control,
+    Private,
 }
 
 internal data class FirstTimeTutorialPage(
-    @param:StringRes val stepRes: Int,
     @param:StringRes val titleRes: Int,
     @param:StringRes val bodyRes: Int,
-    @param:StringRes val principleTitleRes: Int,
-    @param:StringRes val principleBodyRes: Int,
     val illustration: TutorialIllustration,
 )
 
+/** Four short steps: show, don't tell, and get the user into the app in under a minute. */
 internal val firstTimeTutorialPages = listOf(
     FirstTimeTutorialPage(
-        stepRes = R.string.tutorial_idea_step,
-        titleRes = R.string.tutorial_idea_title,
-        bodyRes = R.string.tutorial_idea_body,
-        principleTitleRes = R.string.tutorial_idea_principle_title,
-        principleBodyRes = R.string.tutorial_idea_principle_body,
-        illustration = TutorialIllustration.Idea,
+        titleRes = R.string.tutorial_write_title,
+        bodyRes = R.string.tutorial_write_body,
+        illustration = TutorialIllustration.Write,
     ),
     FirstTimeTutorialPage(
-        stepRes = R.string.tutorial_home_step,
-        titleRes = R.string.tutorial_home_title,
-        bodyRes = R.string.tutorial_home_body,
-        principleTitleRes = R.string.tutorial_home_principle_title,
-        principleBodyRes = R.string.tutorial_home_principle_body,
-        illustration = TutorialIllustration.Home,
+        titleRes = R.string.tutorial_suggest_title,
+        bodyRes = R.string.tutorial_suggest_body,
+        illustration = TutorialIllustration.Suggest,
     ),
     FirstTimeTutorialPage(
-        stepRes = R.string.tutorial_confirm_step,
-        titleRes = R.string.tutorial_confirm_title,
-        bodyRes = R.string.tutorial_confirm_body,
-        principleTitleRes = R.string.tutorial_confirm_principle_title,
-        principleBodyRes = R.string.tutorial_confirm_principle_body,
-        illustration = TutorialIllustration.Confirm,
-    ),
-    FirstTimeTutorialPage(
-        stepRes = R.string.tutorial_brain_dump_step,
-        titleRes = R.string.tutorial_brain_dump_title,
-        bodyRes = R.string.tutorial_brain_dump_body,
-        principleTitleRes = R.string.tutorial_brain_dump_principle_title,
-        principleBodyRes = R.string.tutorial_brain_dump_principle_body,
-        illustration = TutorialIllustration.BrainDump,
-    ),
-    FirstTimeTutorialPage(
-        stepRes = R.string.tutorial_spaces_step,
-        titleRes = R.string.tutorial_spaces_title,
-        bodyRes = R.string.tutorial_spaces_body,
-        principleTitleRes = R.string.tutorial_spaces_principle_title,
-        principleBodyRes = R.string.tutorial_spaces_principle_body,
+        titleRes = R.string.tutorial_spaces_pick_title,
+        bodyRes = R.string.tutorial_spaces_pick_body,
         illustration = TutorialIllustration.Spaces,
     ),
     FirstTimeTutorialPage(
-        stepRes = R.string.tutorial_review_step,
-        titleRes = R.string.tutorial_review_title,
-        bodyRes = R.string.tutorial_review_body,
-        principleTitleRes = R.string.tutorial_review_principle_title,
-        principleBodyRes = R.string.tutorial_review_principle_body,
-        illustration = TutorialIllustration.Review,
-    ),
-    FirstTimeTutorialPage(
-        stepRes = R.string.tutorial_control_step,
-        titleRes = R.string.tutorial_control_title,
-        bodyRes = R.string.tutorial_control_body,
-        principleTitleRes = R.string.tutorial_control_principle_title,
-        principleBodyRes = R.string.tutorial_control_principle_body,
-        illustration = TutorialIllustration.Control,
+        titleRes = R.string.tutorial_private_title,
+        bodyRes = R.string.tutorial_private_body,
+        illustration = TutorialIllustration.Private,
     ),
 )
