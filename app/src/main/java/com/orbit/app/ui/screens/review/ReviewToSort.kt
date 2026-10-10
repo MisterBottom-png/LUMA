@@ -38,6 +38,8 @@ data class ToSortItem(
     val reminderAt: Long? = null,
     val brainDumpPending: Int = 0,
     val fromGemini: Boolean = false,
+    /** "Looks like N thoughts": a one-line thought the user may choose to split. */
+    val possibleThoughts: Int = 0,
 )
 
 /** How long a fresh capture may show "LUMA is looking at it" before offering manual sorting. */

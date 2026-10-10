@@ -94,6 +94,11 @@ fun CaptureSortHost(
                 onFinishLater = viewModel::finishBrainDumpLater,
                 onDiscardRemaining = viewModel::discardRemainingBrainDumpSuggestions,
                 onCloseCompletion = viewModel::closeBrainDumpCompletion,
+                onToggleRow = viewModel::toggleBrainDumpRow,
+                onOpenRow = viewModel::openBrainDumpRow,
+                onSaveTicked = viewModel::saveTickedBrainDumpRows,
+                onKeepAsOneNote = viewModel::keepBrainDumpAsOneNote,
+                onSplitRow = viewModel::splitBrainDumpRow,
             ),
             isPerformingAction = uiState.isPerformingAction,
             onSaveNote = viewModel::saveNote,
@@ -102,6 +107,7 @@ fun CaptureSortHost(
             onKeepInInbox = viewModel::keepInInbox,
             onCancel = viewModel::cancelSuggestion,
             onDiscardBrainDumpDraftChanges = viewModel::discardBrainDumpDraftChanges,
+            onSplitIntoThoughts = { viewModel.splitIntoThoughts(suggestion.captureId) },
         )
     }
     uiState.learnedRuleProposal?.let { proposal ->

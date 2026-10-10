@@ -3,12 +3,10 @@ package com.orbit.app.ui.screens.home
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.Animatable
-import android.Manifest
 import com.orbit.app.ui.components.rememberReducedMotion
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalView
 import android.view.HapticFeedbackConstants
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -59,7 +57,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -73,7 +70,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
@@ -104,7 +100,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.core.content.ContextCompat
 import com.orbit.app.R
 import com.orbit.app.capture.VoiceCapture
 import com.orbit.app.ui.components.SoftGlassSurface
@@ -118,7 +113,6 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
 import kotlinx.coroutines.flow.collect
 
 @Composable
@@ -176,8 +170,17 @@ fun HomeScreen(
     val voiceAvailable = remember(context) { VoiceCapture.isAvailable(context) }
     val voicePrompt = stringResource(R.string.home_voice_prompt)
     val voiceLocale = LocalConfiguration.current.locales[0]
+    // After a spoken thought, a second mic tap adds the next one on its own line, so a
+    // spoken dump splits into thoughts with no guessing.
+    var spokeLast by rememberSaveable { mutableStateOf(false) }
     val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        VoiceCapture.transcript(result.data)?.let(viewModel::receiveSharedText)
+        VoiceCapture.transcript(result.data)?.let { transcript ->
+            viewModel.receiveSharedText(transcript)
+            spokeLast = true
+        }
+    }
+    LaunchedEffect(uiState.inputText.isBlank()) {
+        if (uiState.inputText.isBlank()) spokeLast = false
     }
     val voiceAction: (() -> Unit)? = if (voiceAvailable) {
         {
@@ -343,6 +346,7 @@ fun HomeScreen(
                     requestFocusOnOpen = focusCaptureOnOpen,
                     focusRequest = focusRequest,
                     onVoice = voiceAction,
+                    showVoiceHint = spokeLast,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth(),
@@ -650,9 +654,11 @@ private fun CaptureCard(
     requestFocusOnOpen: Boolean,
     focusRequest: Long,
     onVoice: (() -> Unit)?,
+    showVoiceHint: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val isProcessing = processingState.isInProgress
+    val offersNextVoice = onVoice != null && showVoiceHint && text.isNotBlank() && !isProcessing
     val focusRequester = remember { FocusRequester() }
     // Focus once per visit to Home, only when the user asked for it in Settings.
     LaunchedEffect(requestFocusOnOpen) {
@@ -682,10 +688,33 @@ private fun CaptureCard(
                     .fillMaxSize()
                     .focusRequester(focusRequester)
                     .padding(
-                        end = CaptureTextActionClearance,
-                        bottom = if (isProcessing) 34.dp else 0.dp,
+                        end = CaptureTextActionClearance + if (offersNextVoice) 48.dp else 0.dp,
+                        bottom = if (isProcessing || offersNextVoice) 34.dp else 0.dp,
                     ),
             )
+
+            if (offersNextVoice) {
+                Text(
+                    text = stringResource(R.string.home_voice_next_hint),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(end = CaptureTextActionClearance + 48.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                IconButton(
+                    onClick = { onVoice?.invoke() },
+                    modifier = Modifier
+                        .align(if (imeVisible) Alignment.CenterEnd else Alignment.BottomEnd)
+                        .padding(end = CaptureActionButtonSize + 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Mic,
+                        contentDescription = stringResource(R.string.home_voice_next),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
 
             processingStatusRes?.let { statusRes ->
                 Text(

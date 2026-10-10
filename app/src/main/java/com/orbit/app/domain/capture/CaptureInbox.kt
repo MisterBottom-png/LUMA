@@ -210,7 +210,7 @@ internal fun CaptureAnalysis.toSuggestionEntity(
     )
 }
 
-private fun BrainDumpSuggestion.toEntity(captureId: Long, ordinal: Int, timestamp: Long) = BrainDumpItemEntity(
+internal fun BrainDumpSuggestion.toEntity(captureId: Long, ordinal: Int, timestamp: Long) = BrainDumpItemEntity(
     captureId = captureId,
     sourceKey = id,
     ordinal = ordinal,

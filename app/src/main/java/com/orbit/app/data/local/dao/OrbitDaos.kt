@@ -133,6 +133,14 @@ interface BrainDumpDao {
     @Query("DELETE FROM brain_dump_sessions WHERE captureId = :captureId")
     suspend fun deleteSession(captureId: Long)
 
+    /** Removes one still-pending piece; used only when it is replaced by its own parts. */
+    @Query("DELETE FROM brain_dump_items WHERE id = :itemId AND outcome = 'Pending'")
+    suspend fun deletePendingItem(itemId: Long): Int
+
+    /** Makes room after [afterOrdinal] so new parts keep the dump's order. */
+    @Query("UPDATE brain_dump_items SET ordinal = ordinal + :by WHERE captureId = :captureId AND ordinal > :afterOrdinal")
+    suspend fun shiftOrdinals(captureId: Long, afterOrdinal: Int, by: Int)
+
     @Query("DELETE FROM brain_dump_items")
     suspend fun deleteAllItems()
 

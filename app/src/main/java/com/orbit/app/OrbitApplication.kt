@@ -56,6 +56,7 @@ import com.orbit.app.security.AndroidKeystoreGeminiApiKeyStore
 import com.orbit.app.security.GeminiApiKeyStore
 import com.orbit.app.ui.localization.effectiveAppLocale
 import com.orbit.app.domain.capture.CaptureInbox
+import com.orbit.app.domain.capture.ThoughtSplitter
 import com.orbit.app.domain.capture.CaptureResolution
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -205,6 +206,18 @@ class OrbitContainer(application: Application) {
             suggestionDao = database.captureSuggestionDao(),
             confirmCaptureAction = confirmCaptureAction,
             transaction = RoomCaptureFinalizationTransaction(database),
+        )
+    }
+    val thoughtSplitter: ThoughtSplitter by lazy {
+        ThoughtSplitter(
+            captureRepository = captureRepository,
+            brainDumpRepository = brainDumpRepository,
+            suggestionDao = database.captureSuggestionDao(),
+            analyzer = captureAnalyzer,
+            geminiParts = { text -> aiRouter.thoughtParts(text, appSettingsRepository.settings.first()) },
+            geminiReady = {
+                aiRouter.canSplitWithGemini(appSettingsRepository.settings.first()) && geminiApiKeyStore.hasKey()
+            },
         )
     }
     val brainDumpActions: BrainDumpActions by lazy {

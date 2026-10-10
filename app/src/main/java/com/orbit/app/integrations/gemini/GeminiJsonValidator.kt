@@ -1,6 +1,7 @@
 package com.orbit.app.integrations.gemini
 
 import com.orbit.app.data.local.entity.SuggestedItemType
+import com.orbit.app.domain.analyzer.BrainDumpSplitter
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
 import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.analyzer.CaptureAnalyzerSource
@@ -133,8 +134,23 @@ object GeminiJsonValidator {
                 reminderTimeStatus = expected.reminderTimeStatus,
                 suggestedReminderAt = expected.suggestedReminderAt,
                 reminderPhrase = expected.reminderPhrase,
+                lifeSignal = expected.lifeSignal,
             )
         }
+    }
+
+    /**
+     * Parts of one thought. Accepted only when every part is copied word for word
+     * from [sourceText], in order, without overlap, covering all of it.
+     */
+    fun thoughtParts(text: String, sourceText: String): List<String>? {
+        val json = GeminiJson.parseObject(text) ?: return null
+        val array = json.optJSONArray("parts") ?: return null
+        if (array.length() < 2 || array.length() > MaxThoughtParts) return null
+        val parts = (0 until array.length()).map { index ->
+            array.optString(index, "").trim().takeIf { it.isNotEmpty() } ?: return null
+        }
+        return parts.takeIf { BrainDumpSplitter.partsAreExactCopies(sourceText, it) }
     }
 
     private fun JSONObject.toBrainDumpSuggestion(
@@ -215,6 +231,7 @@ object GeminiJsonValidator {
 
     private const val MaxTopics = 5
     private const val MaxBrainDumpItems = 20
+    private const val MaxThoughtParts = 12
     private const val MaxSpaceNameLength = 40
     private const val MaxChipLength = 28
     private const val MaxTextFieldLength = 160

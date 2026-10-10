@@ -225,15 +225,29 @@ class ReviewViewModel internal constructor(
         pendingTaskUndo,
         sortFeedback,
     ) { data, smallAction, summary, taskUndo, feedback ->
-        buildUiState(data, smallAction, summary, taskUndo).copy(
+        val state = buildUiState(data, smallAction, summary, taskUndo)
+        state.copy(
             pendingSortUndo = feedback.first,
             sortMessage = feedback.second,
+            toSort = state.toSort.map { item -> item.withSplitOffer() },
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ReviewUiState(),
     )
+
+    private val splitOffers = mutableMapOf<String, Int>()
+
+    /** "Looks like N thoughts" for one-line thoughts; remembered per text, it never changes. */
+    private suspend fun ToSortItem.withSplitOffer(): ToSortItem {
+        if (state != ToSortState.Suggested && state != ToSortState.NoSuggestion) return this
+        if (text.lines().count(String::isNotBlank) > 1) return this
+        val count = splitOffers[text] ?: runCatching { container.thoughtSplitter.possibleThoughts(text) }
+            .getOrDefault(0)
+            .also { splitOffers[text] = it }
+        return if (count >= 2) copy(possibleThoughts = count) else this
+    }
 
     /** One tap: turn the thought into what LUMA suggested. */
     fun acceptSuggestion(item: ToSortItem) {

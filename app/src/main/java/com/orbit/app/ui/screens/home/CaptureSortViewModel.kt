@@ -13,8 +13,6 @@ import com.orbit.app.data.local.entity.AiSuggestionSurface
 import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpItemOutcome
 import com.orbit.app.data.local.entity.BrainDumpReminderStatus
-import com.orbit.app.data.local.entity.BrainDumpSessionEntity
-import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.repository.AppSettingsRepository
@@ -24,10 +22,8 @@ import com.orbit.app.data.repository.ReminderRepository
 import com.orbit.app.data.repository.SpaceRepository
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
 import com.orbit.app.domain.analyzer.CaptureAnalysis
-import com.orbit.app.domain.analyzer.CaptureConfidence
 import com.orbit.app.domain.analyzer.CaptureAnalyzerSource
 import com.orbit.app.domain.analyzer.ReminderTimeStatus
-import com.orbit.app.domain.analyzer.confidenceLevel
 import com.orbit.app.data.local.dao.CaptureSuggestionDao
 import com.orbit.app.domain.capture.CaptureInbox
 import com.orbit.app.domain.capture.CaptureResolution
@@ -50,9 +46,13 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
+import com.orbit.app.domain.analyzer.CaptureAnalyzer
+import com.orbit.app.domain.analyzer.CaptureLifeSignal
+import com.orbit.app.domain.analyzer.captureLifeSignalOf
+import com.orbit.app.domain.analyzer.BrainDumpSplitter
+import com.orbit.app.domain.capture.ThoughtSplitter
+import com.orbit.app.domain.capture.toEntity
+import com.orbit.app.data.local.entity.TaskStatus
 
 data class CaptureSuggestion(
     val captureId: Long,
@@ -62,6 +62,8 @@ data class CaptureSuggestion(
     val calendarDateContextEpochDay: Long? = null,
     /** Open straight into reminder setup (a time-sensitive thought that needs a time). */
     val startWithReminderSetup: Boolean = false,
+    /** "Looks like N thoughts": offered only, never split without the user. */
+    val possibleThoughts: Int = 0,
 )
 
 data class CaptureSpaceOption(
@@ -111,6 +113,8 @@ class CaptureSortViewModel(
     private val captureResolution: CaptureResolution,
     private val savedStateHandle: SavedStateHandle,
     private val applicationContext: Context,
+    private val captureAnalyzer: CaptureAnalyzer,
+    private val thoughtSplitter: ThoughtSplitter,
 ) : ViewModel() {
     // Resolved on every use so messages follow a language change made while open.
     private val localizedContext: Context
@@ -184,6 +188,7 @@ class CaptureSortViewModel(
                             spaceOptions = spaceOptions,
                             calendarDateContextEpochDay = stored?.contextDateEpochDay,
                             startWithReminderSetup = startWithReminderSetup,
+                            possibleThoughts = runCatching { thoughtSplitter.possibleThoughts(capture.rawText) }.getOrDefault(0),
                         ),
                     )
                 }
@@ -237,6 +242,69 @@ class CaptureSortViewModel(
                         state.copy(message = localized(R.string.core_home_message_brain_dump_unavailable))
                     }
                 }
+        }
+    }
+
+    internal fun toggleBrainDumpRow(sourceKey: String) = brainDumpFlowCoordinator.toggleRow(sourceKey)
+
+    internal fun openBrainDumpRow(sourceKey: String) = brainDumpFlowCoordinator.openRow(sourceKey)
+
+    internal fun backToBrainDumpOverview() = brainDumpFlowCoordinator.backToOverview()
+
+    internal fun saveTickedBrainDumpRows() {
+        viewModelScope.launch { brainDumpFlowCoordinator.saveTicked() }
+    }
+
+    internal fun keepBrainDumpAsOneNote() {
+        val title = _uiState.value.suggestion?.analysis?.rawText
+            ?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim()?.take(90).orEmpty()
+        viewModelScope.launch { brainDumpFlowCoordinator.keepRestAsOneNote(title) }
+    }
+
+    /** "Split this list": a heading with a list under it becomes one thought per list line. */
+    internal fun splitBrainDumpRow(sourceKey: String) {
+        val suggestion = _uiState.value.suggestion ?: return
+        val item = suggestion.analysis.brainDumpItems.firstOrNull { it.id == sourceKey } ?: return
+        val lines = BrainDumpSplitter.listItemsOf(item.rawText)
+        if (lines.size < 2) return
+        viewModelScope.launch {
+            val timestamp = System.currentTimeMillis()
+            val parts = captureAnalyzer.brainDumpItemsFor(lines)
+                .mapIndexed { index, part -> part.toEntity(suggestion.captureId, index + 1, timestamp) }
+            val status = runCatching {
+                brainDumpActions.replaceWithParts(suggestion.captureId, sourceKey, parts)
+            }.getOrNull()
+            if (status == BrainDumpActionStatus.Applied) {
+                runCatching { loadBrainDumpSuggestion(suggestion.captureId) }
+            } else {
+                _uiState.update { it.copy(message = localized(R.string.core_home_message_brain_dump_item_save_failed)) }
+            }
+        }
+    }
+
+    /**
+     * "Looks like 3 thoughts · Split": makes a Brain Dump from one saved thought, only
+     * because the user asked. Then the overview opens.
+     */
+    fun splitIntoThoughts(captureId: Long) {
+        if (captureId <= 0L || _uiState.value.isPerformingAction) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = runCatching { thoughtSplitter.split(captureId) }.getOrDefault(ThoughtSplitter.Result.Unavailable)
+            _uiState.update { it.copy(isLoading = false) }
+            when (result) {
+                ThoughtSplitter.Result.Split, ThoughtSplitter.Result.AlreadySplit -> {
+                    savedStateHandle[OpenCaptureIdKey] = null
+                    _uiState.update { it.copy(suggestion = null) }
+                    resumeBrainDump(captureId)
+                }
+                ThoughtSplitter.Result.OneThought -> _uiState.update {
+                    it.copy(message = localized(R.string.split_one_thought))
+                }
+                ThoughtSplitter.Result.Unavailable -> _uiState.update {
+                    it.copy(message = localized(R.string.core_sort_open_failed))
+                }
+            }
         }
     }
 
@@ -623,6 +691,7 @@ class CaptureSortViewModel(
             items = items,
             spaces = spaces,
             storedOutcomes = stored.items.associate { item -> item.sourceKey to item.outcome },
+            startWithOverview = true,
         )
     }
 
@@ -642,6 +711,7 @@ class CaptureSortViewModel(
                 request.draft.title,
                 request.draft.scheduledAt,
                 request.draft.spaceId,
+                status = taskStatusFor(request.sourceKey),
             )
             is BrainDumpCommitRequest.SaveReminder -> brainDumpActions.saveReminder(
                 request.captureId,
@@ -657,6 +727,10 @@ class CaptureSortViewModel(
             is BrainDumpCommitRequest.Skip -> brainDumpActions.skip(
                 request.captureId,
                 request.sourceKey,
+            )
+            is BrainDumpCommitRequest.KeepRestAsOneNote -> brainDumpActions.keepRemainingAsOneNote(
+                request.captureId,
+                request.title,
             )
         }
         if (result.status == BrainDumpActionStatus.Applied) {
@@ -719,7 +793,9 @@ class CaptureSortViewModel(
                     suggestedSpaceName = item.suggestedSpaceName,
                 )
             }
-            is BrainDumpCommitRequest.KeepInInbox -> Unit
+            is BrainDumpCommitRequest.KeepInInbox,
+            is BrainDumpCommitRequest.KeepRestAsOneNote,
+            -> Unit
         }
     }
 
@@ -746,7 +822,17 @@ class CaptureSortViewModel(
         reminderTimeStatus = reminderStatus.toDomainStatus(),
         suggestedReminderAt = suggestedReminderAt,
         reminderPhrase = reminderPhrase,
+        // Not stored: read again from the thought's words, in the app's language.
+        lifeSignal = captureLifeSignalOf(rawText, effectiveAppLocale(applicationContext)),
     )
+
+    /** "Someday" and "Waiting for" are kept as that task status. */
+    private fun taskStatusFor(sourceKey: String): TaskStatus =
+        when (_uiState.value.suggestion?.analysis?.brainDumpItems?.firstOrNull { it.id == sourceKey }?.lifeSignal) {
+            CaptureLifeSignal.Someday -> TaskStatus.Someday
+            CaptureLifeSignal.WaitingFor -> TaskStatus.WaitingFor
+            else -> TaskStatus.Open
+        }
 
     private fun BrainDumpReminderStatus.toDomainStatus() = when (this) {
         BrainDumpReminderStatus.Unspecified -> ReminderTimeStatus.Unspecified
@@ -886,6 +972,8 @@ class CaptureSortViewModel(
         private val captureResolution: CaptureResolution,
         private val savedStateHandle: SavedStateHandle,
         private val applicationContext: Context,
+        private val captureAnalyzer: CaptureAnalyzer,
+        private val thoughtSplitter: ThoughtSplitter,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -905,6 +993,8 @@ class CaptureSortViewModel(
                 captureResolution = captureResolution,
                 savedStateHandle = savedStateHandle,
                 applicationContext = applicationContext,
+                captureAnalyzer = captureAnalyzer,
+                thoughtSplitter = thoughtSplitter,
             ) as T
         }
     }
@@ -928,6 +1018,8 @@ class CaptureSortViewModel(
             captureResolution = container.captureResolution,
             savedStateHandle = savedStateHandle,
             applicationContext = container.applicationContext,
+            captureAnalyzer = container.captureAnalyzer,
+            thoughtSplitter = container.thoughtSplitter,
         )
 
         private const val ActiveBrainDumpCaptureIdKey = "activeBrainDumpCaptureId"

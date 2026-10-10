@@ -96,6 +96,7 @@ internal fun CaptureSuggestionSheet(
     onKeepInInbox: () -> Unit,
     onCancel: () -> Unit,
     onDiscardBrainDumpDraftChanges: () -> Unit,
+    onSplitIntoThoughts: () -> Unit = {},
 ) {
     val analysis = suggestion.analysis
     val isBrainDump = analysis.brainDumpItems.isNotEmpty()
@@ -156,6 +157,7 @@ internal fun CaptureSuggestionSheet(
                 initialDraft = state.initialDraft,
                 draft = state.draft,
                 actionInProgress = state.actionInProgress,
+                openedFromOverview = state.openedFromOverview,
             )
         },
     )
@@ -269,6 +271,13 @@ internal fun CaptureSuggestionSheet(
                             callbacks = requireNotNull(callbacks),
                         )
                     } else {
+                        if (suggestion.possibleThoughts >= 2) {
+                            SplitOffer(
+                                count = suggestion.possibleThoughts,
+                                enabled = !isPerformingAction,
+                                onSplit = onSplitIntoThoughts,
+                            )
+                        }
                         CaptureSortContent(
                             suggestion = suggestion,
                             timeFormat = timeFormat,

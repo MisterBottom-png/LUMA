@@ -22,10 +22,10 @@ The improved experience uses progressive disclosure: the default card shows enou
 
 ## Non-goals
 
-- Do not stage all decisions for a final bulk commit.
+- Do not stage all decisions for a final bulk commit. (Updated 2026-10-10: the overview list's "Save N" saves the ticked rows, but each row is still its own exactly-once transaction in order; nothing is staged. See the update below.)
 - Do not add editable history for already-created items.
 - Do not add Undo for note, task, reminder, or Inbox creation.
-- Do not change Brain Dump detection, AI routing, Room schema, export format, reminder scheduling, or finalized-item visibility.
+- Do not change the Room schema, export format, reminder scheduling, or finalized-item visibility.
 - Do not redesign Home, Review, item detail, or the shared modal system beyond the integration needed for this flow.
 
 ## Protected behavior
@@ -403,3 +403,16 @@ The design is successful when:
 - nested dismissal never silently loses modified fields;
 - the final summary communicates completion without exposing raw source text;
 - existing persistence, resume, exactly-once creation, 24-hour time, and finalized-only visibility behavior remain protected.
+
+
+## Update 2026-10-10: overview first and safer splitting
+
+Decided with the owner (Brain Dump review, October 2026):
+
+- Every Brain Dump opens with an overview list. Each row shows title, type, Space and time before anything is saved, so "Save N" is still the user's confirmation. Ticked by default only: high confidence, a real Space (never Inbox), and for reminders a resolved time in the future. Each saved row is its own exactly-once transaction, in order; a failed row stays pending and is marked.
+- Rows without a tick go through the one-by-one cards afterwards. Tapping a row opens its card and returns to the list.
+- "Keep as one note" (after some saves: "Keep the rest as one note") turns every pending thought into one note in a single transaction.
+- Splitting: numbers, bullets and checkboxes are removed from the start of a line; a link alone on a line stays with the line above; a "heading:" with a list under it stays one thought, with "Split this list" in the overview.
+- A one-line thought is never split on its own. When it looks like several thoughts, Review → To sort and the sort sheet offer "Looks like N thoughts · Split". Locally only safe signs split (";", inline numbers, sentences that each start with an action word); with Gemini on, Gemini may say where to cut, and every part must be a word-for-word copy of the user's text.
+- "Someday" and "Waiting for" are read again from each thought's words (not stored) and saved as that task status.
+- Gemini Brain Dump calls go in groups of 10 with an output size that fits the group.

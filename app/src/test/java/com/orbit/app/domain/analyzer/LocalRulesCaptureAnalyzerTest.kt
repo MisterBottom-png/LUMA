@@ -280,4 +280,20 @@ class LocalRulesCaptureAnalyzerTest {
         assertEquals(LocalDate.of(2026, 8, 14), dueAt.toLocalDate())
         assertEquals(LocalTime.of(15, 0), dueAt.toLocalTime())
     }
+
+    @Test
+    fun brainDumpKeepsSomedayAndWaitingForAsTasks() {
+        val result = analyzer.analyze("someday learn the piano\nwaiting for the plumber to call back")
+
+        assertEquals(listOf(CaptureLifeSignal.Someday, CaptureLifeSignal.WaitingFor), result.brainDumpItems.map { it.lifeSignal })
+        assertTrue(result.brainDumpItems.all { it.suggestedType == SuggestedItemType.Task })
+    }
+
+    @Test
+    fun aOneLineThoughtIsNeverSplitOnItsOwn() {
+        val result = analyzer.analyze("call the bank; buy milk")
+
+        assertTrue(result.brainDumpItems.isEmpty())
+        assertEquals(listOf("call the bank", "buy milk"), analyzer.oneLineParts("call the bank; buy milk"))
+    }
 }

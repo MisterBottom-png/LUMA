@@ -73,6 +73,23 @@
     <string name="sort_tomorrow_at">Homme %1$s</string>
     <string name="sort_pick_time">Vali aeg</string>
     <string name="sort_not_now">Mitte praegu</string>
+    <string name="brain_overview_rest_one_by_one">Märkimata read tulevad pärast seda ükshaaval.</string>
+    <string name="brain_overview_keep_one_note">Hoia ühe märkmena</string>
+    <string name="brain_overview_keep_rest">Hoia ülejäänu ühe märkmena</string>
+    <string name="brain_overview_tick">Salvesta „%1$s“</string>
+    <string name="brain_overview_needs_you">Vajab sind</string>
+    <string name="brain_overview_needs_time">Vajab aega</string>
+    <string name="brain_overview_failed">Ei salvestunud. Proovi uuesti nupuga Salvesta.</string>
+    <string name="brain_overview_split_list">Jaga see loend osadeks</string>
+    <string name="split_offer_action">Jaga</string>
+    <string name="split_one_thought">Tallele leidis siit ainult ühe mõtte.</string>
+    <string name="home_voice_next_hint">Järgmise mõtte jaoks puuduta uuesti mikrofoni.</string>
+    <string name="home_voice_next">Ütle järgmine mõte</string>
+    <string name="brain_overview_back">Tagasi loendisse</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d märge</item><item quantity="other">%1$d märget</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorteeritud %1$d mõte</item><item quantity="other">Sorteeritud %1$d mõtet</item></plurals>
+    <plurals name="brain_overview_subtitle"><item quantity="one">%1$d mõte. Märgitud näivad selged; rea muutmiseks puuduta seda.</item><item quantity="other">%1$d mõtet. Märgitud näivad selged; rea muutmiseks puuduta seda.</item></plurals>
+    <plurals name="brain_overview_already_sorted"><item quantity="one">%1$d juba sorteeritud</item><item quantity="other">%1$d juba sorteeritud</item></plurals>
+    <plurals name="brain_overview_save"><item quantity="one">Salvesta %1$d</item><item quantity="other">Salvesta %1$d</item></plurals>
+    <plurals name="split_offer"><item quantity="one">Paistab olevat %1$d mõte</item><item quantity="other">Paistab olevat %1$d mõtet</item></plurals>
 </resources>

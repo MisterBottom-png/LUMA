@@ -131,54 +131,80 @@ class OrbitAiRouter(
         ReminderTimeStatus.Unspecified -> this
     }
 
+    /**
+     * Gemini suggests title, type and Space per fragment, in groups of
+     * [GeminiBrainDumpGroupSize] so a long dump is never cut short. Any group that
+     * comes back wrong means the whole dump keeps the local suggestions.
+     */
     private suspend fun analyzeBrainDump(
         rawText: String,
         localAnalysis: CaptureAnalysis,
         settings: AppSettings,
         apiKey: String,
         allowedSpaces: List<String>,
-    ): RoutedCaptureAnalysis =
-        when (
+    ): RoutedCaptureAnalysis {
+        val learningProfile = learningProfileProvider.profileFor(rawText)
+        val enriched = mutableListOf<com.orbit.app.domain.analyzer.BrainDumpSuggestion>()
+        var modelId: String? = null
+        for (group in localAnalysis.brainDumpItems.chunked(GeminiBrainDumpGroupSize)) {
             val result = geminiApiClient.generateJson(
                 apiKey = apiKey,
                 modelId = settings.geminiReasoningModelId,
                 prompt = GeminiPromptBuilders.brainDump(
                     rawText = rawText,
-                    sourceFragments = localAnalysis.brainDumpItems,
+                    sourceFragments = group,
                     allowedSpaces = allowedSpaces,
-                    learningProfile = learningProfileProvider.profileFor(rawText),
+                    learningProfile = learningProfile,
                 ),
-                maxOutputTokens = 1024,
+                maxOutputTokens = brainDumpOutputTokens(group.size),
             )
-        ) {
-            is GeminiApiResult.Success -> {
-                val items = GeminiJsonValidator.brainDumpSuggestions(
-                    text = result.text,
-                    allowedSpaces = allowedSpaces,
-                    expectedItems = localAnalysis.brainDumpItems,
-                )
-                if (items != null) {
-                    RoutedCaptureAnalysis(
-                        // Title, summary and chips stay the local analysis's wording, which
-                        // follows the language of the thought; only the split comes from Gemini.
-                        analysis = localAnalysis.copy(
-                            relatedTopics = items.map { it.suggestedSpaceName }.distinct(),
-                            brainDumpItems = items,
-                            analyzerSource = com.orbit.app.domain.analyzer.CaptureAnalyzerSource.Gemini,
-                        ),
-                        metadata = AiRouteMetadata(
-                            source = AiRouteSource.Gemini,
-                            cloudUsed = true,
-                            modelId = result.modelId,
-                        ),
-                    )
-                } else {
-                    fallback(rawText, geminiError(GeminiApiErrorKind.InvalidResponse))
+            when (result) {
+                is GeminiApiResult.Success -> {
+                    val items = GeminiJsonValidator.brainDumpSuggestions(
+                        text = result.text,
+                        allowedSpaces = allowedSpaces,
+                        expectedItems = group,
+                    ) ?: return fallback(rawText, geminiError(GeminiApiErrorKind.InvalidResponse))
+                    enriched += items
+                    modelId = result.modelId
                 }
+                is GeminiApiResult.Failure -> return fallback(rawText, result.error)
             }
-
-            is GeminiApiResult.Failure -> fallback(rawText, result.error)
         }
+        return RoutedCaptureAnalysis(
+            // Title, summary and chips stay the local analysis's wording, which
+            // follows the language of the thought; only the per-thought suggestions
+            // come from Gemini.
+            analysis = localAnalysis.copy(
+                relatedTopics = enriched.map { it.suggestedSpaceName }.distinct(),
+                brainDumpItems = enriched,
+                analyzerSource = com.orbit.app.domain.analyzer.CaptureAnalyzerSource.Gemini,
+            ),
+            metadata = AiRouteMetadata(
+                source = AiRouteSource.Gemini,
+                cloudUsed = true,
+                modelId = modelId,
+            ),
+        )
+    }
+
+    /**
+     * Where a one-line thought should be cut, when the user asked to split it. Null
+     * when Gemini is off or its answer is not an exact copy of the user's words.
+     */
+    suspend fun thoughtParts(rawText: String, settings: AppSettings): List<String>? {
+        if (!settings.canUseGemini(settings.useGeminiForBrainDump)) return null
+        val apiKey = geminiApiKeyStore.getKey() ?: return null
+        val result = geminiApiClient.generateJson(
+            apiKey = apiKey,
+            modelId = settings.geminiReasoningModelId,
+            prompt = GeminiPromptBuilders.thoughtParts(rawText),
+            maxOutputTokens = (rawText.length / 2 + 128).coerceIn(256, 2048),
+        )
+        return (result as? GeminiApiResult.Success)?.let { GeminiJsonValidator.thoughtParts(it.text, rawText) }
+    }
+
+    fun canSplitWithGemini(settings: AppSettings): Boolean = settings.canUseGemini(settings.useGeminiForBrainDump)
 
     suspend fun makeSmaller(text: String, settings: AppSettings): RoutedTinyAction {
         val localAction = { error: GeminiApiError? ->
@@ -354,7 +380,11 @@ class OrbitAiRouter(
         aiMode == AiMode.GeminiApi && featureEnabled
 
     private companion object {
-        const val MaxGeminiBrainDumpItems = 20
+        const val MaxGeminiBrainDumpItems = 60
+        const val GeminiBrainDumpGroupSize = 10
+
+        /** About 100 tokens of JSON per thought, within the client's 2048 cap. */
+        fun brainDumpOutputTokens(items: Int): Int = (items * 110 + 160).coerceIn(384, 2048)
     }
 
     private fun CaptureAnalysis.routedLocal(): RoutedCaptureAnalysis =

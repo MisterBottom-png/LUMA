@@ -46,6 +46,8 @@ data class BrainDumpSuggestion(
     val reminderTimeStatus: ReminderTimeStatus = ReminderTimeStatus.Unspecified,
     val suggestedReminderAt: Long? = null,
     val reminderPhrase: String? = null,
+    /** "Someday" or "Waiting for" read from the thought's own words; never stored, always re-read. */
+    val lifeSignal: CaptureLifeSignal = CaptureLifeSignal.None,
 )
 
 enum class CaptureAnalyzerSource(val label: String) {
@@ -76,6 +78,17 @@ val CaptureAnalysis.confidenceLevel: CaptureConfidence
 
 interface CaptureAnalyzer {
     fun analyze(rawText: String): CaptureAnalysis
+
+    /** One Brain Dump suggestion per given part, in order (ids `brain:1`, `brain:2`, …). */
+    fun brainDumpItemsFor(parts: List<String>): List<BrainDumpSuggestion> = emptyList()
+
+    /** Parts of a one-line thought, split only on safe signs; empty when it is one thought. */
+    fun oneLineParts(rawText: String): List<String> = emptyList()
+
+    /** True when a one-line thought reads like several actions ("buy…, call… and book…"). */
+    fun mightHoldSeveralThoughts(rawText: String): Boolean = false
+
+    fun lifeSignalOf(text: String): CaptureLifeSignal = CaptureLifeSignal.None
 }
 
 class LocalRulesCaptureAnalyzer(
@@ -90,31 +103,7 @@ class LocalRulesCaptureAnalyzer(
         val rulePacks = captureRulePacks(currentLocale)
         val presentation = capturePresentation(currentLocale)
 
-        val brainDumpItems = splitBrainDump(rawText).mapIndexed { index, line ->
-            val lineAnalysis = analyzeSingle(line)
-            val suggestedType = if (lineAnalysis.confidenceLevel == CaptureConfidence.Low) {
-                SuggestedItemType.Note
-            } else {
-                lineAnalysis.suggestedType
-            }
-            BrainDumpSuggestion(
-                id = "brain:${index + 1}",
-                rawText = line,
-                title = line.toSuggestedTitle(),
-                suggestedType = suggestedType,
-                suggestedSpaceName = lineAnalysis.suggestedSpaceName,
-                confidence = lineAnalysis.confidence,
-                tinyNextAction = LocalReviewAnalyzer.makeSmallerText(line, currentLocale),
-                reason = if (lineAnalysis.confidenceLevel == CaptureConfidence.Low) {
-                    presentation.lowConfidenceFragmentReason
-                } else {
-                    lineAnalysis.typeReason
-                },
-                reminderTimeStatus = lineAnalysis.reminderTimeStatus,
-                suggestedReminderAt = lineAnalysis.suggestedReminderAt,
-                reminderPhrase = lineAnalysis.reminderPhrase,
-            )
-        }
+        val brainDumpItems = brainDumpItemsForFragments(BrainDumpSplitter.lineFragments(rawText))
 
         if (brainDumpItems.isNotEmpty()) {
             return analyzeSingle(rawText).copy(
@@ -133,6 +122,65 @@ class LocalRulesCaptureAnalyzer(
         }
 
         return analyzeSingle(rawText)
+    }
+
+    override fun brainDumpItemsFor(parts: List<String>): List<BrainDumpSuggestion> =
+        brainDumpItemsForFragments(
+            parts.map(String::trim).filter(String::isNotBlank).map { BrainDumpFragment(text = it, title = it) },
+        )
+
+    override fun oneLineParts(rawText: String): List<String> =
+        BrainDumpSplitter.oneLineParts(rawText) { part -> part.startsWithAction() }
+
+    override fun mightHoldSeveralThoughts(rawText: String): Boolean =
+        oneLineParts(rawText).size >= 2 ||
+            BrainDumpSplitter.actionChunks(rawText).count { it.startsWithAction() } >= 2
+
+    override fun lifeSignalOf(text: String): CaptureLifeSignal =
+        lifeSignalFor(text.lowercase(Locale.ROOT), captureRulePacks(locale()))
+
+    private fun String.startsWithAction(): Boolean {
+        val normalized = trim().lowercase(Locale.ROOT)
+        return captureRulePacks(locale()).any { pack ->
+            pack.taskStartSignals.any { normalized.startsWithSignal(it) } ||
+                pack.taskSignals.any { normalized.startsWithSignal(it) } ||
+                pack.explicitReminderSignals.any { normalized.startsWithSignal(it) }
+        }
+    }
+
+    private fun brainDumpItemsForFragments(fragments: List<BrainDumpFragment>): List<BrainDumpSuggestion> {
+        val currentLocale = locale()
+        val presentation = capturePresentation(currentLocale)
+        return fragments.mapIndexed { index, fragment ->
+            val line = fragment.text
+            val lineAnalysis = analyzeSingle(line)
+            val laterSignal = lineAnalysis.lifeSignal == CaptureLifeSignal.Someday ||
+                lineAnalysis.lifeSignal == CaptureLifeSignal.WaitingFor
+            val suggestedType = when {
+                // "Someday" and "Waiting for" are kept as a task with that status.
+                laterSignal -> SuggestedItemType.Task
+                lineAnalysis.confidenceLevel == CaptureConfidence.Low -> SuggestedItemType.Note
+                else -> lineAnalysis.suggestedType
+            }
+            BrainDumpSuggestion(
+                id = "brain:${index + 1}",
+                rawText = line,
+                title = fragment.title.toSuggestedTitle(),
+                suggestedType = suggestedType,
+                suggestedSpaceName = lineAnalysis.suggestedSpaceName,
+                confidence = lineAnalysis.confidence,
+                tinyNextAction = LocalReviewAnalyzer.makeSmallerText(line, currentLocale),
+                reason = if (lineAnalysis.confidenceLevel == CaptureConfidence.Low) {
+                    presentation.lowConfidenceFragmentReason
+                } else {
+                    lineAnalysis.typeReason
+                },
+                reminderTimeStatus = lineAnalysis.reminderTimeStatus,
+                suggestedReminderAt = lineAnalysis.suggestedReminderAt,
+                reminderPhrase = lineAnalysis.reminderPhrase,
+                lifeSignal = lineAnalysis.lifeSignal,
+            )
+        }
     }
 
     private fun analyzeSingle(rawText: String): CaptureAnalysis {
@@ -478,6 +526,10 @@ private val SupportedCaptureRulePacks = listOf(
     RussianCaptureRules,
 )
 
+/** "Waiting for", "Someday" or "Reflection" read from a thought's own words. */
+fun captureLifeSignalOf(text: String, locale: Locale): CaptureLifeSignal =
+    lifeSignalFor(text.lowercase(Locale.ROOT), captureRulePacks(locale))
+
 private fun lifeSignalFor(
     normalized: String,
     rulePacks: List<CaptureRulePack>,
@@ -525,15 +577,6 @@ private fun String.containsSignal(signal: String): Boolean = Regex(
 private fun String.startsWithSignal(signal: String): Boolean = Regex(
     pattern = "^${Regex.escape(signal)}(?![\\p{L}\\p{N}])",
 ).containsMatchIn(this)
-
-private fun splitBrainDump(rawText: String): List<String> {
-    val lines = rawText
-        .lineSequence()
-        .map { it.trim().removePrefix("-").removePrefix("*").trim() }
-        .filter { it.isNotBlank() }
-        .toList()
-    return lines.takeIf { it.size >= 2 }.orEmpty()
-}
 
 private fun String.toSuggestedTitle(): String =
     trim()

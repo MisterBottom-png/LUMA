@@ -9,6 +9,7 @@ import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.reminders.shouldScheduleNotification
 import java.time.Instant
@@ -53,6 +54,7 @@ class BrainDumpActions(
         title: String,
         dueAt: Long?,
         spaceId: Long?,
+        status: TaskStatus = TaskStatus.Open,
     ): BrainDumpActionResult = apply(captureId, sourceKey, BrainDumpItemOutcome.Saved) { session, item ->
         val schedule = taskSchedule(dueAt, session.calendarDateContextEpochDay)
         val cleanTitle = title.trim().ifBlank { item.suggestedTitle.ifBlank { item.rawText } }
@@ -63,6 +65,7 @@ class BrainDumpActions(
                 spaceId = spaceId,
                 dueAt = schedule.dueAt,
                 scheduledDateEpochDay = schedule.scheduledDateEpochDay,
+                status = status,
             ),
         )
         false
@@ -118,6 +121,65 @@ class BrainDumpActions(
         false
     }
 
+    /**
+     * "Keep as one note": every thought still waiting becomes one note, in order, in a
+     * single transaction, so it happens exactly once. Thoughts already saved stay saved.
+     */
+    suspend fun keepRemainingAsOneNote(captureId: Long, title: String): BrainDumpActionResult =
+        database.withTransaction {
+            val session = database.brainDumpDao().getSession(captureId)
+                ?: return@withTransaction BrainDumpActionResult(BrainDumpActionStatus.Missing)
+            val pending = database.brainDumpDao().getItems(captureId)
+                .filter { it.outcome == BrainDumpItemOutcome.Pending }
+            if (pending.isEmpty()) return@withTransaction BrainDumpActionResult(BrainDumpActionStatus.AlreadyHandled)
+            database.noteDao().insert(
+                NoteEntity(
+                    title = title.trim().ifBlank { pending.first().suggestedTitle.ifBlank { pending.first().rawText } },
+                    body = pending.joinToString("\n") { it.rawText },
+                    scheduledDateEpochDay = session.calendarDateContextEpochDay,
+                ),
+            )
+            val timestamp = now()
+            pending.forEach { item ->
+                if (database.brainDumpDao().markPendingItem(item.id, BrainDumpItemOutcome.Saved, timestamp) != 1) {
+                    error("Brain Dump item changed while it was being handled")
+                }
+            }
+            completeSession(captureId)
+            BrainDumpActionResult(status = BrainDumpActionStatus.Applied, sessionCompleted = true)
+        }
+
+    /**
+     * Replaces one waiting thought with its parts ("Split this list"), keeping the
+     * dump's order. Nothing is saved as a note, task or reminder here.
+     */
+    suspend fun replaceWithParts(
+        captureId: Long,
+        sourceKey: String,
+        parts: List<com.orbit.app.data.local.entity.BrainDumpItemEntity>,
+    ): BrainDumpActionStatus = database.withTransaction {
+        require(parts.size >= 2)
+        val item = database.brainDumpDao().getItem(captureId, sourceKey)
+            ?: return@withTransaction BrainDumpActionStatus.Missing
+        if (item.outcome != BrainDumpItemOutcome.Pending) return@withTransaction BrainDumpActionStatus.AlreadyHandled
+        if (database.brainDumpDao().deletePendingItem(item.id) != 1) {
+            return@withTransaction BrainDumpActionStatus.AlreadyHandled
+        }
+        database.brainDumpDao().shiftOrdinals(captureId, afterOrdinal = item.ordinal, by = parts.size - 1)
+        database.brainDumpDao().insertItems(
+            parts.mapIndexed { index, part ->
+                part.copy(
+                    id = 0,
+                    captureId = captureId,
+                    sourceKey = "$sourceKey.${index + 1}",
+                    ordinal = item.ordinal + index,
+                    outcome = BrainDumpItemOutcome.Pending,
+                )
+            },
+        )
+        BrainDumpActionStatus.Applied
+    }
+
     suspend fun skip(captureId: Long, sourceKey: String): BrainDumpActionResult =
         apply(captureId, sourceKey, BrainDumpItemOutcome.Skipped) { _, _ -> false }
 
@@ -160,23 +222,26 @@ class BrainDumpActions(
                 error("Brain Dump item changed while it was being handled")
             }
             val completed = database.brainDumpDao().pendingCount(captureId) == 0
-            if (completed) {
-                val capture = requireNotNull(database.captureDao().getById(captureId))
-                database.captureDao().update(
-                    capture.copy(
-                        status = CaptureStatus.Processed,
-                        linkedItemId = null,
-                        updatedAt = now(),
-                    ),
-                )
-                database.brainDumpDao().deleteSession(captureId)
-            }
+            if (completed) completeSession(captureId)
             BrainDumpActionResult(
                 status = BrainDumpActionStatus.Applied,
                 sessionCompleted = completed,
                 reminderCreated = reminderCreated,
             )
         }
+    }
+
+    /** The last thought is handled: the source capture is done and the session goes away. */
+    private suspend fun completeSession(captureId: Long) {
+        val capture = requireNotNull(database.captureDao().getById(captureId))
+        database.captureDao().update(
+            capture.copy(
+                status = CaptureStatus.Processed,
+                linkedItemId = null,
+                updatedAt = now(),
+            ),
+        )
+        database.brainDumpDao().deleteSession(captureId)
     }
 
     private fun taskSchedule(dueAt: Long?, calendarEpochDay: Long?): TaskSchedule {

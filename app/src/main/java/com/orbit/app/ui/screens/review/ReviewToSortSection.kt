@@ -59,10 +59,17 @@ internal fun ToSortRow(
     onHideSuggestion: () -> Unit,
     onLetGo: () -> Unit,
     onOpen: () -> Unit = {},
+    onSplit: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    val suggestionLine = toSortSuggestionLine(item, timeFormat)
+    val offerSplit = item.possibleThoughts >= 2 &&
+        (item.state == ToSortState.Suggested || item.state == ToSortState.NoSuggestion)
+    val suggestionLine = if (offerSplit) {
+        pluralStringResource(R.plurals.split_offer, item.possibleThoughts, item.possibleThoughts)
+    } else {
+        toSortSuggestionLine(item, timeFormat)
+    }
     val savedAt = stringResource(R.string.review_to_sort_saved_at, timeFormat.formatShortDateTime(item.createdAt))
     val moreLabel = stringResource(R.string.review_to_sort_more)
     val changeLabel = stringResource(R.string.review_to_sort_change)
@@ -104,7 +111,9 @@ internal fun ToSortRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            when (item.state) {
+            if (offerSplit) {
+                CompactTonalButton(stringResource(R.string.split_offer_action), onSplit)
+            } else when (item.state) {
                 ToSortState.Suggested -> FilledTonalIconButton(
                     onClick = onAccept,
                     modifier = Modifier.size(44.dp),

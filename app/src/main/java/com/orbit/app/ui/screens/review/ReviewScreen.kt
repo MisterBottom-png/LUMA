@@ -120,6 +120,7 @@ fun ReviewScreen(
     onAcceptToSort: (ToSortItem) -> Unit = {},
     onChangeToSort: (ToSortItem) -> Unit = {},
     onOpenToSort: (ToSortItem) -> Unit = {},
+    onSplitToSort: (ToSortItem) -> Unit = {},
     onHideSuggestion: (ToSortItem) -> Unit = {},
     onLetGo: (ToSortItem) -> Unit = {},
     onUndoSort: (SortUndoToken) -> Unit = {},
@@ -246,6 +247,7 @@ fun ReviewScreen(
                                 onHideSuggestion = onHideSuggestion,
                                 onLetGo = onLetGo,
                                 onOpen = onOpenToSort,
+                                onSplit = onSplitToSort,
                             )
                         }
                     }

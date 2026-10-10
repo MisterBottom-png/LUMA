@@ -231,6 +231,7 @@ internal fun ToSortGroup(
     onHideSuggestion: (ToSortItem) -> Unit,
     onLetGo: (ToSortItem) -> Unit,
     onOpen: (ToSortItem) -> Unit = {},
+    onSplit: (ToSortItem) -> Unit = {},
 ) {
     val visible = if (showAll) items else items.take(ReviewSectionPreviewSize)
     val readyCount = items.count { it.state == ToSortState.Suggested }
@@ -245,6 +246,7 @@ internal fun ToSortGroup(
                 onHideSuggestion = { onHideSuggestion(item) },
                 onLetGo = { onLetGo(item) },
                 onOpen = { onOpen(item) },
+                onSplit = { onSplit(item) },
             )
         }
         val hasMore = items.size > ReviewSectionPreviewSize

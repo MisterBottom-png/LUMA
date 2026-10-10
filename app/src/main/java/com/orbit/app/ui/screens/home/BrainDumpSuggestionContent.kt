@@ -61,6 +61,11 @@ import com.orbit.app.ui.components.LumaMenuGap
 import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.ui.unit.sp
 
 internal data class BrainDumpCallbacks(
     val onPrimaryAction: () -> Unit,
@@ -75,6 +80,11 @@ internal data class BrainDumpCallbacks(
     val onFinishLater: () -> Unit,
     val onDiscardRemaining: () -> Unit,
     val onCloseCompletion: () -> Unit,
+    val onToggleRow: (String) -> Unit = {},
+    val onOpenRow: (String) -> Unit = {},
+    val onSaveTicked: () -> Unit = {},
+    val onKeepAsOneNote: () -> Unit = {},
+    val onSplitRow: (String) -> Unit = {},
 )
 
 @Composable
@@ -95,6 +105,13 @@ internal fun BrainDumpSuggestionContent(
         suggestion.analysis.brainDumpItems.firstOrNull { it.id == itemId }
     }
     when (state.stage) {
+        BrainDumpStage.Overview -> BrainDumpOverview(
+            state = state,
+            timeFormat = timeFormat,
+            callbacks = callbacks,
+            modifier = modifier,
+        )
+
         BrainDumpStage.Suggestion -> BrainDumpSuggestionCard(
             item = requireNotNull(item),
             state = state,
@@ -194,16 +211,25 @@ private fun BrainDumpSuggestionCard(
         )
         Text(
             text = draft.title,
-            modifier = Modifier.padding(top = 10.dp),
-            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = 12.dp),
+            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp, lineHeight = 30.sp),
             fontWeight = FontWeight.SemiBold,
         )
-        BrainDumpMetadataSummary(
-            draft = draft,
-            spaces = spaces,
-            timeFormat = timeFormat,
-            modifier = Modifier.padding(top = 8.dp),
-        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 14.dp),
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        ) {
+            BrainDumpMetadataSummary(
+                draft = draft,
+                spaces = spaces,
+                timeFormat = timeFormat,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+        }
         TextButton(
             onClick = { showWhy = !showWhy },
             enabled = !state.actionInProgress,
@@ -246,7 +272,8 @@ private fun BrainDumpSuggestionCard(
             enabled = draft.title.isNotBlank() && !state.actionInProgress,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 18.dp),
+                .padding(top = 20.dp)
+                .heightIn(min = 56.dp),
         ) {
             if (state.actionInProgress) {
                 CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
@@ -254,12 +281,13 @@ private fun BrainDumpSuggestionCard(
                 Text(stringResource(draft.type.primaryActionLabelRes()))
             }
         }
-        OutlinedButton(
+        FilledTonalButton(
             onClick = callbacks.onEdit,
             enabled = !state.actionInProgress,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
+                .padding(top = 8.dp)
+                .heightIn(min = 52.dp),
         ) {
             Text(stringResource(R.string.core_capture_edit_details))
         }
@@ -269,10 +297,14 @@ private fun BrainDumpSuggestionCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(
-                onClick = callbacks.onFinishLater,
+                onClick = if (state.openedFromOverview) callbacks.onStepBack else callbacks.onFinishLater,
                 enabled = !state.actionInProgress,
             ) {
-                Text(stringResource(R.string.core_brain_dump_finish_later))
+                Text(
+                    stringResource(
+                        if (state.openedFromOverview) R.string.brain_overview_back else R.string.core_brain_dump_finish_later,
+                    ),
+                )
             }
             IconButton(
                 onClick = { showMore = true },
@@ -337,7 +369,7 @@ internal fun BrainDumpMetadataSummary(
     modifier: Modifier = Modifier,
 ) {
     val spaceName = brainDumpSpaceName(spaces.firstOrNull { it.id == draft.spaceId })
-    Column(modifier = modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = stringResource(R.string.core_brain_dump_type_value, stringResource(draft.type.labelRes())),
             style = MaterialTheme.typography.bodyMedium,

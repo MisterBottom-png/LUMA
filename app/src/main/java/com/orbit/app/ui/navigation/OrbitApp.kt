@@ -423,6 +423,7 @@ fun OrbitApp(
                         },
                         onAcceptToSort = reviewViewModel::acceptSuggestion,
                         onChangeToSort = { item -> reviewSortViewModel.open(item.captureId) },
+                        onSplitToSort = { item -> reviewSortViewModel.splitIntoThoughts(item.captureId) },
                         onOpenToSort = { item ->
                             navController.navigate(ItemDetailDestination.route(ItemDetailType.Capture, item.captureId))
                         },

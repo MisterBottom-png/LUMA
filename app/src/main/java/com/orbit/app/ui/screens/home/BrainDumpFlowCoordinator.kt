@@ -46,6 +46,14 @@ internal sealed interface BrainDumpCommitRequest {
         override val captureId: Long,
         override val sourceKey: String,
     ) : BrainDumpCommitRequest
+
+    /** Every thought still waiting becomes one note ("Keep as one note"). */
+    data class KeepRestAsOneNote(
+        override val captureId: Long,
+        val title: String,
+    ) : BrainDumpCommitRequest {
+        override val sourceKey: String = ""
+    }
 }
 
 private sealed interface BrainDumpRetryIntent {
@@ -59,6 +67,7 @@ internal class BrainDumpFlowCoordinator(
     private val commit: suspend (BrainDumpCommitRequest) -> BrainDumpActionResult,
     private val discardRemaining: suspend (Long) -> Unit = {},
     private val onClose: (resumable: Boolean) -> Unit = {},
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val _state = MutableStateFlow<BrainDumpInteractionState?>(null)
     val state: StateFlow<BrainDumpInteractionState?> = _state.asStateFlow()
@@ -70,6 +79,11 @@ internal class BrainDumpFlowCoordinator(
     private var retryIntent: BrainDumpRetryIntent? = null
     private var optimisticallySkippedSourceKey: String? = null
     private var sessionWarning: BrainDumpStatus? = null
+    private var overviewEnabled = false
+    private var ticked: MutableMap<String, Boolean> = linkedMapOf()
+    private var failedKeys: MutableSet<String> = linkedSetOf()
+    /** A single row opened from the overview goes back to it after saving. */
+    private var singleRowOpen = false
     private lateinit var skipController: BrainDumpSkipUndoController
     private val durableActionGate = Mutex()
     private var generation = 0L
@@ -79,6 +93,7 @@ internal class BrainDumpFlowCoordinator(
         items: List<BrainDumpSuggestion>,
         spaces: List<CaptureSpaceOption>,
         storedOutcomes: Map<String, BrainDumpItemOutcome>,
+        startWithOverview: Boolean = false,
     ) {
         require(captureId > 0L)
         require(items.isNotEmpty())
@@ -94,6 +109,13 @@ internal class BrainDumpFlowCoordinator(
         retryIntent = null
         optimisticallySkippedSourceKey = null
         sessionWarning = null
+        overviewEnabled = startWithOverview
+        singleRowOpen = false
+        failedKeys = linkedSetOf()
+        val currentTime = now()
+        ticked = items.associate { item ->
+            item.id to brainDumpRowIsSure(item, initialBrainDumpDraft(item, spaces), currentTime)
+        }.toMutableMap()
         skipController = BrainDumpSkipUndoController(
             scope = scope,
             expiryDelay = expiryDelay,
@@ -107,7 +129,170 @@ internal class BrainDumpFlowCoordinator(
                 if (startGeneration == generation) onSkipCommitFailed(pending, failure)
             },
         )
-        showFirstPendingItem()
+        if (overviewEnabled && pendingItems().isNotEmpty()) showOverview() else showFirstPendingItem()
+    }
+
+    /** Ticks or unticks one row of the overview. */
+    fun toggleRow(sourceKey: String) {
+        val current = _state.value ?: return
+        if (current.stage != BrainDumpStage.Overview || isDurableActionInProgress()) return
+        val item = items.firstOrNull { it.id == sourceKey } ?: return
+        if (!brainDumpRowCanTick(initialBrainDumpDraft(item, spaces), now())) return
+        ticked[sourceKey] = !(ticked[sourceKey] ?: false)
+        showOverview(status = current.status)
+    }
+
+    /** Opens one row as a card, to change it before saving. */
+    fun openRow(sourceKey: String) {
+        val current = _state.value ?: return
+        if (current.stage != BrainDumpStage.Overview || isDurableActionInProgress()) return
+        singleRowOpen = true
+        showItem(sourceKey)
+    }
+
+    fun backToOverview() {
+        if (!overviewEnabled || isDurableActionInProgress()) return
+        singleRowOpen = false
+        if (pendingItems().isEmpty()) showFirstPendingItem() else showOverview()
+    }
+
+    /**
+     * Saves every ticked row, each in its own exactly-once transaction, in order. A row
+     * that fails stays waiting and is marked; the rest go on. Afterwards the thoughts
+     * that still need the user go one by one.
+     */
+    suspend fun saveTicked() = runDurableAction {
+        markDurableActionInProgress()
+        if (!flushPendingSkip()) return@runDurableAction
+        val toSave = pendingItems().filter { ticked[it.id] == true }
+        if (toSave.isEmpty()) return@runDurableAction
+        failedKeys.clear()
+        var completed = false
+        for (item in toSave) {
+            val draft = initialBrainDumpDraft(item, spaces)
+            val request = when (draft.type) {
+                SuggestedItemType.Note -> BrainDumpCommitRequest.SaveNote(captureId, item.id, draft)
+                SuggestedItemType.Task, SuggestedItemType.MondayItem ->
+                    BrainDumpCommitRequest.SaveTask(captureId, item.id, draft)
+                SuggestedItemType.Reminder -> {
+                    val at = draft.scheduledAt?.takeIf { it > now() }
+                    if (at == null) {
+                        failedKeys += item.id
+                        continue
+                    }
+                    BrainDumpCommitRequest.SaveReminder(captureId, item.id, draft, at)
+                }
+            }
+            try {
+                val result = commit(request)
+                when (result.status) {
+                    BrainDumpActionStatus.Missing -> {
+                        _state.value = null
+                        onClose(false)
+                        return@runDurableAction
+                    }
+                    BrainDumpActionStatus.Applied, BrainDumpActionStatus.AlreadyHandled -> {
+                        if (request is BrainDumpCommitRequest.SaveReminder && result.notificationScheduled == false) {
+                            sessionWarning = BrainDumpStatus(
+                                kind = BrainDumpStatusKind.Warning,
+                                message = BrainDumpStatusMessage.NotificationAttention,
+                            )
+                        }
+                        recordOutcome(request)
+                        if (result.sessionCompleted) completed = true
+                    }
+                }
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (_: Throwable) {
+                failedKeys += item.id
+            }
+        }
+        val failedStatus = if (failedKeys.isNotEmpty()) {
+            BrainDumpStatus(BrainDumpStatusKind.Error, BrainDumpStatusMessage.SaveFailed)
+        } else {
+            null
+        }
+        when {
+            completed || pendingItems().isEmpty() -> showCompletion(status = failedStatus)
+            failedStatus != null -> showOverview(status = failedStatus)
+            else -> {
+                singleRowOpen = false
+                showFirstPendingItem()
+            }
+        }
+    }
+
+    /** "Keep as one note" (or "Keep the rest as one note"): one transaction for all waiting thoughts. */
+    suspend fun keepRestAsOneNote(title: String) = runDurableAction {
+        markDurableActionInProgress()
+        if (!flushPendingSkip()) return@runDurableAction
+        val request = BrainDumpCommitRequest.KeepRestAsOneNote(captureId, title)
+        try {
+            val result = commit(request)
+            if (result.status == BrainDumpActionStatus.Missing) {
+                _state.value = null
+                onClose(false)
+                return@runDurableAction
+            }
+            recordOutcome(request)
+            showCompletion(status = BrainDumpStatus(BrainDumpStatusKind.Success, BrainDumpStatusMessage.NoteSaved))
+        } catch (failure: CancellationException) {
+            throw failure
+        } catch (_: Throwable) {
+            _state.value = _state.value?.copy(
+                actionInProgress = false,
+                status = BrainDumpStatus(BrainDumpStatusKind.Error, BrainDumpStatusMessage.SaveFailed),
+            )
+        }
+    }
+
+    private fun pendingItems(): List<BrainDumpSuggestion> = items.filter {
+        it.id != optimisticallySkippedSourceKey && storedOutcomes[it.id] == BrainDumpItemOutcome.Pending
+    }
+
+    private fun showOverview(status: BrainDumpStatus? = null) {
+        val currentTime = now()
+        val rows = pendingItems().map { item ->
+            val draft = initialBrainDumpDraft(item, spaces)
+            BrainDumpOverviewRow(
+                sourceKey = item.id,
+                draft = draft,
+                spaceName = spaces.firstOrNull { it.id == draft.spaceId }?.name,
+                lifeSignal = item.lifeSignal,
+                ticked = ticked[item.id] == true && brainDumpRowCanTick(draft, currentTime),
+                canTick = brainDumpRowCanTick(draft, currentTime),
+                isList = item.rawText.lines().size > 1 && item.rawText.lines().drop(1).all { it.trimStart().startsWith("- ") },
+                failed = item.id in failedKeys,
+            )
+        }
+        _state.value = BrainDumpInteractionState(
+            stage = BrainDumpStage.Overview,
+            itemId = null,
+            itemNumber = 0,
+            totalItems = items.size,
+            initialDraft = null,
+            draft = null,
+            completionCounts = completionCounts(),
+            status = status,
+            warning = sessionWarning,
+            overviewRows = rows,
+            handledCount = items.size - rows.size,
+        )
+    }
+
+    private fun showCompletion(status: BrainDumpStatus?) {
+        _state.value = BrainDumpInteractionState(
+            stage = BrainDumpStage.Completion,
+            itemId = null,
+            itemNumber = items.size,
+            totalItems = items.size,
+            initialDraft = null,
+            draft = null,
+            completionCounts = completionCounts(),
+            status = status,
+            warning = sessionWarning,
+        )
     }
 
     fun edit() {
@@ -147,6 +332,10 @@ internal class BrainDumpFlowCoordinator(
         val stage = when (current.stage) {
             BrainDumpStage.TaskSetup, BrainDumpStage.ReminderSetup -> BrainDumpStage.Edit
             BrainDumpStage.Edit -> BrainDumpStage.Suggestion
+            BrainDumpStage.Suggestion -> {
+                if (current.openedFromOverview) backToOverview()
+                return
+            }
             else -> return
         }
         _state.value = current.copy(stage = stage, status = null)
@@ -356,6 +545,11 @@ internal class BrainDumpFlowCoordinator(
     private fun advanceAfterCommit(request: BrainDumpCommitRequest, result: BrainDumpActionResult) {
         val status = successStatus(request, result)
         val currentIndex = items.indexOfFirst { it.id == request.sourceKey }
+        if (overviewEnabled && singleRowOpen && !result.sessionCompleted && pendingItems().isNotEmpty()) {
+            singleRowOpen = false
+            showOverview(status)
+            return
+        }
         if (result.sessionCompleted || currentIndex < 0 || nextPendingIndex(currentIndex) == null) {
             _state.value = BrainDumpInteractionState(
                 stage = BrainDumpStage.Completion,
@@ -466,6 +660,7 @@ internal class BrainDumpFlowCoordinator(
             completionCounts = completionCounts(),
             status = status,
             warning = sessionWarning,
+            openedFromOverview = overviewEnabled,
         )
     }
 
@@ -494,12 +689,19 @@ internal class BrainDumpFlowCoordinator(
     }
 
     private fun recordOutcome(request: BrainDumpCommitRequest) {
+        if (request is BrainDumpCommitRequest.KeepRestAsOneNote) {
+            storedOutcomes.keys.toList().forEach { key ->
+                if (storedOutcomes[key] == BrainDumpItemOutcome.Pending) storedOutcomes[key] = BrainDumpItemOutcome.Saved
+            }
+            return
+        }
         val outcome = when (request) {
             is BrainDumpCommitRequest.SaveNote,
             is BrainDumpCommitRequest.SaveTask,
             is BrainDumpCommitRequest.SaveReminder -> BrainDumpItemOutcome.Saved
             is BrainDumpCommitRequest.KeepInInbox -> BrainDumpItemOutcome.KeptInInbox
             is BrainDumpCommitRequest.Skip -> BrainDumpItemOutcome.Skipped
+            is BrainDumpCommitRequest.KeepRestAsOneNote -> BrainDumpItemOutcome.Saved
         }
         if (storedOutcomes[request.sourceKey] == BrainDumpItemOutcome.Pending) {
             storedOutcomes[request.sourceKey] = outcome
@@ -528,6 +730,8 @@ internal class BrainDumpFlowCoordinator(
             BrainDumpStatus(BrainDumpStatusKind.Success, BrainDumpStatusMessage.ReminderCreated)
         request is BrainDumpCommitRequest.KeepInInbox ->
             BrainDumpStatus(BrainDumpStatusKind.Success, BrainDumpStatusMessage.KeptInInbox)
+        request is BrainDumpCommitRequest.KeepRestAsOneNote ->
+            BrainDumpStatus(BrainDumpStatusKind.Success, BrainDumpStatusMessage.NoteSaved)
         else -> BrainDumpStatus(BrainDumpStatusKind.Success, BrainDumpStatusMessage.ThoughtSkipped)
     }
 }
