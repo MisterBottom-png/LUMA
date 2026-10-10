@@ -153,7 +153,7 @@ abstract class ScreenTour(private val theme: String) {
     private fun capture(text: String) = step("capture $text") {
         compose.onNodeWithContentDescription("Capture text").performTextInput(text)
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Save and analyze capture").performClick()
+        compose.onNodeWithContentDescription("Save thought").performClick()
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(2_500)
         compose.waitForIdle()
