@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.orbit.app.screens.ScreenTourDarkTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-10T17:20:00" hostname="runnervmmprz5" time="27.884">
+  <properties/>
+  <testcase name="tour" classname="com.orbit.app.screens.ScreenTourDarkTest" time="27.884"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[[Robolectric] WARN: Android SDK 36 requires Java 21 (have Java 17). Tests won't be run on SDK 36 unless explicitly requested.
+No package ID 08 found for ID 0x08b1d761.
+]]></system-err>
+</testsuite>
