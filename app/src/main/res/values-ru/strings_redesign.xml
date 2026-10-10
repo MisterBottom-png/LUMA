@@ -217,4 +217,14 @@
     <string name="tutorial_done">Готово</string>
     <string name="tutorial_spaces_picked">Выбрано: %1$s</string>
     <string name="tutorial_spaces_none_picked">Пока ничего не выбрано. Пространства можно добавить в любое время.</string>
+    <string name="settings_glass_title">Стекло</string>
+    <string name="settings_glass_subtitle">Насколько прозрачны поверхности</string>
+    <string name="settings_glass_preset_clear">Прозрачное стекло</string>
+    <string name="settings_glass_preset_clear_hint">Самое прозрачное, с живым размытием, если телефон его поддерживает.</string>
+    <string name="settings_glass_preset_soft">Мягкое стекло</string>
+    <string name="settings_glass_preset_soft_hint">Прозрачное, без живого размытия.</string>
+    <string name="settings_glass_preset_solid">Сплошное</string>
+    <string name="settings_glass_preset_solid_hint">Простые поверхности, легче всего читать.</string>
+    <string name="settings_glass_custom">Свои настройки</string>
+    <string name="settings_glass_advanced">Дополнительно</string>
 </resources>

@@ -229,7 +229,7 @@ abstract class ScreenTour(private val theme: String) {
         step("text color") { compose.onNodeWithText("Text color").performScrollTo().performClick(); compose.waitForIdle() }
         shot("$prefix-settings-colors")
         back()
-        step("transparency") { compose.onNodeWithText("Transparency").performScrollTo().performClick(); compose.waitForIdle() }
+        step("transparency") { compose.onNodeWithText("Glass").performScrollTo().performClick(); compose.waitForIdle() }
         shot("$prefix-settings-transparency")
         back()
         back()

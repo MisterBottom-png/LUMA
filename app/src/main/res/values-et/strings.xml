@@ -36,8 +36,6 @@
     <string name="settings_colors_subtitle">Teksti värv ja teine värv</string>
     <string name="settings_background_title">Taust</string>
     <string name="settings_background_subtitle">Valmistaust või oma pilt</string>
-    <string name="settings_transparency_title">Läbipaistvus</string>
-    <string name="settings_transparency_subtitle">Taustaefektid ja pindade läbipaistmatus</string>
     <string name="settings_status_gemini_ready">Gemini API valmis</string>
     <string name="settings_status_key_saved">salvestatud</string>
     <string name="settings_status_key_not_saved">pole salvestatud</string>

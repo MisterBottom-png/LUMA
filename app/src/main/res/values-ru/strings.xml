@@ -36,8 +36,6 @@
     <string name="settings_colors_subtitle">Цвет текста и второй цвет</string>
     <string name="settings_background_title">Фон</string>
     <string name="settings_background_subtitle">Готовый фон или своё изображение</string>
-    <string name="settings_transparency_title">Прозрачность</string>
-    <string name="settings_transparency_subtitle">Эффекты фона и непрозрачность поверхностей</string>
     <string name="settings_status_gemini_ready">Gemini API готов</string>
     <string name="settings_status_key_saved">сохранён</string>
     <string name="settings_status_key_not_saved">не сохранён</string>

@@ -203,4 +203,14 @@
     <string name="tutorial_done">Valmis</string>
     <string name="tutorial_spaces_picked">Valitud: %1$s</string>
     <string name="tutorial_spaces_none_picked">Midagi pole veel valitud. Ruume saad lisada igal ajal.</string>
+    <string name="settings_glass_title">Klaas</string>
+    <string name="settings_glass_subtitle">Kui läbipaistvad pinnad on</string>
+    <string name="settings_glass_preset_clear">Selge klaas</string>
+    <string name="settings_glass_preset_clear_hint">Kõige läbipaistvam, elava hägususega, kui telefon seda toetab.</string>
+    <string name="settings_glass_preset_soft">Pehme klaas</string>
+    <string name="settings_glass_preset_soft_hint">Läbipaistev, ilma elava hägususeta.</string>
+    <string name="settings_glass_preset_solid">Ühtlane</string>
+    <string name="settings_glass_preset_solid_hint">Lihtsad pinnad, kõige kergem lugeda.</string>
+    <string name="settings_glass_custom">Kohandatud</string>
+    <string name="settings_glass_advanced">Täpsemalt</string>
 </resources>

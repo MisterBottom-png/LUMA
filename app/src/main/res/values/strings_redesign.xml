@@ -203,4 +203,14 @@
     <string name="tutorial_done">Done</string>
     <string name="tutorial_spaces_picked">Picked: %1$s</string>
     <string name="tutorial_spaces_none_picked">None picked yet. You can add Spaces any time.</string>
+    <string name="settings_glass_title">Glass</string>
+    <string name="settings_glass_subtitle">How see-through surfaces are</string>
+    <string name="settings_glass_preset_clear">Clear glass</string>
+    <string name="settings_glass_preset_clear_hint">Most see-through, with live blur where the phone supports it.</string>
+    <string name="settings_glass_preset_soft">Soft glass</string>
+    <string name="settings_glass_preset_soft_hint">See-through, without live blur.</string>
+    <string name="settings_glass_preset_solid">Solid</string>
+    <string name="settings_glass_preset_solid_hint">Plain surfaces, easiest to read.</string>
+    <string name="settings_glass_custom">Custom</string>
+    <string name="settings_glass_advanced">Advanced</string>
 </resources>

@@ -67,7 +67,6 @@ import com.orbit.app.R
 import com.orbit.app.domain.model.AiMode
 import com.orbit.app.domain.model.AppAccentColor
 import com.orbit.app.domain.model.AppSettings
-import com.orbit.app.domain.model.GlassEffect
 import com.orbit.app.domain.model.SettingsThemeMode
 import com.orbit.app.domain.model.withDefaultAppearance
 import com.orbit.app.ui.components.GroupDivider
@@ -183,18 +182,10 @@ internal fun SettingsHome(
                 onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Background)) },
             )
             GroupDivider(startInset = 64.dp)
-            ControlBlock(icon = Icons.Filled.AutoAwesome, title = stringResource(R.string.settings_glass_effect)) {
-                ChoiceRow(
-                    choices = GlassEffect.entries,
-                    selected = settings.glassEffect,
-                    label = { stringResource(it.labelRes()) },
-                    onSelected = { onSettingsChanged(settings.copy(glassEffect = it)) },
-                )
-            }
-            GroupDivider(startInset = 64.dp)
+            // One Glass page: three presets, with the finer controls under Advanced.
             SettingsLinkRow(
-                title = stringResource(R.string.settings_transparency_title),
-                value = stringResource(settings.glassPreference.labelRes()),
+                title = stringResource(R.string.settings_glass_title),
+                value = stringResource(GlassPreset.of(settings)?.titleRes ?: R.string.settings_glass_custom),
                 icon = Icons.Filled.Tune,
                 iconColor = SettingsHues.Look,
                 onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Glass)) },

@@ -20,3 +20,17 @@ class LocalDataMessagePlacementTest {
         assertEquals("tallele-export.json", ExportFileName)
     }
 }
+
+class GlassPresetTest {
+    @Test
+    fun theDefaultLookIsClearGlassAndEachPresetIsRecognised() {
+        val defaults = com.orbit.app.domain.model.AppSettings()
+        assertEquals(GlassPreset.Clear, GlassPreset.of(defaults))
+        GlassPreset.entries.forEach { preset -> assertEquals(preset, GlassPreset.of(preset.applyTo(defaults))) }
+        val custom = defaults.copy(
+            glassEffect = com.orbit.app.domain.model.GlassEffect.Off,
+            glassPreference = com.orbit.app.domain.model.GlassPreference.Subtle,
+        )
+        assertEquals(null, GlassPreset.of(custom))
+    }
+}
