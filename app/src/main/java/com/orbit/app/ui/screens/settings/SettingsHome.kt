@@ -114,7 +114,8 @@ internal fun SettingsHome(
     ) {
         GroupedCard {
             ProfileRow(
-                name = settings.userName,
+                // The stored placeholder is not a name: the row says "Add your name".
+                name = com.orbit.app.domain.model.chosenUserName(settings.userName).orEmpty(),
                 onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Profile)) },
             )
         }

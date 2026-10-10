@@ -173,7 +173,6 @@ fun CalendarScreen(
                 FilledTonalButton(
                     onClick = onToday,
                     contentPadding = PaddingValues(horizontal = 14.dp),
-                    modifier = Modifier.height(36.dp),
                 ) {
                     Text(stringResource(R.string.core_today), style = MaterialTheme.typography.labelLarge)
                 }

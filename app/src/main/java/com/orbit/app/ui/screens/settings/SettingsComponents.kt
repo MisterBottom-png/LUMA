@@ -30,7 +30,6 @@ import com.orbit.app.ui.components.SoftGlassSurface
 internal fun SettingsSubsectionHeader(
     title: String,
     subtitle: String,
-    parentTitle: String,
     onBack: () -> Unit,
 ) {
     Row(
@@ -40,7 +39,7 @@ internal fun SettingsSubsectionHeader(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.settings_back_to_menu, parentTitle),
+                contentDescription = stringResource(R.string.core_back),
                 tint = MaterialTheme.colorScheme.onBackground,
             )
         }

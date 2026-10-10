@@ -11,8 +11,6 @@
     <string name="navigation_settings">Sätted</string>
 
     <string name="settings_title">Sätted</string>
-    <string name="settings_back">Tagasi sätetesse</string>
-    <string name="settings_back_to_menu">Tagasi menüüsse %1$s</string>
     <string name="settings_appearance_title">Välimus</string>
 
     <string name="settings_time_title">Kellaaeg</string>

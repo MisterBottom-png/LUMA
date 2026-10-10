@@ -579,8 +579,10 @@ private fun ChoiceSheet(
 private fun SelectionRow(label: String, selected: Boolean, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(label) },
-        trailingContent = { if (selected) Icon(Icons.Rounded.Check, stringResource(R.string.core_selected)) else RadioButton(false, onClick = null) },
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onClick),
+        trailingContent = { if (selected) Icon(Icons.Rounded.Check, contentDescription = null) else RadioButton(false, onClick = null) },
+        // One choice of several: TalkBack hears "selected" and the radio role.
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick),
     )
 }
 

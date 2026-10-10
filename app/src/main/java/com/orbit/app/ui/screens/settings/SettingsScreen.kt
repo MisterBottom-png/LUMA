@@ -264,7 +264,6 @@ fun SettingsScreen(
                 .padding(top = statusBarTopPadding + 30.dp),
             label = "Settings header",
         ) { page ->
-            val settingsTitle = stringResource(R.string.settings_title)
             val appearance = page.appearance
             val ai = page.ai
             val system = page.system
@@ -272,21 +271,18 @@ fun SettingsScreen(
                 appearance != null -> SettingsSubsectionHeader(
                     title = stringResource(appearance.titleRes),
                     subtitle = stringResource(appearance.subtitleRes),
-                    parentTitle = settingsTitle,
                     onBack = { appearanceSubsection = null },
                 )
 
                 ai != null -> SettingsSubsectionHeader(
                     title = stringResource(ai.titleRes),
                     subtitle = stringResource(ai.subtitleRes),
-                    parentTitle = stringResource(SystemMenuSection.Ai.titleRes),
                     onBack = { aiSubsection = null },
                 )
 
                 system != null -> SettingsSubsectionHeader(
                     title = stringResource(system.titleRes),
                     subtitle = stringResource(system.subtitleRes),
-                    parentTitle = settingsTitle,
                     onBack = { systemSubsection = null },
                 )
 
@@ -322,7 +318,7 @@ private fun SettingsHeader(onBack: () -> Unit) {
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.settings_back),
+                contentDescription = stringResource(R.string.core_back),
                 tint = MaterialTheme.colorScheme.onBackground,
             )
         }

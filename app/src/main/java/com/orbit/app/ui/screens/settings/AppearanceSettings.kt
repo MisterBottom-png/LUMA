@@ -153,7 +153,7 @@ private fun AppearanceProfileSection(
 ) {
     AppearanceCard {
         OutlinedTextField(
-            value = settings.userName,
+            value = com.orbit.app.domain.model.chosenUserName(settings.userName).orEmpty(),
             onValueChange = { value ->
                 onSettingsChanged(settings.copy(userName = value.take(MaxUserNameLength)))
             },
@@ -549,9 +549,11 @@ private fun BackgroundPresetOption(
                 interactionSource = interactionSource,
                 clipShape = shape,
             )
-            .clickable(
+            .selectable(
+                selected = selected,
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
+                role = androidx.compose.ui.semantics.Role.RadioButton,
                 onClick = onSelected,
             )
             .padding(12.dp),

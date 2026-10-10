@@ -73,7 +73,7 @@ class SettingsScreenJvmTest {
 
         composeRule.onNodeWithText("Language").performScrollTo().performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithContentDescription("Back to Settings menu").performClick()
+        composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Your data").assertExists()
     }

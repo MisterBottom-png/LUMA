@@ -79,8 +79,17 @@ object GeminiConsent {
     const val CurrentVersion = 1
 }
 
+/** Stored until the person sets a name in Settings. */
+const val PlaceholderUserName = "user"
+
+/** The name the person set, or null while it is still the placeholder. */
+fun AppSettings.chosenName(): String? = chosenUserName(userName)
+
+fun chosenUserName(userName: String): String? =
+    userName.trim().takeUnless { it.isEmpty() || it.equals(PlaceholderUserName, ignoreCase = true) }
+
 data class AppSettings(
-    val userName: String = "user",
+    val userName: String = PlaceholderUserName,
     val themeMode: SettingsThemeMode = SettingsThemeMode.Auto,
     val timeFormatMode: SettingsTimeFormatMode = SettingsTimeFormatMode.Device,
     val backgroundPreset: BackgroundPreset = BackgroundPreset.InkPaper,
