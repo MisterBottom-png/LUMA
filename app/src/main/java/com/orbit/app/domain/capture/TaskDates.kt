@@ -11,23 +11,30 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 /**
- * Older versions kept a task's day as a 23:59 "reminder time". Tasks are date-only
- * now; this reads such a value back as its day, and writes it for Brain Dump rows,
- * which have no date-only column.
+ * Brain Dump rows have no date-only column, so a task's day is written into the
+ * time column as a marker: the last millisecond of that day in UTC, which no parsed
+ * time uses and which reads back as the same day in any time zone. Older versions
+ * wrote a local 23:59 instead; that is still read back as its day.
  */
 internal object TaskDatePlaceholder {
-    private val PlaceholderTime: LocalTime = LocalTime.of(23, 59)
+    private const val DayMillis = 86_400_000L
+    private val LegacyPlaceholderTime: LocalTime = LocalTime.of(23, 59)
 
-    fun encode(dateEpochDay: Long, zoneId: ZoneId): Long =
-        LocalDate.ofEpochDay(dateEpochDay).atTime(PlaceholderTime).atZone(zoneId).toInstant().toEpochMilli()
+    fun encode(dateEpochDay: Long): Long = dateEpochDay * DayMillis + (DayMillis - 1)
 
-    /** The day of a 23:59 placeholder; null for a real reminder time. */
+    /** The day of a placeholder; null for a real reminder time. */
     fun decode(millis: Long?, status: ReminderTimeStatus, zoneId: ZoneId): Long? {
         if (millis == null || status != ReminderTimeStatus.Unspecified) return null
+        if (Math.floorMod(millis, DayMillis) == DayMillis - 1) return Math.floorDiv(millis, DayMillis)
         val local = Instant.ofEpochMilli(millis).atZone(zoneId)
-        return local.toLocalDate().toEpochDay().takeIf { local.toLocalTime() == PlaceholderTime }
+        return local.toLocalDate().toEpochDay().takeIf { local.toLocalTime() == LegacyPlaceholderTime }
     }
 }
+
+/** A task's day from a resolved clock time: tasks keep the day, not the time. */
+private fun dayOfResolvedTime(millis: Long?, status: ReminderTimeStatus, zoneId: ZoneId): Long? =
+    millis?.takeIf { status == ReminderTimeStatus.Resolved }
+        ?.let { Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate().toEpochDay() }
 
 internal fun SuggestedItemType.isTaskLike(): Boolean =
     this == SuggestedItemType.Task || this == SuggestedItemType.MondayItem
@@ -38,7 +45,9 @@ internal fun SuggestedItemType.isTaskLike(): Boolean =
  */
 fun CaptureSuggestionEntity.taskDateEpochDay(zoneId: ZoneId = ZoneId.systemDefault()): Long? {
     if (!suggestedType.isTaskLike()) return null
-    return contextDateEpochDay ?: TaskDatePlaceholder.decode(suggestedReminderAt, reminderStatus(), zoneId)
+    return contextDateEpochDay
+        ?: TaskDatePlaceholder.decode(suggestedReminderAt, reminderStatus(), zoneId)
+        ?: dayOfResolvedTime(suggestedReminderAt, reminderStatus(), zoneId)
 }
 
 /** The suggested reminder time, without an older task row's 23:59 placeholder. */
@@ -55,10 +64,15 @@ private fun BrainDumpItemEntity.timeStatus(): ReminderTimeStatus = when (reminde
     BrainDumpReminderStatus.NeedsClarification -> ReminderTimeStatus.NeedsClarification
 }
 
-/** The day a Brain Dump task is for, read from its stored placeholder. */
+/** The day a Brain Dump task is for: its stored placeholder, or the day of a parsed time. */
 fun BrainDumpItemEntity.taskDateEpochDay(zoneId: ZoneId = ZoneId.systemDefault()): Long? =
-    if (suggestedType.isTaskLike()) TaskDatePlaceholder.decode(suggestedReminderAt, timeStatus(), zoneId) else null
+    if (suggestedType.isTaskLike()) {
+        TaskDatePlaceholder.decode(suggestedReminderAt, timeStatus(), zoneId)
+            ?: dayOfResolvedTime(suggestedReminderAt, timeStatus(), zoneId)
+    } else {
+        null
+    }
 
 /** The suggested reminder time, without a task's day placeholder. */
 fun BrainDumpItemEntity.reminderTime(zoneId: ZoneId = ZoneId.systemDefault()): Long? =
-    if (taskDateEpochDay(zoneId) != null) null else suggestedReminderAt
+    if (TaskDatePlaceholder.decode(suggestedReminderAt, timeStatus(), zoneId) != null) null else suggestedReminderAt

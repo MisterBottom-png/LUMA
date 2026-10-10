@@ -2,6 +2,7 @@ package com.orbit.app.ui.screens.home
 
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
+import com.orbit.app.domain.capture.isTaskLike
 
 internal enum class BrainDumpStage {
     Overview,
@@ -121,8 +122,15 @@ internal fun initialBrainDumpDraft(
     spaceId = spaces.firstOrNull {
         it.name.equals(item.suggestedSpaceName, ignoreCase = true)
     }?.id,
-    scheduledAt = item.suggestedReminderAt,
-    scheduledDateEpochDay = item.taskDateEpochDay.takeIf { item.suggestedReminderAt == null },
+    // Tasks are date-only; a reminder keeps its time.
+    scheduledAt = item.suggestedReminderAt.takeUnless { item.suggestedType.isTaskLike() },
+    scheduledDateEpochDay = if (item.suggestedType.isTaskLike()) {
+        item.taskDateEpochDay ?: item.suggestedReminderAt?.let {
+            java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
+        }
+    } else {
+        null
+    },
 )
 
 internal fun brainDumpDismissalDecision(

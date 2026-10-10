@@ -386,9 +386,16 @@ internal fun decisionActions(): List<CaptureDecisionAction> = listOf(
 )
 
 /** Where the sheet's "When" starts for a task: the time the thought named, else its day, else the Calendar day. */
-internal fun initialTaskDue(analysis: com.orbit.app.domain.analyzer.CaptureAnalysis, calendarDateContext: LocalDate?): TaskDue =
-    analysis.suggestedReminderAt?.let { TaskDue(at = it) }
-        ?: TaskDue(dayEpochDay = analysis.taskDateEpochDay ?: calendarDateContext?.toEpochDay())
+/** A suggested task starts date-only: its day, else the day of a parsed time, else the Calendar day. */
+internal fun initialTaskDue(
+    analysis: com.orbit.app.domain.analyzer.CaptureAnalysis,
+    calendarDateContext: LocalDate?,
+    zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+): TaskDue = TaskDue(
+    dayEpochDay = analysis.taskDateEpochDay
+        ?: analysis.suggestedReminderAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate().toEpochDay() }
+        ?: calendarDateContext?.toEpochDay(),
+)
 
 internal fun taskDueLabel(due: TaskDue, timeFormat: OrbitTimeFormat): String? =
     due.dayEpochDay?.let { timeFormat.formatDate(LocalDate.ofEpochDay(it)) }
