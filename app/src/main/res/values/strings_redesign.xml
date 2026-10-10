@@ -28,7 +28,6 @@
     <string name="core_home_quick_reminder_pick">Pick a time</string>
     <string name="core_home_quick_reminder_change">Other time</string>
     <string name="core_home_quick_reminder_not_now">Not now</string>
-    <string name="review_ask_title">Ask Tallele</string>
     <string name="review_ask_subtitle">Calm answers from your own items.</string>
     <string name="review_ask_now">What should I do now?</string>
     <string name="review_ask_can_wait">What can wait?</string>
@@ -36,7 +35,6 @@
     <string name="review_ask_smallest">What is the smallest useful next step?</string>
     <string name="review_ask_urgent">Is anything actually urgent?</string>
     <string name="review_to_sort_title">To sort</string>
-    <string name="review_to_sort_subtitle">Thoughts you saved, with Tallele\'s suggestion.</string>
     <string name="review_to_sort_analyzing">Tallele is looking at this…</string>
     <string name="review_to_sort_no_suggestion">Choose what this becomes.</string>
     <plurals name="review_to_sort_brain_dump">
@@ -57,14 +55,10 @@
     <string name="review_to_sort_more">More options for this thought</string>
     <string name="review_to_sort_hide">Hide suggestion</string>
     <string name="review_to_sort_let_go">Let it go (archive)</string>
-    <string name="review_to_sort_show_all">Show all (%1$d)</string>
     <string name="review_show_fewer">Show fewer</string>
     <string name="review_today_title">Today</string>
-    <string name="review_today_subtitle">What is due today.</string>
     <string name="review_today_empty">Nothing is due today.</string>
     <string name="review_show_more">Show more (%1$d)</string>
-    <string name="review_carry_title">Carry forward</string>
-    <string name="review_carry_subtitle">Earlier things, if they still matter.</string>
     <string name="review_weekly_button">Look back at your week</string>
     <string name="review_weekly_weekend_hint">The weekend is a good moment for it.</string>
     <string name="review_weekly_close">Close the look back</string>

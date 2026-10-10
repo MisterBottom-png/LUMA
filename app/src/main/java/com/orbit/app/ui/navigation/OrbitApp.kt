@@ -426,6 +426,7 @@ fun OrbitApp(
                         onHideSuggestion = reviewViewModel::hideSuggestion,
                         onLetGo = reviewViewModel::letGo,
                         onUndoSort = reviewViewModel::undoSort,
+                        onAcceptAllToSort = reviewViewModel::acceptAllSuggestions,
                         onSortFeedbackShown = reviewViewModel::sortFeedbackShown,
                         sortHost = { snackbarHostState ->
                             CaptureSortHost(

@@ -24,5 +24,24 @@
     <string name="calendar_free_day">Свободный день. Добавьте что-нибудь, только если хотите.</string>
     <string name="calendar_free_day_short">Ничего не запланировано. Свободный день.</string>
     <string name="calendar_add_to_day">Добавить на этот день</string>
+    <string name="review_ask_button">Спросить</string>
+    <string name="review_summary_to_sort">Разобрать: %1$d</string>
+    <string name="review_summary_today">Сегодня: %1$d</string>
+    <string name="review_summary_earlier">Ранее: %1$d</string>
+    <string name="review_summary_nothing">Ничего не ждёт</string>
+    <string name="review_sort_one_by_one">Разобрать по одному</string>
+    <string name="review_accept_all">Принять все предложения</string>
+    <string name="review_move_all_tomorrow">На завтра</string>
+    <string name="review_open_item">Открыть</string>
+    <string name="review_one_progress">%1$d из %2$d</string>
+    <string name="review_one_suggests">Tallele предлагает</string>
+    <string name="review_one_type">Тип</string>
+    <string name="review_one_space">Пространство</string>
+    <string name="review_one_when">Когда</string>
+    <string name="review_one_skip">Пропустить пока</string>
+    <string name="review_one_back">Вернуться к обзору</string>
+    <string name="review_one_done_body">Больше ничего не ждёт. Остаток дня можно провести спокойно.</string>
+    <string name="review_one_skipped_body">Пропущенные мысли ждут в разделе «Разобрать».</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d заметка</item><item quantity="few">%1$d заметки</item><item quantity="many">%1$d заметок</item><item quantity="other">%1$d заметки</item></plurals>
+    <plurals name="review_sorted_many"><item quantity="one">Разобрана %1$d мысль</item><item quantity="few">Разобраны %1$d мысли</item><item quantity="many">Разобрано %1$d мыслей</item><item quantity="other">Разобрано %1$d мысли</item></plurals>
 </resources>

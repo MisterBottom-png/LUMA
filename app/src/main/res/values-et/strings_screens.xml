@@ -24,5 +24,24 @@
     <string name="calendar_free_day">Vaba päev. Lisa midagi ainult siis, kui tahad.</string>
     <string name="calendar_free_day_short">Midagi pole plaanis. Vaba päev.</string>
     <string name="calendar_add_to_day">Lisa sellele päevale</string>
+    <string name="review_ask_button">Küsi</string>
+    <string name="review_summary_to_sort">%1$d sorteerida</string>
+    <string name="review_summary_today">%1$d täna</string>
+    <string name="review_summary_earlier">%1$d varasemast</string>
+    <string name="review_summary_nothing">Midagi ei oota</string>
+    <string name="review_sort_one_by_one">Sorteeri ükshaaval</string>
+    <string name="review_accept_all">Nõustu kõigi soovitustega</string>
+    <string name="review_move_all_tomorrow">Homsele</string>
+    <string name="review_open_item">Ava</string>
+    <string name="review_one_progress">%1$d / %2$d</string>
+    <string name="review_one_suggests">Tallele soovitab</string>
+    <string name="review_one_type">Liik</string>
+    <string name="review_one_space">Ruum</string>
+    <string name="review_one_when">Millal</string>
+    <string name="review_one_skip">Jäta praegu vahele</string>
+    <string name="review_one_back">Tagasi ülevaatesse</string>
+    <string name="review_one_done_body">Muud midagi ei oota. Ülejäänud päev võib rahulikult minna.</string>
+    <string name="review_one_skipped_body">Vahele jäetud mõtted ootavad sorteerimist.</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d märge</item><item quantity="other">%1$d märget</item></plurals>
+    <plurals name="review_sorted_many"><item quantity="one">Sorteeritud %1$d mõte</item><item quantity="other">Sorteeritud %1$d mõtet</item></plurals>
 </resources>

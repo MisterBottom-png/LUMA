@@ -128,6 +128,11 @@ sealed interface SortUndoToken {
     data class Accepted(override val captureId: Long, val itemType: com.orbit.app.data.local.entity.SuggestedItemType, val itemId: Long) : SortUndoToken
     data class LetGo(override val captureId: Long) : SortUndoToken
     data class Hidden(override val captureId: Long) : SortUndoToken
+
+    /** "Accept all suggestions": one Undo puts every thought back in To sort. */
+    data class AcceptedMany(val accepted: List<Accepted>) : SortUndoToken {
+        override val captureId: Long get() = accepted.first().captureId
+    }
 }
 
 enum class ReviewSortMessage { ActionFailed, NeedsChoice, Undone }
@@ -245,6 +250,31 @@ class ReviewViewModel internal constructor(
         }
     }
 
+    /**
+     * Accepts every waiting suggestion that needs no further choice. Thoughts that need a
+     * time, or have no suggestion, stay in To sort. One Undo reverts them all.
+     */
+    fun acceptAllSuggestions(items: List<ToSortItem>) {
+        val ready = items.filter { it.state == ToSortState.Suggested }
+        if (ready.isEmpty()) return
+        viewModelScope.launch {
+            val accepted = mutableListOf<SortUndoToken.Accepted>()
+            var failed = false
+            ready.forEach { item ->
+                runCatching { container.captureResolution.acceptSuggestion(item.captureId) }
+                    .onSuccess { result ->
+                        result?.let { accepted += SortUndoToken.Accepted(item.captureId, it.itemType, it.itemId) }
+                    }
+                    .onFailure { failed = true }
+            }
+            sortFeedback.value = when {
+                accepted.isNotEmpty() -> SortUndoToken.AcceptedMany(accepted) to null
+                failed -> null to ReviewSortMessage.ActionFailed
+                else -> null to ReviewSortMessage.NeedsChoice
+            }
+        }
+    }
+
     /** Hides LUMA's suggestion; the thought stays in To sort. */
     fun hideSuggestion(item: ToSortItem) {
         viewModelScope.launch {
@@ -270,6 +300,9 @@ class ReviewViewModel internal constructor(
                     is SortUndoToken.Accepted -> container.captureResolution.undo(token.captureId, token.itemType, token.itemId)
                     is SortUndoToken.LetGo -> container.captureResolution.unarchive(token.captureId)
                     is SortUndoToken.Hidden -> container.captureInbox.restoreSuggestion(token.captureId)
+                    is SortUndoToken.AcceptedMany -> token.accepted.forEach {
+                        container.captureResolution.undo(it.captureId, it.itemType, it.itemId)
+                    }
                 }
             }
                 .onSuccess { sortFeedback.value = null to ReviewSortMessage.Undone }

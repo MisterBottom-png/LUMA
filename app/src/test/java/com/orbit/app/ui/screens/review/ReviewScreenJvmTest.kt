@@ -1,5 +1,7 @@
 package com.orbit.app.ui.screens.review
 
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -85,9 +87,34 @@ class ReviewScreenJvmTest {
         var accepted: ToSortItem? = null
         setReview(ReviewUiState(toSort = listOf(item)), onAccept = { accepted = it })
 
-        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Make it a task"))
-        composeRule.onNodeWithText("Make it a task").performClick()
+        // The suggestion is one check button; its label says what it does.
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasContentDescription("Make it a task"))
+        composeRule.onNodeWithContentDescription("Make it a task").performClick()
         assertEquals(7L, accepted?.captureId)
+    }
+
+    @Test
+    fun sortOneByOneShowsOneThoughtAndEndsWithAllSorted() {
+        val first = ToSortItem(
+            captureId = 1,
+            text = "buy milk",
+            createdAt = 1_800_000_000_000L,
+            state = ToSortState.Suggested,
+            suggestedType = SuggestedItemType.Task,
+        )
+        val second = first.copy(captureId = 2, text = "garden ideas", suggestedType = SuggestedItemType.Note)
+        var accepted: ToSortItem? = null
+        setReview(ReviewUiState(toSort = listOf(first, second)), onAccept = { accepted = it })
+
+        composeRule.onNodeWithText("Sort one by one").performClick()
+        composeRule.onNodeWithText("1 of 2").assertExists()
+        composeRule.onNodeWithText("Make it a task").performClick()
+        assertEquals(1L, accepted?.captureId)
+
+        // Skipping the rest ends the flow with a clear finish.
+        composeRule.onNodeWithText("Skip for now").performClick()
+        composeRule.onNodeWithText("Skip for now").performClick()
+        composeRule.onNodeWithText("All sorted").assertExists()
     }
 
     @Test

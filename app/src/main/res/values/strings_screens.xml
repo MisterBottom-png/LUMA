@@ -24,5 +24,24 @@
     <string name="calendar_free_day">A free day. Add something only if you want to.</string>
     <string name="calendar_free_day_short">Nothing planned. A free day.</string>
     <string name="calendar_add_to_day">Add to this day</string>
+    <string name="review_ask_button">Ask</string>
+    <string name="review_summary_to_sort">%1$d to sort</string>
+    <string name="review_summary_today">%1$d today</string>
+    <string name="review_summary_earlier">%1$d from earlier</string>
+    <string name="review_summary_nothing">Nothing is waiting</string>
+    <string name="review_sort_one_by_one">Sort one by one</string>
+    <string name="review_accept_all">Accept all suggestions</string>
+    <string name="review_move_all_tomorrow">To tomorrow</string>
+    <string name="review_open_item">Open</string>
+    <string name="review_one_progress">%1$d of %2$d</string>
+    <string name="review_one_suggests">Tallele suggests</string>
+    <string name="review_one_type">Type</string>
+    <string name="review_one_space">Space</string>
+    <string name="review_one_when">When</string>
+    <string name="review_one_skip">Skip for now</string>
+    <string name="review_one_back">Back to Review</string>
+    <string name="review_one_done_body">Nothing else is waiting. You can let the rest of the day be.</string>
+    <string name="review_one_skipped_body">The thoughts you skipped wait in To sort.</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d note</item><item quantity="other">%1$d notes</item></plurals>
+    <plurals name="review_sorted_many"><item quantity="one">Sorted %1$d thought</item><item quantity="other">Sorted %1$d thoughts</item></plurals>
 </resources>

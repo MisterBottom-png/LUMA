@@ -30,7 +30,6 @@
     <string name="core_home_quick_reminder_pick">Выбрать время</string>
     <string name="core_home_quick_reminder_change">Другое время</string>
     <string name="core_home_quick_reminder_not_now">Не сейчас</string>
-    <string name="review_ask_title">Спросить Tallele</string>
     <string name="review_ask_subtitle">Спокойные ответы на основе ваших записей.</string>
     <string name="review_ask_now">Что мне сделать сейчас?</string>
     <string name="review_ask_can_wait">Что может подождать?</string>
@@ -38,7 +37,6 @@
     <string name="review_ask_smallest">Какой самый маленький полезный шаг?</string>
     <string name="review_ask_urgent">Есть ли что-то действительно срочное?</string>
     <string name="review_to_sort_title">Разобрать</string>
-    <string name="review_to_sort_subtitle">Сохранённые мысли с подсказкой Tallele.</string>
     <string name="review_to_sort_analyzing">Tallele смотрит на это…</string>
     <string name="review_to_sort_no_suggestion">Выберите, чем это станет.</string>
     <plurals name="review_to_sort_brain_dump">
@@ -61,14 +59,10 @@
     <string name="review_to_sort_more">Другие действия с этой мыслью</string>
     <string name="review_to_sort_hide">Скрыть подсказку</string>
     <string name="review_to_sort_let_go">Отпустить (в архив)</string>
-    <string name="review_to_sort_show_all">Показать все (%1$d)</string>
     <string name="review_show_fewer">Показать меньше</string>
     <string name="review_today_title">Сегодня</string>
-    <string name="review_today_subtitle">Что запланировано на сегодня.</string>
     <string name="review_today_empty">На сегодня ничего не запланировано.</string>
     <string name="review_show_more">Показать ещё (%1$d)</string>
-    <string name="review_carry_title">Перенести</string>
-    <string name="review_carry_subtitle">Прошлые дела, если они ещё важны.</string>
     <string name="review_weekly_button">Оглянуться на неделю</string>
     <string name="review_weekly_weekend_hint">Выходные — хорошее время для этого.</string>
     <string name="review_weekly_close">Закрыть обзор недели</string>

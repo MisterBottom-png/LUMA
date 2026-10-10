@@ -28,7 +28,6 @@
     <string name="core_home_quick_reminder_pick">Vali aeg</string>
     <string name="core_home_quick_reminder_change">Muu aeg</string>
     <string name="core_home_quick_reminder_not_now">Mitte praegu</string>
-    <string name="review_ask_title">Küsi Tallelelt</string>
     <string name="review_ask_subtitle">Rahulikud vastused sinu enda kirjete põhjal.</string>
     <string name="review_ask_now">Mida peaksin praegu tegema?</string>
     <string name="review_ask_can_wait">Mis võib oodata?</string>
@@ -36,7 +35,6 @@
     <string name="review_ask_smallest">Mis on väikseim kasulik järgmine samm?</string>
     <string name="review_ask_urgent">Kas midagi on päriselt kiire?</string>
     <string name="review_to_sort_title">Sorteerida</string>
-    <string name="review_to_sort_subtitle">Salvestatud mõtted koos Tallele soovitusega.</string>
     <string name="review_to_sort_analyzing">Tallele vaatab seda…</string>
     <string name="review_to_sort_no_suggestion">Vali, milleks see saab.</string>
     <plurals name="review_to_sort_brain_dump">
@@ -57,14 +55,10 @@
     <string name="review_to_sort_more">Selle mõtte muud valikud</string>
     <string name="review_to_sort_hide">Peida soovitus</string>
     <string name="review_to_sort_let_go">Lase lahti (arhiivi)</string>
-    <string name="review_to_sort_show_all">Näita kõiki (%1$d)</string>
     <string name="review_show_fewer">Näita vähem</string>
     <string name="review_today_title">Täna</string>
-    <string name="review_today_subtitle">Mis on täna kavas.</string>
     <string name="review_today_empty">Täna pole midagi kavas.</string>
     <string name="review_show_more">Näita rohkem (%1$d)</string>
-    <string name="review_carry_title">Vii edasi</string>
-    <string name="review_carry_subtitle">Varasemad asjad, kui need on veel olulised.</string>
     <string name="review_weekly_button">Vaata oma nädalale tagasi</string>
     <string name="review_weekly_weekend_hint">Nädalavahetus on selleks hea hetk.</string>
     <string name="review_weekly_close">Sulge tagasivaade</string>
