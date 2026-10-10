@@ -184,4 +184,6 @@
     <string name="spaces_archive_hint">Ruumile, mida enam ei vaja. Asjad jäävad alles.</string>
     <string name="spaces_add_thought">Lisa mõte ruumi %1$s</string>
     <string name="core_home_adding_to_space">Lisatakse ruumi %1$s</string>
+    <string name="search_to_sort_note">Mõtted, mida sa pole veel sorteerinud.</string>
+    <string name="home_open_search">Otsi</string>
 </resources>

@@ -54,6 +54,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -134,6 +135,7 @@ fun HomeScreen(
     userName: String,
     timeFormat: OrbitTimeFormat,
     onOpenSettings: () -> Unit = {},
+    onOpenSearch: () -> Unit = {},
     focusCaptureOnOpen: Boolean = false,
     focusRequest: Long = 0L,
 ) {
@@ -309,6 +311,7 @@ fun HomeScreen(
                 HomeHeader(
                     greeting = homeGreeting(LocalTime.now().hour, userName),
                     onOpenSettings = onOpenSettings,
+                    onOpenSearch = onOpenSearch,
                 )
 
                 Spacer(modifier = Modifier.height(OrbitSpacing.Large))
@@ -913,6 +916,7 @@ private fun homeGreeting(hour: Int, userName: String): String {
 private fun HomeHeader(
     greeting: String,
     onOpenSettings: () -> Unit,
+    onOpenSearch: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -931,6 +935,16 @@ private fun HomeHeader(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        IconButton(
+            onClick = onOpenSearch,
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = stringResource(R.string.home_open_search),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         IconButton(
             onClick = onOpenSettings,
             modifier = Modifier.size(48.dp),

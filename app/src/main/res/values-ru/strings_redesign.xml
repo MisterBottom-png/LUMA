@@ -196,4 +196,6 @@
     <string name="spaces_archive_hint">Для пространства, которое больше не нужно. Записи остаются.</string>
     <string name="spaces_add_thought">Добавить мысль в «%1$s»</string>
     <string name="core_home_adding_to_space">Добавляется в «%1$s»</string>
+    <string name="search_to_sort_note">Мысли, которые вы ещё не разобрали.</string>
+    <string name="home_open_search">Поиск</string>
 </resources>

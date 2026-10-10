@@ -90,7 +90,7 @@
     <string name="spaces_colour">Värv</string>
     <string name="spaces_icon_travel">Reisimine</string>
     <string name="search_filter_all">Kõik</string>
-    <string name="search_group_to_sort">Sorteerimiseks</string>
+    <string name="search_group_to_sort">Veel sorteerimata</string>
     <string name="search_group_tasks">Ülesanded</string>
     <string name="search_group_reminders">Meeldetuletused</string>
     <string name="search_group_notes">Märkmed</string>

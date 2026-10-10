@@ -296,6 +296,9 @@ fun OrbitApp(
                                 launchSingleTop = true
                             }
                         },
+                        onOpenSearch = {
+                            navController.navigate(SearchDestination.BaseRoute) { launchSingleTop = true }
+                        },
                         focusCaptureOnOpen = settings.focusCaptureOnOpen,
                         focusRequest = focusCaptureRequest,
                     )
