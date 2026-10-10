@@ -37,25 +37,57 @@ class HomeWeekViewModelTest {
     }
 
     @Test
-    fun selection_usesExactDateAndRestoresFromSavedState() {
-        val handle = SavedStateHandle()
-        val repository = FakeCalendarRepository()
-        val original = viewModel(handle, repository)
-        val selectedDate = LocalDate.of(2026, 7, 17)
+    fun visibleWeekMonth_usesMiddleDayForSplitMonthWeeks() {
+        val augustToSeptember = homeWeekDates(LocalDate.of(2026, 9, 1), Locale.GERMANY)
+        val marchToApril = homeWeekDates(LocalDate.of(2026, 3, 30), Locale.GERMANY)
 
-        original.selectDate(selectedDate)
-        val restored = viewModel(handle, repository)
-
-        assertEquals(selectedDate, original.uiState.value.selectedDate)
-        assertEquals(selectedDate, restored.uiState.value.selectedDate)
+        assertEquals("September", homeVisibleWeekMonth(augustToSeptember, Locale.ENGLISH))
+        assertEquals("April", homeVisibleWeekMonth(marchToApril, Locale.ENGLISH))
+        assertEquals("июль", homeVisibleWeekMonth(List(7) { LocalDate.of(2026, 7, 20).plusDays(it.toLong()) }, Locale("ru")))
+        assertEquals("juuli", homeVisibleWeekMonth(List(7) { LocalDate.of(2026, 7, 20).plusDays(it.toLong()) }, Locale("et")))
     }
 
     @Test
-    fun today_isTheInitialSelectedDate() {
+    fun visibleWeekNumber_usesLocaleWeekConventionAndMiddleDay() {
+        val dates = homeWeekDates(LocalDate.of(2026, 7, 15), Locale.GERMANY)
+
+        assertEquals(29, homeVisibleWeekNumber(dates, Locale.GERMANY))
+    }
+
+    @Test
+    fun visibleWeek_restoresIndependentlyOfDateTaps() {
+        val handle = SavedStateHandle()
+        val repository = FakeCalendarRepository()
+        val original = viewModel(handle, repository)
+
+        original.moveVisibleWeek(1)
+        val restored = viewModel(handle, repository)
+
+        assertEquals(today.plusWeeks(1), original.uiState.value.visibleWeekDate)
+        assertEquals(today.plusWeeks(1), restored.uiState.value.visibleWeekDate)
+    }
+
+    @Test
+    fun visibleWeek_movesBySevenDaysWithoutChangingSelectionAndRestores() {
+        val handle = SavedStateHandle()
+        val repository = FakeCalendarRepository()
+        val original = viewModel(handle, repository)
+
+        original.moveVisibleWeek(1)
+        val restored = viewModel(handle, repository)
+
+        assertEquals(today.plusWeeks(1), original.uiState.value.visibleWeekDate)
+        assertEquals(today.plusWeeks(1), restored.uiState.value.visibleWeekDate)
+        assertEquals(today.plusWeeks(1).minusDays(6), repository.observedRanges.last().startDate)
+        assertEquals(today.plusWeeks(1).plusDays(7), repository.observedRanges.last().endDateExclusive)
+    }
+
+    @Test
+    fun today_anchorsTheInitialWeek() {
         val viewModel = viewModel(SavedStateHandle(), FakeCalendarRepository())
 
         assertEquals(today, viewModel.uiState.value.today)
-        assertEquals(today, viewModel.uiState.value.selectedDate)
+        assertEquals(today, viewModel.uiState.value.visibleWeekDate)
     }
 
     @Test
@@ -86,18 +118,24 @@ class HomeWeekViewModelTest {
     }
 
     @Test
-    fun semanticLabel_describesTodaySelectionAndItemPresence() {
+    fun semanticLabel_describesTodayAndItemPresenceWithoutPersistentSelection() {
         val label = homeDateContentDescription(
             date = today,
             locale = Locale.US,
             isToday = true,
-            isSelected = true,
+            isSelected = false,
             hasItems = true,
+            labels = HomeDateAccessibilityLabels(
+                today = "Today",
+                selected = "selected",
+                hasScheduledItems = "has scheduled items",
+                separator = ", ",
+            ),
         )
 
         assertTrue(label.startsWith("Today,"))
         assertTrue(label.contains("July 14"))
-        assertTrue(label.contains("selected"))
+        assertFalse(label.contains("selected"))
         assertTrue(label.contains("has scheduled items"))
         assertFalse(label.contains("null"))
     }
@@ -123,6 +161,11 @@ class HomeWeekViewModelTest {
     private class FakeCalendarRepository(
         private val entries: Flow<List<CalendarEntry>> = MutableStateFlow(emptyList()),
     ) : CalendarRepository {
-        override fun observeRange(range: CalendarDateRange): Flow<List<CalendarEntry>> = entries
+        val observedRanges = mutableListOf<CalendarDateRange>()
+
+        override fun observeRange(range: CalendarDateRange): Flow<List<CalendarEntry>> {
+            observedRanges += range
+            return entries
+        }
     }
 }

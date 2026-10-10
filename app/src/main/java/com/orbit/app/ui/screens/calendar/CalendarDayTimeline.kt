@@ -110,3 +110,34 @@ private val CalendarEntryTitleOrder = compareBy<CalendarEntry>(
 )
 
 private const val MinutesPerHour = 60
+private const val MinutesPerDay = 24 * MinutesPerHour
+
+private const val TimedLabelTopOffsetMinutes = 15
+private const val TimelineLabelCollisionMinutes = 15
+private const val TimedAndCurrentLabelCollisionMinutes = 20
+
+internal fun calendarTimelineOffsetFraction(minuteOfDay: Int): Float =
+    minuteOfDay.coerceIn(0, MinutesPerDay - 1).toFloat() / MinutesPerDay
+
+internal fun shouldShowTimelineHourLabel(
+    hour: Int,
+    timedMinutes: List<Int>,
+    currentMinute: Int?,
+): Boolean {
+    val hourMinute = hour.coerceIn(0, HoursPerDay) * MinutesPerHour
+    val timedLabelWouldCollide = timedMinutes.any { minute ->
+        kotlin.math.abs((minute + TimedLabelTopOffsetMinutes) - hourMinute) <=
+            TimelineLabelCollisionMinutes
+    }
+    val currentLabelWouldCollide = currentMinute?.let { minute ->
+        kotlin.math.abs(minute - hourMinute) <= TimelineLabelCollisionMinutes
+    } ?: false
+    return !timedLabelWouldCollide && !currentLabelWouldCollide
+}
+
+internal fun shouldShowCurrentTimeLabel(currentMinute: Int, timedMinutes: List<Int>): Boolean =
+    timedMinutes.none { timedMinute ->
+        kotlin.math.abs(timedMinute - currentMinute) <= TimedAndCurrentLabelCollisionMinutes
+    }
+
+private const val HoursPerDay = 24

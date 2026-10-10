@@ -30,6 +30,7 @@ data class CaptureSuggestionLearningDecision(
 class RecordAiLearningEventUseCase(
     private val suggestionHistoryRepository: AiSuggestionHistoryRepository,
     private val correctionHistoryRepository: AiCorrectionHistoryRepository,
+    private val isLearningEnabled: suspend () -> Boolean = { true },
 ) {
     suspend fun recordAccepted(
         context: CaptureSuggestionLearningContext,
@@ -42,7 +43,7 @@ class RecordAiLearningEventUseCase(
         surface: AiSuggestionSurface = AiSuggestionSurface.Capture,
         sourceItemId: String? = null,
         sourceText: String = context.analysis.rawText,
-    ): Long = suggestionHistoryRepository.insert(
+    ): Long = if (!isLearningEnabled()) 0L else suggestionHistoryRepository.insert(
         context.toHistory(
             outcome = AiSuggestionOutcome.Rejected,
             surface = surface,
@@ -62,7 +63,7 @@ class RecordAiLearningEventUseCase(
         sourceText: String,
         suggestedType: SuggestedItemType,
         suggestedSpaceName: String,
-    ): Long = suggestionHistoryRepository.insert(
+    ): Long = if (!isLearningEnabled()) 0L else suggestionHistoryRepository.insert(
         context.toHistory(
             outcome = AiSuggestionOutcome.Rejected,
             surface = AiSuggestionSurface.BrainDump,
@@ -86,6 +87,7 @@ class RecordAiLearningEventUseCase(
         decision: CaptureSuggestionLearningDecision,
         outcome: AiSuggestionOutcome,
     ): Long {
+        if (!isLearningEnabled()) return 0L
         val historyId = suggestionHistoryRepository.insert(
             context.toHistory(
                 outcome = outcome,

@@ -22,10 +22,12 @@ GENERIC_VALUES = {
     "manager", "reviewer", "stakeholder", "team member", "operator", "administrator",
     "customer", "test user", "user", "team", "anonymous", "redacted", "unknown", "maintainer",
     "phase", "gate",
+    # Generic UI labels (not person identifiers)
+    "name", "personal", "nimi", "isiklik",
 }
 TECHNICAL_PROPER_NOUNS = {
     "android", "codex", "compose", "gemini", "git", "gradle", "java", "json", "kotlin", "luma",
-    "material", "mvp", "orbit", "python", "room", "sql", "theme", "toml", "type", "ui", "xml", "yaml",
+    "material", "mvp", "orbit", "python", "room", "sql", "tallele", "theme", "toml", "type", "ui", "xml", "yaml",
 }
 EXEMPT_RELATIVE_PATHS = {Path("tests/codex/test_workplace_privacy.py")}
 EMAIL_RE = re.compile(r"(?i)\b[A-Z0-9._%+-]+@([A-Z0-9.-]+\.[A-Z]{2,}|localhost)\b")

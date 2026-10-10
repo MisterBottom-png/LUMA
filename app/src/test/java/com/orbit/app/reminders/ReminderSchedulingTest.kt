@@ -1,5 +1,6 @@
 package com.orbit.app.reminders
 
+import com.orbit.app.R
 import com.orbit.app.data.local.dao.ReminderDao
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.repository.RoomReminderRepository
@@ -16,6 +17,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReminderSchedulingTest {
+    @Test
+    fun reminderOffsetsUseLocalizedApproximateDeliveryLabels() {
+        assertEquals(
+            listOf(
+                R.string.reminder_offset_around_target,
+                R.string.reminder_offset_about_five_minutes,
+                R.string.reminder_offset_about_fifteen_minutes,
+                R.string.reminder_offset_about_thirty_minutes,
+                R.string.reminder_offset_about_one_hour,
+                R.string.reminder_offset_about_one_day,
+            ),
+            reminderOffsetOptions.map(ReminderOffsetOption::labelResId),
+        )
+    }
+
     @Test
     fun localSixteenHundredTargetIsPersistedAndScheduledAsTheSameInstant() = runBlocking {
         val zone = ZoneId.of("Europe/Tallinn")
@@ -115,6 +131,20 @@ class ReminderSchedulingTest {
             reminder.copy(completedAt = 1L)
                 .matchesScheduledNotificationTime(originalNotificationTime),
         )
+    }
+
+    @Test
+    fun alarmAndWorkerDeliveryAttemptsShareIdentityAndStaleTimeGuard() {
+        val current = reminder().copy(id = 42L)
+        val expectedNotificationTime = requireNotNull(current.notificationTimeMillis())
+
+        val alarmDeliveryId = current.currentNotificationRequestCode(expectedNotificationTime)
+        val workerDeliveryId = current.currentNotificationRequestCode(expectedNotificationTime)
+        val editedReminder = current.copy(notificationOffsetMinutes = 15L)
+
+        assertEquals(reminderNotificationRequestCode(42L), alarmDeliveryId)
+        assertEquals(alarmDeliveryId, workerDeliveryId)
+        assertNull(editedReminder.currentNotificationRequestCode(expectedNotificationTime))
     }
 
     @Test
@@ -341,6 +371,10 @@ private class FakeReminderDao : ReminderDao {
         MutableStateFlow(
             reminders.values.filter { it.dueAt >= startMillis && it.dueAt < endMillis },
         )
+    override fun observeRepeatingBefore(endMillis: Long): Flow<List<ReminderEntity>> =
+        MutableStateFlow(
+            reminders.values.filter { it.repeatRule != null && it.completedAt == null && it.dueAt < endMillis },
+        )
     override suspend fun getById(id: Long): ReminderEntity? = reminders[id]
 
     override suspend fun insert(entity: ReminderEntity): Long {
@@ -361,6 +395,36 @@ private class FakeReminderDao : ReminderDao {
 
     override suspend fun delete(entity: ReminderEntity) {
         reminders.remove(entity.id)
+        publish()
+    }
+
+    override suspend fun getAll(): List<ReminderEntity> = reminders.values.toList()
+
+    override suspend fun updateNotificationWorkId(id: Long, workId: String?) {
+        reminders[id]?.let { reminders[id] = it.copy(notificationWorkId = workId) }
+        publish()
+    }
+
+    override suspend fun claimDelivery(id: Long, notificationTime: Long): Int {
+        val reminder = reminders[id] ?: return 0
+        if (!reminder.matchesScheduledNotificationTime(notificationTime)) return 0
+        if (reminder.deliveredNotificationAt == notificationTime) return 0
+        reminders[id] = reminder.copy(deliveredNotificationAt = notificationTime)
+        publish()
+        return 1
+    }
+
+    override suspend fun releaseDelivery(id: Long, notificationTime: Long) {
+        reminders[id]?.takeIf { it.deliveredNotificationAt == notificationTime }?.let {
+            reminders[id] = it.copy(deliveredNotificationAt = null)
+        }
+        publish()
+    }
+
+    override suspend fun markHandled(id: Long, notificationTime: Long) {
+        reminders[id]?.let {
+            reminders[id] = it.copy(deliveredNotificationAt = notificationTime, notificationWorkId = null)
+        }
         publish()
     }
 

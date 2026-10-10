@@ -26,7 +26,8 @@ class LocalReminderRestoreReconcilerTest {
             notificationWorkId = "old-work",
         )
 
-        val result = LocalReminderRestoreReconciler(scheduler, dao).reconcile(
+        listOf(active, completed).forEach { dao.insert(it) }
+        val result = LocalReminderRestoreReconciler(scheduler, dao, now = { 1_000_000 }).reconcile(
             previousReminderIds = setOf(1),
             restoredReminders = listOf(active, completed),
         )
@@ -39,12 +40,33 @@ class LocalReminderRestoreReconcilerTest {
     }
 
     @Test
+    fun restoredPastRemindersAreMarkedHandledInsteadOfRinging() = runBlocking {
+        val scheduler = RecordingRestoreScheduler()
+        val dao = RestoreReminderDao()
+        val past = ReminderEntity(id = 7, title = "Last week", dueAt = 2_000_000, notificationOffsetMinutes = 0)
+        val future = ReminderEntity(id = 8, title = "Tomorrow", dueAt = 90_000_000)
+        listOf(past, future).forEach { dao.insert(it) }
+
+        val result = LocalReminderRestoreReconciler(scheduler, dao, now = { 50_000_000 }).reconcile(
+            previousReminderIds = emptySet(),
+            restoredReminders = listOf(past, future),
+        )
+
+        assertTrue(result)
+        assertEquals(listOf(8L), scheduler.scheduled.map { it.id })
+        assertEquals(2_000_000L, dao.entities.getValue(7).deliveredNotificationAt)
+        assertNull(dao.entities.getValue(7).notificationWorkId)
+        assertNull(dao.entities.getValue(8).deliveredNotificationAt)
+    }
+
+    @Test
     fun schedulingFailureLeavesReminderReadableWithoutWorkId() = runBlocking {
         val scheduler = RecordingRestoreScheduler(failSchedule = true)
         val dao = RestoreReminderDao()
         val reminder = ReminderEntity(id = 4, title = "Local reminder", dueAt = 7_000_000)
+        dao.insert(reminder)
 
-        val result = LocalReminderRestoreReconciler(scheduler, dao).reconcile(
+        val result = LocalReminderRestoreReconciler(scheduler, dao, now = { 1_000_000 }).reconcile(
             previousReminderIds = emptySet(),
             restoredReminders = listOf(reminder),
         )
@@ -77,6 +99,8 @@ private class RestoreReminderDao : ReminderDao {
     override fun observeAll(): Flow<List<ReminderEntity>> = flowOf(entities.values.toList())
     override fun observeCalendarRange(startMillis: Long, endMillis: Long): Flow<List<ReminderEntity>> =
         flowOf(entities.values.filter { it.dueAt >= startMillis && it.dueAt < endMillis })
+    override fun observeRepeatingBefore(endMillis: Long): Flow<List<ReminderEntity>> =
+        flowOf(entities.values.filter { it.repeatRule != null && it.completedAt == null && it.dueAt < endMillis })
     override suspend fun getById(id: Long): ReminderEntity? = entities[id]
 
     override suspend fun insert(entity: ReminderEntity): Long {
@@ -102,5 +126,22 @@ private class RestoreReminderDao : ReminderDao {
 
     override suspend fun deleteAll() {
         entities.clear()
+    }
+
+    override suspend fun getAll(): List<ReminderEntity> = entities.values.toList()
+
+    override suspend fun updateNotificationWorkId(id: Long, workId: String?) {
+        entities[id] = (entities[id] ?: return).copy(notificationWorkId = workId)
+    }
+
+    override suspend fun claimDelivery(id: Long, notificationTime: Long): Int = 0
+
+    override suspend fun releaseDelivery(id: Long, notificationTime: Long) = Unit
+
+    override suspend fun markHandled(id: Long, notificationTime: Long) {
+        entities[id] = (entities[id] ?: return).copy(
+            deliveredNotificationAt = notificationTime,
+            notificationWorkId = null,
+        )
     }
 }

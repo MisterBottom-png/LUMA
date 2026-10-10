@@ -1,9 +1,12 @@
 package com.orbit.app.data.repository
 
+import android.database.sqlite.SQLiteConstraintException
 import com.orbit.app.data.local.dao.CaptureDao
 import com.orbit.app.data.local.dao.AiCorrectionHistoryDao
 import com.orbit.app.data.local.dao.AiSuggestionHistoryDao
+import com.orbit.app.data.local.dao.BrainDumpDao
 import com.orbit.app.data.local.dao.LearnedRuleDao
+import com.orbit.app.data.local.dao.LabelDao
 import com.orbit.app.data.local.dao.NoteDao
 import com.orbit.app.data.local.dao.PersonMemoryDao
 import com.orbit.app.data.local.dao.ProjectMemoryDao
@@ -13,18 +16,27 @@ import com.orbit.app.data.local.dao.SpaceDao
 import com.orbit.app.data.local.dao.TaskDao
 import com.orbit.app.data.local.entity.AiCorrectionHistoryEntity
 import com.orbit.app.data.local.entity.AiSuggestionHistoryEntity
+import com.orbit.app.data.local.entity.BrainDumpItemEntity
+import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.LearnedRuleEntity
+import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.PersonMemoryEntity
 import com.orbit.app.data.local.entity.ProjectMemoryEntity
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
+import com.orbit.app.data.local.DuplicateSpaceNameException
 import com.orbit.app.data.local.entity.SpaceAliasMemoryEntity
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
+import com.orbit.app.reminders.ReminderDeliveryPolicy
 import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.reminders.shouldScheduleNotification
 import kotlinx.coroutines.flow.Flow
+import java.util.Locale
 
 interface EntityRepository<T> {
     fun observeAll(): Flow<List<T>>
@@ -44,7 +56,54 @@ interface ToggleableMemoryRepository<T> : ResettableRepository<T> {
 }
 
 interface CaptureRepository : EntityRepository<CaptureEntity>
-interface SpaceRepository : EntityRepository<SpaceEntity>
+data class BrainDumpSessionData(
+    val session: BrainDumpSessionEntity,
+    val items: List<BrainDumpItemEntity>,
+)
+
+interface BrainDumpRepository {
+    fun observeSessions(): Flow<List<BrainDumpSessionEntity>>
+    suspend fun getSession(captureId: Long): BrainDumpSessionData?
+    suspend fun getAllSessions(): List<BrainDumpSessionData>
+    suspend fun createSession(session: BrainDumpSessionEntity, items: List<BrainDumpItemEntity>)
+}
+
+interface SpaceRepository : EntityRepository<SpaceEntity> {
+    /**
+     * Adds Spaces chosen during setup, skipping names already in use. Returns how
+     * many were added. Room does this in one transaction.
+     */
+    suspend fun insertStarterSpaces(entities: List<SpaceEntity>): Int {
+        var inserted = 0
+        entities.forEach { entity ->
+            try {
+                insert(entity)
+                inserted++
+            } catch (_: DuplicateSpaceNameException) {
+            }
+        }
+        return inserted
+    }
+
+    suspend fun swapSortOrder(firstId: Long, secondId: Long, updatedAt: Long) {
+        val first = getById(firstId) ?: return
+        val second = getById(secondId) ?: return
+        update(first.copy(sortOrder = second.sortOrder, updatedAt = updatedAt))
+        update(second.copy(sortOrder = first.sortOrder, updatedAt = updatedAt))
+    }
+}
+interface LabelRepository {
+    fun observeAll(): Flow<List<LabelEntity>>
+    suspend fun getAll(): List<LabelEntity>
+    suspend fun getAllNoteLabels(): List<NoteLabelCrossRef>
+    suspend fun getAllTaskLabels(): List<TaskLabelCrossRef>
+    suspend fun getAllReminderLabels(): List<ReminderLabelCrossRef>
+    suspend fun findOrCreate(name: String): LabelEntity
+    suspend fun delete(entity: LabelEntity)
+    suspend fun replaceNoteLabels(noteId: Long, labelIds: Set<Long>)
+    suspend fun replaceTaskLabels(taskId: Long, labelIds: Set<Long>)
+    suspend fun replaceReminderLabels(reminderId: Long, labelIds: Set<Long>)
+}
 interface NoteRepository : EntityRepository<NoteEntity>
 interface TaskRepository : EntityRepository<TaskEntity>
 interface ReminderRepository : EntityRepository<ReminderEntity>
@@ -58,20 +117,90 @@ interface SpaceAliasMemoryRepository : ToggleableMemoryRepository<SpaceAliasMemo
 class RoomCaptureRepository(private val dao: CaptureDao) : CaptureRepository {
     override fun observeAll() = dao.observeAll()
     override suspend fun getById(id: Long) = dao.getById(id)
-    override suspend fun insert(entity: CaptureEntity) = dao.insert(entity)
-    override suspend fun update(entity: CaptureEntity) = dao.update(entity)
+    override suspend fun insert(entity: CaptureEntity): Long {
+        require(entity.rawText.isNotBlank()) { "A capture cannot be blank" }
+        return dao.insert(entity)
+    }
+    override suspend fun update(entity: CaptureEntity) {
+        require(entity.rawText.isNotBlank()) { "A capture cannot be blank" }
+        dao.update(entity)
+    }
     override suspend fun delete(entity: CaptureEntity) = dao.delete(entity)
     override suspend fun deleteById(id: Long) = dao.deleteById(id)
+}
+
+class RoomBrainDumpRepository(private val dao: BrainDumpDao) : BrainDumpRepository {
+    override fun observeSessions() = dao.observeSessions()
+
+    override suspend fun getSession(captureId: Long): BrainDumpSessionData? {
+        val session = dao.getSession(captureId) ?: return null
+        return BrainDumpSessionData(session, dao.getItems(captureId))
+    }
+
+    override suspend fun getAllSessions(): List<BrainDumpSessionData> =
+        dao.getSessions().map { session ->
+            BrainDumpSessionData(session, dao.getItems(session.captureId))
+        }
+
+    override suspend fun createSession(
+        session: BrainDumpSessionEntity,
+        items: List<BrainDumpItemEntity>,
+    ) {
+        require(items.isNotEmpty()) { "A Brain Dump session requires at least one item" }
+        dao.insertSessionWithItems(session, items)
+    }
 }
 
 class RoomSpaceRepository(private val dao: SpaceDao) : SpaceRepository {
     override fun observeAll() = dao.observeAll()
     override suspend fun getById(id: Long) = dao.getById(id)
-    override suspend fun insert(entity: SpaceEntity) = dao.insert(entity)
-    override suspend fun update(entity: SpaceEntity) = dao.update(entity)
+    override suspend fun insert(entity: SpaceEntity) = dao.insertWithUniqueName(entity)
+    override suspend fun update(entity: SpaceEntity) = dao.updateWithUniqueName(entity)
+    override suspend fun insertStarterSpaces(entities: List<SpaceEntity>) = dao.insertAllSkippingTakenNames(entities)
+    override suspend fun swapSortOrder(firstId: Long, secondId: Long, updatedAt: Long) =
+        dao.swapSortOrder(firstId, secondId, updatedAt)
     override suspend fun delete(entity: SpaceEntity) = dao.delete(entity)
     override suspend fun deleteById(id: Long) = dao.deleteById(id)
 }
+
+class RoomLabelRepository(private val dao: LabelDao) : LabelRepository {
+    override fun observeAll() = dao.observeAll()
+    override suspend fun getAll() = dao.getAll()
+    override suspend fun getAllNoteLabels() = dao.getAllNoteLabels()
+    override suspend fun getAllTaskLabels() = dao.getAllTaskLabels()
+    override suspend fun getAllReminderLabels() = dao.getAllReminderLabels()
+
+    override suspend fun findOrCreate(name: String): LabelEntity {
+        val displayName = name.trim().replace(WhitespacePattern, " ")
+        val normalizedName = normalizeLabelName(displayName)
+        require(normalizedName.isNotEmpty()) { "A label name cannot be blank" }
+        dao.getByNormalizedName(normalizedName)?.let { return it }
+
+        val entity = LabelEntity(name = displayName, normalizedName = normalizedName)
+        return try {
+            entity.copy(id = dao.insert(entity))
+        } catch (error: SQLiteConstraintException) {
+            dao.getByNormalizedName(normalizedName) ?: throw error
+        }
+    }
+
+    override suspend fun delete(entity: LabelEntity) = dao.delete(entity)
+    override suspend fun replaceNoteLabels(noteId: Long, labelIds: Set<Long>) =
+        dao.replaceNoteLabels(noteId, labelIds)
+
+    override suspend fun replaceTaskLabels(taskId: Long, labelIds: Set<Long>) =
+        dao.replaceTaskLabels(taskId, labelIds)
+
+    override suspend fun replaceReminderLabels(reminderId: Long, labelIds: Set<Long>) =
+        dao.replaceReminderLabels(reminderId, labelIds)
+}
+
+internal fun normalizeLabelName(value: String): String = value
+    .trim()
+    .replace(WhitespacePattern, " ")
+    .lowercase(Locale.ROOT)
+
+private val WhitespacePattern = Regex("\\s+")
 
 class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
     override fun observeAll() = dao.observeAll()
@@ -92,12 +221,14 @@ class RoomTaskRepository(private val dao: TaskDao) : TaskRepository {
 }
 
 private fun NoteEntity.requireValidSchedule(): NoteEntity = apply {
+    require(title.isNotBlank()) { "A note needs a title" }
     require(scheduledDateEpochDay == null || scheduledAt == null) {
         "A note cannot be both date-only and timed"
     }
 }
 
 private fun TaskEntity.requireValidSchedule(): TaskEntity = apply {
+    require(title.isNotBlank()) { "A task needs a title" }
     require(scheduledDateEpochDay == null || dueAt == null) {
         "A task cannot be both date-only and timed"
     }
@@ -111,27 +242,54 @@ class RoomReminderRepository(
     override suspend fun getById(id: Long) = dao.getById(id)
 
     override suspend fun insert(entity: ReminderEntity): Long {
-        val id = dao.insert(entity)
-        val stored = entity.copy(id = id)
+        val stored = entity.copy(id = 0L, notificationWorkId = null, deliveredNotificationAt = null)
+            .requireValidReminder()
+        val id = dao.insert(stored)
         if (stored.shouldScheduleNotification()) {
-            val workId = runCatching { scheduler.schedule(stored) }.getOrNull()
-            dao.update(stored.copy(notificationWorkId = workId))
+            val token = runCatching { scheduler.schedule(stored.copy(id = id)) }.getOrNull()
+            dao.updateNotificationWorkId(id, token)
         }
         return id
     }
 
+    /**
+     * Saves the reminder and touches its alarm only when the notification timing,
+     * enablement or completion changed. Moving a reminder to another Space, renaming
+     * it or adding labels therefore never re-arms it, and a past time is never
+     * scheduled again (see ReminderDeliveryPolicy).
+     */
     override suspend fun update(entity: ReminderEntity) {
         require(entity.id != 0L) { "A stored reminder is required" }
-        dao.update(entity)
-        if (entity.shouldScheduleNotification()) {
-            val workId = runCatching { scheduler.reschedule(entity) }.getOrNull()
-            dao.update(entity.copy(notificationWorkId = workId))
-        } else {
-            runCatching { scheduler.cancel(entity.id) }
-            if (entity.notificationWorkId != null) {
-                dao.update(entity.copy(notificationWorkId = null))
-            }
+        val previous = dao.getById(entity.id)
+        val timingEdited = previous != null && (
+            previous.dueAt != entity.dueAt ||
+                previous.notificationOffsetMinutes != entity.notificationOffsetMinutes
+            )
+        val normalized = com.orbit.app.reminders.ReminderRepeats.reanchored(previous, entity)
+            .copy(
+                // A new time supersedes an earlier snooze.
+                snoozedUntil = if (timingEdited && entity.snoozedUntil == previous?.snoozedUntil) {
+                    null
+                } else {
+                    entity.snoozedUntil
+                },
+                // Delivery bookkeeping is owned by the delivery paths, not by editors.
+                deliveredNotificationAt = previous?.deliveredNotificationAt ?: entity.deliveredNotificationAt,
+                notificationWorkId = previous?.notificationWorkId ?: entity.notificationWorkId,
+            )
+            .requireValidReminder()
+        dao.update(normalized)
+
+        if (!normalized.shouldScheduleNotification()) {
+            runCatching { scheduler.cancel(normalized.id) }
+            if (normalized.notificationWorkId != null) dao.updateNotificationWorkId(normalized.id, null)
+            return
         }
+        val unchanged = previous != null &&
+            ReminderDeliveryPolicy.schedulingKey(previous) == ReminderDeliveryPolicy.schedulingKey(normalized)
+        if (unchanged) return
+        val token = runCatching { scheduler.reschedule(normalized) }.getOrNull()
+        dao.updateNotificationWorkId(normalized.id, token)
     }
 
     override suspend fun delete(entity: ReminderEntity) {
@@ -143,6 +301,11 @@ class RoomReminderRepository(
         runCatching { scheduler.cancel(id) }
         dao.deleteById(id)
     }
+}
+
+private fun ReminderEntity.requireValidReminder(): ReminderEntity = apply {
+    require(title.isNotBlank()) { "A reminder needs a title" }
+    require(dueAt > 0L) { "A reminder needs a valid time" }
 }
 
 class RoomAiSuggestionHistoryRepository(

@@ -10,4 +10,5 @@ Do not edit files.
 Check the current diff, verification results, MVP gate, backlog status, protected behaviors, and unresolved manual checks.
 Flag unsupported pass claims, data-loss risk, untested migrations, broken core paths, and differences between pre-existing failures and regressions.
 Do not add feature ideas. Return PASS, PARTIAL, or BLOCKED with concise evidence.
+Base findings only on the supplied diff and evidence. Name each evidence gap instead of assuming it passes.
 """

@@ -11,9 +11,10 @@ import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.data.repository.CaptureRepository
+import com.orbit.app.data.repository.ReminderRepository
 import com.orbit.app.data.repository.TaskRepository
 import com.orbit.app.domain.ai.AiRouteSource
-import com.orbit.app.domain.ai.LocalAiRetriever
+import com.orbit.app.domain.ai.AiSourceItem
 import com.orbit.app.domain.ai.SourceLinkedAnswer
 import com.orbit.app.domain.analyzer.LocalReviewAnalyzer
 import com.orbit.app.domain.analyzer.ReviewLoop
@@ -22,39 +23,83 @@ import com.orbit.app.domain.analyzer.TinyActionSuggestion
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.search.SearchCorpus
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
+import com.orbit.app.domain.usecase.BrainDumpActions
+import com.orbit.app.ui.navigation.ItemDetailType
+import com.orbit.app.ui.screens.item.ItemSchedule
+import com.orbit.app.ui.screens.item.ItemScheduleActions
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.DayOfWeek
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class ReviewItemType { Task, Capture, Reminder }
+
+enum class ReviewItemSchedule { Timed, DateOnly, None }
+
+internal fun TaskEntity.isDueOn(
+    day: LocalDate,
+    startOfDay: Long,
+    startOfNextDay: Long,
+): Boolean = dueAt in startOfDay until startOfNextDay || scheduledDateEpochDay == day.toEpochDay()
+
+internal fun TaskEntity.isOverdueBefore(day: LocalDate, startOfDay: Long): Boolean =
+    dueAt != null && dueAt < startOfDay ||
+        scheduledDateEpochDay?.let { it < day.toEpochDay() } == true
+
+enum class ReviewSupportingText {
+    Task,
+    WaitingFor,
+    Someday,
+    UnfinishedBrainDump,
+    UnfinalizedInboxCapture,
+    Reminder,
+}
+
+enum class ReviewReason { UnfinalizedCapture }
+
+enum class CarryForwardGuidance {
+    ChooseNewDayOrSmallerStep,
+    RescheduleIfRelevant,
+}
+
+enum class ReviewSuggestionSource { Gemini, Local, LocalFallback }
+
+data class ReviewSuggestion(
+    val sourceKey: String,
+    val sourceTitle: String,
+    val action: String,
+    val source: ReviewSuggestionSource,
+)
 
 data class ReviewItem(
     val id: Long,
     val type: ReviewItemType,
     val title: String,
     val timestamp: Long,
-    val supportingText: String? = null,
-    val reviewReason: String? = null,
+    val schedule: ReviewItemSchedule = ReviewItemSchedule.None,
+    val supportingText: ReviewSupportingText? = null,
+    val reviewReason: ReviewReason? = null,
+    val hasPendingBrainDump: Boolean = false,
 ) {
     val key: String = "${type.name}_$id"
 }
 
 data class CarryForwardSuggestion(
     val item: ReviewItem,
-    val suggestion: String,
+    val guidance: CarryForwardGuidance,
 )
 
 data class ReviewUiState(
     val dueToday: List<ReviewItem> = emptyList(),
     val recentInboxCaptures: List<ReviewItem> = emptyList(),
-    val morningSuggestion: TinyActionSuggestion? = null,
+    val morningSuggestion: ReviewSuggestion? = null,
     val unresolvedCaptures: List<ReviewItem> = emptyList(),
     val completedToday: List<ReviewItem> = emptyList(),
     val carryForwardSuggestions: List<CarryForwardSuggestion> = emptyList(),
@@ -62,31 +107,66 @@ data class ReviewUiState(
     val staleLoops: List<ReviewLoop> = emptyList(),
     val waitingFor: List<ReviewItem> = emptyList(),
     val someday: List<ReviewItem> = emptyList(),
-    val smallerAction: TinyActionSuggestion? = null,
+    val smallerAction: ReviewSuggestion? = null,
     val weeklySummary: SourceLinkedAnswer? = null,
+    val pendingTaskUndo: ReviewTaskUndoToken? = null,
     val staleLoopDays: Int = LocalReviewAnalyzer.DefaultStaleLoopDays,
-)
+    /** Every unresolved thought with LUMA's stored suggestion. */
+    val toSort: List<ToSortItem> = emptyList(),
+    val pendingSortUndo: SortUndoToken? = null,
+    val sortMessage: ReviewSortMessage? = null,
+) {
+    /** "All sorted" is only claimed when nothing at all is waiting. */
+    val nothingWaiting: Boolean
+        get() = toSort.isEmpty() && dueToday.isEmpty() && carryForwardSuggestions.isEmpty()
+}
 
-private data class ReviewData(
+/** An undoable outcome from To sort. */
+sealed interface SortUndoToken {
+    val captureId: Long
+
+    data class Accepted(override val captureId: Long, val itemType: com.orbit.app.data.local.entity.SuggestedItemType, val itemId: Long) : SortUndoToken
+    data class LetGo(override val captureId: Long) : SortUndoToken
+    data class Hidden(override val captureId: Long) : SortUndoToken
+}
+
+enum class ReviewSortMessage { ActionFailed, NeedsChoice, Undone }
+
+internal data class ReviewData(
     val captures: List<CaptureEntity>,
     val notes: List<NoteEntity>,
     val tasks: List<TaskEntity>,
     val reminders: List<ReminderEntity>,
     val spaces: List<com.orbit.app.data.local.entity.SpaceEntity>,
     val settings: AppSettings,
+    val brainDumpCaptureIds: Set<Long>,
+    val suggestions: Map<Long, com.orbit.app.data.local.entity.CaptureSuggestionEntity> = emptyMap(),
+    val brainDumpPending: Map<Long, Int> = emptyMap(),
 )
 
 class ReviewViewModel internal constructor(
     private val container: OrbitContainer,
     private val analyzer: LocalReviewAnalyzer = LocalReviewAnalyzer(),
-    private val retriever: LocalAiRetriever = LocalAiRetriever(),
     private val actions: ReviewActions = ReviewActions(
         captureRepository = container.captureRepository,
         taskRepository = container.taskRepository,
+        reminderRepository = container.reminderRepository,
         confirmCaptureAction = container.confirmCaptureAction,
+        scheduleActions = ItemScheduleActions(
+            noteRepository = container.noteRepository,
+            taskRepository = container.taskRepository,
+        ),
+        brainDumpActions = container.brainDumpActions,
+    ),
+    private val taskUndoController: ReviewTaskUndoController = ReviewTaskUndoController(
+        container.taskRepository,
     ),
 ) : ViewModel() {
-    private val smallerAction = MutableStateFlow<TinyActionSuggestion?>(null)
+    private val smallerAction = MutableStateFlow<ReviewSuggestion?>(null)
+    private val weeklySummary = MutableStateFlow<SourceLinkedAnswer?>(null)
+    private val pendingTaskUndo = MutableStateFlow<ReviewTaskUndoToken?>(null)
+    private val sortFeedback = MutableStateFlow<Pair<SortUndoToken?, ReviewSortMessage?>>(null to null)
+    private var weeklyDataVersion = 0L
 
     private val corpus = combine(
         container.captureRepository.observeAll(),
@@ -107,56 +187,167 @@ class ReviewViewModel internal constructor(
     private val reviewData = combine(
         corpus,
         container.appSettingsRepository.settings,
-    ) { corpus, settings ->
+        container.brainDumpRepository.observeSessions(),
+        container.database.captureSuggestionDao().observeAll(),
+        container.database.brainDumpDao().observePendingCounts(),
+    ) { corpus, settings, sessions, suggestions, pendingCounts ->
         ReviewData(
+            suggestions = suggestions.associateBy { it.captureId },
+            brainDumpPending = pendingCounts.associate { it.captureId to it.pending },
             captures = corpus.captures,
             notes = corpus.notes,
             tasks = corpus.tasks,
             reminders = corpus.reminders,
             spaces = corpus.spaces,
             settings = settings,
+            brainDumpCaptureIds = sessions.mapTo(hashSetOf()) { it.captureId },
         )
     }
 
-    private val weeklySummary = reviewData.map { data ->
-        val sources = retriever.recentContext(data.asCorpus(), limit = 10)
-        container.aiRouter.summarizeReview(sources, data.settings)
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = null,
-    )
+    init {
+        viewModelScope.launch {
+            reviewData.collect {
+                weeklyDataVersion += 1
+                weeklySummary.value = null
+            }
+        }
+    }
 
-    val uiState = combine(reviewData, smallerAction, weeklySummary) { data, smallAction, summary ->
-        buildUiState(data, smallAction, summary)
+    val uiState = combine(
+        reviewData,
+        smallerAction,
+        weeklySummary,
+        pendingTaskUndo,
+        sortFeedback,
+    ) { data, smallAction, summary, taskUndo, feedback ->
+        buildUiState(data, smallAction, summary, taskUndo).copy(
+            pendingSortUndo = feedback.first,
+            sortMessage = feedback.second,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ReviewUiState(),
     )
 
+    /** One tap: turn the thought into what LUMA suggested. */
+    fun acceptSuggestion(item: ToSortItem) {
+        viewModelScope.launch {
+            runCatching { container.captureResolution.acceptSuggestion(item.captureId) }
+                .onSuccess { accepted ->
+                    sortFeedback.value = if (accepted == null) {
+                        null to ReviewSortMessage.NeedsChoice
+                    } else {
+                        SortUndoToken.Accepted(item.captureId, accepted.itemType, accepted.itemId) to null
+                    }
+                }
+                .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
+        }
+    }
+
+    /** Hides LUMA's suggestion; the thought stays in To sort. */
+    fun hideSuggestion(item: ToSortItem) {
+        viewModelScope.launch {
+            runCatching { container.captureInbox.dismissSuggestion(item.captureId) }
+                .onSuccess { sortFeedback.value = SortUndoToken.Hidden(item.captureId) to null }
+                .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
+        }
+    }
+
+    /** The user explicitly lets a thought go (archived, with Undo). */
+    fun letGo(item: ToSortItem) {
+        viewModelScope.launch {
+            runCatching { container.captureResolution.archive(item.captureId) }
+                .onSuccess { sortFeedback.value = SortUndoToken.LetGo(item.captureId) to null }
+                .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
+        }
+    }
+
+    fun undoSort(token: SortUndoToken) {
+        viewModelScope.launch {
+            runCatching {
+                when (token) {
+                    is SortUndoToken.Accepted -> container.captureResolution.undo(token.captureId, token.itemType, token.itemId)
+                    is SortUndoToken.LetGo -> container.captureResolution.unarchive(token.captureId)
+                    is SortUndoToken.Hidden -> container.captureInbox.restoreSuggestion(token.captureId)
+                }
+            }
+                .onSuccess { sortFeedback.value = null to ReviewSortMessage.Undone }
+                .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
+        }
+    }
+
+    fun sortFeedbackShown() {
+        sortFeedback.value = null to null
+    }
+
     fun keepTaskActive(loop: ReviewLoop) = updateLoop(loop, actions::keepTaskActive)
 
     fun confirmCapture(loop: ReviewLoop) = updateLoop(loop, actions::confirmCapture)
 
-    fun archive(loop: ReviewLoop) = updateLoop(loop, actions::archive)
+    fun archive(loop: ReviewLoop) {
+        if (loop.type == ReviewLoopType.Task) {
+            updateUndoableTask(loop, actions::archive)
+        } else {
+            updateLoop(loop, actions::archive)
+        }
+    }
 
-    fun completeTask(loop: ReviewLoop) = updateLoop(loop, actions::completeTask)
+    fun completeTask(loop: ReviewLoop) = updateUndoableTask(loop, actions::completeTask)
 
-    fun deferTask(loop: ReviewLoop) = updateLoop(loop, actions::deferTask)
+    fun deferTask(loop: ReviewLoop) = updateUndoableTask(loop, actions::deferTask)
+
+    fun carryForwardTomorrow(item: ReviewItem) = updateItem(item, actions::carryForwardTomorrow)
+
+    fun carryForwardToDate(item: ReviewItem, epochDay: Long) = updateItem(item) {
+        actions.carryForwardToDate(it, epochDay)
+    }
+
+    fun keepCarryForwardUnscheduled(item: ReviewItem) =
+        updateItem(item, actions::keepUnscheduled)
+
+    fun completeCarryForward(item: ReviewItem) = updateItem(item, actions::completeCarryForward)
 
     fun dismissCapture(loop: ReviewLoop) = updateLoop(loop, actions::dismissCapture)
+
+    fun loadWeeklySummary() {
+        if (weeklySummary.value != null) return
+        viewModelScope.launch {
+            val data = reviewData.first()
+            val version = weeklyDataVersion
+            val sources = weeklyReviewSources(data, System.currentTimeMillis(), ZoneId.systemDefault())
+            val summary = container.aiRouter.summarizeReview(sources, data.settings)
+            if (version == weeklyDataVersion) weeklySummary.value = summary
+        }
+    }
 
     fun makeSmaller(loop: ReviewLoop) {
         viewModelScope.launch {
             val settings = container.appSettingsRepository.settings.first()
             val routedAction = container.aiRouter.makeSmaller(loop.title, settings)
-            smallerAction.value = TinyActionSuggestion(
+            smallerAction.value = ReviewSuggestion(
                 sourceKey = loop.key,
                 sourceTitle = loop.title,
                 action = routedAction.action,
-                sourceLabel = routedAction.metadata.source.tinyActionLabel(),
+                source = routedAction.metadata.source.reviewSuggestionSource(),
             )
+        }
+    }
+
+    fun undoTaskMutation(operationId: Long) {
+        viewModelScope.launch {
+            if (pendingTaskUndo.value?.operationId != operationId) return@launch
+            taskUndoController.undo(operationId)
+            if (pendingTaskUndo.value?.operationId == operationId) {
+                pendingTaskUndo.value = null
+            }
+        }
+    }
+
+    fun expireTaskUndo(operationId: Long) {
+        if (pendingTaskUndo.value?.operationId == operationId) {
+            taskUndoController.expire(operationId)
+            pendingTaskUndo.value = null
         }
     }
 
@@ -167,10 +358,27 @@ class ReviewViewModel internal constructor(
         }
     }
 
+    private fun updateUndoableTask(
+        loop: ReviewLoop,
+        update: suspend (ReviewLoop) -> ReviewTaskMutation?,
+    ) {
+        viewModelScope.launch {
+            update(loop)?.let { mutation ->
+                pendingTaskUndo.value = taskUndoController.record(mutation)
+            }
+            if (smallerAction.value?.sourceKey == loop.key) smallerAction.value = null
+        }
+    }
+
+    private fun updateItem(item: ReviewItem, update: suspend (ReviewItem) -> Unit) {
+        viewModelScope.launch { update(item) }
+    }
+
     private fun buildUiState(
         data: ReviewData,
-        smallAction: TinyActionSuggestion?,
+        smallAction: ReviewSuggestion?,
         summary: SourceLinkedAnswer?,
+        taskUndo: ReviewTaskUndoToken?,
         now: Long = System.currentTimeMillis(),
     ): ReviewUiState {
         val zone = ZoneId.systemDefault()
@@ -185,17 +393,17 @@ class ReviewViewModel internal constructor(
         val somedayTasks = data.tasks.filter { it.status == TaskStatus.Someday }
         val inboxCaptures = data.captures.filter(::isUnresolvedReviewCapture)
         val dueTasks = activeTasks
-            .filter { it.dueAt != null && it.dueAt in startOfToday until startOfTomorrow }
-            .map { it.asReviewItem() }
+            .filter { it.isDueOn(today, startOfToday, startOfTomorrow) }
+            .map { it.asReviewItem(timestamp = it.dueAt ?: startOfToday) }
         val dueReminders = data.reminders
             .filter { it.completedAt == null && it.dueAt in startOfToday until startOfTomorrow }
             .map { it.asReviewItem() }
-        val dueToday = (dueTasks + dueReminders).sortedBy { it.timestamp }
+        val dueToday = (dueTasks + dueReminders).sortedWith(reviewScheduleOrder)
         val recentInbox = inboxCaptures
             .filter { it.createdAt >= recentCutoff }
             .sortedByDescending { it.createdAt }
             .take(5)
-            .map { it.asReviewItem() }
+            .map { it.asReviewItem(data.brainDumpCaptureIds) }
         val morningSource = dueToday.firstOrNull()?.asReviewLoop()
             ?: recentInbox.firstOrNull()?.asReviewLoop()
 
@@ -212,11 +420,14 @@ class ReviewViewModel internal constructor(
             }
             .map { it.asReviewItem(timestamp = it.completedAt ?: it.updatedAt) }
         val overdueTasks = activeTasks
-            .filter { it.dueAt != null && it.dueAt < startOfToday }
+            .filter { it.isOverdueBefore(today, startOfToday) }
             .map {
                 CarryForwardSuggestion(
-                    item = it.asReviewItem(),
-                    suggestion = "Choose a new day, or make the next step smaller.",
+                    item = it.asReviewItem(
+                        timestamp = it.dueAt ?: LocalDate.ofEpochDay(it.scheduledDateEpochDay!!)
+                            .atStartOfDay(zone).toInstant().toEpochMilli(),
+                    ),
+                    guidance = CarryForwardGuidance.ChooseNewDayOrSmallerStep,
                 )
             }
         val overdueReminders = data.reminders
@@ -224,28 +435,29 @@ class ReviewViewModel internal constructor(
             .map {
                 CarryForwardSuggestion(
                     item = it.asReviewItem(),
-                    suggestion = "Reschedule when this still matters.",
+                    guidance = CarryForwardGuidance.RescheduleIfRelevant,
                 )
             }
 
-        val openLoops = (
-            activeTasks.map { ReviewLoop(it.id, ReviewLoopType.Task, it.title, it.updatedAt) } +
-                inboxCaptures.map {
-                    ReviewLoop(it.id, ReviewLoopType.Capture, it.rawText, it.updatedAt)
-                }
-            ).sortedBy { it.updatedAt }
+        // Unresolved captures are handled in To sort, so open loops list tasks only.
+        val openLoops = activeTasks
+            .map { ReviewLoop(it.id, ReviewLoopType.Task, it.title, it.updatedAt) }
+            .sortedBy { it.updatedAt }
 
         return ReviewUiState(
             dueToday = dueToday,
             recentInboxCaptures = recentInbox,
-            morningSuggestion = morningSource?.let(analyzer::makeSmaller),
+            morningSuggestion = morningSource
+                ?.let(analyzer::makeSmaller)
+                ?.asReviewSuggestion(ReviewSuggestionSource.Local),
             unresolvedCaptures = inboxCaptures
                 .sortedByDescending { it.updatedAt }
-                .map { it.asReviewItem() },
+                .map { it.asReviewItem(data.brainDumpCaptureIds) },
             completedToday = (completedTasks + completedReminders)
                 .sortedByDescending { it.timestamp },
             carryForwardSuggestions = (overdueTasks + overdueReminders)
-                .sortedBy { it.item.timestamp }
+                .sortedWith(compareBy<CarryForwardSuggestion> { if (it.item.schedule == ReviewItemSchedule.DateOnly) 0 else 1 }
+                    .thenBy { it.item.timestamp })
                 .take(5),
             openLoops = openLoops,
             staleLoops = analyzer.findStaleLoops(
@@ -253,7 +465,13 @@ class ReviewViewModel internal constructor(
                 captures = data.captures,
                 staleLoopDays = data.settings.staleLoopDays,
                 now = now,
-            ),
+            ).map { loop ->
+                if (loop.type == ReviewLoopType.Capture) {
+                    loop.copy(hasPendingBrainDump = loop.id in data.brainDumpCaptureIds)
+                } else {
+                    loop
+                }
+            },
             waitingFor = data.tasks
                 .filter { it.status == TaskStatus.WaitingFor }
                 .sortedBy { it.updatedAt }
@@ -264,7 +482,15 @@ class ReviewViewModel internal constructor(
                 .map { it.asReviewItem() },
             smallerAction = smallAction,
             weeklySummary = summary,
+            pendingTaskUndo = taskUndo,
             staleLoopDays = data.settings.staleLoopDays,
+            toSort = buildToSort(
+                captures = data.captures,
+                suggestions = data.suggestions,
+                brainDumpPending = data.brainDumpPending,
+                brainDumpCaptureIds = data.brainDumpCaptureIds,
+                now = now,
+            ),
         )
     }
 
@@ -273,20 +499,30 @@ class ReviewViewModel internal constructor(
         type = ReviewItemType.Task,
         title = title,
         timestamp = timestamp,
+        schedule = when {
+            scheduledDateEpochDay != null -> ReviewItemSchedule.DateOnly
+            dueAt != null -> ReviewItemSchedule.Timed
+            else -> ReviewItemSchedule.None
+        },
         supportingText = when (status) {
-            TaskStatus.WaitingFor -> "Waiting for"
-            TaskStatus.Someday -> "Someday"
-            else -> "Task"
+            TaskStatus.WaitingFor -> ReviewSupportingText.WaitingFor
+            TaskStatus.Someday -> ReviewSupportingText.Someday
+            else -> ReviewSupportingText.Task
         },
     )
 
-    private fun CaptureEntity.asReviewItem() = ReviewItem(
+    private fun CaptureEntity.asReviewItem(brainDumpCaptureIds: Set<Long>) = ReviewItem(
         id = id,
         type = ReviewItemType.Capture,
         title = rawText,
         timestamp = updatedAt,
-        supportingText = "Unfinalized inbox capture",
+        supportingText = if (id in brainDumpCaptureIds) {
+            ReviewSupportingText.UnfinishedBrainDump
+        } else {
+            ReviewSupportingText.UnfinalizedInboxCapture
+        },
         reviewReason = reviewReason(),
+        hasPendingBrainDump = id in brainDumpCaptureIds,
     )
 
     private fun ReminderEntity.asReviewItem(timestamp: Long = dueAt) = ReviewItem(
@@ -294,7 +530,8 @@ class ReviewViewModel internal constructor(
         type = ReviewItemType.Reminder,
         title = title,
         timestamp = timestamp,
-        supportingText = "Reminder",
+        schedule = ReviewItemSchedule.Timed,
+        supportingText = ReviewSupportingText.Reminder,
     )
 
     private fun ReviewItem.asReviewLoop(): ReviewLoop = ReviewLoop(
@@ -302,6 +539,7 @@ class ReviewViewModel internal constructor(
         type = if (type == ReviewItemType.Capture) ReviewLoopType.Capture else ReviewLoopType.Task,
         title = title,
         updatedAt = timestamp,
+        hasPendingBrainDump = hasPendingBrainDump,
     )
 
     class Factory(private val container: OrbitContainer) : ViewModelProvider.Factory {
@@ -313,32 +551,87 @@ class ReviewViewModel internal constructor(
     }
 }
 
-private fun ReviewData.asCorpus(): SearchCorpus =
-    SearchCorpus(
-        captures = captures,
-        notes = notes,
-        tasks = tasks,
-        reminders = reminders,
-        spaces = spaces,
-    )
+private val reviewScheduleOrder = compareBy<ReviewItem> {
+    if (it.schedule == ReviewItemSchedule.DateOnly) 0 else 1
+}.thenBy { it.timestamp }
 
-private fun AiRouteSource.tinyActionLabel(): String = when (this) {
-    AiRouteSource.Gemini -> "Suggested by Gemini"
-    AiRouteSource.Local -> "Local suggestion"
-    AiRouteSource.GeminiFailedLocalUsed -> "Local fallback"
+internal fun weeklyReviewSources(
+    data: ReviewData,
+    now: Long,
+    zoneId: ZoneId,
+): List<AiSourceItem> {
+    val today = Instant.ofEpochMilli(now).atZone(zoneId).toLocalDate()
+    val weekStart = today.with(DayOfWeek.MONDAY).atStartOfDay(zoneId).toInstant().toEpochMilli()
+    fun inCurrentWeek(timestamp: Long?) = timestamp != null && timestamp in weekStart..now
+    val spacesById = data.spaces.associateBy { it.id }
+    return buildList {
+        data.captures
+            .filter { it.status == CaptureStatus.Inbox && (inCurrentWeek(it.createdAt) || inCurrentWeek(it.updatedAt)) }
+            .forEach {
+                add(AiSourceItem("capture:${it.id}", ItemDetailType.Capture, it.id, it.rawText, it.rawText, it.suggestedSpaceId?.let(spacesById::get)?.name, it.status.name, it.updatedAt, it.createdAt))
+            }
+        data.notes
+            .filterNot { it.archived }
+            .filter { inCurrentWeek(it.createdAt) || inCurrentWeek(it.updatedAt) }
+            .forEach {
+                add(AiSourceItem("note:${it.id}", ItemDetailType.Note, it.id, it.title, it.body.ifBlank { it.title }, it.spaceId?.let(spacesById::get)?.name, "Note", it.updatedAt, it.createdAt))
+            }
+        data.tasks
+            .filterNot { it.status == TaskStatus.Archived }
+            .filter { inCurrentWeek(it.createdAt) || inCurrentWeek(it.updatedAt) || inCurrentWeek(it.completedAt) }
+            .forEach {
+                add(AiSourceItem("task:${it.id}", ItemDetailType.Task, it.id, it.title, it.notes.ifBlank { it.status.name }, it.spaceId?.let(spacesById::get)?.name, it.status.name, it.completedAt ?: it.updatedAt, it.createdAt, it.dueAt))
+            }
+        data.reminders
+            .filter { inCurrentWeek(it.createdAt) || inCurrentWeek(it.updatedAt) || inCurrentWeek(it.completedAt) }
+            .forEach {
+                add(AiSourceItem("reminder:${it.id}", ItemDetailType.Reminder, it.id, it.title, it.notes, it.spaceId?.let(spacesById::get)?.name, if (it.completedAt == null) "Reminder" else "Completed", it.completedAt ?: it.updatedAt, it.createdAt, it.dueAt))
+            }
+    }.sortedByDescending { it.timestamp }.take(10)
 }
+
+private fun AiRouteSource.reviewSuggestionSource(): ReviewSuggestionSource = when (this) {
+    AiRouteSource.Gemini -> ReviewSuggestionSource.Gemini
+    AiRouteSource.Local -> ReviewSuggestionSource.Local
+    AiRouteSource.GeminiFailedLocalUsed -> ReviewSuggestionSource.LocalFallback
+}
+
+private fun TinyActionSuggestion.asReviewSuggestion(
+    source: ReviewSuggestionSource,
+): ReviewSuggestion = ReviewSuggestion(
+    sourceKey = sourceKey,
+    sourceTitle = sourceTitle,
+    action = action,
+    source = source,
+)
 
 internal fun isUnresolvedReviewCapture(capture: CaptureEntity): Boolean =
     capture.status == CaptureStatus.Inbox
 
-internal fun CaptureEntity.reviewReason(): String =
-    "Needs review because it has not been finalized or dismissed."
+internal fun CaptureEntity.reviewReason(): ReviewReason = ReviewReason.UnfinalizedCapture
+
+enum class ReviewTaskMutationAction {
+    Completed,
+    Deferred,
+    Archived,
+}
+
+internal data class ReviewTaskMutation(
+    val action: ReviewTaskMutationAction,
+    val original: TaskEntity,
+    val updated: TaskEntity,
+)
 
 internal class ReviewActions(
     private val captureRepository: CaptureRepository,
     private val taskRepository: TaskRepository,
+    private val reminderRepository: ReminderRepository,
     private val confirmCaptureAction: ConfirmCaptureActionUseCase,
+    private val scheduleActions: ItemScheduleActions,
+    private val brainDumpActions: BrainDumpActions? = null,
     private val now: () -> Long = System::currentTimeMillis,
+    private val zoneId: ZoneId = ZoneId.systemDefault(),
+    private val today: () -> LocalDate = { LocalDate.now(zoneId) },
 ) {
     suspend fun keepTaskActive(loop: ReviewLoop) {
         require(loop.type == ReviewLoopType.Task)
@@ -366,43 +659,123 @@ internal class ReviewActions(
         }
     }
 
-    suspend fun archive(loop: ReviewLoop) {
-        when (loop.type) {
-            ReviewLoopType.Task -> taskRepository.getById(loop.id)?.let {
-                taskRepository.update(
-                    it.copy(status = TaskStatus.Archived, updatedAt = now()),
-                )
-            }
+    suspend fun archive(loop: ReviewLoop): ReviewTaskMutation? = when (loop.type) {
+        ReviewLoopType.Task -> taskRepository.getById(loop.id)?.let { task ->
+            val updated = task.copy(status = TaskStatus.Archived, updatedAt = now())
+            taskRepository.update(updated)
+            ReviewTaskMutation(
+                action = ReviewTaskMutationAction.Archived,
+                original = task,
+                updated = updated,
+            )
+        }
 
-            ReviewLoopType.Capture -> captureRepository.getById(loop.id)?.let {
-                captureRepository.update(
-                    it.copy(status = CaptureStatus.Archived, updatedAt = now()),
-                )
+        ReviewLoopType.Capture -> {
+            captureRepository.getById(loop.id)?.let { capture ->
+                if (brainDumpActions != null) {
+                    brainDumpActions.dismissCapture(loop.id, archive = true)
+                } else {
+                    captureRepository.update(
+                        capture.copy(status = CaptureStatus.Archived, updatedAt = now()),
+                    )
+                }
             }
+            null
         }
     }
 
-    suspend fun completeTask(loop: ReviewLoop) {
+    suspend fun completeTask(loop: ReviewLoop): ReviewTaskMutation? {
         require(loop.type == ReviewLoopType.Task)
-        taskRepository.getById(loop.id)?.let {
+        val task = taskRepository.getById(loop.id) ?: return null
+        val completedAt = now()
+        val updated = task.copy(
+            status = TaskStatus.Done,
+            updatedAt = completedAt,
+            completedAt = completedAt,
+        )
+        taskRepository.update(updated)
+        return ReviewTaskMutation(
+            action = ReviewTaskMutationAction.Completed,
+            original = task,
+            updated = updated,
+        )
+    }
+
+    suspend fun carryForwardTomorrow(item: ReviewItem) {
+        carryForwardToDate(item, today().plusDays(1).toEpochDay())
+    }
+
+    suspend fun carryForwardToDate(item: ReviewItem, epochDay: Long) {
+        val date = LocalDate.ofEpochDay(epochDay)
+        when (item.type) {
+            ReviewItemType.Task -> scheduleActions.apply(
+                type = ItemDetailType.Task,
+                itemId = item.id,
+                schedule = ItemSchedule.DateOnly(epochDay),
+            )
+
+            ReviewItemType.Reminder -> reminderRepository.getById(item.id)?.let { reminder ->
+                val localTime = Instant.ofEpochMilli(reminder.dueAt).atZone(zoneId).toLocalTime()
+                reminderRepository.update(
+                    reminder.copy(
+                        dueAt = date.atTime(localTime).atZone(zoneId).toInstant().toEpochMilli(),
+                        completedAt = null,
+                        updatedAt = now(),
+                    ),
+                )
+            }
+
+            ReviewItemType.Capture -> error("Captures cannot be carried forward")
+        }
+    }
+
+    suspend fun keepUnscheduled(item: ReviewItem) {
+        require(item.type == ReviewItemType.Task)
+        scheduleActions.apply(
+            type = ItemDetailType.Task,
+            itemId = item.id,
+            schedule = ItemSchedule.Unscheduled,
+        )
+    }
+
+    suspend fun completeCarryForward(item: ReviewItem) {
+        when (item.type) {
+            ReviewItemType.Task -> completeTask(item.id)
+            ReviewItemType.Reminder -> reminderRepository.getById(item.id)?.let { reminder ->
+                reminderRepository.update(com.orbit.app.reminders.ReminderRepeats.markDone(reminder, now()))
+            }
+
+            ReviewItemType.Capture -> error("Captures cannot be completed")
+        }
+    }
+
+    suspend fun deferTask(loop: ReviewLoop): ReviewTaskMutation? {
+        require(loop.type == ReviewLoopType.Task)
+        val task = taskRepository.getById(loop.id) ?: return null
+        val updated = task.copy(status = TaskStatus.Someday, updatedAt = now(), completedAt = null)
+        taskRepository.update(updated)
+        return ReviewTaskMutation(
+            action = ReviewTaskMutationAction.Deferred,
+            original = task,
+            updated = updated,
+        )
+    }
+
+    suspend fun dismissCapture(loop: ReviewLoop) {
+        require(loop.type == ReviewLoopType.Capture)
+        if (brainDumpActions != null) {
+            brainDumpActions.dismissCapture(loop.id, archive = false)
+        } else {
+            confirmCaptureAction.markCaptureReviewed(loop.id)
+        }
+    }
+
+    private suspend fun completeTask(taskId: Long) {
+        taskRepository.getById(taskId)?.let {
             val completedAt = now()
             taskRepository.update(
                 it.copy(status = TaskStatus.Done, updatedAt = completedAt, completedAt = completedAt),
             )
         }
-    }
-
-    suspend fun deferTask(loop: ReviewLoop) {
-        require(loop.type == ReviewLoopType.Task)
-        taskRepository.getById(loop.id)?.let {
-            taskRepository.update(
-                it.copy(status = TaskStatus.Someday, updatedAt = now(), completedAt = null),
-            )
-        }
-    }
-
-    suspend fun dismissCapture(loop: ReviewLoop) {
-        require(loop.type == ReviewLoopType.Capture)
-        confirmCaptureAction.markCaptureReviewed(loop.id)
     }
 }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "LUMA Room/Data Guardian"
+  short_description: "Protect local data and migrations"
+  default_prompt: "Use $luma-room-data-guardian to trace and safely implement this LUMA persistence or data-path change."

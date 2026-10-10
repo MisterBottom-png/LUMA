@@ -1,12 +1,20 @@
 package com.orbit.app.ui.screens.situation
 
+import android.content.Context
+import android.content.res.Configuration
 import android.text.format.DateFormat
+import com.orbit.app.R
+import com.orbit.app.domain.ai.AskLumaAnswerKind
+import com.orbit.app.domain.ai.AskLumaPromptAnswer
+import com.orbit.app.domain.ai.AskLumaPromptAnswerer
+import com.orbit.app.domain.ai.AskLumaQuestion
+import com.orbit.app.domain.analyzer.LocalReviewAnalyzer
+import com.orbit.app.ui.localization.effectiveAppLocale
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.orbit.app.OrbitContainer
 import com.orbit.app.domain.ai.LocalAiRetriever
-import com.orbit.app.domain.ai.SituationSourceSummary
 import com.orbit.app.domain.ai.SourceLinkedAnswer
 import com.orbit.app.domain.analyzer.SituationAnalysis
 import com.orbit.app.domain.analyzer.SituationAnalyzer
@@ -17,26 +25,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-enum class SituationPanel {
-    NextAction,
-    OpenLoops,
-    TinyPlan,
-    ClearNoise,
-}
 
 data class SituationAiUiState(
     val isLoading: Boolean = true,
     val analysis: SituationAnalysis? = null,
-    val sourceSummary: SituationSourceSummary? = null,
-    val selectedPanel: SituationPanel? = null,
     val askQuery: String = "",
     val askAnswer: SourceLinkedAnswer? = null,
     val isAsking: Boolean = false,
-    val mondayConfigured: Boolean = false,
 )
 
 class SituationAiViewModel(
@@ -44,10 +43,7 @@ class SituationAiViewModel(
     analyzer: SituationAnalyzer = container.situationAnalyzer,
     private val retriever: LocalAiRetriever = LocalAiRetriever(),
 ) : ViewModel() {
-    private val selectedPanel = MutableStateFlow<SituationPanel?>(null)
-    private val askQuery = MutableStateFlow("")
-    private val askAnswer = MutableStateFlow<SourceLinkedAnswer?>(null)
-    private val isAsking = MutableStateFlow(false)
+    private val askState = MutableStateFlow(AskState())
 
     private val corpus = combine(
         container.captureRepository.observeAll(),
@@ -68,7 +64,8 @@ class SituationAiViewModel(
     private val context = combine(
         corpus,
         container.appSettingsRepository.settings,
-    ) { corpus, settings ->
+        localMinuteTicker(),
+    ) { corpus, settings, now ->
         val analysis = analyzer.analyze(
             snapshot = SituationSnapshot(
                 captures = corpus.captures,
@@ -79,54 +76,26 @@ class SituationAiViewModel(
                 use24HourClock = settings.timeFormatMode.uses24HourClock(
                     DateFormat.is24HourFormat(container.applicationContext),
                 ),
+                now = now,
             ),
         )
         SituationContext(
             analysis = analysis,
             corpus = corpus,
-            settings = settings,
+            now = now,
         )
-    }
-
-    private val sourceSummary = context.map { data ->
-        val sources = retriever.recentContext(data.corpus, limit = 8)
-        container.aiRouter.summarizeSituation(
-            sources = sources,
-            settings = data.settings,
-            localSummary = data.analysis.toSourceSummary(sources),
-        )
-    }
-
-    private val displayState = combine(
-        context,
-        sourceSummary,
-    ) { data, summary ->
-        DisplayState(data.analysis, summary)
-    }
-
-    private val askState = combine(
-        askQuery,
-        askAnswer,
-        isAsking,
-    ) { query, answer, asking ->
-        AskState(query, answer, asking)
     }
 
     val uiState = combine(
-        displayState,
-        selectedPanel,
+        context,
         askState,
-    ) { display, panel, ask ->
+    ) { data, ask ->
         SituationAiUiState(
             isLoading = false,
-            analysis = display.analysis,
-            sourceSummary = display.summary,
-            selectedPanel = panel,
+            analysis = data.analysis,
             askQuery = ask.query,
-            askAnswer = ask.answer,
+            askAnswer = ask.answerFor(data.dataKey),
             isAsking = ask.isAsking,
-            // Monday.com has no configured integration in this local MVP phase.
-            mondayConfigured = false,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -134,35 +103,52 @@ class SituationAiViewModel(
         initialValue = SituationAiUiState(),
     )
 
-    fun show(panel: SituationPanel) {
-        selectedPanel.value = panel
-    }
-
-    fun clearPanel() {
-        selectedPanel.value = null
-    }
-
     fun updateAskQuery(value: String) {
-        askQuery.value = value.take(MaxAskQueryLength)
+        askState.value = askState.value.withQuery(value.take(MaxAskQueryLength))
     }
 
     fun askLuma() {
-        val question = askQuery.value.trim()
-        if (question.length < 2 || isAsking.value) return
+        val submission = askState.value.beginSubmission() ?: return
+        askState.value = submission.loadingState
         viewModelScope.launch {
-            isAsking.value = true
             try {
                 val data = context.first()
-                val sources = retriever.retrieve(question, data.corpus, limit = 10)
-                askAnswer.value = container.aiRouter.askLuma(
-                    question = question,
+                val sources = retriever.retrieve(submission.question, data.corpus, limit = 10, now = data.now)
+                val answer = container.aiRouter.askLuma(
+                    question = submission.question,
                     sources = sources,
-                    settings = data.settings,
                 )
+                askState.value = askState.value.completeSubmission(submission.question, answer, data.dataKey)
             } finally {
-                isAsking.value = false
+                askState.value = askState.value.finishSubmission(submission.question)
             }
         }
+    }
+
+    /** Answers one of Review's Ask LUMA questions from local items; "nothing needed" is valid. */
+    fun askQuestion(question: AskLumaQuestion) {
+        viewModelScope.launch {
+            val data = context.first()
+            val localized = localizedContext()
+            val label = localized.getString(question.labelRes())
+            val result = AskLumaPromptAnswerer.answer(question, data.corpus, data.now)
+            val answer = SourceLinkedAnswer(
+                answer = result.toText(localized),
+                sourceItemIds = result.items.map { it.sourceId },
+                sourceItems = result.items,
+                fromGemini = false,
+            )
+            val submission = AskState(query = label).beginSubmission() ?: return@launch
+            askState.value = submission.loadingState
+                .completeSubmission(submission.question, answer, data.dataKey)
+        }
+    }
+
+    private fun localizedContext(): Context {
+        val base = container.applicationContext
+        return base.createConfigurationContext(
+            Configuration(base.resources.configuration).apply { setLocale(effectiveAppLocale(base)) },
+        )
     }
 
     class Factory(private val container: OrbitContainer) : ViewModelProvider.Factory {
@@ -176,34 +162,117 @@ class SituationAiViewModel(
     private data class SituationContext(
         val analysis: SituationAnalysis,
         val corpus: SearchCorpus,
-        val settings: com.orbit.app.domain.model.AppSettings,
-    )
+        val now: Long,
+    ) {
+        val dataKey = SituationDataKey(corpus = corpus, minuteBucket = now / MinuteMillis)
+    }
 
-    private data class DisplayState(
-        val analysis: SituationAnalysis,
-        val summary: SituationSourceSummary,
-    )
-
-    private data class AskState(
-        val query: String,
-        val answer: SourceLinkedAnswer?,
-        val isAsking: Boolean,
-    )
+    private data class SituationDataKey(val corpus: SearchCorpus, val minuteBucket: Long)
 
     private companion object {
         const val MaxAskQueryLength = 140
     }
 }
 
-private fun SituationAnalysis.toSourceSummary(
-    sources: List<com.orbit.app.domain.ai.AiSourceItem>,
-): SituationSourceSummary =
-    SituationSourceSummary(
-        rightNow = whereYouAre,
-        whatMatters = whatMatters.firstOrNull() ?: "No urgent pattern stands out.",
-        stuck = whatIsStuck.firstOrNull() ?: "Nothing specific looks stuck.",
-        nextTinyStep = nextAction,
-        sourceItemIds = sources.take(3).map { it.sourceId },
-        sourceItems = sources.take(3),
-        fromGemini = false,
-    )
+private fun localMinuteTicker() = flow {
+    while (true) {
+        val now = System.currentTimeMillis()
+        emit(now)
+        delay((MinuteMillis - (now % MinuteMillis)).coerceAtLeast(1L))
+    }
+}
+
+private const val MinuteMillis = 60_000L
+
+internal data class AskState(
+    val query: String = "",
+    val answer: SourceLinkedAnswer? = null,
+    val isAsking: Boolean = false,
+    private val answeredQuestionKey: String? = null,
+    private val answeredDataKey: Any? = null,
+    private val activeQuestionKey: String? = null,
+) {
+    fun withQuery(value: String): AskState {
+        val answerStillCurrent = answer != null && answeredQuestionKey == value.askQuestionKey()
+        return copy(
+            query = value,
+            answer = answer.takeIf { answerStillCurrent },
+            answeredQuestionKey = answeredQuestionKey.takeIf { answerStillCurrent },
+            answeredDataKey = answeredDataKey.takeIf { answerStillCurrent },
+        )
+    }
+
+    fun beginSubmission(): AskSubmission? {
+        val question = query.trim()
+        if (question.length < 2 || isAsking) return null
+        return AskSubmission(
+            question = question,
+            loadingState = copy(
+                answer = null,
+                isAsking = true,
+                answeredQuestionKey = null,
+                answeredDataKey = null,
+                activeQuestionKey = question.askQuestionKey(),
+            ),
+        )
+    }
+
+    fun completeSubmission(question: String, result: SourceLinkedAnswer, dataKey: Any? = null): AskState {
+        val questionKey = question.askQuestionKey()
+        if (activeQuestionKey != questionKey) return this
+        val answerStillCurrent = query.askQuestionKey() == questionKey
+        return copy(
+            answer = result.takeIf { answerStillCurrent },
+            isAsking = false,
+            answeredQuestionKey = questionKey.takeIf { answerStillCurrent },
+            answeredDataKey = dataKey.takeIf { answerStillCurrent },
+            activeQuestionKey = null,
+        )
+    }
+
+    fun answerFor(dataKey: Any): SourceLinkedAnswer? =
+        answer.takeIf { answeredDataKey == null || answeredDataKey == dataKey }
+
+    fun finishSubmission(question: String): AskState =
+        if (activeQuestionKey == question.askQuestionKey()) {
+            copy(isAsking = false, activeQuestionKey = null)
+        } else {
+            this
+        }
+}
+
+internal data class AskSubmission(
+    val question: String,
+    val loadingState: AskState,
+)
+
+private fun String.askQuestionKey(): String = trim().replace(Regex("\\s+"), " ")
+
+private fun AskLumaQuestion.labelRes(): Int = when (this) {
+    AskLumaQuestion.WhatNow -> R.string.review_ask_now
+    AskLumaQuestion.WhatCanWait -> R.string.review_ask_can_wait
+    AskLumaQuestion.DependsOnOthers -> R.string.review_ask_depends
+    AskLumaQuestion.SmallestStep -> R.string.review_ask_smallest
+    AskLumaQuestion.AnythingUrgent -> R.string.review_ask_urgent
+}
+
+internal fun AskLumaPromptAnswer.toText(context: Context): String {
+    val titles = items.joinToString(", ") { it.title }
+    return when (kind) {
+        AskLumaAnswerKind.StartWith -> context.getString(R.string.ask_answer_start_with, titles)
+        AskLumaAnswerKind.SortThoughts ->
+            context.resources.getQuantityString(R.plurals.ask_answer_sort_thoughts, count, count)
+        AskLumaAnswerKind.NothingNeeded -> context.getString(R.string.ask_answer_nothing_needed)
+        AskLumaAnswerKind.CanWait -> context.getString(R.string.ask_answer_can_wait, titles)
+        AskLumaAnswerKind.NothingCanWait -> context.getString(R.string.ask_answer_nothing_can_wait)
+        AskLumaAnswerKind.WaitingOnOthers -> context.getString(R.string.ask_answer_waiting, titles)
+        AskLumaAnswerKind.NothingWaiting -> context.getString(R.string.ask_answer_nothing_waiting)
+        AskLumaAnswerKind.SmallestStep -> context.getString(
+            R.string.ask_answer_smallest_step,
+            LocalReviewAnalyzer.makeSmallerText(items.first().title, effectiveAppLocale(context)),
+        )
+        AskLumaAnswerKind.NothingToBreakDown -> context.getString(R.string.ask_answer_nothing_to_break)
+        AskLumaAnswerKind.Urgent -> context.getString(R.string.ask_answer_urgent, titles)
+        AskLumaAnswerKind.NothingUrgent -> context.getString(R.string.ask_answer_nothing_urgent)
+    }
+}

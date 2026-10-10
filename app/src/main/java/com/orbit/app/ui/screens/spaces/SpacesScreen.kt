@@ -1,5 +1,16 @@
 package com.orbit.app.ui.screens.spaces
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,13 +24,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -46,6 +57,7 @@ import androidx.compose.material.icons.rounded.Pets
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -61,6 +73,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -70,17 +83,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.graphics.toColorInt
+import com.orbit.app.data.local.SpaceNames
 import com.orbit.app.data.local.entity.SpaceEntity
-import com.orbit.app.ui.components.GlassSurface
+import com.orbit.app.R
 import com.orbit.app.ui.components.GlassSurfaceStyle
+import com.orbit.app.ui.components.ModalSurface
+import com.orbit.app.ui.components.OrbitModalDefaults
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.components.SoftGlassSurface
+import com.orbit.app.ui.components.calmPressHaptics
+import com.orbit.app.ui.components.orbitScrollEdgeFade
+import com.orbit.app.ui.localization.localizedSpaceName
 import com.orbit.app.ui.time.OrbitTimeFormat
+import com.orbit.app.ui.theme.OrbitShapes
+import com.orbit.app.ui.theme.OrbitSpacing
+import com.orbit.app.ui.theme.OrbitMotion
 
 private val iconChoices = listOf(
     "work",
@@ -107,14 +136,23 @@ private val accentChoices = listOf(
     "#E0A84F",
 )
 
-private data class SpaceFeedItem(
+internal data class SpaceFeedItem(
     val reference: SpaceItemReference,
     val icon: ImageVector,
     val title: String,
-    val preview: String?,
-    val badge: String,
+    val subtitle: String,
     val timestamp: Long,
+    val sortTimestamp: Long = timestamp,
 )
+
+internal enum class SpaceFeedOrder { RecentFirst, TargetSoonest }
+
+private data class SpaceDetailTarget(
+    val space: SpaceEntity?,
+    val isUnfiled: Boolean,
+) {
+    val key: String = if (isUnfiled) "unfiled" else "space_${space!!.id}"
+}
 
 @Composable
 fun SpacesScreen(
@@ -127,44 +165,88 @@ fun SpacesScreen(
     onArchiveSpace: (Long) -> Unit,
     onRestoreSpace: (Long) -> Unit,
     onMoveSpace: (Long, Int) -> Unit,
-    onMoveItem: (SpaceItemReference, Long) -> Unit,
+    onMoveItem: (SpaceItemReference, Long?) -> Unit,
+    onUndoMove: () -> Unit,
+    onRetryMove: () -> Unit,
+    onUnfiledSelected: () -> Unit,
     onOpenSearch: () -> Unit,
     onItemSelected: (SpaceItemReference) -> Unit,
+    onOpenToSort: () -> Unit = {},
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
     var editingSpace by remember { mutableStateOf<SpaceEntity?>(null) }
     var itemToMove by remember { mutableStateOf<SpaceItemReference?>(null) }
 
     val selectedSpace = uiState.selectedSpace
-    if (selectedSpace == null) {
-        SpacesOverview(
-            uiState = uiState,
-            onCreate = { showCreateDialog = true },
-            onSelect = { onSpaceSelected(it.id) },
-            onEdit = { editingSpace = it },
-            onHide = onHideSpace,
-            onArchive = onArchiveSpace,
-            onRestore = onRestoreSpace,
-            onMove = onMoveSpace,
-            onOpenSearch = onOpenSearch,
-        )
-    } else {
-        SpaceDetail(
-            space = selectedSpace,
-            contents = uiState.selectedContents,
-            timeFormat = timeFormat,
-            onBack = { onSpaceSelected(null) },
-            onMoveItem = { itemToMove = it },
-            onItemSelected = onItemSelected,
-        )
+    val detailTarget = selectedSpace?.let { SpaceDetailTarget(space = it, isUnfiled = false) }
+        ?: uiState.isUnfiledSelected.takeIf { it }?.let { SpaceDetailTarget(space = null, isUnfiled = true) }
+    BackHandler(enabled = detailTarget != null) {
+        onSpaceSelected(null)
+    }
+    val moveTargets = remember(uiState.visibleSpaces, selectedSpace?.id) {
+        uiState.visibleSpaces.filterNot { it.id == selectedSpace?.id }
+    }
+    AnimatedContent(
+        targetState = detailTarget,
+        modifier = Modifier.fillMaxSize(),
+        transitionSpec = {
+            val opening = targetState != null
+            (fadeIn(tween(OrbitMotion.StandardDurationMillis)) +
+                slideInHorizontally(
+                    animationSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                    initialOffsetX = { if (opening) it / 9 else -it / 9 },
+                )) togetherWith
+                (fadeOut(tween(OrbitMotion.QuickDurationMillis)) +
+                    slideOutHorizontally(
+                        animationSpec = tween(OrbitMotion.StandardDurationMillis),
+                        targetOffsetX = { if (opening) -it / 12 else it / 12 },
+                    ))
+        },
+        contentKey = { it?.key },
+        label = "Spaces pane",
+    ) { target ->
+        if (target == null) {
+            SpacesOverview(
+                uiState = uiState,
+                timeFormat = timeFormat,
+                onOpenToSort = onOpenToSort,
+                onCreate = { showCreateDialog = true },
+                onSelect = { onSpaceSelected(it.id) },
+                onSelectUnfiled = onUnfiledSelected,
+                onEdit = { editingSpace = it },
+                onHide = onHideSpace,
+                onArchive = onArchiveSpace,
+                onRestore = onRestoreSpace,
+                onMove = onMoveSpace,
+                onOpenSearch = onOpenSearch,
+            )
+        } else {
+            SpaceDetail(
+                space = target.space,
+                contents = uiState.selectedContents,
+                timeFormat = timeFormat,
+                onBack = { onSpaceSelected(null) },
+                onMoveItem = { itemToMove = it },
+                onUndoMove = onUndoMove,
+                hasUndoMove = uiState.moveUndo != null,
+                hasMoveFailure = uiState.moveFailure != null,
+                onRetryMove = onRetryMove,
+                onItemSelected = onItemSelected,
+            )
+        }
     }
 
     if (showCreateDialog) {
         SpaceEditorDialog(
             space = null,
+            existingSpaces = uiState.spaces,
             onDismiss = { showCreateDialog = false },
             onConfirm = { name, icon, accent ->
                 onCreateSpace(name, icon, accent)
+                showCreateDialog = false
+            },
+            onRestoreExisting = { spaceId ->
+                onRestoreSpace(spaceId)
                 showCreateDialog = false
             },
         )
@@ -173,17 +255,19 @@ fun SpacesScreen(
     editingSpace?.let { space ->
         SpaceEditorDialog(
             space = space,
+            existingSpaces = uiState.spaces,
             onDismiss = { editingSpace = null },
             onConfirm = { name, icon, accent ->
                 onUpdateSpace(space.id, name, icon, accent)
                 editingSpace = null
             },
+            onRestoreExisting = null,
         )
     }
 
     itemToMove?.let { item ->
         MoveItemDialog(
-            spaces = uiState.visibleSpaces.filterNot { it.id == selectedSpace?.id },
+            spaces = moveTargets,
             onDismiss = { itemToMove = null },
             onMove = { targetId ->
                 onMoveItem(item, targetId)
@@ -193,11 +277,16 @@ fun SpacesScreen(
     }
 }
 
+internal fun shouldHandleSpaceDetailBack(selectedSpace: SpaceEntity?): Boolean = selectedSpace != null
+
 @Composable
 private fun SpacesOverview(
     uiState: SpacesUiState,
+    timeFormat: OrbitTimeFormat,
+    onOpenToSort: () -> Unit,
     onCreate: () -> Unit,
     onSelect: (SpaceEntity) -> Unit,
+    onSelectUnfiled: () -> Unit,
     onEdit: (SpaceEntity) -> Unit,
     onHide: (Long) -> Unit,
     onArchive: (Long) -> Unit,
@@ -206,89 +295,186 @@ private fun SpacesOverview(
     onOpenSearch: () -> Unit,
 ) {
     val visible = uiState.visibleSpaces
+    var hiddenExpanded by rememberSaveable { mutableStateOf(false) }
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
     val statusTopPadding = with(LocalDensity.current) {
         WindowInsets.statusBars.getTop(this).toDp()
     }
-    androidx.compose.foundation.lazy.LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 24.dp,
-            top = statusTopPadding + 26.dp,
-            end = 24.dp,
-            bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Spaces",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onBackground,
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    val measuredHeaderClearance = with(LocalDensity.current) {
+        headerHeightPx.toDp() + 20.dp
+    }
+    val headerClearance = maxOf(statusTopPadding + 128.dp, measuredHeaderClearance)
+    Box(modifier = Modifier.fillMaxSize()) {
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .orbitScrollEdgeFade(
+                    top = headerClearance,
+                    bottom = OrbitBottomNavigationDefaults.ContentClearance,
+                ),
+            contentPadding = PaddingValues(
+                start = 24.dp,
+                top = headerClearance,
+                end = 24.dp,
+                bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (uiState.toSortCount > 0) {
+                item(key = "to_sort") {
+                    ToSortEntryCard(count = uiState.toSortCount, onClick = onOpenToSort)
+                }
+            }
+            if (visible.isEmpty()) {
+                item {
+                    EmptySpacesCard(onCreate)
+                }
+            } else {
+                items(visible.size, key = { visible[it].id }) { index ->
+                    val space = visible[index]
+                    SpaceCard(
+                        space = space,
+                        itemCount = uiState.itemCounts[space.id] ?: 0,
+                        nextItem = uiState.nextItems[space.id],
+                        timeFormat = timeFormat,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < visible.lastIndex,
+                        onClick = { onSelect(space) },
+                        onEdit = { onEdit(space) },
+                        onHide = { onHide(space.id) },
+                        onArchive = { onArchive(space.id) },
+                        onMoveUp = { onMove(space.id, -1) },
+                        onMoveDown = { onMove(space.id, 1) },
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                            placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                            fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                        ),
                     )
+                }
+            }
+
+            if (uiState.hasUnfiledItems) {
+                item(key = "unfiled") {
+                    UnfiledCard(
+                        onClick = onSelectUnfiled,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                            placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                            fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                        ),
+                    )
+                }
+            }
+
+            if (uiState.archivedSpaces.isNotEmpty()) {
+                item {
                     Text(
-                        text = "A place for each part of life.",
-                        modifier = Modifier.padding(top = 5.dp),
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = stringResource(R.string.core_spaces_archived),
+                        modifier = Modifier.padding(top = 20.dp, bottom = 2.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalIconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Rounded.Search, contentDescription = "Search")
-                    }
-                    FilledTonalIconButton(onClick = onCreate) {
-                        Icon(Icons.Rounded.Add, contentDescription = "Create Space")
-                    }
+                items(
+                    uiState.archivedSpaces.size,
+                    key = { "inactive_${uiState.archivedSpaces[it].id}" },
+                ) { index ->
+                    InactiveSpaceRow(
+                        space = uiState.archivedSpaces[index],
+                        onRestore = onRestore,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                            placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                            fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                        ),
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
 
-        if (visible.isEmpty()) {
-            item {
-                EmptySpacesCard(onCreate)
-            }
-        } else {
-            items(visible.size, key = { visible[it].id }) { index ->
-                val space = visible[index]
-                SpaceCard(
-                    space = space,
-                    itemCount = uiState.itemCounts[space.id] ?: 0,
-                    canMoveUp = index > 0,
-                    canMoveDown = index < visible.lastIndex,
-                    onClick = { onSelect(space) },
-                    onEdit = { onEdit(space) },
-                    onHide = { onHide(space.id) },
-                    onArchive = { onArchive(space.id) },
-                    onMoveUp = { onMove(space.id, -1) },
-                    onMoveDown = { onMove(space.id, 1) },
-                )
+            if (uiState.hiddenSpaces.isNotEmpty()) {
+                item(key = "hidden_disclosure") {
+                    HiddenSpacesDisclosure(
+                        count = uiState.hiddenSpaces.size,
+                        expanded = hiddenExpanded,
+                        onToggle = { hiddenExpanded = !hiddenExpanded },
+                        spaces = uiState.hiddenSpaces,
+                        onRestore = onRestore,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                            placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                            fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                        ),
+                    )
+                }
             }
         }
 
-        if (uiState.inactiveSpaces.isNotEmpty()) {
-            item {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onSizeChanged { headerHeightPx = it.height }
+                .padding(start = 24.dp, top = statusTopPadding + 26.dp, end = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Hidden & archived",
-                    modifier = Modifier.padding(top = 20.dp, bottom = 2.dp),
-                    style = MaterialTheme.typography.titleMedium,
+                    text = stringResource(R.string.core_spaces_title),
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.core_spaces_subtitle),
+                    modifier = Modifier.padding(top = 5.dp),
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            items(uiState.inactiveSpaces.size, key = { "inactive_${uiState.inactiveSpaces[it].id}" }) { index ->
-                InactiveSpaceRow(uiState.inactiveSpaces[index], onRestore)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilledTonalIconButton(onClick = onOpenSearch) {
+                    Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.core_search))
+                }
+                FilledTonalIconButton(onClick = onCreate) {
+                    Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.core_spaces_create))
+                }
             }
+        }
+    }
+}
+
+/** Unsorted thoughts are not in any Space yet; this points to where they wait. */
+@Composable
+private fun ToSortEntryCard(count: Int, onClick: () -> Unit) {
+    SoftGlassSurface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        style = GlassSurfaceStyle.Prominent,
+    ) {
+        Column(
+            modifier = Modifier
+                .heightIn(min = 56.dp)
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.review_to_sort_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = pluralStringResource(R.plurals.spaces_to_sort_waiting, count, count),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -297,6 +483,8 @@ private fun SpacesOverview(
 private fun SpaceCard(
     space: SpaceEntity,
     itemCount: Int,
+    nextItem: SpaceNextItem?,
+    timeFormat: OrbitTimeFormat,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onClick: () -> Unit,
@@ -305,11 +493,12 @@ private fun SpaceCard(
     onArchive: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     SoftGlassSurface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
     ) {
         Row(
@@ -323,55 +512,70 @@ private fun SpaceCard(
                     .padding(horizontal = 14.dp),
             ) {
                 Text(
-                    text = space.name,
+                    text = localizedSpaceName(space.name),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "$itemCount ${if (itemCount == 1) "item" else "items"}",
-                    modifier = Modifier.padding(top = 3.dp),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = pluralStringResource(R.plurals.core_spaces_item_count, itemCount, itemCount),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                nextItem?.let { next ->
+                    Text(
+                        text = stringResource(
+                            R.string.spaces_card_next,
+                            next.title,
+                            if (next.hasTime) timeFormat.formatWeekdayDateTime(next.at) else timeFormat.formatDate(next.at),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(
                         Icons.Rounded.MoreVert,
-                        contentDescription = "Space options",
+                        contentDescription = stringResource(R.string.core_spaces_options),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
+                    modifier = Modifier.calmPressHaptics(),
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Edit") },
+                        text = { Text(stringResource(R.string.core_edit)) },
                         leadingIcon = { Icon(space.icon.asImageVector(), contentDescription = null) },
                         onClick = { menuExpanded = false; onEdit() },
                     )
                     DropdownMenuItem(
-                        text = { Text("Move up") },
+                        text = { Text(stringResource(R.string.core_spaces_move_up)) },
                         leadingIcon = { Icon(Icons.Rounded.ArrowUpward, contentDescription = null) },
                         enabled = canMoveUp,
                         onClick = { menuExpanded = false; onMoveUp() },
                     )
                     DropdownMenuItem(
-                        text = { Text("Move down") },
+                        text = { Text(stringResource(R.string.core_spaces_move_down)) },
                         leadingIcon = { Icon(Icons.Rounded.ArrowDownward, contentDescription = null) },
                         enabled = canMoveDown,
                         onClick = { menuExpanded = false; onMoveDown() },
                     )
                     HorizontalDivider()
                     DropdownMenuItem(
-                        text = { Text("Hide") },
+                        text = { Text(stringResource(R.string.core_hide)) },
                         leadingIcon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
                         onClick = { menuExpanded = false; onHide() },
                     )
                     DropdownMenuItem(
-                        text = { Text("Archive") },
+                        text = { Text(stringResource(R.string.core_archive)) },
                         leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
                         onClick = { menuExpanded = false; onArchive() },
                     )
@@ -382,9 +586,51 @@ private fun SpaceCard(
 }
 
 @Composable
-private fun InactiveSpaceRow(space: SpaceEntity, onRestore: (Long) -> Unit) {
+private fun UnfiledCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     SoftGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.Folder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                text = stringResource(R.string.core_spaces_unfiled),
+                modifier = Modifier.padding(start = 14.dp),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
+private fun InactiveSpaceRow(
+    space: SpaceEntity,
+    onRestore: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SoftGlassSurface(
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
     ) {
         Row(
@@ -398,17 +644,95 @@ private fun InactiveSpaceRow(space: SpaceEntity, onRestore: (Long) -> Unit) {
                     .padding(horizontal = 12.dp),
             ) {
                 Text(
-                    text = space.name,
+                    text = localizedSpaceName(space.name),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = if (space.archived) "Archived" else "Hidden",
+                    text = stringResource(
+                        if (space.archived) R.string.core_spaces_archived else R.string.core_spaces_hidden,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TextButton(onClick = { onRestore(space.id) }) { Text("Restore") }
+            TextButton(onClick = { onRestore(space.id) }) { Text(stringResource(R.string.core_restore)) }
+        }
+    }
+}
+
+@Composable
+private fun HiddenSpacesDisclosure(
+    count: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    spaces: List<SpaceEntity>,
+    onRestore: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Disclosure toggle row
+        SoftGlassSurface(
+            onClick = onToggle,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = if (expanded) 0.dp else 20.dp),
+            shape = MaterialTheme.shapes.large,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = if (expanded) {
+                        stringResource(R.string.core_spaces_hide_hidden)
+                    } else {
+                        pluralStringResource(R.plurals.core_spaces_hidden_count, count, count)
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                    contentDescription = stringResource(
+                        if (expanded) R.string.core_collapse else R.string.core_expand,
+                    ),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+
+        // Expandable list of hidden spaces
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn(tween(OrbitMotion.StandardDurationMillis)) +
+                expandVertically(tween(OrbitMotion.EmphasizedDurationMillis)),
+            exit = fadeOut(tween(OrbitMotion.QuickDurationMillis)) +
+                shrinkVertically(tween(OrbitMotion.StandardDurationMillis)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                spaces.forEach { space ->
+                    InactiveSpaceRow(
+                        space = space,
+                        onRestore = onRestore,
+                    )
+                }
+            }
         }
     }
 }
@@ -424,73 +748,73 @@ private fun EmptySpacesCard(onCreate: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "No visible Spaces",
+                text = stringResource(R.string.core_spaces_none_visible),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "Restore one below or make a new place.",
+                text = stringResource(R.string.core_spaces_none_visible_subtitle),
                 modifier = Modifier.padding(top = 6.dp, bottom = 14.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Button(onClick = onCreate) { Text("Create Space") }
+            Button(onClick = onCreate) { Text(stringResource(R.string.core_spaces_create)) }
         }
     }
 }
 
 @Composable
 private fun SpaceDetail(
-    space: SpaceEntity,
+    space: SpaceEntity?,
     contents: SpaceContents,
     timeFormat: OrbitTimeFormat,
     onBack: () -> Unit,
     onMoveItem: (SpaceItemReference) -> Unit,
+    onUndoMove: () -> Unit,
+    hasUndoMove: Boolean,
+    hasMoveFailure: Boolean,
+    onRetryMove: () -> Unit,
     onItemSelected: (SpaceItemReference) -> Unit,
 ) {
+    val feedPresentation = SpaceFeedPresentation(
+        note = stringResource(R.string.core_spaces_feed_note),
+        untitledNote = stringResource(R.string.core_untitled_note),
+        task = stringResource(R.string.core_spaces_feed_task),
+        taskDone = stringResource(R.string.core_spaces_feed_task_done),
+        archived = stringResource(R.string.core_spaces_feed_archived),
+        waitingFor = stringResource(R.string.core_spaces_feed_waiting_for),
+        someday = stringResource(R.string.core_spaces_feed_someday),
+        reminder = stringResource(R.string.core_spaces_feed_reminder, "%s"),
+        subtitle = stringResource(R.string.core_spaces_feed_subtitle, "%1\$s", "%2\$s"),
+    )
+    val sections = remember(contents) { contents.sectioned(System.currentTimeMillis()) }
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
     val statusTopPadding = with(LocalDensity.current) {
         WindowInsets.statusBars.getTop(this).toDp()
     }
-    androidx.compose.foundation.lazy.LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 24.dp,
-            top = statusTopPadding + 20.dp,
-            end = 24.dp,
-            bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
-        ),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back to Spaces",
-                    tint = MaterialTheme.colorScheme.onBackground,
-                )
-            }
-            Row(
-                modifier = Modifier.padding(top = 8.dp, bottom = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SpaceIcon(space, modifier = Modifier.size(58.dp))
-                Column(modifier = Modifier.padding(start = 16.dp)) {
-                    Text(
-                        text = space.name,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        text = "${contents.size} ${if (contents.size == 1) "item" else "items"}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    val measuredHeaderClearance = with(LocalDensity.current) {
+        headerHeightPx.toDp() + 20.dp
+    }
+    val headerClearance = maxOf(statusTopPadding + 152.dp, measuredHeaderClearance)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .orbitScrollEdgeFade(
+                    top = headerClearance,
+                    bottom = OrbitBottomNavigationDefaults.ContentClearance,
+                ),
+            contentPadding = PaddingValues(
+                start = 24.dp,
+                top = headerClearance,
+                end = 24.dp,
+                bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
 
         if (contents.size == 0) {
             item {
@@ -500,12 +824,12 @@ private fun SpaceDetail(
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
                         Text(
-                            text = "This Space is quiet",
+                            text = stringResource(R.string.core_spaces_quiet_title),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
-                            text = "Notes, tasks, and reminders saved here will appear together.",
+                            text = stringResource(R.string.core_spaces_quiet_subtitle),
                             modifier = Modifier.padding(top = 6.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -514,36 +838,151 @@ private fun SpaceDetail(
             }
         }
 
-        val feed = contents.asFeedItems(timeFormat)
-        if (feed.isNotEmpty()) {
-            item(key = "life_feed_heading") {
+        if (hasUndoMove) {
+            item(key = "space_move_undo") {
+                SoftGlassSurface(
+                    onClick = onUndoMove,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                ) {
+                    Text(
+                        text = stringResource(R.string.core_spaces_undo_move),
+                        modifier = Modifier.padding(OrbitSpacing.Medium),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+
+        if (hasMoveFailure) {
+            item(key = "space_move_failure") {
+                SoftGlassSurface(
+                    onClick = onRetryMove,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                ) {
+                    Text(
+                        text = stringResource(R.string.core_spaces_move_retry),
+                        modifier = Modifier.padding(OrbitSpacing.Medium),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+
+        val groupedFeeds = listOf(
+            R.string.core_spaces_needs_attention to sections.needsAttention.asFeedItems(
+                timeFormat,
+                feedPresentation,
+                SpaceFeedOrder.TargetSoonest,
+            ),
+            R.string.core_spaces_upcoming to sections.upcoming.asFeedItems(
+                timeFormat,
+                feedPresentation,
+                SpaceFeedOrder.TargetSoonest,
+            ),
+            R.string.core_spaces_recent_reference to sections.recentAndReference.asFeedItems(timeFormat, feedPresentation),
+        )
+        groupedFeeds.forEachIndexed { sectionIndex, (heading, sectionFeed) ->
+            if (sectionFeed.isEmpty()) return@forEachIndexed
+            item(key = "space_section_$sectionIndex") {
                 Text(
-                    text = "Life Feed",
+                    text = stringResource(heading),
                     modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            items(feed, key = { "${it.reference.type}_${it.reference.id}" }) { item ->
+            items(sectionFeed, key = { "${sectionIndex}_${it.reference.type}_${it.reference.id}" }) { item ->
                 SpaceFeedRow(
                     item = item,
                     onClick = { onItemSelected(item.reference) },
                     onMove = { onMoveItem(item.reference) },
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                        placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                        fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                    ),
                 )
+            }
+        }
+        }
+
+        Column(
+            modifier = Modifier
+                .onSizeChanged { headerHeightPx = it.height }
+                .padding(start = 24.dp, top = statusTopPadding + 20.dp, end = 24.dp),
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(R.string.core_spaces_back),
+                    tint = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+            Row(
+                modifier = Modifier.padding(top = 8.dp, bottom = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (space != null) {
+                    SpaceIcon(space, modifier = Modifier.size(58.dp))
+                } else {
+                    Surface(
+                        modifier = Modifier.size(58.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.Folder,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                Column(modifier = Modifier.padding(start = 16.dp)) {
+                    Text(
+                        text = if (space != null) {
+                            localizedSpaceName(space.name)
+                        } else {
+                            stringResource(R.string.core_spaces_unfiled)
+                        },
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
             }
         }
     }
 }
 
-private fun SpaceContents.asFeedItems(timeFormat: OrbitTimeFormat): List<SpaceFeedItem> = buildList {
+internal data class SpaceFeedPresentation(
+    val note: String = "Note",
+    val untitledNote: String = "Untitled note",
+    val task: String = "Task",
+    val taskDone: String = "Task · Done",
+    val archived: String = "Archived",
+    val waitingFor: String = "Waiting for",
+    val someday: String = "Someday",
+    val reminder: String = "Reminder · %s",
+    val subtitle: String = "%s · %s",
+)
+
+internal fun SpaceContents.asFeedItems(
+    timeFormat: OrbitTimeFormat,
+    presentation: SpaceFeedPresentation = SpaceFeedPresentation(),
+    order: SpaceFeedOrder = SpaceFeedOrder.RecentFirst,
+): List<SpaceFeedItem> {
+    val items = buildList {
     notes.mapTo(this) { note ->
         SpaceFeedItem(
             reference = SpaceItemReference(SpaceItemType.Note, note.id),
             icon = Icons.Rounded.Description,
-            title = note.title.ifBlank { "Untitled note" },
-            preview = null,
-            badge = "Note",
+            title = note.title.ifBlank { presentation.untitledNote },
+            subtitle = presentation.note,
             timestamp = note.updatedAt,
         )
     }
@@ -552,9 +991,14 @@ private fun SpaceContents.asFeedItems(timeFormat: OrbitTimeFormat): List<SpaceFe
             reference = SpaceItemReference(SpaceItemType.Task, task.id),
             icon = task.status.feedIcon(),
             title = task.title,
-            preview = task.notes.takeIf { it.isNotBlank() },
-            badge = task.status.feedLabel(),
+            subtitle = feedSubtitle(task.status.feedLabel(presentation), task.notes, presentation),
             timestamp = task.updatedAt,
+            sortTimestamp = task.dueAt ?: task.scheduledDateEpochDay?.let { dateEpochDay ->
+                java.time.LocalDate.ofEpochDay(dateEpochDay)
+                    .atStartOfDay(java.time.ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli()
+            } ?: task.updatedAt,
         )
     }
     reminders.mapTo(this) { reminder ->
@@ -562,19 +1006,35 @@ private fun SpaceContents.asFeedItems(timeFormat: OrbitTimeFormat): List<SpaceFe
             reference = SpaceItemReference(SpaceItemType.Reminder, reminder.id),
             icon = Icons.Rounded.Notifications,
             title = reminder.title,
-            preview = reminder.notes.takeIf { it.isNotBlank() },
-            badge = "Reminder · ${timeFormat.formatShortDateTime(reminder.dueAt)}",
+            subtitle = feedSubtitle(
+                presentation.reminder.format(timeFormat.formatShortDateTime(reminder.dueAt)),
+                reminder.notes,
+                presentation,
+            ),
             timestamp = reminder.dueAt,
         )
     }
-}.sortedByDescending { it.timestamp }
+    }
+    return when (order) {
+        SpaceFeedOrder.RecentFirst -> items.sortedByDescending { it.timestamp }
+        SpaceFeedOrder.TargetSoonest -> items.sortedBy { it.sortTimestamp }
+    }
+}
 
-private fun com.orbit.app.data.local.entity.TaskStatus.feedLabel(): String = when (this) {
-    com.orbit.app.data.local.entity.TaskStatus.Open -> "Task"
-    com.orbit.app.data.local.entity.TaskStatus.Done -> "Task · Done"
-    com.orbit.app.data.local.entity.TaskStatus.Archived -> "Archived"
-    com.orbit.app.data.local.entity.TaskStatus.WaitingFor -> "Waiting for"
-    com.orbit.app.data.local.entity.TaskStatus.Someday -> "Someday"
+private fun feedSubtitle(
+    badge: String,
+    preview: String,
+    presentation: SpaceFeedPresentation,
+): String = if (preview.isBlank()) badge else presentation.subtitle.format(badge, preview)
+
+private fun com.orbit.app.data.local.entity.TaskStatus.feedLabel(
+    presentation: SpaceFeedPresentation,
+): String = when (this) {
+    com.orbit.app.data.local.entity.TaskStatus.Open -> presentation.task
+    com.orbit.app.data.local.entity.TaskStatus.Done -> presentation.taskDone
+    com.orbit.app.data.local.entity.TaskStatus.Archived -> presentation.archived
+    com.orbit.app.data.local.entity.TaskStatus.WaitingFor -> presentation.waitingFor
+    com.orbit.app.data.local.entity.TaskStatus.Someday -> presentation.someday
 }
 
 private fun com.orbit.app.data.local.entity.TaskStatus.feedIcon(): ImageVector = when (this) {
@@ -589,10 +1049,11 @@ private fun SpaceItemRow(
     subtitle: String?,
     onClick: () -> Unit,
     onMove: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     SoftGlassSurface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
     ) {
         Row(
@@ -630,7 +1091,7 @@ private fun SpaceItemRow(
             IconButton(onClick = onMove) {
                 Icon(
                     Icons.AutoMirrored.Rounded.DriveFileMove,
-                    contentDescription = "Move item to another Space",
+                    contentDescription = stringResource(R.string.core_spaces_move_item),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -643,13 +1104,15 @@ private fun SpaceFeedRow(
     item: SpaceFeedItem,
     onClick: () -> Unit,
     onMove: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     SpaceItemRow(
         icon = item.icon,
         title = item.title,
-        subtitle = listOfNotNull(item.badge, item.preview).joinToString(" · "),
+        subtitle = item.subtitle,
         onClick = onClick,
         onMove = onMove,
+        modifier = modifier,
     )
 }
 
@@ -657,8 +1120,10 @@ private fun SpaceFeedRow(
 @Composable
 private fun SpaceEditorDialog(
     space: SpaceEntity?,
+    existingSpaces: List<SpaceEntity>,
     onDismiss: () -> Unit,
     onConfirm: (String, String, String) -> Unit,
+    onRestoreExisting: ((Long) -> Unit)?,
 ) {
     var name by rememberSaveable(space?.id) { mutableStateOf(space?.name.orEmpty()) }
     var icon by rememberSaveable(space?.id) { mutableStateOf(space?.icon ?: "folder") }
@@ -670,16 +1135,18 @@ private fun SpaceEditorDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        GlassSurface(
+        ModalSurface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            shape = RoundedCornerShape(28.dp),
-            style = GlassSurfaceStyle.Sheet,
+                .padding(horizontal = OrbitSpacing.ExtraLarge)
+                .calmPressHaptics(),
+            shape = OrbitModalDefaults.DialogShape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(OrbitSpacing.ExtraLarge)) {
                 Text(
-                    text = if (space == null) "Create Space" else "Edit Space",
+                    text = stringResource(
+                        if (space == null) R.string.core_spaces_create else R.string.core_spaces_edit,
+                    ),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -688,15 +1155,40 @@ private fun SpaceEditorDialog(
                         .padding(top = 18.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
+                    val conflict = SpaceNames.conflict(name, existingSpaces, excludingSpaceId = space?.id)
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("Name") },
+                        label = { Text(stringResource(R.string.core_name)) },
+                        isError = conflict != null,
+                        supportingText = conflict?.let { existing ->
+                            {
+                                Text(
+                                    text = stringResource(
+                                        when {
+                                            existing.archived -> R.string.spaces_name_taken_archived
+                                            existing.hidden -> R.string.spaces_name_taken_hidden
+                                            else -> R.string.spaces_name_taken
+                                        },
+                                        existing.name,
+                                    ),
+                                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                                )
+                            }
+                        },
                     )
+                    if (conflict != null && (conflict.archived || conflict.hidden) && onRestoreExisting != null) {
+                        TextButton(
+                            onClick = { onRestoreExisting(conflict.id) },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.core_restore))
+                        }
+                    }
                     Text(
-                        text = "Icon",
+                        text = stringResource(R.string.core_icon),
                         modifier = Modifier.padding(top = 18.dp, bottom = 8.dp),
                         style = MaterialTheme.typography.labelLarge,
                     )
@@ -722,7 +1214,7 @@ private fun SpaceEditorDialog(
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = choice.asImageVector(),
-                                        contentDescription = choice,
+                                        contentDescription = stringResource(choice.iconContentDescriptionRes()),
                                         modifier = Modifier.size(21.dp),
                                     )
                                 }
@@ -730,18 +1222,18 @@ private fun SpaceEditorDialog(
                         }
                     }
                     Text(
-                        text = "Accent",
+                        text = stringResource(R.string.core_accent),
                         modifier = Modifier.padding(top = 18.dp, bottom = 8.dp),
                         style = MaterialTheme.typography.labelLarge,
                     )
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Medium),
                     ) {
                         accentChoices.chunked(4).forEach { rowChoices ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(
-                                    12.dp,
+                                    OrbitSpacing.Medium,
                                     Alignment.CenterHorizontally,
                                 ),
                             ) {
@@ -775,12 +1267,13 @@ private fun SpaceEditorDialog(
                         .padding(top = 18.dp),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.core_cancel)) }
                     TextButton(
                         onClick = { onConfirm(name, icon, accent) },
-                        enabled = name.isNotBlank(),
+                        enabled = name.isNotBlank() &&
+                            SpaceNames.conflict(name, existingSpaces, excludingSpaceId = space?.id) == null,
                     ) {
-                        Text(if (space == null) "Create" else "Save")
+                        Text(stringResource(if (space == null) R.string.core_create else R.string.core_save))
                     }
                 }
             }
@@ -792,28 +1285,28 @@ private fun SpaceEditorDialog(
 private fun MoveItemDialog(
     spaces: List<SpaceEntity>,
     onDismiss: () -> Unit,
-    onMove: (Long) -> Unit,
+    onMove: (Long?) -> Unit,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        GlassSurface(
+        ModalSurface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            shape = RoundedCornerShape(28.dp),
-            style = GlassSurfaceStyle.Sheet,
+                .padding(horizontal = OrbitSpacing.ExtraLarge)
+                .calmPressHaptics(),
+            shape = OrbitModalDefaults.DialogShape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(OrbitSpacing.ExtraLarge)) {
                 Text(
-                    text = "Move to Space",
+                    text = stringResource(R.string.core_spaces_move_to),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 if (spaces.isEmpty()) {
                     Text(
-                        text = "Create or restore another Space before moving this item.",
+                        text = stringResource(R.string.core_spaces_move_empty),
                         modifier = Modifier.padding(top = 14.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -829,15 +1322,30 @@ private fun MoveItemDialog(
                                 shape = MaterialTheme.shapes.large,
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(12.dp),
+                                    modifier = Modifier.padding(OrbitSpacing.Medium),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     SpaceIcon(space, modifier = Modifier.size(34.dp))
-                                    Text(space.name, modifier = Modifier.padding(start = 12.dp))
+                                    Text(
+                                        localizedSpaceName(space.name),
+                                        modifier = Modifier.padding(start = OrbitSpacing.Medium),
+                                    )
                                 }
                             }
                         }
                     }
+                }
+                SoftGlassSurface(
+                    onClick = { onMove(null) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 7.dp),
+                    shape = MaterialTheme.shapes.large,
+                ) {
+                    Text(
+                        text = stringResource(R.string.core_spaces_unfiled),
+                        modifier = Modifier.padding(OrbitSpacing.Medium),
+                    )
                 }
                 TextButton(
                     onClick = onDismiss,
@@ -845,7 +1353,7 @@ private fun MoveItemDialog(
                         .align(Alignment.End)
                         .padding(top = 14.dp),
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.core_cancel))
                 }
             }
         }
@@ -884,6 +1392,20 @@ private fun String.asImageVector(): ImageVector = when (this) {
     else -> Icons.Rounded.Folder
 }
 
+private fun String.iconContentDescriptionRes(): Int = when (this) {
+    "work" -> R.string.core_spaces_icon_work
+    "person" -> R.string.core_spaces_icon_person
+    "directions_car" -> R.string.core_spaces_icon_transport
+    "pets" -> R.string.core_spaces_icon_pets
+    "payments" -> R.string.core_spaces_icon_payments
+    "lightbulb" -> R.string.core_spaces_icon_ideas
+    "home" -> R.string.core_spaces_icon_home
+    "favorite" -> R.string.core_spaces_icon_favorite
+    "school" -> R.string.core_spaces_icon_school
+    "palette" -> R.string.core_spaces_icon_palette
+    else -> R.string.core_spaces_icon_folder
+}
+
 private fun String.asColor(): Color = runCatching {
-    Color(android.graphics.Color.parseColor(this))
+    Color(toColorInt())
 }.getOrElse { Color(0xFF6D7CFF) }

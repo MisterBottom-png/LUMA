@@ -7,6 +7,7 @@ import androidx.navigation.compose.DialogNavigator
 import androidx.navigation.compose.composable
 import androidx.navigation.createGraph
 import androidx.navigation.navArgument
+import androidx.lifecycle.ViewModelStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.time.LocalDate
@@ -40,6 +41,17 @@ class CalendarNavigationInstrumentedTest {
 
         controller.navigateToCalendar(date)
         controller.navigateToCalendar(date)
+
+        assertTrue(controller.popBackStack())
+        assertEquals(OrbitDestination.Home.route, controller.currentDestination?.route)
+    }
+
+    @Test
+    fun calendarIsATab_backFromCalendarOpenedElsewhereReturnsHome() = onMainThread {
+        val controller = calendarNavController()
+        controller.navigate(ItemDetailRoute)
+
+        controller.navigateToCalendar(LocalDate.of(2026, 8, 3))
 
         assertTrue(controller.popBackStack())
         assertEquals(OrbitDestination.Home.route, controller.currentDestination?.route)
@@ -80,6 +92,7 @@ class CalendarNavigationInstrumentedTest {
     private fun calendarNavController(): NavHostController {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         return NavHostController(context).apply {
+            setViewModelStore(ViewModelStore())
             navigatorProvider.addNavigator(ComposeNavigator())
             navigatorProvider.addNavigator(DialogNavigator())
             graph = createGraph(startDestination = OrbitDestination.Home.route) {

@@ -47,6 +47,7 @@ enum class GeminiApiErrorKind {
     InvalidResponse,
     SafetyBlocked,
     Server,
+    ModelNotFound,
     Unknown,
 }
 
@@ -56,11 +57,13 @@ class HttpGeminiApiClient : GeminiApiClient {
             apiKey = apiKey,
             modelId = modelId,
             prompt = """Return exactly this JSON: {"ok": true}""",
-            maxOutputTokens = 32,
+            // Reasoning-capable models may spend initial tokens on hidden thought parts
+            // before returning the compact JSON acknowledgement.
+            maxOutputTokens = 128,
         ).let { result ->
             when (result) {
                 is GeminiApiResult.Success -> {
-                    if (GeminiJsonValidator.isConnectionOk(result.text)) result
+                    if (GeminiJsonValidator.isConnectionJson(result.text)) result
                     else GeminiApiResult.Failure(geminiError(GeminiApiErrorKind.InvalidResponse))
                 }
 
@@ -80,12 +83,15 @@ class HttpGeminiApiClient : GeminiApiClient {
         }
 
         runCatching {
-            val connection = URL(endpointFor(modelId, cleanKey)).openConnection() as HttpURLConnection
+            val connection = URL(endpointFor(modelId)).openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
             connection.connectTimeout = TimeoutMillis
             connection.readTimeout = TimeoutMillis
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json")
+            // The key travels in the header instead of the URL so it cannot leak
+            // into request logs or proxies.
+            connection.setRequestProperty("x-goog-api-key", cleanKey)
             connection.outputStream.use { output ->
                 output.write(requestBody(prompt, maxOutputTokens).toByteArray(Charsets.UTF_8))
             }
@@ -99,7 +105,7 @@ class HttpGeminiApiClient : GeminiApiClient {
             connection.disconnect()
 
             if (statusCode !in 200..299) {
-                return@withContext GeminiApiResult.Failure(errorForStatus(statusCode))
+                return@withContext GeminiApiResult.Failure(geminiError(geminiErrorKindFor(statusCode, responseText)))
             }
 
             parseResponse(responseText, modelId)
@@ -108,10 +114,9 @@ class HttpGeminiApiClient : GeminiApiClient {
         }
     }
 
-    private fun endpointFor(modelId: String, apiKey: String): String {
+    private fun endpointFor(modelId: String): String {
         val encodedModel = URLEncoder.encode(modelId.trim(), "UTF-8")
-        val encodedKey = URLEncoder.encode(apiKey, "UTF-8")
-        return "$BaseUrl/$encodedModel:generateContent?key=$encodedKey"
+        return "$BaseUrl/$encodedModel:generateContent"
     }
 
     private fun requestBody(prompt: String, maxOutputTokens: Int): String = JSONObject()
@@ -150,26 +155,13 @@ class HttpGeminiApiClient : GeminiApiClient {
             return GeminiApiResult.Failure(geminiError(GeminiApiErrorKind.SafetyBlocked))
         }
 
-        val text = candidate
-            .optJSONObject("content")
-            ?.optJSONArray("parts")
-            ?.optJSONObject(0)
-            ?.optString("text")
-            ?.trim()
-            .orEmpty()
+        val text = extractGeminiResponseText(candidate).orEmpty()
 
         return if (text.isNotBlank()) {
             GeminiApiResult.Success(text = text, modelId = modelId)
         } else {
             GeminiApiResult.Failure(geminiError(GeminiApiErrorKind.InvalidResponse))
         }
-    }
-
-    private fun errorForStatus(statusCode: Int): GeminiApiError = when (statusCode) {
-        401, 403 -> geminiError(GeminiApiErrorKind.BadKey)
-        429 -> geminiError(GeminiApiErrorKind.RateLimited)
-        in 500..599 -> geminiError(GeminiApiErrorKind.Server)
-        else -> geminiError(GeminiApiErrorKind.Unknown)
     }
 
     private fun errorForException(exception: Throwable): GeminiApiError = when (exception) {
@@ -186,16 +178,54 @@ class HttpGeminiApiClient : GeminiApiClient {
     }
 }
 
+/**
+ * Maps an HTTP failure to a user-meaningful kind. Gemini reports an invalid key as
+ * HTTP 400 with reason API_KEY_INVALID, and an unknown model as HTTP 404.
+ */
+internal fun geminiErrorKindFor(statusCode: Int, errorBody: String): GeminiApiErrorKind {
+    val error = GeminiJson.parseObject(errorBody)?.optJSONObject("error")
+    val status = error?.optString("status").orEmpty()
+    val message = error?.optString("message").orEmpty().lowercase()
+    val reasons = buildList {
+        val details = error?.optJSONArray("details")
+        for (index in 0 until (details?.length() ?: 0)) {
+            details?.optJSONObject(index)?.optString("reason")?.takeIf { it.isNotBlank() }?.let(::add)
+        }
+    }
+    return when {
+        "API_KEY_INVALID" in reasons || "API_KEY_INVALID" in errorBody ||
+            (statusCode == 400 && "api key" in message) -> GeminiApiErrorKind.BadKey
+        statusCode == 401 || statusCode == 403 || status == "PERMISSION_DENIED" ||
+            status == "UNAUTHENTICATED" -> GeminiApiErrorKind.BadKey
+        statusCode == 404 || status == "NOT_FOUND" -> GeminiApiErrorKind.ModelNotFound
+        statusCode == 429 || status == "RESOURCE_EXHAUSTED" -> GeminiApiErrorKind.RateLimited
+        statusCode in 500..599 -> GeminiApiErrorKind.Server
+        else -> GeminiApiErrorKind.Unknown
+    }
+}
+
+internal fun extractGeminiResponseText(candidate: JSONObject): String? {
+    val parts = candidate.optJSONObject("content")?.optJSONArray("parts") ?: return null
+    for (index in parts.length() - 1 downTo 0) {
+        val part = parts.optJSONObject(index) ?: continue
+        if (part.optBoolean("thought", false)) continue
+        val text = part.optString("text").trim()
+        if (text.isNotBlank()) return text
+    }
+    return null
+}
+
 fun geminiError(kind: GeminiApiErrorKind): GeminiApiError {
     val message = when (kind) {
         GeminiApiErrorKind.MissingKey -> "Add a Gemini API key first. Local mode still works."
         GeminiApiErrorKind.BadKey -> "Gemini could not use this key. Local mode still works."
-        GeminiApiErrorKind.RateLimited -> "Rate limit reached. LUMA will use local mode."
+        GeminiApiErrorKind.RateLimited -> "Rate limit reached. Tallele will use local mode."
         GeminiApiErrorKind.Timeout -> "Gemini took too long. Local mode still works."
         GeminiApiErrorKind.NoInternet -> "No internet. Local mode still works."
-        GeminiApiErrorKind.InvalidResponse -> "Gemini replied in a format LUMA could not use."
+        GeminiApiErrorKind.InvalidResponse -> "Gemini replied in a format Tallele could not use."
         GeminiApiErrorKind.SafetyBlocked -> "Gemini blocked that test. Local mode still works."
         GeminiApiErrorKind.Server -> "Gemini is unavailable right now. Local mode still works."
+        GeminiApiErrorKind.ModelNotFound -> "Gemini does not know this model name. Local mode still works."
         GeminiApiErrorKind.Unknown -> "Gemini connection did not finish. Local mode still works."
     }
     return GeminiApiError(kind = kind, userMessage = message)

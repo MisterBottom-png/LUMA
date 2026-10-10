@@ -1,36 +1,58 @@
 ---
 name: luma-compose-ui
-description: Implement or review LUMA Jetpack Compose UI, Material 3, layouts, themes, dark mode, state rendering, navigation surfaces, accessibility, and screenshot-driven fixes.
+description: Use when implementing or reviewing LUMA Jetpack Compose, Material 3, layout, theme, UI state, navigation surfaces, accessibility, or screenshot-driven visual fixes.
 ---
 
 # LUMA Compose UI
 
+## When to use
+
+- Composables, Material 3, layouts, typography, themes, state rendering, insets, or UI navigation surfaces.
+- Screenshot-driven visual corrections.
+- Accessibility, touch-target, semantics, focus-order, text-scaling, or contrast work.
+
+## Do not use
+
+- Domain logic, persistence, scheduling, or parsing whose UI is only an endpoint.
+- Haze source/effect wiring or glass-role architecture; use `luma-glass-haze-guardian` as primary or support.
+- Broad redesign when the request is a bounded visual fix.
+
 ## Product direction
 
-LUMA should feel calm, premium, private, modern, soft, and uncluttered. Home remains capture-first.
+LUMA should remain calm, premium, private, soft, and uncluttered. Home is capture-first, not a dashboard. Raw captures and internal AI records must not appear as normal user-facing cards.
 
 ## Workflow
 
-1. Inspect the screenshot or current screen and locate the owning Composable and state source.
-2. Identify whether the issue is layout, state, theme, typography, insets, navigation, or data rendering.
-3. Make the smallest change that fixes the requested behavior.
-4. Reuse existing design tokens and components.
-5. Verify light and dark themes when affected.
-6. Check text scaling, touch targets, content descriptions, focus/order, contrast, empty/loading/error states, keyboard/insets, and back behavior where relevant.
-7. Avoid copying business logic into Composables.
-8. Do not turn Home into a dashboard or expose raw/internal records.
+1. Inspect the current screen or screenshot and locate the owning Composable, state source, callbacks, and tests.
+2. Classify the issue as layout, state, theme, typography, insets, navigation, accessibility, or data rendering.
+3. Establish the existing behavior across affected states before editing.
+4. Reuse existing design tokens and shared components; add a token only for a repeated semantic role.
+5. Keep business logic out of Composables and preserve unidirectional state flow.
+6. Make the smallest visual or behavioral patch that fully resolves the request.
+7. Add focused state or calculation tests when they materially reduce regression risk.
+8. Verify the affected matrix and review the final diff.
 
-## Screenshot requests
+## UI quality checks
 
-When the visual target is clear, do not interrupt with product questions. Implement the bounded visual correction and report manual checks.
+Use only relevant checks, but do not omit a relevant state:
 
-## State rules
+- light, dark, and Auto theme behavior;
+- preset and custom backgrounds;
+- normal and large text;
+- touch targets, roles, labels, selected state, focus order, and content descriptions;
+- keyboard, IME, status/navigation bars, safe areas, and Back behavior;
+- empty, loading, error, disabled, and populated states;
+- readable contrast without hiding the selected background;
+- stable keys and state ownership for lazy or animated content.
 
-- Prefer unidirectional state flow already used by the project.
-- Keep transient UI state separate from persistent domain state.
-- Avoid unnecessary recomposition and unstable object creation in hot paths.
-- Do not introduce hardcoded user-facing strings when resource localization exists or is being introduced.
+## Verification
+
+- The owning state path and affected callbacks were traced.
+- Relevant automated tests and compile/lint checks pass.
+- The affected visual matrix was exercised or listed as a manual check.
+- No business logic, raw/internal record visibility, or unrelated screen changed.
+- Any Glass/Haze change follows the shared material roles and guardian contract.
+
 ## Workplace privacy
 
-Read `docs/codex/WORKPLACE_PRIVACY_POLICY.md`. Never mention any coworker or workplace-associated person in repository-controlled or generated content. Use generic role labels only. If an identifier is found, cite only its location and category; do not quote it. Review changed output before completion and run `python scripts/codex/check_workplace_privacy.py --strict` after text-bearing changes and before completion.
-
+Read `docs/codex/WORKPLACE_PRIVACY_POLICY.md` before text-bearing work. Never repeat protected identity values; use generic role labels. Run `python scripts/codex/check_workplace_privacy.py --strict` after text-bearing changes and before completion, then semantically review the changed text.

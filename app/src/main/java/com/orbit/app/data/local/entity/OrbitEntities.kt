@@ -7,9 +7,23 @@ import androidx.room.PrimaryKey
 
 enum class CaptureStatus { Inbox, Processed, Archived }
 
-enum class CaptureSource { Manual, Voice, Monday, Calendar }
+enum class CaptureSource {
+    Manual,
+    Voice,
+    // Legacy storage token: the monday.com integration was removed, but this
+    // value is retained so existing rows and older exports still decode.
+    Monday,
+    Calendar,
+}
 
-enum class SuggestedItemType { Note, Task, Reminder, MondayItem }
+enum class SuggestedItemType {
+    Note,
+    Task,
+    Reminder,
+    // Legacy storage token: the monday.com integration was removed, but this
+    // value is retained so existing rows and older exports still decode.
+    MondayItem,
+}
 
 enum class TaskStatus { Open, Done, Archived, WaitingFor, Someday }
 
@@ -18,6 +32,10 @@ enum class AiSuggestionOutcome { Accepted, Rejected, Corrected }
 enum class AiSuggestionSurface { Capture, BrainDump, Review, Situation, AskLuma, ItemDetail }
 
 enum class LearnedRuleCategory { Type, Space, Person, Project, Alias, Tone, Other }
+
+enum class BrainDumpItemOutcome { Pending, Saved, KeptInInbox, Skipped }
+
+enum class BrainDumpReminderStatus { Unspecified, Resolved, NeedsClarification }
 
 @Entity(tableName = "spaces")
 data class SpaceEntity(
@@ -54,6 +72,61 @@ data class CaptureEntity(
     val suggestedSpaceId: Long? = null,
     val source: CaptureSource = CaptureSource.Manual,
     val linkedItemId: Long? = null,
+)
+
+@Entity(
+    tableName = "brain_dump_sessions",
+    foreignKeys = [
+        ForeignKey(
+            entity = CaptureEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["captureId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("captureId", unique = true)],
+)
+data class BrainDumpSessionEntity(
+    @PrimaryKey val captureId: Long,
+    val analyzerSource: String,
+    val calendarDateContextEpochDay: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
+)
+
+@Entity(
+    tableName = "brain_dump_items",
+    foreignKeys = [
+        ForeignKey(
+            entity = BrainDumpSessionEntity::class,
+            parentColumns = ["captureId"],
+            childColumns = ["captureId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [
+        Index("captureId"),
+        Index(value = ["captureId", "sourceKey"], unique = true),
+    ],
+)
+data class BrainDumpItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val captureId: Long,
+    val sourceKey: String,
+    val ordinal: Int,
+    val rawText: String,
+    val suggestedTitle: String,
+    val suggestedType: SuggestedItemType,
+    val suggestedSpaceName: String,
+    val confidence: Float,
+    val tinyNextAction: String,
+    val reason: String,
+    val reminderStatus: BrainDumpReminderStatus = BrainDumpReminderStatus.Unspecified,
+    val suggestedReminderAt: Long? = null,
+    val reminderPhrase: String? = null,
+    val outcome: BrainDumpItemOutcome = BrainDumpItemOutcome.Pending,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
 )
 
 @Entity(
@@ -104,6 +177,9 @@ data class TaskEntity(
     val updatedAt: Long = createdAt,
     val completedAt: Long? = null,
     val staleAfterDays: Int? = null,
+    // Legacy column: the monday.com integration was removed. Retained so
+    // existing databases keep their schema and older exports still decode.
+    @Deprecated("Retained only for legacy data compatibility; never written.")
     val mondayItemId: String? = null,
     val scheduledDateEpochDay: Long? = null,
 )
@@ -146,7 +222,133 @@ data class ReminderEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = createdAt,
     val completedAt: Long? = null,
+    // Device-local delivery state (Room v7). Not part of exports: a restore
+    // marks past reminders as handled instead of ringing them again.
+    /** Notification time that has already been shown; the first delivery path wins. */
+    val deliveredNotificationAt: Long? = null,
+    /** When set, replaces the computed notification time until the reminder is edited. */
+    val snoozedUntil: Long? = null,
+    /** Repeat token (Room v9), e.g. "weekly"; null for a one-off reminder. See ReminderRepeat. */
+    val repeatRule: String? = null,
 )
+
+/**
+ * LUMA's stored suggestion for an unresolved capture (Room v8). It is shown later
+ * in Review > To sort; nothing is created from it until the user confirms.
+ */
+@Entity(
+    tableName = "capture_suggestions",
+    foreignKeys = [
+        ForeignKey(
+            entity = CaptureEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["captureId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class CaptureSuggestionEntity(
+    @PrimaryKey val captureId: Long,
+    val suggestedType: SuggestedItemType,
+    val suggestedTitle: String,
+    /** Null means Inbox / no Space. */
+    val suggestedSpaceName: String? = null,
+    /** Label names separated by new lines. */
+    val suggestedLabels: String = "",
+    val suggestedDueAt: Long? = null,
+    val suggestedReminderAt: Long? = null,
+    /** Unspecified, Resolved or NeedsClarification. */
+    val reminderTimeStatus: String = "Unspecified",
+    val reminderPhrase: String? = null,
+    val lifeSignal: String = "None",
+    val confidence: Float,
+    val analyzerSource: String,
+    /** Reasons written by Gemini; empty for local suggestions (shown from resources). */
+    val typeReason: String = "",
+    val spaceReason: String = "",
+    val nextAction: String = "",
+    /** Day picked in Calendar when the thought was captured for that day. */
+    val contextDateEpochDay: Long? = null,
+    /** The user hid this suggestion; the capture itself stays in To sort. */
+    val dismissed: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
+)
+
+@Entity(
+    tableName = "labels",
+    indices = [Index(value = ["normalizedName"], unique = true)],
+)
+data class LabelEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val normalizedName: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
+)
+
+@Entity(
+    tableName = "note_labels",
+    primaryKeys = ["noteId", "labelId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = NoteEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["noteId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = LabelEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["labelId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("labelId")],
+)
+data class NoteLabelCrossRef(val noteId: Long, val labelId: Long)
+
+@Entity(
+    tableName = "task_labels",
+    primaryKeys = ["taskId", "labelId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = TaskEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["taskId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = LabelEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["labelId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("labelId")],
+)
+data class TaskLabelCrossRef(val taskId: Long, val labelId: Long)
+
+@Entity(
+    tableName = "reminder_labels",
+    primaryKeys = ["reminderId", "labelId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = ReminderEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["reminderId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = LabelEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["labelId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("labelId")],
+)
+data class ReminderLabelCrossRef(val reminderId: Long, val labelId: Long)
 
 @Entity(
     tableName = "ai_suggestion_history",

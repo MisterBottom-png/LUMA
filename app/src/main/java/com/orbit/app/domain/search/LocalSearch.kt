@@ -7,6 +7,8 @@ import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.ui.navigation.ItemDetailType
+import java.text.Normalizer
+import java.util.Locale
 
 data class SearchCorpus(
     val captures: List<CaptureEntity>,
@@ -22,10 +24,21 @@ data class LocalSearchResult(
     val title: String,
     val snippet: String,
     val spaceName: String?,
-    val status: String,
+    val status: LocalSearchStatus,
     val timestamp: Long,
 ) {
     val key: String = "${type.routeName}_$id"
+}
+
+enum class LocalSearchStatus {
+    Note,
+    Task,
+    Reminder,
+    CompletedReminder,
+    Done,
+    Archived,
+    WaitingFor,
+    Someday,
 }
 
 class LocalSearch {
@@ -36,33 +49,35 @@ class LocalSearch {
     ): List<LocalSearchResult> {
         val cleanQuery = query.trim()
         if (cleanQuery.length < MinQueryLength) return emptyList()
+        val tokens = SearchText.tokens(cleanQuery)
+        if (tokens.isEmpty()) return emptyList()
         val spacesById = corpus.spaces.associateBy { it.id }
 
         return buildList {
             corpus.notes
                 .filter { includeArchived || !it.archived }
-                .filter { it.title.matchesQuery(cleanQuery) || it.body.matchesQuery(cleanQuery) }
+                .filter { SearchText.matchesAll(tokens, it.title, it.body) }
                 .mapTo(this) {
                     LocalSearchResult(
                         type = ItemDetailType.Note,
                         id = it.id,
-                        title = it.title.ifBlank { "Untitled note" },
+                        title = it.title,
                         snippet = it.body.ifBlank { it.title },
                         spaceName = it.spaceId?.let(spacesById::get)?.name,
-                        status = if (it.archived) "Archived" else "Note",
+                        status = if (it.archived) LocalSearchStatus.Archived else LocalSearchStatus.Note,
                         timestamp = it.updatedAt,
                     )
                 }
 
             corpus.tasks
                 .filter { includeArchived || it.status != TaskStatus.Archived }
-                .filter { it.title.matchesQuery(cleanQuery) || it.notes.matchesQuery(cleanQuery) }
+                .filter { SearchText.matchesAll(tokens, it.title, it.notes) }
                 .mapTo(this) {
                     LocalSearchResult(
                         type = ItemDetailType.Task,
                         id = it.id,
-                        title = it.title.ifBlank { "Untitled task" },
-                        snippet = it.notes.ifBlank { it.status.name },
+                        title = it.title,
+                        snippet = it.notes,
                         spaceName = it.spaceId?.let(spacesById::get)?.name,
                         status = it.status.label(),
                         timestamp = it.updatedAt,
@@ -70,32 +85,56 @@ class LocalSearch {
                 }
 
             corpus.reminders
-                .filter { it.title.matchesQuery(cleanQuery) || it.notes.matchesQuery(cleanQuery) }
+                .filter { SearchText.matchesAll(tokens, it.title, it.notes) }
                 .mapTo(this) {
                     LocalSearchResult(
                         type = ItemDetailType.Reminder,
                         id = it.id,
-                        title = it.title.ifBlank { "Untitled reminder" },
-                        snippet = it.notes.ifBlank { "Reminder" },
+                        title = it.title,
+                        snippet = it.notes,
                         spaceName = it.spaceId?.let(spacesById::get)?.name,
-                        status = if (it.completedAt == null) "Reminder" else "Completed reminder",
+                        status = if (it.completedAt == null) {
+                            LocalSearchStatus.Reminder
+                        } else {
+                            LocalSearchStatus.CompletedReminder
+                        },
                         timestamp = it.dueAt,
                     )
                 }
         }.sortedByDescending { it.timestamp }
     }
 
-    private fun String.matchesQuery(query: String): Boolean = contains(query, ignoreCase = true)
-
     private companion object {
         const val MinQueryLength = 2
     }
 }
 
-private fun TaskStatus.label(): String = when (this) {
-    TaskStatus.Open -> "Task"
-    TaskStatus.Done -> "Done"
-    TaskStatus.Archived -> "Archived"
-    TaskStatus.WaitingFor -> "Waiting for"
-    TaskStatus.Someday -> "Someday"
+/**
+ * Matching that works the same in English, Estonian and Russian: Unicode
+ * normalisation (é typed two ways is one letter), case folding, ё = е, and every
+ * word of the query must appear somewhere in the item, in any order.
+ */
+internal object SearchText {
+    private val Separators = Regex("[\\s\\p{P}\\p{S}]+")
+
+    fun fold(value: String): String =
+        Normalizer.normalize(value, Normalizer.Form.NFKC)
+            .lowercase(Locale.ROOT)
+            .replace('ё', 'е')
+
+    fun tokens(query: String): List<String> =
+        fold(query).split(Separators).filter { it.isNotEmpty() }
+
+    fun matchesAll(tokens: List<String>, vararg fields: String): Boolean {
+        val haystack = fields.joinToString(" ") { fold(it) }
+        return tokens.all { haystack.contains(it) }
+    }
+}
+
+private fun TaskStatus.label(): LocalSearchStatus = when (this) {
+    TaskStatus.Open -> LocalSearchStatus.Task
+    TaskStatus.Done -> LocalSearchStatus.Done
+    TaskStatus.Archived -> LocalSearchStatus.Archived
+    TaskStatus.WaitingFor -> LocalSearchStatus.WaitingFor
+    TaskStatus.Someday -> LocalSearchStatus.Someday
 }

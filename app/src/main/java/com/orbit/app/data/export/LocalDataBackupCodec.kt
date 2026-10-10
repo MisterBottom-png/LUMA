@@ -1,13 +1,24 @@
 package com.orbit.app.data.export
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureSuggestionEntity
+import com.orbit.app.data.local.entity.LearnedRuleCategory
+import com.orbit.app.data.local.entity.LearnedRuleEntity
+import com.orbit.app.data.local.entity.BrainDumpItemEntity
+import com.orbit.app.data.local.entity.BrainDumpItemOutcome
+import com.orbit.app.data.local.entity.BrainDumpReminderStatus
+import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureSource
 import com.orbit.app.data.local.entity.CaptureStatus
+import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.reminders.reminderNotificationTimeMillis
 import org.json.JSONArray
@@ -15,6 +26,7 @@ import org.json.JSONException
 import org.json.JSONObject
 import java.time.DateTimeException
 import java.time.LocalDate
+import java.util.Locale
 
 data class LocalDataSnapshot(
     val spaces: List<SpaceEntity>,
@@ -22,6 +34,19 @@ data class LocalDataSnapshot(
     val notes: List<NoteEntity>,
     val tasks: List<TaskEntity>,
     val reminders: List<ReminderEntity>,
+    val brainDumpSessions: List<BrainDumpSessionEntity> = emptyList(),
+    val brainDumpItems: List<BrainDumpItemEntity> = emptyList(),
+    val labels: List<LabelEntity> = emptyList(),
+    val noteLabels: List<NoteLabelCrossRef> = emptyList(),
+    val taskLabels: List<TaskLabelCrossRef> = emptyList(),
+    val reminderLabels: List<ReminderLabelCrossRef> = emptyList(),
+    /** LUMA's stored suggestions for unresolved captures (format v5). */
+    val captureSuggestions: List<CaptureSuggestionEntity> = emptyList(),
+    /**
+     * Rules LUMA learned from the user's corrections (format v5, optional). Links to
+     * AI history are not exported; restore merges them with rules already on the device.
+     */
+    val learnedRules: List<LearnedRuleEntity> = emptyList(),
 )
 
 data class LocalDataCounts(
@@ -45,12 +70,28 @@ fun LocalDataSnapshot.counts() = LocalDataCounts(
 class LocalDataValidationException(message: String) : IllegalArgumentException(message)
 
 object LocalDataBackupCodec {
+    // Format marker written into every backup since v1; it stays "LUMA" so all
+    // existing backups keep restoring after the app was renamed to Tallele.
     const val Product = "LUMA"
     const val Format = "luma-local-json"
-    const val Version = 2
+    const val Version = 5
+    const val MaximumInputBytes = 10 * 1024 * 1024
+    const val MaximumStructureDepth = 64
 
     fun encode(snapshot: LocalDataSnapshot, exportedAt: Long): String {
         require(exportedAt >= 0L)
+        val itemIds = buildSet {
+            snapshot.notes.forEach { add(it.id) }
+            snapshot.tasks.forEach { add(it.id) }
+            snapshot.reminders.forEach { add(it.id) }
+        }
+        val exportableCaptures = snapshot.captures.map { capture ->
+            if (capture.linkedItemId != null && capture.linkedItemId !in itemIds) {
+                capture.copy(linkedItemId = null)
+            } else {
+                capture
+            }
+        }
         return JSONObject()
             .put(
                 "metadata",
@@ -61,15 +102,24 @@ object LocalDataBackupCodec {
                     .put("exportedAt", exportedAt),
             )
             .put("spaces", snapshot.spaces.toJsonArray { it.toJson() })
-            .put("captures", snapshot.captures.toJsonArray { it.toJson() })
+            .put("captures", exportableCaptures.toJsonArray { it.toJson() })
             .put("notes", snapshot.notes.toJsonArray { it.toJson() })
             .put("tasks", snapshot.tasks.toJsonArray { it.toJson() })
             .put("reminders", snapshot.reminders.toJsonArray { it.toJson() })
+            .put("brainDumpSessions", snapshot.brainDumpSessions.toJsonArray { it.toJson() })
+            .put("brainDumpItems", snapshot.brainDumpItems.toJsonArray { it.toJson() })
+            .put("labels", snapshot.labels.toJsonArray { it.toJson() })
+            .put("noteLabels", snapshot.noteLabels.toJsonArray { it.toJson() })
+            .put("taskLabels", snapshot.taskLabels.toJsonArray { it.toJson() })
+            .put("reminderLabels", snapshot.reminderLabels.toJsonArray { it.toJson() })
+            .put("captureSuggestions", snapshot.captureSuggestions.toJsonArray { it.toJson() })
+            .put("learnedRules", snapshot.learnedRules.toJsonArray { it.toJson() })
             .toString(2)
     }
 
     fun decode(json: String): LocalDataSnapshot {
         if (json.isBlank()) invalid("The selected file is empty.")
+        validateInputBounds(json)
         val root = try {
             JSONObject(json)
         } catch (_: JSONException) {
@@ -79,7 +129,7 @@ object LocalDataBackupCodec {
         if (metadata.requiredString("product") != Product ||
             metadata.requiredString("format") != Format
         ) {
-            invalid("This file is not a supported LUMA export.")
+            invalid("This file is not a supported Tallele backup.")
         }
         val version = metadata.requiredLong("version")
         if (version !in 1L..Version.toLong()) {
@@ -93,9 +143,83 @@ object LocalDataBackupCodec {
             notes = root.requiredArray("notes").mapObjects("notes", ::decodeNote),
             tasks = root.requiredArray("tasks").mapObjects("tasks", ::decodeTask),
             reminders = root.requiredArray("reminders").mapObjects("reminders", ::decodeReminder),
+            brainDumpSessions = if (version >= 3L) {
+                root.requiredArray("brainDumpSessions").mapObjects("brainDumpSessions", ::decodeBrainDumpSession)
+            } else {
+                emptyList()
+            },
+            brainDumpItems = if (version >= 3L) {
+                root.requiredArray("brainDumpItems").mapObjects("brainDumpItems", ::decodeBrainDumpItem)
+            } else {
+                emptyList()
+            },
+            labels = if (version >= 4L) {
+                root.requiredArray("labels").mapObjects("labels", ::decodeLabel)
+            } else {
+                emptyList()
+            },
+            noteLabels = if (version >= 4L) {
+                root.requiredArray("noteLabels").mapObjects("noteLabels", ::decodeNoteLabel)
+            } else {
+                emptyList()
+            },
+            taskLabels = if (version >= 4L) {
+                root.requiredArray("taskLabels").mapObjects("taskLabels", ::decodeTaskLabel)
+            } else {
+                emptyList()
+            },
+            reminderLabels = if (version >= 4L) {
+                root.requiredArray("reminderLabels").mapObjects("reminderLabels", ::decodeReminderLabel)
+            } else {
+                emptyList()
+            },
+            captureSuggestions = if (version >= 5L) {
+                root.optionalArray("captureSuggestions")
+                    ?.mapObjects("captureSuggestions", ::decodeCaptureSuggestion)
+                    .orEmpty()
+            } else {
+                emptyList()
+            },
+            learnedRules = if (version >= 5L) {
+                root.optionalArray("learnedRules")
+                    ?.mapObjects("learnedRules", ::decodeLearnedRule)
+                    .orEmpty()
+            } else {
+                emptyList()
+            },
         )
         validateRelationships(snapshot)
         return snapshot
+    }
+
+    private fun validateInputBounds(json: String) {
+        if (json.toByteArray(Charsets.UTF_8).size > MaximumInputBytes) {
+            invalid("The selected export is too large.")
+        }
+
+        var depth = 0
+        var insideString = false
+        var escaped = false
+        json.forEach { character ->
+            if (insideString) {
+                when {
+                    escaped -> escaped = false
+                    character == '\\' -> escaped = true
+                    character == '"' -> insideString = false
+                }
+            } else {
+                when (character) {
+                    '"' -> insideString = true
+                    '{', '[' -> {
+                        depth += 1
+                        if (depth > MaximumStructureDepth) {
+                            invalid("The selected export is nested too deeply.")
+                        }
+                    }
+                    '}', ']' -> depth -= 1
+                }
+            }
+        }
     }
 
     private fun decodeSpace(json: JSONObject) = SpaceEntity(
@@ -171,8 +295,106 @@ object LocalDataBackupCodec {
             createdAt = json.requiredNonNegativeLong("createdAt"),
             updatedAt = json.requiredNonNegativeLong("updatedAt"),
             completedAt = json.optionalNonNegativeLong("completedAt"),
+            // Optional (format v5): an unknown token from a newer LUMA is kept as-is and
+            // simply behaves as a one-off reminder here.
+            repeatRule = json.optionalString("repeatRule")?.takeIf { it.isNotBlank() }?.also {
+                if (it.length > MaxRepeatRuleLength) invalid("Reminder repeat rule is invalid.")
+            },
         )
     }
+
+    private fun decodeBrainDumpSession(json: JSONObject) = BrainDumpSessionEntity(
+        captureId = json.requiredPositiveLong("captureId"),
+        analyzerSource = json.requiredNonBlankString("analyzerSource"),
+        calendarDateContextEpochDay = json.optionalLong("calendarDateContextEpochDay"),
+        createdAt = json.requiredNonNegativeLong("createdAt"),
+        updatedAt = json.requiredNonNegativeLong("updatedAt"),
+    )
+
+    private fun decodeBrainDumpItem(json: JSONObject) = BrainDumpItemEntity(
+        id = json.requiredPositiveId(),
+        captureId = json.requiredPositiveLong("captureId"),
+        sourceKey = json.requiredNonBlankString("sourceKey"),
+        ordinal = json.requiredPositiveInt("ordinal"),
+        rawText = json.requiredNonBlankString("rawText"),
+        suggestedTitle = json.requiredNonBlankString("suggestedTitle"),
+        suggestedType = json.requiredEnum("suggestedType", SuggestedItemType.entries),
+        suggestedSpaceName = json.requiredNonBlankString("suggestedSpaceName"),
+        confidence = json.requiredFloatInRange("confidence", 0f, 1f),
+        // Optional explanations: Gemini may omit them and the UI then shows none.
+        tinyNextAction = json.requiredString("tinyNextAction"),
+        reason = json.requiredString("reason"),
+        reminderStatus = json.requiredEnum("reminderStatus", BrainDumpReminderStatus.entries),
+        suggestedReminderAt = json.optionalNonNegativeLong("suggestedReminderAt"),
+        reminderPhrase = json.optionalString("reminderPhrase"),
+        outcome = json.requiredEnum("outcome", BrainDumpItemOutcome.entries),
+        createdAt = json.requiredNonNegativeLong("createdAt"),
+        updatedAt = json.requiredNonNegativeLong("updatedAt"),
+    )
+
+    private fun decodeLearnedRule(json: JSONObject): LearnedRuleEntity = LearnedRuleEntity(
+        title = json.requiredNonBlankString("title"),
+        ruleText = json.requiredNonBlankString("ruleText"),
+        // A category added by a newer LUMA falls back to Other instead of failing the restore.
+        category = json.optionalString("category")
+            ?.let { name -> LearnedRuleCategory.entries.firstOrNull { it.name == name } }
+            ?: LearnedRuleCategory.Other,
+        enabled = json.optionalBoolean("enabled") ?: true,
+        strength = json.requiredFloatInRange("strength", 0f, 1f),
+        createdAt = json.requiredNonNegativeLong("createdAt"),
+        updatedAt = json.requiredNonNegativeLong("updatedAt"),
+    )
+
+    private fun decodeCaptureSuggestion(json: JSONObject): CaptureSuggestionEntity {
+        val status = json.requiredString("reminderTimeStatus")
+        if (status !in setOf("Unspecified", "Resolved", "NeedsClarification")) {
+            invalid("A capture suggestion has an unknown reminder status.")
+        }
+        return CaptureSuggestionEntity(
+            captureId = json.requiredPositiveLong("captureId"),
+            suggestedType = json.requiredEnum("suggestedType", SuggestedItemType.entries),
+            suggestedTitle = json.requiredNonBlankString("suggestedTitle"),
+            suggestedSpaceName = json.optionalString("suggestedSpaceName"),
+            suggestedLabels = json.optionalString("suggestedLabels").orEmpty(),
+            suggestedDueAt = json.optionalNonNegativeLong("suggestedDueAt"),
+            suggestedReminderAt = json.optionalNonNegativeLong("suggestedReminderAt"),
+            reminderTimeStatus = status,
+            reminderPhrase = json.optionalString("reminderPhrase"),
+            lifeSignal = json.optionalString("lifeSignal") ?: "None",
+            confidence = json.requiredFloatInRange("confidence", 0f, 1f),
+            analyzerSource = json.requiredNonBlankString("analyzerSource"),
+            typeReason = json.optionalString("typeReason").orEmpty(),
+            spaceReason = json.optionalString("spaceReason").orEmpty(),
+            nextAction = json.optionalString("nextAction").orEmpty(),
+            contextDateEpochDay = json.optionalLong("contextDateEpochDay"),
+            dismissed = json.optionalBoolean("dismissed") ?: false,
+            createdAt = json.requiredNonNegativeLong("createdAt"),
+            updatedAt = json.requiredNonNegativeLong("updatedAt"),
+        )
+    }
+
+    private fun decodeLabel(json: JSONObject) = LabelEntity(
+        id = json.requiredPositiveId(),
+        name = json.requiredNonBlankString("name"),
+        normalizedName = json.requiredNonBlankString("normalizedName"),
+        createdAt = json.requiredNonNegativeLong("createdAt"),
+        updatedAt = json.requiredNonNegativeLong("updatedAt"),
+    )
+
+    private fun decodeNoteLabel(json: JSONObject) = NoteLabelCrossRef(
+        noteId = json.requiredPositiveLong("noteId"),
+        labelId = json.requiredPositiveLong("labelId"),
+    )
+
+    private fun decodeTaskLabel(json: JSONObject) = TaskLabelCrossRef(
+        taskId = json.requiredPositiveLong("taskId"),
+        labelId = json.requiredPositiveLong("labelId"),
+    )
+
+    private fun decodeReminderLabel(json: JSONObject) = ReminderLabelCrossRef(
+        reminderId = json.requiredPositiveLong("reminderId"),
+        labelId = json.requiredPositiveLong("labelId"),
+    )
 
     private fun validateRelationships(snapshot: LocalDataSnapshot) {
         validateUniqueIds("spaces", snapshot.spaces.map { it.id })
@@ -180,12 +402,51 @@ object LocalDataBackupCodec {
         validateUniqueIds("notes", snapshot.notes.map { it.id })
         validateUniqueIds("tasks", snapshot.tasks.map { it.id })
         validateUniqueIds("reminders", snapshot.reminders.map { it.id })
+        validateUniqueIds("labels", snapshot.labels.map { it.id })
+        validateUniqueIds("Brain Dump items", snapshot.brainDumpItems.map { it.id })
 
         val spaceIds = snapshot.spaces.mapTo(hashSetOf()) { it.id }
         val captureIds = snapshot.captures.mapTo(hashSetOf()) { it.id }
         val noteIds = snapshot.notes.mapTo(hashSetOf()) { it.id }
         val taskIds = snapshot.tasks.mapTo(hashSetOf()) { it.id }
         val reminderIds = snapshot.reminders.mapTo(hashSetOf()) { it.id }
+        val labelIds = snapshot.labels.mapTo(hashSetOf()) { it.id }
+        val normalizedLabelNames = hashSetOf<String>()
+        snapshot.labels.forEach { label ->
+            if (label.normalizedName != normalizeExportLabelName(label.name)) {
+                invalid("A label has an invalid normalized name.")
+            }
+            if (!normalizedLabelNames.add(label.normalizedName)) {
+                invalid("The export contains duplicate normalized label names.")
+            }
+        }
+        val sessionCaptureIds = snapshot.brainDumpSessions.mapTo(hashSetOf()) { it.captureId }
+        if (sessionCaptureIds.size != snapshot.brainDumpSessions.size) {
+            invalid("The export contains duplicate Brain Dump sessions.")
+        }
+        snapshot.brainDumpSessions.forEach { session ->
+            requireReference("Brain Dump captureId", session.captureId, captureIds)
+            session.calendarDateContextEpochDay?.let(::requireValidEpochDay)
+        }
+        val sourceKeys = hashSetOf<String>()
+        snapshot.brainDumpItems.forEach { item ->
+            requireReference("Brain Dump item captureId", item.captureId, sessionCaptureIds)
+            if (!sourceKeys.add("${item.captureId}:${item.sourceKey}")) {
+                invalid("The export contains duplicate Brain Dump item source keys.")
+            }
+            if (!item.sourceKey.matches(Regex("brain:[1-9][0-9]*"))) {
+                invalid("A Brain Dump item source key is invalid.")
+            }
+            if (item.reminderStatus == BrainDumpReminderStatus.Resolved && (item.suggestedReminderAt ?: 0L) <= 0L) {
+                invalid("A resolved Brain Dump reminder requires a target time.")
+            }
+        }
+        sessionCaptureIds.forEach { captureId ->
+            val sessionItems = snapshot.brainDumpItems.filter { it.captureId == captureId }
+            if (sessionItems.isEmpty() || sessionItems.none { it.outcome == BrainDumpItemOutcome.Pending }) {
+                invalid("An active Brain Dump session must contain a pending item.")
+            }
+        }
         snapshot.captures.forEach { capture ->
             requireReference("capture suggestedSpaceId", capture.suggestedSpaceId, spaceIds)
             capture.linkedItemId?.let { linkedId ->
@@ -206,6 +467,38 @@ object LocalDataBackupCodec {
             requireReference("reminder spaceId", reminder.spaceId, spaceIds)
             requireReference("reminder linkedTaskId", reminder.linkedTaskId, taskIds)
             requireReference("reminder linkedCaptureId", reminder.linkedCaptureId, captureIds)
+        }
+        val noteLabelKeys = hashSetOf<String>()
+        snapshot.noteLabels.forEach { relation ->
+            requireReference("note label noteId", relation.noteId, noteIds)
+            requireReference("note label labelId", relation.labelId, labelIds)
+            if (!noteLabelKeys.add("${relation.noteId}:${relation.labelId}")) {
+                invalid("The export contains duplicate note label relationships.")
+            }
+        }
+        val taskLabelKeys = hashSetOf<String>()
+        snapshot.taskLabels.forEach { relation ->
+            requireReference("task label taskId", relation.taskId, taskIds)
+            requireReference("task label labelId", relation.labelId, labelIds)
+            if (!taskLabelKeys.add("${relation.taskId}:${relation.labelId}")) {
+                invalid("The export contains duplicate task label relationships.")
+            }
+        }
+        val suggestionCaptureIds = hashSetOf<Long>()
+        snapshot.captureSuggestions.forEach { suggestion ->
+            requireReference("capture suggestion captureId", suggestion.captureId, captureIds)
+            if (!suggestionCaptureIds.add(suggestion.captureId)) {
+                invalid("The export contains duplicate capture suggestions.")
+            }
+            suggestion.contextDateEpochDay?.let(::requireValidEpochDay)
+        }
+        val reminderLabelKeys = hashSetOf<String>()
+        snapshot.reminderLabels.forEach { relation ->
+            requireReference("reminder label reminderId", relation.reminderId, reminderIds)
+            requireReference("reminder label labelId", relation.labelId, labelIds)
+            if (!reminderLabelKeys.add("${relation.reminderId}:${relation.labelId}")) {
+                invalid("The export contains duplicate reminder label relationships.")
+            }
         }
     }
 
@@ -232,6 +525,14 @@ object LocalDataBackupCodec {
             } catch (_: DateTimeException) {
                 invalid("A restored $itemType has an invalid scheduled date for item $itemId.")
             }
+        }
+    }
+
+    private fun requireValidEpochDay(epochDay: Long) {
+        try {
+            LocalDate.ofEpochDay(epochDay)
+        } catch (_: DateTimeException) {
+            invalid("A Brain Dump session has an invalid Calendar date.")
         }
     }
 
@@ -266,6 +567,50 @@ object LocalDataBackupCodec {
         .put("linkedTaskId", linkedTaskId).put("linkedCaptureId", linkedCaptureId)
         .put("notificationEnabled", notificationEnabled).put("notificationWorkId", notificationWorkId)
         .put("createdAt", createdAt).put("updatedAt", updatedAt).put("completedAt", completedAt)
+        .put("repeatRule", repeatRule)
+
+    private fun BrainDumpSessionEntity.toJson() = JSONObject()
+        .put("captureId", captureId).put("analyzerSource", analyzerSource)
+        .put("calendarDateContextEpochDay", calendarDateContextEpochDay)
+        .put("createdAt", createdAt).put("updatedAt", updatedAt)
+
+    private fun BrainDumpItemEntity.toJson() = JSONObject()
+        .put("id", id).put("captureId", captureId).put("sourceKey", sourceKey).put("ordinal", ordinal)
+        .put("rawText", rawText).put("suggestedTitle", suggestedTitle)
+        .put("suggestedType", suggestedType.name).put("suggestedSpaceName", suggestedSpaceName)
+        .put("confidence", confidence.toDouble()).put("tinyNextAction", tinyNextAction).put("reason", reason)
+        .put("reminderStatus", reminderStatus.name).put("suggestedReminderAt", suggestedReminderAt)
+        .put("reminderPhrase", reminderPhrase).put("outcome", outcome.name)
+        .put("createdAt", createdAt).put("updatedAt", updatedAt)
+
+    private fun LabelEntity.toJson() = JSONObject()
+        .put("id", id).put("name", name).put("normalizedName", normalizedName)
+        .put("createdAt", createdAt).put("updatedAt", updatedAt)
+
+    private fun NoteLabelCrossRef.toJson() = JSONObject()
+        .put("noteId", noteId).put("labelId", labelId)
+
+    private fun TaskLabelCrossRef.toJson() = JSONObject()
+        .put("taskId", taskId).put("labelId", labelId)
+
+    private fun ReminderLabelCrossRef.toJson() = JSONObject()
+        .put("reminderId", reminderId).put("labelId", labelId)
+
+    private fun LearnedRuleEntity.toJson() = JSONObject()
+        .put("title", title).put("ruleText", ruleText).put("category", category.name)
+        .put("enabled", enabled).put("strength", strength.toDouble())
+        .put("createdAt", createdAt).put("updatedAt", updatedAt)
+
+    private fun CaptureSuggestionEntity.toJson() = JSONObject()
+        .put("captureId", captureId).put("suggestedType", suggestedType.name)
+        .put("suggestedTitle", suggestedTitle).put("suggestedSpaceName", suggestedSpaceName)
+        .put("suggestedLabels", suggestedLabels).put("suggestedDueAt", suggestedDueAt)
+        .put("suggestedReminderAt", suggestedReminderAt).put("reminderTimeStatus", reminderTimeStatus)
+        .put("reminderPhrase", reminderPhrase).put("lifeSignal", lifeSignal)
+        .put("confidence", confidence.toDouble()).put("analyzerSource", analyzerSource)
+        .put("typeReason", typeReason).put("spaceReason", spaceReason).put("nextAction", nextAction)
+        .put("contextDateEpochDay", contextDateEpochDay).put("dismissed", dismissed)
+        .put("createdAt", createdAt).put("updatedAt", updatedAt)
 
     private fun <T> List<T>.toJsonArray(transform: (T) -> JSONObject): JSONArray =
         JSONArray().also { array -> forEach { array.put(transform(it)) } }
@@ -275,6 +620,18 @@ object LocalDataBackupCodec {
 
     private fun JSONObject.requiredArray(name: String): JSONArray =
         value(name) as? JSONArray ?: invalid("Required array '$name' is missing or invalid.")
+
+    private fun JSONObject.optionalArray(name: String): JSONArray? = when (val value = value(name)) {
+        null, JSONObject.NULL -> null
+        is JSONArray -> value
+        else -> invalid("Optional array '$name' is invalid.")
+    }
+
+    private fun JSONObject.optionalBoolean(name: String): Boolean? = when (val value = value(name)) {
+        null, JSONObject.NULL -> null
+        is Boolean -> value
+        else -> invalid("Optional boolean '$name' is invalid.")
+    }
 
     private fun JSONObject.requiredString(name: String): String =
         value(name) as? String ?: invalid("Required text field '$name' is missing or invalid.")
@@ -315,6 +672,21 @@ object LocalDataBackupCodec {
     private fun JSONObject.requiredPositiveId(): Long =
         requiredLong("id").takeIf { it > 0L }
             ?: invalid("Every restored identifier must be positive.")
+
+    private fun JSONObject.requiredPositiveLong(name: String): Long =
+        requiredLong(name).takeIf { it > 0L }
+            ?: invalid("Identifier '$name' must be positive.")
+
+    private fun JSONObject.requiredPositiveInt(name: String): Int =
+        requiredInt(name).takeIf { it > 0 }
+            ?: invalid("Integer '$name' must be positive.")
+
+    private fun JSONObject.requiredFloatInRange(name: String, minimum: Float, maximum: Float): Float {
+        val number = value(name) as? Number ?: invalid("Required number '$name' is missing or invalid.")
+        val result = number.toFloat()
+        if (!result.isFinite() || result !in minimum..maximum) invalid("Number '$name' is out of range.")
+        return result
+    }
 
     private fun JSONObject.requiredInt(name: String): Int {
         val value = requiredLong(name)
@@ -372,5 +744,11 @@ object LocalDataBackupCodec {
 
     private fun invalid(message: String): Nothing = throw LocalDataValidationException(message)
 
+    private fun normalizeExportLabelName(value: String): String = value
+        .trim()
+        .replace(Regex("\\s+"), " ")
+        .lowercase(Locale.ROOT)
+
     private const val MaxEntriesPerType = 100_000
+    private const val MaxRepeatRuleLength = 32
 }

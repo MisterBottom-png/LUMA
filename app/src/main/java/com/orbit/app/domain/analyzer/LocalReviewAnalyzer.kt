@@ -4,6 +4,7 @@ import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskStatus
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 enum class ReviewLoopType { Task, Capture }
@@ -13,6 +14,7 @@ data class ReviewLoop(
     val type: ReviewLoopType,
     val title: String,
     val updatedAt: Long,
+    val hasPendingBrainDump: Boolean = false,
 ) {
     val key: String = "${type.name}_$id"
 }
@@ -47,18 +49,26 @@ class LocalReviewAnalyzer {
         return (taskLoops + captureLoops).sortedBy { it.updatedAt }.toList()
     }
 
-    fun makeSmaller(loop: ReviewLoop): TinyActionSuggestion {
+    fun makeSmaller(loop: ReviewLoop, locale: Locale = Locale.ENGLISH): TinyActionSuggestion {
         val title = loop.title.trim().ifEmpty { "this open loop" }
-        return TinyActionSuggestion(loop.key, title, makeSmallerText(title))
+        return TinyActionSuggestion(loop.key, title, makeSmallerText(title, locale))
     }
 
     companion object {
         const val DefaultStaleLoopDays = 7
 
-        fun makeSmallerText(text: String): String {
+        fun makeSmallerText(text: String, locale: Locale = Locale.ENGLISH): String {
             val title = text.trim().ifEmpty { "this open loop" }
             val lower = title.lowercase()
-            return when {
+            val guidanceLocale = localGuidanceLocale(title, locale)
+            return when (guidanceLocale.language) {
+                "et" -> makeSmallerInEstonian(title, lower)
+                "ru" -> makeSmallerInRussian(title, lower)
+                else -> makeSmallerInEnglish(title, lower)
+            }
+        }
+
+        private fun makeSmallerInEnglish(title: String, lower: String): String = when {
                 lower.contains("money") || lower.contains("budget") ||
                     lower.contains("salary") || lower.contains("pay") ->
                     "Check one small expense category."
@@ -96,6 +106,35 @@ class LocalReviewAnalyzer {
 
                 else -> "Take two minutes to name the very first physical step."
             }
+
+        private fun makeSmallerInEstonian(title: String, lower: String): String = when {
+            lower.contains("raha") || lower.contains("eelarve") || lower.contains("palk") ->
+                "Vaata üle üks väike kulukategooria."
+            lower.contains("korista") || lower.contains("kodu") || lower.contains("korter") ->
+                "Pane üks asi tagasi oma kohale."
+            lower.contains("auto") || lower.contains("heli") ->
+                "Pane kirja, millal heli tekib."
+            lower.contains("töö") || lower.contains("projekt") || lower.contains("plaan") ->
+                "Kirjuta üles kolm esimest küsimust."
+            lower.contains("liiga palju") || lower.contains("üle jõu") ->
+                "Kirjuta üks lause sellest, mis selle raskeks teeb."
+            " ja " in lower -> "Alusta ainult sellest: ${title.substringBefore(" ja ")}."
+            else -> "Võta kaks minutit, et nimetada kõige esimene konkreetne samm."
+        }
+
+        private fun makeSmallerInRussian(title: String, lower: String): String = when {
+            lower.contains("деньг") || lower.contains("бюджет") || lower.contains("зарплат") ->
+                "Проверьте одну небольшую категорию расходов."
+            lower.contains("уборк") || lower.contains("дом") || lower.contains("квартир") ->
+                "Положите одну вещь на её место."
+            lower.contains("машин") || lower.contains("авто") || lower.contains("звук") ->
+                "Запишите, когда появляется этот звук."
+            lower.contains("работ") || lower.contains("проект") || lower.contains("план") ->
+                "Запишите первые три вопроса."
+            lower.contains("слишком много") || lower.contains("тяжело") ->
+                "Напишите одно предложение о том, что делает это трудным."
+            " и " in lower -> "Начните только с этого: ${title.substringBefore(" и ")}."
+            else -> "Потратьте две минуты, чтобы назвать самый первый конкретный шаг."
         }
 
         private val StartsWithCommunicationWord = listOf(

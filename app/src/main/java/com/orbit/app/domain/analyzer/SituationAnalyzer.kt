@@ -9,6 +9,7 @@ import com.orbit.app.data.local.entity.TaskStatus
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 data class SituationSnapshot(
@@ -29,6 +30,7 @@ data class SituationAnalysis(
     val openLoops: List<String>,
     val tinyPlan: List<String>,
     val clearNoiseSuggestion: String,
+    val sourceItemIds: List<String> = emptyList(),
 )
 
 interface SituationAnalyzer {
@@ -38,8 +40,11 @@ interface SituationAnalyzer {
 /** Local-only prioritisation for Situation AI. It suggests; it never changes stored items. */
 class LocalRulesSituationAnalyzer(
     private val reviewAnalyzer: LocalReviewAnalyzer = LocalReviewAnalyzer(),
+    private val locale: () -> Locale = { Locale.ENGLISH },
 ) : SituationAnalyzer {
     override fun analyze(snapshot: SituationSnapshot): SituationAnalysis {
+        val currentLocale = locale()
+        val guidance = SituationGuidance(currentLocale)
         val activeTasks = snapshot.tasks.filter {
             it.status == TaskStatus.Open || it.status == TaskStatus.WaitingFor
         }
@@ -49,7 +54,7 @@ class LocalRulesSituationAnalyzer(
         val inboxCaptures = snapshot.captures.filter { it.status == CaptureStatus.Inbox }
         val activeNotes = snapshot.notes.filterNot { it.archived }
         val recentCutoff = snapshot.now - TimeUnit.DAYS.toMillis(RecentCaptureDays)
-        val recentCaptures = snapshot.captures.filter { it.createdAt >= recentCutoff }
+        val recentCaptures = inboxCaptures.filter { it.createdAt >= recentCutoff }
         val staleLoops = reviewAnalyzer.findStaleLoops(
             tasks = snapshot.tasks,
             captures = snapshot.captures,
@@ -57,93 +62,95 @@ class LocalRulesSituationAnalyzer(
             now = snapshot.now,
         )
 
-        val whereYouAre = buildString {
-            append("You have ${inboxCaptures.size} ${inboxCaptures.size.itemWord("inbox capture")}, ")
-            append("${activeTasks.size} ${activeTasks.size.itemWord("active task")}, ")
-            append("${activeReminders.size} ${activeReminders.size.itemWord("reminder")}, ")
-            append("and ${activeNotes.size} ${activeNotes.size.itemWord("note")} on device.")
-            if (recentCaptures.isNotEmpty()) {
-                append(" ${recentCaptures.size} ${recentCaptures.size.itemWord("capture")} arrived in the last 7 days.")
-            }
-        }
-
         val priorityItems = buildPriorityItems(
             tasks = actionableTasks,
             reminders = activeReminders,
             now = snapshot.now,
             use24HourClock = snapshot.use24HourClock,
+            locale = currentLocale,
+            guidance = guidance,
         )
+        val recentItems = buildList {
+            recentCaptures.sortedByDescending { it.createdAt }.forEach {
+                add(SituationItem(3, it.createdAt, "capture:${it.id}", guidance.recentCapture(it.rawText.trim().shorten(guidance))))
+            }
+            activeNotes.filter { it.updatedAt >= recentCutoff }.sortedByDescending { it.updatedAt }.forEach {
+                add(SituationItem(4, it.updatedAt, "note:${it.id}", guidance.recentNote(it.title.trim().ifEmpty { it.body.trim() }.shorten(guidance))))
+            }
+        }
+        val attentionItems = (priorityItems + recentItems)
+            .sortedWith(compareBy<SituationItem>(SituationItem::rank).thenBy { it.timestamp })
+            .distinctBy { it.sourceId }
+            .take(MaxItems)
+
+        val whereYouAre = attentionItems.firstOrNull()?.let { guidance.nearestAttention(it.text) }
+            ?: waitingFor.minByOrNull { it.updatedAt }
+                ?.let { guidance.unresolvedWaiting(it.title.trim().shorten(guidance)) }
+            ?: guidance.noActiveAttention()
+
         val whatMatters = buildList {
-            addAll(priorityItems.take(MaxItems))
-            if (size < MaxItems) {
-                inboxCaptures.sortedBy { it.createdAt }.firstOrNull()?.let {
-                    add("Oldest inbox capture: ${it.rawText.trim().shorten()}")
-                }
-            }
-            if (size < MaxItems) {
-                activeNotes.maxByOrNull { it.updatedAt }?.let {
-                    add("Recent note: ${it.title.trim().ifEmpty { it.body.trim() }.shorten()}")
-                }
-            }
-            if (isEmpty()) add("Nothing urgent is asking for attention right now.")
+            addAll(attentionItems.map { it.text })
+            if (isEmpty()) add(guidance.nothingUrgent())
         }
 
-        val stuckItems = buildList {
+        val stuckEvidence = buildList {
             waitingFor.sortedBy { it.updatedAt }.take(MaxItems).forEach {
-                add("Waiting for: ${it.title.trim().shorten()}")
+                add(SituationItem(0, it.updatedAt, "task:${it.id}", guidance.unresolved(it.title.trim().shorten(guidance))))
             }
             staleLoops.asSequence()
                 .filterNot { loop ->
                     loop.type == ReviewLoopType.Task && waitingFor.any { it.id == loop.id }
                 }
                 .take((MaxItems - size).coerceAtLeast(0))
-                .forEach { add("Stale: ${it.title.trim().shorten()}") }
-            if (isEmpty()) add("No waiting-for or stale loops stand out.")
+                .forEach { loop ->
+                    val ageDays = TimeUnit.MILLISECONDS.toDays((snapshot.now - loop.updatedAt).coerceAtLeast(0L))
+                    val prefix = if (loop.type == ReviewLoopType.Task) "task" else "capture"
+                    add(SituationItem(1, loop.updatedAt, "$prefix:${loop.id}", guidance.stale(ageDays, loop.title.trim().shorten(guidance))))
+                }
         }
+        val stuckItems = stuckEvidence.map { it.text }.ifEmpty { listOf(guidance.noStuckItems()) }
 
-        val nextAction = priorityItems.firstOrNull()
+        val nextAction = attentionItems.firstOrNull()?.text
             ?: inboxCaptures.minByOrNull { it.createdAt }
-                ?.let { "Decide where this inbox capture belongs: ${it.rawText.trim().shorten()}" }
+                ?.let { guidance.recentCapture(it.rawText.trim().shorten(guidance)) }
             ?: actionableTasks.minByOrNull { it.updatedAt }
-                ?.let { "Take the first small step on: ${it.title.trim().shorten()}" }
+                ?.let { guidance.unresolvedTask(it.title.trim().shorten(guidance)) }
             ?: activeNotes.maxByOrNull { it.updatedAt }
-                ?.let { "Revisit your recent note: ${it.title.trim().ifEmpty { it.body.trim() }.shorten()}" }
-            ?: "Your local lists are quiet. Capture what is on your mind, or take a real pause."
+                ?.let { guidance.recentNote(it.title.trim().ifEmpty { it.body.trim() }.shorten(guidance)) }
+            ?: guidance.noNextStep()
 
         val openLoops = (
             activeTasks.map { task ->
                 if (task.status == TaskStatus.WaitingFor) {
-                    "Waiting for - ${task.title.trim().shorten()}"
+                    guidance.waitingLoop(task.title.trim().shorten(guidance))
                 } else {
-                    "Task - ${task.title.trim().shorten()}"
+                    guidance.taskLoop(task.title.trim().shorten(guidance))
                 }
-            } + inboxCaptures.map { "Inbox - ${it.rawText.trim().shorten()}" }
-            ).take(MaxOpenLoops).ifEmpty { listOf("No open tasks or inbox captures.") }
+            } + inboxCaptures.map { guidance.inboxLoop(it.rawText.trim().shorten(guidance)) }
+            ).take(MaxOpenLoops).ifEmpty { listOf(guidance.noOpenLoops()) }
 
         val tinyPlan = buildList {
             add(nextAction)
             inboxCaptures.minByOrNull { it.createdAt }?.let {
-                val step = "Give one inbox capture a home: ${it.rawText.trim().shorten()}"
+                val step = guidance.giveInboxHome(it.rawText.trim().shorten(guidance))
                 if (step != nextAction) add(step)
             }
-            stuckItems.firstOrNull()
-                ?.takeUnless { it.startsWith("No ") }
-                ?.let { add("Spend two minutes deciding what to do with: ${it.removePrefix("Stale: ").removePrefix("Waiting for: ")}") }
-            if (size == 1) add("Then stop and check whether anything else truly needs attention.")
+            stuckEvidence.firstOrNull()?.let { add(guidance.decideStuck(it.text)) }
+            if (size == 1) add(guidance.stopAfterThis())
         }.take(TinyPlanSteps)
 
         val staleInboxCount = staleLoops.count { it.type == ReviewLoopType.Capture }
         val clearNoiseSuggestion = when {
             staleInboxCount > 0 ->
-                "Review $staleInboxCount stale ${staleInboxCount.itemWord("inbox capture")}. Keep, archive, or complete each one in Review; nothing will be changed automatically."
+                guidance.reviewStaleInbox(staleInboxCount)
 
             inboxCaptures.isNotEmpty() ->
-                "Start with the oldest of your ${inboxCaptures.size} ${inboxCaptures.size.itemWord("inbox capture")}. Decide its place, then stop if the rest can wait."
+                guidance.reviewOldestInbox(inboxCaptures.size)
 
             staleLoops.isNotEmpty() ->
-                "Review the oldest stale loop and choose keep, archive, complete, or make smaller. Nothing will be changed automatically."
+                guidance.reviewOldestStaleLoop()
 
-            else -> "There is no obvious local noise to clear right now."
+            else -> guidance.noLocalNoise()
         }
 
         return SituationAnalysis(
@@ -154,6 +161,7 @@ class LocalRulesSituationAnalyzer(
             openLoops = openLoops,
             tinyPlan = tinyPlan,
             clearNoiseSuggestion = clearNoiseSuggestion,
+            sourceItemIds = (attentionItems + stuckEvidence).map { it.sourceId }.distinct(),
         )
     }
 
@@ -162,24 +170,20 @@ class LocalRulesSituationAnalyzer(
         reminders: List<ReminderEntity>,
         now: Long,
         use24HourClock: Boolean,
-    ): List<String> {
-        val endOfToday = Instant.ofEpochMilli(now)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
-            .plusDays(1)
-            .atStartOfDay(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
+        locale: Locale,
+        guidance: SituationGuidance,
+    ): List<SituationItem> {
+        val dueSoonCutoff = now + TimeUnit.HOURS.toMillis(DueSoonHours)
 
         val candidates = buildList {
             reminders.forEach { reminder ->
                 when {
                     reminder.dueAt < now -> add(
-                        PriorityItem(0, reminder.dueAt, "Overdue reminder: ${reminder.title.trim().shorten()}"),
+                        SituationItem(0, reminder.dueAt, "reminder:${reminder.id}", guidance.overdueReminder(reminder.title.trim().shorten(guidance), reminder.dueAt.formatLocalDateTime(use24HourClock, locale))),
                     )
 
-                    reminder.dueAt < endOfToday -> add(
-                        PriorityItem(1, reminder.dueAt, "Reminder at ${reminder.dueAt.formatTime(use24HourClock)}: ${reminder.title.trim().shorten()}"),
+                    reminder.dueAt <= dueSoonCutoff -> add(
+                        SituationItem(1, reminder.dueAt, "reminder:${reminder.id}", guidance.dueSoonReminder(reminder.title.trim().shorten(guidance), reminder.dueAt.formatLocalDateTime(use24HourClock, locale))),
                     )
                 }
             }
@@ -187,36 +191,204 @@ class LocalRulesSituationAnalyzer(
                 task.dueAt?.let { dueAt ->
                     when {
                         dueAt < now -> add(
-                            PriorityItem(0, dueAt, "Overdue task: ${task.title.trim().shorten()}"),
+                        SituationItem(0, dueAt, "task:${task.id}", guidance.overdueTask(task.title.trim().shorten(guidance), dueAt.formatLocalDateTime(use24HourClock, locale))),
                         )
 
-                        dueAt < endOfToday -> add(
-                            PriorityItem(1, dueAt, "Due today: ${task.title.trim().shorten()}"),
+                        dueAt <= dueSoonCutoff -> add(
+                        SituationItem(1, dueAt, "task:${task.id}", guidance.dueSoonTask(task.title.trim().shorten(guidance), dueAt.formatLocalDateTime(use24HourClock, locale))),
                         )
                     }
                 }
             }
         }
-        return candidates.sortedWith(compareBy(PriorityItem::rank, PriorityItem::dueAt)).map { it.text }
+        return candidates.sortedWith(compareBy(SituationItem::rank, SituationItem::timestamp))
     }
 
-    private data class PriorityItem(val rank: Int, val dueAt: Long, val text: String)
+    private data class SituationItem(val rank: Int, val timestamp: Long, val sourceId: String, val text: String)
 
-    private fun Int.itemWord(singular: String): String = if (this == 1) singular else "${singular}s"
-
-    private fun String.shorten(maxLength: Int = 72): String {
-        val clean = replace(Regex("\\s+"), " ").ifEmpty { "Untitled" }
+    private fun String.shorten(guidance: SituationGuidance, maxLength: Int = 72): String {
+        val clean = replace(Regex("\\s+"), " ").ifEmpty { guidance.untitled() }
         return if (clean.length <= maxLength) clean else clean.take(maxLength - 3).trimEnd() + "..."
     }
 
-    private fun Long.formatTime(use24HourClock: Boolean): String = Instant.ofEpochMilli(this)
+    private fun Long.formatLocalDateTime(use24HourClock: Boolean, locale: Locale): String = Instant.ofEpochMilli(this)
         .atZone(ZoneId.systemDefault())
-        .format(DateTimeFormatter.ofPattern(if (use24HourClock) "HH:mm" else "h:mm a"))
+        .format(DateTimeFormatter.ofPattern(if (use24HourClock) "MMM d, HH:mm" else "MMM d, h:mm a", locale))
 
     private companion object {
         const val RecentCaptureDays = 7L
+        const val DueSoonHours = 24L
         const val MaxItems = 3
         const val MaxOpenLoops = 6
         const val TinyPlanSteps = 3
     }
+}
+
+private class SituationGuidance(locale: Locale) {
+    private val language = locale.language
+
+    fun untitled(): String = when (language) {
+        "et" -> "Pealkirjata"
+        "ru" -> "Без названия"
+        else -> "Untitled"
+    }
+
+    fun recentCapture(text: String): String = when (language) {
+        "et" -> "Hiljuti salvestatud: $text — endiselt Sisendkastis."
+        "ru" -> "Недавно сохранено: $text — всё ещё во Входящих."
+        else -> "Recently captured: $text — still in Inbox."
+    }
+
+    fun recentNote(text: String): String = when (language) {
+        "et" -> "Hiljuti uuendatud märge: $text."
+        "ru" -> "Недавно обновлённая заметка: $text."
+        else -> "Recently updated note: $text."
+    }
+
+    fun nearestAttention(text: String): String = when (language) {
+        "et" -> "Kõige lähem tähelepanu vajav asi on: $text"
+        "ru" -> "Ближайшее, что требует внимания: $text"
+        else -> "Your nearest attention point is ${text.lowercaseFirst(Locale.ENGLISH)}"
+    }
+
+    fun unresolvedWaiting(title: String): String = when (language) {
+        "et" -> "Üks lahendamata asi ootab: $title."
+        "ru" -> "Один незавершённый пункт ожидает: $title."
+        else -> "An unresolved item is waiting: $title."
+    }
+
+    fun noActiveAttention(): String = when (language) {
+        "et" -> "Ükski kohalik asi ei vaja praegu kohe tähelepanu."
+        "ru" -> "Сейчас ни один локальный пункт не требует немедленного внимания."
+        else -> "No active local item needs immediate attention right now."
+    }
+
+    fun nothingUrgent(): String = when (language) {
+        "et" -> "Praegu ei vaja miski kiiret tähelepanu."
+        "ru" -> "Сейчас ничто не требует срочного внимания."
+        else -> "Nothing urgent is asking for attention right now."
+    }
+
+    fun unresolved(title: String): String = when (language) {
+        "et" -> "Lahendamata: $title — märgitud ootele."
+        "ru" -> "Не решено: $title — отмечено как ожидающее."
+        else -> "Unresolved: $title — marked Waiting For."
+    }
+
+    fun stale(days: Long, title: String): String = when (language) {
+        "et" -> "Juba $days päeva lahendamata: $title."
+        "ru" -> "Не решено уже $days дн.: $title."
+        else -> "Stale for $days days: $title — still unresolved."
+    }
+
+    fun noStuckItems(): String = when (language) {
+        "et" -> "Ükski ootav ega aegunud asi ei paista silma."
+        "ru" -> "Нет заметных ожидающих или давно нерешённых пунктов."
+        else -> "No waiting-for or stale local items stand out."
+    }
+
+    fun unresolvedTask(title: String): String = when (language) {
+        "et" -> "Lahendamata ülesanne: $title — endiselt avatud."
+        "ru" -> "Незавершённая задача: $title — всё ещё открыта."
+        else -> "Unresolved task: $title — still open."
+    }
+
+    fun noNextStep(): String = when (language) {
+        "et" -> "Ükski kohalik asi ei vaja praegu järgmist sammu."
+        "ru" -> "Сейчас ни одному локальному пункту не нужен следующий шаг."
+        else -> "No local item needs a next step right now."
+    }
+
+    fun waitingLoop(title: String): String = when (language) {
+        "et" -> "Ootel — $title"
+        "ru" -> "Ожидает — $title"
+        else -> "Waiting for - $title"
+    }
+
+    fun taskLoop(title: String): String = when (language) {
+        "et" -> "Ülesanne — $title"
+        "ru" -> "Задача — $title"
+        else -> "Task - $title"
+    }
+
+    fun inboxLoop(text: String): String = when (language) {
+        "et" -> "Sisendkast — $text"
+        "ru" -> "Входящие — $text"
+        else -> "Inbox - $text"
+    }
+
+    fun noOpenLoops(): String = when (language) {
+        "et" -> "Avatud ülesandeid ega sisendkasti kirjeid ei ole."
+        "ru" -> "Нет открытых задач или записей во Входящих."
+        else -> "No open tasks or inbox captures."
+    }
+
+    fun giveInboxHome(text: String): String = when (language) {
+        "et" -> "Leia ühele sisendkasti kirjele koht: $text"
+        "ru" -> "Найдите место для одной записи из Входящих: $text"
+        else -> "Give one inbox capture a home: $text"
+    }
+
+    fun decideStuck(text: String): String = when (language) {
+        "et" -> "Võta kaks minutit, et otsustada: $text"
+        "ru" -> "Потратьте две минуты, чтобы решить: $text"
+        else -> "Spend two minutes deciding what to do with: $text"
+    }
+
+    fun stopAfterThis(): String = when (language) {
+        "et" -> "Seejärel peatu ja vaata, kas miski muu vajab tõesti tähelepanu."
+        "ru" -> "Затем остановитесь и проверьте, действительно ли что-то ещё требует внимания."
+        else -> "Then stop and check whether anything else truly needs attention."
+    }
+
+    fun reviewStaleInbox(count: Int): String = when (language) {
+        "et" -> "Vaata üle $count aegunud sisendkasti kirjet. Hoia, arhiveeri või lõpeta need Ülevaates; midagi ei muudeta automaatselt."
+        "ru" -> "Просмотрите $count давно лежащих записей во Входящих. Оставьте, архивируйте или завершите их в обзоре; ничего не изменится автоматически."
+        else -> "Review $count stale inbox captures. Keep, archive, or complete each one in Review; nothing will be changed automatically."
+    }
+
+    fun reviewOldestInbox(count: Int): String = when (language) {
+        "et" -> "Alusta vanimast $count sisendkasti kirjest. Otsusta selle koht ja peatu, kui ülejäänud võivad oodata."
+        "ru" -> "Начните с самой старой из $count записей во Входящих. Решите, куда её отнести, и остановитесь, если остальные могут подождать."
+        else -> "Start with the oldest of your $count inbox captures. Decide its place, then stop if the rest can wait."
+    }
+
+    fun reviewOldestStaleLoop(): String = when (language) {
+        "et" -> "Vaata üle vanim aegunud asi ning vali: hoia, arhiveeri, lõpeta või tee väiksemaks. Midagi ei muudeta automaatselt."
+        "ru" -> "Просмотрите самый давний незавершённый пункт и выберите: оставить, архивировать, завершить или разбить на меньший шаг. Ничего не изменится автоматически."
+        else -> "Review the oldest stale loop and choose keep, archive, complete, or make smaller. Nothing will be changed automatically."
+    }
+
+    fun noLocalNoise(): String = when (language) {
+        "et" -> "Praegu ei paista silma midagi kohalikku, mida oleks vaja korrastada."
+        "ru" -> "Сейчас нет заметного локального шума, который нужно разобрать."
+        else -> "There is no obvious local noise to clear right now."
+    }
+
+    fun overdueReminder(title: String, dueAt: String): String = when (language) {
+        "et" -> "Hilinenud meeldetuletus: $title — aeg $dueAt."
+        "ru" -> "Просроченное напоминание: $title — срок $dueAt."
+        else -> "Overdue reminder: $title — due $dueAt."
+    }
+
+    fun dueSoonReminder(title: String, dueAt: String): String = when (language) {
+        "et" -> "Peagi meeldetuletus: $title — kell $dueAt."
+        "ru" -> "Скоро напоминание: $title — в $dueAt."
+        else -> "Due soon: $title — reminder at $dueAt."
+    }
+
+    fun overdueTask(title: String, dueAt: String): String = when (language) {
+        "et" -> "Hilinenud ülesanne: $title — tähtaeg $dueAt."
+        "ru" -> "Просроченная задача: $title — срок $dueAt."
+        else -> "Overdue task: $title — due $dueAt."
+    }
+
+    fun dueSoonTask(title: String, dueAt: String): String = when (language) {
+        "et" -> "Peagi tähtaeg: $title — $dueAt."
+        "ru" -> "Скоро срок: $title — $dueAt."
+        else -> "Due soon: $title — due $dueAt."
+    }
+
+    private fun String.lowercaseFirst(locale: Locale): String =
+        replaceFirstChar { it.lowercase(locale) }
 }

@@ -29,8 +29,10 @@ class LocalLearningProfileProvider(
     private val spaceRepository: SpaceRepository,
     private val spaceAliasMemoryRepository: SpaceAliasMemoryRepository,
     private val correctionHistoryRepository: AiCorrectionHistoryRepository,
+    private val isLearningEnabled: suspend () -> Boolean = { true },
 ) : LearningProfileProvider {
     override suspend fun profileFor(input: String): String {
+        if (!isLearningEnabled()) return ""
         val queryTokens = input.profileTokens()
         if (queryTokens.isEmpty()) return ""
         val spacesById = spaceRepository.observeAll().first().associateBy { it.id }
@@ -162,7 +164,7 @@ class LocalLearningProfileProvider(
 
     private fun String.profileTokens(): Set<String> =
         lowercase()
-            .split(Regex("[^a-z0-9]+"))
+            .split(Regex("[^\\p{L}\\p{N}]+"))
             .map { it.trim() }
             .filter { it.length >= 3 && it !in StopWords }
             .toSet()

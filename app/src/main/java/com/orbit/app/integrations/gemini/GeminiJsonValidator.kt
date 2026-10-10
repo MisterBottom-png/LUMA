@@ -5,27 +5,34 @@ import com.orbit.app.domain.analyzer.BrainDumpSuggestion
 import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.analyzer.CaptureAnalyzerSource
 import com.orbit.app.domain.analyzer.CaptureLifeSignal
+import com.orbit.app.domain.analyzer.ReminderTimeStatus
+import org.json.JSONObject
 
 object GeminiJsonValidator {
-    fun isConnectionOk(text: String): Boolean =
-        extractBoolean(text, "ok") == true
+    /** Gemini reminder times further ahead than this are treated as invalid. */
+    private const val MaxReminderHorizonMillis = 2L * 366L * 24L * 60L * 60_000L
+    private const val PastToleranceMillis = 60_000L
+
+    fun isConnectionJson(text: String): Boolean = GeminiJson.parseObject(text) != null
 
     fun captureAnalysis(
         text: String,
         fallbackRawText: String,
         allowedSpaces: List<String> = emptyList(),
+        now: Long = System.currentTimeMillis(),
     ): CaptureAnalysis? {
-        val suggestedType = extractString(text, "suggestedType")
+        val json = GeminiJson.parseObject(text) ?: return null
+        val suggestedType = json.stringValue("suggestedType")
             ?.toSuggestedItemType()
             ?: return null
-        val rawSpaceName = extractString(text, "suggestedSpaceName")
+        val rawSpaceName = json.stringValue("suggestedSpaceName")
             ?.takeIf { it.isNotBlank() }
             ?: return null
         val suggestedSpaceName = rawSpaceName.validSpaceOrInbox(allowedSpaces)
-        val suggestedNextAction = extractString(text, "suggestedNextAction")
+        val suggestedNextAction = json.stringValue("suggestedNextAction")
             ?.takeIf { it.isNotBlank() }
             ?: return null
-        val confidence = extractNumber(text, "confidence")
+        val confidence = json.numberValue("confidence")
             ?.toFloat()
             ?.takeIf { it in 0f..1f }
             ?: return null
@@ -33,109 +40,149 @@ object GeminiJsonValidator {
         return CaptureAnalysis(
             rawText = fallbackRawText,
             suggestedType = suggestedType,
-            suggestedTitle = extractString(text, "suggestedTitle")
+            suggestedTitle = json.stringValue("suggestedTitle")
                 ?.takeIf { it.isNotBlank() }
                 ?.take(MaxTextFieldLength)
                 ?: fallbackRawText.toSafeTitle(),
-            summary = extractString(text, "summary")
+            summary = json.stringValue("summary")
                 ?.takeIf { it.isNotBlank() }
                 ?.take(MaxTextFieldLength)
                 ?: fallbackRawText.toSafeTitle(),
             suggestedSpaceName = suggestedSpaceName,
-            possibleMondayItem = extractBoolean(text, "possibleMondayItem") ?: false,
             suggestedNextAction = suggestedNextAction.take(MaxTextFieldLength),
-            relatedTopics = extractStringArray(text, "relatedTopics")
+            relatedTopics = json.stringList("relatedTopics", MaxTopics)
                 .map { it.take(MaxTextFieldLength) }
                 .ifEmpty { listOf(suggestedSpaceName.take(MaxSpaceNameLength)) },
-            suggestionChips = extractStringArray(text, "suggestionChips")
+            suggestedLabels = json.stringList("suggestedLabels", MaxTopics)
+                .map { it.replace(Regex("\\s+"), " ").take(MaxChipLength) }
+                .filter { it.isNotBlank() && !it.equals(suggestedSpaceName, ignoreCase = true) }
+                .distinctBy { it.lowercase() }
+                .take(3),
+            suggestionChips = json.stringList("suggestionChips", MaxTopics)
                 .map { it.take(MaxChipLength) }
-                .ifEmpty { listOf(suggestedType.displayName(), suggestedSpaceName) }
-                .distinct()
-                .take(MaxTopics),
-            reminderPossible = extractBoolean(text, "reminderPossible") ?: false,
-            suggestedReminderAt = extractNumber(text, "dueAtEpochMillis")?.toLong(),
-            reminderPhrase = extractString(text, "phrase")?.take(MaxTextFieldLength),
-            lifeSignal = extractString(text, "lifeSignal").toLifeSignal(),
+                .distinct(),
+            reminderPossible = json.booleanValue("reminderPossible") ?: false,
+            suggestedReminderAt = json.numberValue("dueAtEpochMillis")
+                ?.toLong()
+                ?.takeIf { it.isPlausibleReminderTime(now) },
+            reminderPhrase = json.stringValue("phrase")?.take(MaxTextFieldLength),
+            lifeSignal = json.stringValue("lifeSignal").toLifeSignal(),
             confidence = confidence,
-            typeReason = extractString(text, "typeReason")
+            typeReason = json.stringValue("typeReason")
                 ?.takeIf { it.isNotBlank() }
                 ?.take(MaxReasonLength)
-                ?: "Gemini suggested this type.",
-            spaceReason = extractString(text, "spaceReason")
+                .orEmpty(),
+            spaceReason = json.stringValue("spaceReason")
                 ?.takeIf { it.isNotBlank() }
                 ?.take(MaxReasonLength)
-                ?: "Gemini suggested this Space.",
+                .orEmpty(),
             analyzerSource = CaptureAnalyzerSource.Gemini,
-        )
+        ).let { analysis ->
+            // A rejected time must not leave a phrase that claims a time was understood.
+            if (analysis.suggestedReminderAt == null) analysis.copy(reminderPhrase = null) else analysis
+        }
     }
 
-    fun tinyAction(text: String): String? =
-        (
-            extractString(text, "tinyAction")
-                ?: extractString(text, "tinyStep")
-                ?: extractString(text, "action")
-                ?: extractString(text, "nextAction")
-                ?: extractString(text, "tiny_action")
-            )
-            ?.trim()
+    /** Past or implausibly distant times (for example 1970 or 2099) are rejected. */
+    internal fun Long.isPlausibleReminderTime(now: Long): Boolean =
+        this > 0L && this >= now - PastToleranceMillis && this <= now + MaxReminderHorizonMillis
+
+    fun tinyAction(text: String): String? {
+        val json = GeminiJson.parseObject(text) ?: return null
+        return listOf("tinyAction", "tinyStep", "action", "nextAction", "tiny_action")
+            .firstNotNullOfOrNull { json.stringValue(it) }
             ?.takeIf { it.length in 3..MaxTextFieldLength }
+    }
 
     fun brainDumpSuggestions(
         text: String,
         allowedSpaces: List<String> = emptyList(),
+        expectedItems: List<BrainDumpSuggestion> = emptyList(),
     ): List<BrainDumpSuggestion>? {
-        val itemsBody = extractArrayBody(text, "items") ?: return null
-        val items = Regex("\\{(.*?)\\}", RegexOption.DOT_MATCHES_ALL)
-            .findAll(itemsBody)
-            .mapIndexedNotNull { index, match ->
-                val itemJson = "{${match.groupValues[1]}}"
-                itemJson.toBrainDumpSuggestion(index, allowedSpaces)
+        val json = GeminiJson.parseObject(text) ?: return null
+        val array = json.optJSONArray("items") ?: return null
+        val itemJsonObjects = (0 until minOf(array.length(), MaxBrainDumpItems + 1))
+            .map { array.optJSONObject(it) ?: return null }
+        if (expectedItems.isNotEmpty() && itemJsonObjects.size != expectedItems.size) return null
+        val items = if (expectedItems.isEmpty()) {
+            itemJsonObjects.mapIndexedNotNull { index, itemJson ->
+                itemJson.toBrainDumpSuggestion(index, allowedSpaces, expectedItems)
+            }.take(MaxBrainDumpItems)
+        } else {
+            buildList {
+                itemJsonObjects.forEachIndexed { index, itemJson ->
+                    add(itemJson.toBrainDumpSuggestion(index, allowedSpaces, expectedItems) ?: return null)
+                }
             }
-            .take(MaxBrainDumpItems)
-            .toList()
-        return items.takeIf { it.isNotEmpty() }
+        }
+        if (expectedItems.isEmpty()) return items.takeIf { it.isNotEmpty() }
+        if (expectedItems.size > MaxBrainDumpItems) return null
+        val byId = items.associateBy { it.id }
+        if (byId.size != items.size || byId.keys != expectedItems.mapTo(linkedSetOf()) { it.id }) return null
+        return expectedItems.map { expected ->
+            val enriched = checkNotNull(byId[expected.id])
+            enriched.copy(
+                rawText = expected.rawText,
+                suggestedType = when {
+                    expected.suggestedType == SuggestedItemType.Reminder &&
+                        expected.reminderTimeStatus == ReminderTimeStatus.Resolved -> SuggestedItemType.Reminder
+                    expected.suggestedType == SuggestedItemType.Task &&
+                        expected.suggestedReminderAt != null -> SuggestedItemType.Task
+                    else -> enriched.suggestedType
+                },
+                reminderTimeStatus = expected.reminderTimeStatus,
+                suggestedReminderAt = expected.suggestedReminderAt,
+                reminderPhrase = expected.reminderPhrase,
+            )
+        }
     }
 
-    private fun String.toBrainDumpSuggestion(
+    private fun JSONObject.toBrainDumpSuggestion(
         index: Int,
         allowedSpaces: List<String>,
+        expectedItems: List<BrainDumpSuggestion>,
     ): BrainDumpSuggestion? {
-        val rawText = extractString(this, "rawText")
+        val sourceId = stringValue("sourceId")
+            ?.takeIf { id -> expectedItems.any { it.id == id } }
+            ?: if (expectedItems.isEmpty()) "brain:${index + 1}" else return null
+        val expected = expectedItems.firstOrNull { it.id == sourceId }
+        val rawText = expected?.rawText ?: stringValue("rawText")
             ?.takeIf { it.isNotBlank() }
             ?: return null
-        val title = extractString(this, "title")
+        val title = stringValue("title")
             ?.takeIf { it.isNotBlank() }
             ?.take(MaxTextFieldLength)
             ?: return null
-        val suggestedType = (extractString(this, "suggestedType") ?: extractString(this, "type"))
+        val suggestedType = (stringValue("suggestedType") ?: stringValue("type"))
             ?.toSuggestedItemType()
-            ?.brainDumpType()
             ?: return null
-        val confidence = confidenceFromStringOrNumber(this)
-            ?: return null
+        val confidence = confidenceFromStringOrNumber(this) ?: return null
         return BrainDumpSuggestion(
-            id = "gemini_dump_${index + 1}",
-            rawText = rawText.take(MaxTextFieldLength),
+            id = sourceId,
+            rawText = rawText,
             title = title,
             suggestedType = suggestedType,
-            suggestedSpaceName = extractString(this, "suggestedSpaceName")
+            suggestedSpaceName = stringValue("suggestedSpaceName")
                 ?.validSpaceOrInbox(allowedSpaces)
                 ?: "Inbox",
             confidence = confidence,
-            tinyNextAction = extractString(this, "tinyNextAction")
+            tinyNextAction = stringValue("tinyNextAction")
                 ?.takeIf { it.isNotBlank() }
                 ?.take(MaxTextFieldLength)
-                ?: "Choose what this should become.",
-            reason = (extractString(this, "reason") ?: extractString(this, "why"))
+                .orEmpty(),
+            reason = (stringValue("reason") ?: stringValue("why"))
                 ?.takeIf { it.isNotBlank() }
                 ?.take(MaxReasonLength)
-                ?: "Gemini suggested this split.",
+                .orEmpty(),
+            reminderTimeStatus = expected?.reminderTimeStatus ?: ReminderTimeStatus.Unspecified,
+            suggestedReminderAt = expected?.suggestedReminderAt,
+            reminderPhrase = expected?.reminderPhrase,
         )
     }
 
-    private fun confidenceFromStringOrNumber(json: String): Float? =
-        extractNumber(json, "confidence")?.toFloat()?.takeIf { it in 0f..1f }
-            ?: when (extractString(json, "confidence")?.lowercase()) {
+    private fun confidenceFromStringOrNumber(json: JSONObject): Float? =
+        json.numberValue("confidence")?.toFloat()?.takeIf { it in 0f..1f }
+            ?: when (json.stringValue("confidence")?.lowercase()) {
                 "high" -> 0.84f
                 "medium" -> 0.68f
                 "low" -> 0.52f
@@ -146,7 +193,6 @@ object GeminiJsonValidator {
         "note" -> SuggestedItemType.Note
         "task" -> SuggestedItemType.Task
         "reminder" -> SuggestedItemType.Reminder
-        "mondayitem", "monday_item", "monday" -> SuggestedItemType.MondayItem
         else -> null
     }
 
@@ -164,60 +210,8 @@ object GeminiJsonValidator {
         return allowedSpaces.firstOrNull { it.equals(trimmed, ignoreCase = true) } ?: "Inbox"
     }
 
-    private fun SuggestedItemType.brainDumpType(): SuggestedItemType = when (this) {
-        SuggestedItemType.Note -> SuggestedItemType.Note
-        SuggestedItemType.Task,
-        SuggestedItemType.Reminder,
-        SuggestedItemType.MondayItem,
-        -> SuggestedItemType.Task
-    }
-
-    private fun SuggestedItemType.displayName(): String = when (this) {
-        SuggestedItemType.Note -> "Note"
-        SuggestedItemType.Task -> "Task"
-        SuggestedItemType.Reminder -> "Reminder"
-        SuggestedItemType.MondayItem -> "Monday item"
-    }
-
     private fun String.toSafeTitle(): String =
-        lineSequence().firstOrNull().orEmpty().trim().ifBlank { "Untitled" }.take(MaxTextFieldLength)
-
-    private fun extractString(json: String, key: String): String? {
-        val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
-        return regex.find(json)?.groupValues?.get(1)?.unescapeJsonString()
-    }
-
-    private fun extractBoolean(json: String, key: String): Boolean? {
-        val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
-        return regex.find(json)?.groupValues?.get(1)?.lowercase()?.toBooleanStrictOrNull()
-    }
-
-    private fun extractNumber(json: String, key: String): Double? {
-        val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)")
-        return regex.find(json)?.groupValues?.get(1)?.toDoubleOrNull()
-    }
-
-    private fun extractStringArray(json: String, key: String): List<String> {
-        val body = extractArrayBody(json, key) ?: return emptyList()
-        return Regex("\"((?:\\\\.|[^\"\\\\])*)\"")
-            .findAll(body)
-            .map { it.groupValues[1].unescapeJsonString().trim() }
-            .filter { it.isNotBlank() }
-            .take(MaxTopics)
-            .toList()
-    }
-
-    private fun extractArrayBody(json: String, key: String): String? {
-        val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\\[(.*?)]", RegexOption.DOT_MATCHES_ALL)
-        return regex.find(json)?.groupValues?.get(1)
-    }
-
-    private fun String.unescapeJsonString(): String =
-        replace("\\\"", "\"")
-            .replace("\\\\", "\\")
-            .replace("\\n", "\n")
-            .replace("\\r", "\r")
-            .replace("\\t", "\t")
+        lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }.orEmpty().take(MaxTextFieldLength)
 
     private const val MaxTopics = 5
     private const val MaxBrainDumpItems = 20

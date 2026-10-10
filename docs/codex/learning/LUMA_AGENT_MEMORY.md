@@ -144,3 +144,21 @@ Related areas:
 - project cleanup
 - upgrade preparation
 - Codex skills
+
+## Lesson: Resolve dependency metadata gates before migrating UI APIs
+
+Source:
+Haze 1.7.2 migration on 2026-07-16.
+
+Learning:
+A Compose UI dependency upgrade can raise compile SDK, Android Gradle plugin, Gradle, Kotlin metadata, and symbol-processing requirements before Kotlin source API changes are compiled. The first dependency-only compile is the authoritative way to discover the minimum compatibility set.
+
+Future behavior:
+For a bounded Compose dependency migration, change the dependency first, compile immediately, satisfy only reported metadata/toolchain requirements, then migrate deprecated source APIs. Room 2.6.1 cannot process this project safely with Kotlin 2.2/KSP2; Room 2.7.1 is the smallest verified KSP2-compatible upgrade. Before accepting a processor migration, hash exported schemas, compile generated debug/release/Android-test sources, and run data-layer tests. Keep a processor pinned only when that evidence fails, and run the complete lint gate because newer tooling can surface compatibility findings.
+
+Related areas:
+- Gradle and Android toolchains
+- Compose dependencies
+- Kotlin metadata
+- KSP and Room
+- lint verification

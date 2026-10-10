@@ -65,13 +65,13 @@ Symptom:
 Scrolling felt sluggish across menus after glass/background effects and custom backgrounds were available.
 
 Cause:
-Full-screen background blur, high Haze blur/noise/shadow values, and large decoded custom background images all contribute to per-frame rendering cost across every screen.
+Full-screen background blur, Haze source capture, high Haze blur/noise/shadow values, and large decoded custom background images all contribute to per-frame rendering cost across every screen. A later fixed-chrome change also placed the complete navigation host in an offscreen compositing layer for a bottom-edge fade, stacking that full-screen pass with live Haze capture on Review and Settings. Spaces also rebuilt sorted and formatted feed rows during lazy-list composition and calculated each Space count by rescanning every item table.
 
 Fix:
-Lowered the background blur multiplier, reduced Haze blur/noise/shadow constants, and capped custom background decode size. Background presets are no longer rendered while a custom background is active.
+Lowered the background blur multiplier, reduced Haze blur/noise/shadow constants, and capped custom background decode size. Background presets are no longer rendered while a custom background is active. Spaces, Review, and Settings disable the full-screen Haze source and use the same appearance-derived translucent fallback tint. The navigation host no longer owns an app-wide offscreen edge-fade layer; the required top and bottom fades stay scoped to the Spaces and Review lazy lists. Preset gradients avoid a visually redundant blur layer, custom-background overlays share one draw layer, feed preparation is cached by contents and time format, Space partitions are prepared once per state emission, and counts use one bounded pass across each finalized item list.
 
 Prevention:
-When changing appearance effects, scroll-test Settings, Spaces, Review, Search, and glass sheets with both preset and custom backgrounds.
+When changing appearance effects, scroll-test Settings, Spaces, Review, Search, and glass sheets with both preset and custom backgrounds. Do not apply offscreen compositing to the complete navigation host for local scroll-edge decoration; scope masks to the smallest scrolling layer. Keep lazy feed transformations outside item composition, retain stable item keys, and use grouping/count accumulation instead of per-parent repeated table scans.
 
 Related files/areas:
 - app/src/main/java/com/orbit/app/ui/components/OrbitBackground.kt
@@ -79,6 +79,28 @@ Related files/areas:
 - app/src/main/java/com/orbit/app/ui/screens/settings/SettingsScreen.kt
 - Settings
 - Appearance
+
+## Bug: Situation AI composer scrolled away and ignored the IME inset
+
+Date:
+2026-07-15
+
+Symptom:
+The Ask LUMA composer originally scrolled with the body. After it was pinned, focusing the field still moved the sheet downward and left the composer behind the keyboard.
+
+Cause:
+The persistent composer first shared the body `LazyColumn`. The initial repair then applied IME padding inside the custom fixed-height content even though Material 3 already applies IME padding at the modal root, while partial expansion remained enabled as keyboard resizing changed sheet anchors.
+
+Fix:
+Keep the header fixed, render content and answer evidence in one weighted lazy body, and place the composer below it. Let Material 3 handle the platform IME at the modal root, keep navigation-bar padding inside the custom content, and disable partial expansion for this composer sheet.
+
+Prevention:
+For Material 3 modal surfaces with a persistent text composer, inspect framework inset handling before adding content-level IME padding, prevent IME resizing from selecting an unintended partial anchor, and physically verify keyboard-open layout without hardcoded keyboard dimensions.
+
+Related files/areas:
+- Situation AI sheet
+- Ask LUMA composer
+- Compose window insets
 
 ## Bug: Space Life Feed exposed capture processing records
 
@@ -173,3 +195,83 @@ Related files/areas:
 - app/src/main/java/com/orbit/app/ui/components/GlassSurface.kt
 - Settings
 - Appearance
+
+## Bug: Appearance effect sliders looked broken
+
+Date:
+2026-07-16
+
+Symptom:
+Background blur, background dim, and glass strength changed so little across much of their ranges that the controls appeared ineffective. The Appearance index also used a large technical preview that did not explain the settings.
+
+Cause:
+Image blur had a narrow cached radius, light-theme dimming was capped at a subtle overlay, and both live and soft glass opacity varied only within small ranges with relatively opaque minimums. The control names mixed background treatment with surface material.
+
+Fix:
+Expanded the bounded blur and dim ranges, gave shared surfaces a clear contrast-safe transparent-to-solid range, renamed the surface control to opacity, moved the preview next to the relevant controls, reduced index-row repetition, and added an appearance-only reset. Blur changes retain the previously processed image until the next cached result is ready.
+
+Prevention:
+Keep image blur, background dim, and surface opacity semantically separate. Test their minimum, midpoint, and maximum values in light and dark themes with preset and custom backgrounds, and ensure appearance reset preserves unrelated preferences.
+
+Related files/areas:
+- app/src/main/java/com/orbit/app/ui/components/OrbitBackground.kt
+- app/src/main/java/com/orbit/app/ui/components/GlassSurface.kt
+- app/src/main/java/com/orbit/app/ui/screens/settings/SettingsScreen.kt
+- Appearance
+
+Follow-up:
+The first repair still added large fixed base opacity before applying the displayed percentage, so a 30% setting rendered materially more solid than its label implied. Shared live and soft glass now derive primarily from the selected percentage, with only small bounded adjustments for surface role, theme, and custom-background contrast.
+
+Additional prevention:
+Test a named midpoint such as 30% against the effective alpha for both fixed navigation and prominent cards; endpoint-only range tests do not prove that the displayed percentage is honest.
+
+Second follow-up:
+The floating navigation still used LiveGlass, whose Haze style intentionally supplied an opaque background beneath blur and tint. At very low surface opacity the tint became lighter, but the backing plane remained visibly solid. Floating navigation now uses subtle SoftGlass so the selected opacity controls its actual translucent fill without a hidden opaque layer.
+
+Additional prevention:
+Physically verify bottom navigation at a low value such as 7% over a detailed custom background. A tint-alpha unit test cannot detect an opaque backing layer owned by the rendering effect.
+
+## Bug: Calendar current-time line was not a timeline position
+
+Date:
+2026-07-15
+
+Symptom:
+The selected-day view showed the current-time label and line as a compact list row, so it appeared near the top regardless of the actual time and the empty-state copy competed with the indicator.
+
+Cause:
+Timed content was ordered correctly but rendered only as adjacent lazy-list rows, with no minute-of-day spatial scale. Calendar paging also existed only as arrow controls.
+
+Fix:
+Render the complete day on a compact hour scale, position timed groups and the live indicator from local minute-of-day, keep the empty message in the content column below the indicator, and add thresholded horizontal paging gestures with accessibility actions. Reuse the resolved application time formatter for hour and current-time labels.
+
+Prevention:
+Test midnight, midday, and end-of-day offsets; verify Device, 12-hour, and 24-hour labels; and confirm one horizontal swipe changes exactly one day or month while vertical scrolling and item taps remain usable.
+
+Related files/areas:
+- Calendar Day timeline
+- Calendar paging gestures
+- time-format presentation
+
+## Bug: Brain Dump progress was transient and source coverage was lossy
+
+Date:
+2026-07-18
+
+Symptom:
+Closing or leaving Brain Dump discarded progress, short or repeated fragments could disappear, and an incomplete AI response could silently omit source material. Save actions also lacked a durable exactly-once boundary.
+
+Cause:
+The flow lived only in sheet memory, local parsing filtered and deduplicated input, AI output was trusted without complete source-identifier coverage, and item actions wrote through separate non-transactional paths.
+
+Fix:
+Persist sessions and source-keyed items in Room, resume them from Home, Review, and Capture detail, require strict one-to-one Gemini coverage with local fallback, and finalize each item through one transactional action boundary. Include active sessions in export and restore, and remove pending progress when its capture is dismissed or archived.
+
+Prevention:
+Test short and duplicate fragments, malformed and partial AI output, recreation and export/restore, concurrent repeated actions, rollback after a failed write, reminder scheduling after commit, calendar context, and long-list/IME reachability.
+
+Related files/areas:
+- Brain Dump analyzer and Gemini validator
+- Brain Dump Room session and item tables
+- Home, Review, and Capture detail resume routes
+- export and restore

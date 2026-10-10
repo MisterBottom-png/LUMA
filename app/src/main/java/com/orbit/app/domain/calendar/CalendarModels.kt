@@ -32,6 +32,13 @@ data class CalendarEntry(
     val notificationOffsetMinutes: Long? = null,
     val notificationAt: Long? = null,
     val notificationEnabled: Boolean? = null,
+    /** How the reminder repeats, if it does. */
+    val repeat: com.orbit.app.reminders.ReminderRepeat? = null,
+    /**
+     * A later occurrence of a repeating reminder, shown ahead of time. Only the
+     * current occurrence is stored; opening a projected one opens that reminder.
+     */
+    val isRepeatOccurrence: Boolean = false,
 )
 
 fun CalendarEntry.calendarDate(zoneId: ZoneId): LocalDate = when (val value = schedule) {

@@ -2,25 +2,62 @@ package com.orbit.app.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FactCheck
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.StringRes
 import androidx.navigation.NavController
+import com.orbit.app.R
+import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.calendar.CalendarEntryId
 import com.orbit.app.domain.calendar.CalendarItemType
+import com.orbit.app.ui.screens.review.ReviewItem
+import com.orbit.app.ui.screens.review.ReviewItemType
 import java.time.LocalDate
 
 enum class OrbitDestination(
+    /** Route pattern as registered in the NavHost (what the back stack reports). */
     val route: String,
-    val contentDescription: String,
+    @param:StringRes val contentDescriptionRes: Int,
     val icon: ImageVector,
+    /** Main tabs in the bottom bar; Settings is reached from Home's top-right corner. */
+    val inBottomBar: Boolean,
+    /** Concrete route used to navigate (patterns with optional arguments resolve here). */
+    val navigationRoute: String = route,
 ) {
-    Home("home", "Home", Icons.Rounded.Home),
-    Spaces("spaces", "Spaces", Icons.Rounded.GridView),
-    Review("review", "Review", Icons.AutoMirrored.Rounded.FactCheck),
-    Settings("settings", "Settings", Icons.Rounded.Settings),
+    Home("home", R.string.navigation_home, Icons.Rounded.Home, inBottomBar = true),
+    Spaces("spaces", R.string.navigation_spaces, Icons.Rounded.GridView, inBottomBar = true),
+    Calendar(
+        CalendarDestination.Route,
+        R.string.navigation_calendar,
+        Icons.Rounded.CalendarMonth,
+        inBottomBar = true,
+        navigationRoute = CalendarDestination.BaseRoute,
+    ),
+    Review("review", R.string.navigation_review, Icons.AutoMirrored.Rounded.FactCheck, inBottomBar = true),
+    Settings("settings", R.string.navigation_settings, Icons.Rounded.Settings, inBottomBar = false),
+    ;
+
+    companion object {
+        val bottomBar: List<OrbitDestination> get() = entries.filter { it.inBottomBar }
+    }
 }
+
+object FirstTimeTutorialDestination {
+    const val ReplayArgument = "replay"
+    const val Route = "tutorial?$ReplayArgument={$ReplayArgument}"
+
+    fun route(isReplay: Boolean): String = "tutorial?$ReplayArgument=$isReplay"
+}
+
+internal fun initialOrbitRoute(settings: AppSettings): String =
+    if (settings.hasCompletedFirstTimeTutorial) {
+        OrbitDestination.Home.route
+    } else {
+        FirstTimeTutorialDestination.route(isReplay = false)
+    }
 
 object ReminderDestination {
     const val ReminderIdArgument = "reminderId"
@@ -51,12 +88,31 @@ object SearchDestination {
     const val Route = "search"
 }
 
+object SpaceDetailDestination {
+    const val SpaceIdArgument = "spaceId"
+    const val Route = "spaces/{$SpaceIdArgument}"
+    const val UnfiledRoute = "spaces/unfiled"
+
+    fun route(spaceId: Long): String = "spaces/$spaceId"
+}
+
 object CalendarCaptureContext {
     const val EpochDayKey = "calendarCaptureEpochDay"
 
     fun date(epochDay: Long?): LocalDate? = epochDay?.let {
         runCatching { LocalDate.ofEpochDay(it) }.getOrNull()
     }
+}
+
+object SharedTextContext {
+    const val TextKey = "sharedTextForHome"
+
+    /** Set by the "New thought" shortcut and tile: focus the capture box once. */
+    const val FocusCaptureKey = "focusCaptureRequest"
+}
+
+object BrainDumpResumeContext {
+    const val CaptureIdKey = "brainDumpResumeCaptureId"
 }
 
 data class CalendarNavigationRequest(
@@ -88,6 +144,9 @@ object CalendarDestination {
 fun NavController.navigateToCalendar(date: LocalDate? = null) {
     val request = CalendarDestination.navigationRequest(date)
     navigate(request.route) {
+        // Calendar is a top-level tab: opening it for a date replaces any earlier
+        // Calendar entry instead of stacking another screen above Home.
+        popUpTo(OrbitDestination.Home.route)
         launchSingleTop = request.launchSingleTop
     }
 }
@@ -98,6 +157,13 @@ fun NavController.returnHomeWithCalendarCaptureDate(date: LocalDate): Boolean {
     return popBackStack(OrbitDestination.Home.route, inclusive = false)
 }
 
+fun NavController.returnHomeToResumeBrainDump(captureId: Long): Boolean {
+    require(captureId > 0L)
+    getBackStackEntry(OrbitDestination.Home.route)
+        .savedStateHandle[BrainDumpResumeContext.CaptureIdKey] = captureId
+    return popBackStack(OrbitDestination.Home.route, inclusive = false)
+}
+
 fun CalendarEntryId.toItemDetailRoute(): String = ItemDetailDestination.route(
     type = when (sourceType) {
         CalendarItemType.Note -> ItemDetailType.Note
@@ -105,6 +171,15 @@ fun CalendarEntryId.toItemDetailRoute(): String = ItemDetailDestination.route(
         CalendarItemType.Reminder -> ItemDetailType.Reminder
     },
     itemId = sourceItemId,
+)
+
+fun ReviewItem.toItemDetailRoute(): String = ItemDetailDestination.route(
+    type = when (type) {
+        ReviewItemType.Task -> ItemDetailType.Task
+        ReviewItemType.Capture -> ItemDetailType.Capture
+        ReviewItemType.Reminder -> ItemDetailType.Reminder
+    },
+    itemId = id,
 )
 
 fun String.toItemDetailTypeOrNull(): ItemDetailType? =

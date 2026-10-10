@@ -25,6 +25,7 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
                     context = context,
                     reminderId = reminderId,
                     expectedNotificationTime = notificationTime,
+                    deliveredBy = ReminderDeliveryPath.Alarm,
                 )
             } finally {
                 pendingResult.finish()

@@ -10,4 +10,5 @@ Review the supplied UI diff and directly affected screens only.
 Check state correctness, light/dark readability, touch targets, semantics, content descriptions, text scaling, keyboard/insets, empty/loading/error states, and navigation/back behavior.
 Protect LUMA's calm capture-first design and ensure raw/internal records are not exposed.
 Return concrete findings with file and symbol references. Do not edit files or propose unrelated redesigns.
+Base findings only on the supplied diff and evidence. Name each evidence gap instead of assuming it passes.
 """

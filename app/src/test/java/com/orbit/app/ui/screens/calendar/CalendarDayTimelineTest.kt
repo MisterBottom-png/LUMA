@@ -123,6 +123,47 @@ class CalendarDayTimelineTest {
     }
 
     @Test
+    fun timelineOffsets_followMinuteOfDayAcrossTheCompleteDay() {
+        assertEquals(0f, calendarTimelineOffsetFraction(0), 0.0001f)
+        assertEquals(0.5f, calendarTimelineOffsetFraction(12 * 60), 0.0001f)
+        assertTrue(calendarTimelineOffsetFraction(23 * 60 + 59) < 1f)
+        assertTrue(calendarTimelineOffsetFraction(23 * 60 + 59) > 0.99f)
+    }
+
+    @Test
+    fun timelineLabels_hideOnlyWhenTheyWouldCollide() {
+        assertFalse(
+            shouldShowTimelineHourLabel(
+                hour = 10,
+                timedMinutes = listOf(9 * 60 + 40),
+                currentMinute = null,
+            ),
+        )
+        assertTrue(
+            shouldShowTimelineHourLabel(
+                hour = 9,
+                timedMinutes = listOf(9 * 60 + 40),
+                currentMinute = null,
+            ),
+        )
+        assertTrue(
+            shouldShowTimelineHourLabel(
+                hour = 8,
+                timedMinutes = listOf(8 * 60 + 23),
+                currentMinute = 8 * 60 + 23,
+            ),
+        )
+    }
+
+    @Test
+    fun itemTimeLabel_replacesNearbyLiveTimeLabel() {
+        assertFalse(shouldShowCurrentTimeLabel(8 * 60 + 23, listOf(8 * 60 + 23)))
+        assertFalse(shouldShowCurrentTimeLabel(20 * 60 + 40, listOf(20 * 60 + 23)))
+        assertTrue(shouldShowCurrentTimeLabel(8 * 60 + 23, listOf(8 * 60 + 44)))
+        assertTrue(shouldShowCurrentTimeLabel(8 * 60 + 23, emptyList()))
+    }
+
+    @Test
     fun midnightBoundaries_excludeNeighborsAndKeepBothDayEdges() {
         val start = selectedDate.atStartOfDay(zoneId)
         val entries = listOf(

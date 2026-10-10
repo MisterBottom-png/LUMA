@@ -1,489 +1,222 @@
 package com.orbit.app.ui.screens.home
 
+import androidx.annotation.StringRes
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.orbit.app.data.local.entity.AiSuggestionSurface
-import com.orbit.app.data.local.entity.CaptureEntity
-import com.orbit.app.data.local.entity.CaptureStatus
-import com.orbit.app.data.local.entity.SuggestedItemType
+import com.orbit.app.R
 import com.orbit.app.data.repository.AppSettingsRepository
-import com.orbit.app.data.repository.CaptureRepository
-import com.orbit.app.data.repository.SpaceRepository
-import com.orbit.app.domain.analyzer.BrainDumpSuggestion
 import com.orbit.app.domain.analyzer.CaptureAnalysis
-import com.orbit.app.domain.analyzer.CaptureConfidence
-import com.orbit.app.domain.analyzer.confidenceLevel
-import com.orbit.app.domain.ai.OrbitAiRouter
-import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
-import com.orbit.app.domain.usecase.CaptureSuggestionLearningContext
-import com.orbit.app.domain.usecase.CaptureSuggestionLearningDecision
-import com.orbit.app.domain.usecase.RecordAiLearningEventUseCase
+import com.orbit.app.domain.capture.CaptureInbox
+import com.orbit.app.domain.capture.CaptureInboxEvent
+import com.orbit.app.domain.capture.needsImmediateTimeQuestion
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 
-data class CaptureSuggestion(
+internal enum class CaptureProcessingState {
+    Idle,
+    Saving,
+    Analyzing,
+}
+
+internal val CaptureProcessingState.isInProgress: Boolean
+    get() = this != CaptureProcessingState.Idle
+
+@StringRes
+internal fun CaptureProcessingState.statusLabelRes(): Int? = when (this) {
+    CaptureProcessingState.Idle -> null
+    CaptureProcessingState.Saving -> R.string.core_home_saving_capture
+    CaptureProcessingState.Analyzing -> R.string.core_home_analyzing_capture
+}
+
+/** A single quick question after saving a clearly time-sensitive thought. */
+internal data class QuickReminderQuestion(
     val captureId: Long,
-    val suggestedSpaceId: Long?,
-    val analysis: CaptureAnalysis,
-    val spaceOptions: List<CaptureSpaceOption>,
-    val calendarDateContextEpochDay: Long? = null,
+    val title: String,
+    /** Null when LUMA could not tell the time and the user should pick one. */
+    val reminderAt: Long?,
+    val phrase: String?,
 )
 
-data class CaptureSpaceOption(
-    val id: Long?,
-    val name: String,
-)
+/** Messages Home can show; the text is resolved on screen so it follows the language. */
+internal enum class HomeMessage(@param:StringRes val textRes: Int) {
+    Saved(R.string.core_home_saved_let_go),
+    SaveFailed(R.string.core_home_message_capture_save_failed),
+    ReminderSet(R.string.core_home_message_reminder_created),
+    ReminderSetNeedsAttention(R.string.core_home_message_reminder_notification_attention),
+    ReminderFailed(R.string.core_home_message_capture_action_failed),
+    KeptForLater(R.string.core_home_message_kept_in_inbox),
+}
 
-data class HomeCaptureUiState(
+internal data class HomeCaptureUiState(
     val inputText: String = "",
-    val isAnalyzing: Boolean = false,
-    val isPerformingAction: Boolean = false,
-    val suggestion: CaptureSuggestion? = null,
-    val brainDumpHandledItemIds: Set<String> = emptySet(),
-    val message: String? = null,
-    val mondayConfigured: Boolean = false,
-    val notificationPermissionRequestPending: Boolean = false,
+    val processingState: CaptureProcessingState = CaptureProcessingState.Idle,
+    /** Increments on every successful save; drives the send animation and haptic. */
+    val savedPulse: Int = 0,
+    val message: HomeMessage? = null,
+    val quickReminder: QuickReminderQuestion? = null,
+    val isSettingReminder: Boolean = false,
+    /** A capture the sorting sheet should open (sort-right-after-saving or "Pick a time"). */
+    val sortRequest: SortRequest? = null,
+) {
+    val isProcessing: Boolean
+        get() = processingState.isInProgress
+}
+
+/** Starting a save clears earlier feedback; Home never waits for analysis. */
+internal fun HomeCaptureUiState.beginCaptureSaving(): HomeCaptureUiState = copy(
+    processingState = CaptureProcessingState.Saving,
+    message = null,
+    quickReminder = null,
 )
 
-class HomeCaptureViewModel(
-    private val captureRepository: CaptureRepository,
-    private val spaceRepository: SpaceRepository,
-    private val appSettingsRepository: AppSettingsRepository,
-    private val aiRouter: OrbitAiRouter,
-    private val confirmCaptureAction: ConfirmCaptureActionUseCase,
-    private val recordAiLearningEvent: RecordAiLearningEventUseCase,
-) : ViewModel() {
-    private val _uiState = MutableStateFlow(HomeCaptureUiState())
-    val uiState: StateFlow<HomeCaptureUiState> = _uiState.asStateFlow()
+internal data class SortRequest(val captureId: Long, val startWithReminderSetup: Boolean)
 
-    fun onInputChanged(value: String) {
-        _uiState.update { it.copy(inputText = value) }
+/**
+ * Home only saves: type, send, saved. The thought is persisted before anything
+ * else happens; LUMA analyses it afterwards and keeps the suggestion for Review.
+ * Home asks one quick question only when a thought clearly needs a reminder.
+ */
+class HomeCaptureViewModel(
+    private val captureInbox: CaptureInbox,
+    private val appSettingsRepository: AppSettingsRepository,
+    private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> Boolean,
+    private val savedStateHandle: SavedStateHandle,
+    private val now: () -> Long = System::currentTimeMillis,
+) : ViewModel() {
+    // The draft lives in the saved state so a half-typed thought survives Android
+    // reclaiming LUMA in the background.
+    private val _uiState = MutableStateFlow(
+        HomeCaptureUiState(inputText = savedStateHandle.get<String>(DraftTextKey).orEmpty()),
+    )
+    internal val uiState: StateFlow<HomeCaptureUiState> = _uiState.asStateFlow()
+    private var awaitingAnalysisFor: Long? = null
+
+    init {
+        viewModelScope.launch {
+            captureInbox.events.collect { event ->
+                if (event.captureId != awaitingAnalysisFor) return@collect
+                awaitingAnalysisFor = null
+                when (event) {
+                    is CaptureInboxEvent.Analyzed -> onAnalyzed(event.captureId, event.analysis)
+                    is CaptureInboxEvent.AnalysisFailed -> Unit
+                }
+            }
+        }
     }
 
-    fun analyzeCapture(calendarDateContextEpochDay: Long? = null): Boolean {
-        val rawText = _uiState.value.inputText.trim()
-        if (rawText.isBlank() || _uiState.value.isAnalyzing) return false
-        val safeCalendarDateContext = calendarDateContextEpochDay
-            ?.let { runCatching { LocalDate.ofEpochDay(it).toEpochDay() }.getOrNull() }
+    /** Text shared from another app joins the draft; the user still decides to send it. */
+    fun receiveSharedText(text: String) {
+        onInputChanged(com.orbit.app.capture.SharedText.mergeIntoDraft(uiState.value.inputText, text))
+    }
 
-        _uiState.update { it.copy(isAnalyzing = true, message = null) }
+    fun onInputChanged(value: String) {
+        if (_uiState.value.isProcessing) return
+        _uiState.update { it.copy(inputText = value) }
+        savedStateHandle[DraftTextKey] = value
+    }
+
+    /** Saves the thought. Returns false when there is nothing to save. */
+    fun send(calendarDateContextEpochDay: Long? = null): Boolean {
+        val rawText = _uiState.value.inputText.trim()
+        if (rawText.isBlank() || _uiState.value.isProcessing) return false
+        val safeContext = calendarDateContextEpochDay
+            ?.let { runCatching { LocalDate.ofEpochDay(it).toEpochDay() }.getOrNull() }
+        _uiState.update(HomeCaptureUiState::beginCaptureSaving)
         viewModelScope.launch {
-            val capture = CaptureEntity(rawText = rawText, status = CaptureStatus.Inbox)
-            val captureId = try {
-                captureRepository.insert(capture)
+            try {
+                // Registered before analysis starts, so a fast result is not missed.
+                captureInbox.save(rawText, contextDateEpochDay = safeContext) { id -> awaitingAnalysisFor = id }
             } catch (_: Exception) {
+                // Nothing was saved: keep the text in the box so it is not lost.
                 _uiState.update {
-                    it.copy(
-                        isAnalyzing = false,
-                        message = "I couldn't save that capture. Your text is still here.",
-                    )
+                    it.copy(processingState = CaptureProcessingState.Idle, message = HomeMessage.SaveFailed)
                 }
                 return@launch
             }
-
-            // Clear only after the raw text is safely in the local Inbox.
-            _uiState.update { it.copy(inputText = "") }
-
-            val spaceOptions = loadSpaceOptions()
-            try {
-                val settings = appSettingsRepository.settings.first()
-                val analysis = aiRouter.analyzeCapture(
-                    rawText = rawText,
-                    settings = settings,
-                    allowedSpaces = spaceOptions.map { it.name },
-                ).analysis
-                val space = spaceOptions
-                    .firstOrNull { it.name.equals(analysis.suggestedSpaceName, ignoreCase = true) }
-                    ?.takeUnless { analysis.confidenceLevel == CaptureConfidence.Low }
-                captureRepository.update(
-                    capture.copy(
-                        id = captureId,
-                        suggestedType = analysis.suggestedType,
-                        suggestedSpaceId = space?.id,
-                    ),
+            savedStateHandle[DraftTextKey] = ""
+            _uiState.update {
+                it.copy(
+                    inputText = "",
+                    processingState = CaptureProcessingState.Idle,
+                    savedPulse = it.savedPulse + 1,
+                    message = HomeMessage.Saved,
                 )
-                _uiState.update {
-                    it.copy(
-                        isAnalyzing = false,
-                        brainDumpHandledItemIds = emptySet(),
-                        suggestion = CaptureSuggestion(
-                            captureId = captureId,
-                            suggestedSpaceId = space?.id,
-                            analysis = analysis,
-                            spaceOptions = spaceOptions,
-                            calendarDateContextEpochDay = safeCalendarDateContext,
-                        ),
-                    )
-                }
-            } catch (_: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isAnalyzing = false,
-                        brainDumpHandledItemIds = emptySet(),
-                        suggestion = CaptureSuggestion(
-                            captureId = captureId,
-                            suggestedSpaceId = null,
-                            analysis = manualFallbackAnalysis(rawText),
-                            spaceOptions = spaceOptions,
-                            calendarDateContextEpochDay = safeCalendarDateContext,
-                        ),
-                        message = "It's safe in your Inbox. You can still choose what to do.",
-                    )
-                }
             }
         }
         return true
     }
 
-    fun keepInInbox() {
-        if (_uiState.value.isPerformingAction) return
-        _uiState.value.suggestion?.let { suggestion ->
-            viewModelScope.launch {
-                runCatching {
-                    recordAiLearningEvent.recordRejected(
-                        context = suggestion.learningContext(),
-                        userAction = "keep_in_inbox",
-                    )
-                }
-            }
-        }
-        _uiState.update {
-            it.copy(
-                suggestion = null,
-                brainDumpHandledItemIds = emptySet(),
-                message = "Kept in Inbox.",
-            )
-        }
-    }
-
-    fun cancelSuggestion() {
-        if (_uiState.value.isPerformingAction) return
-        _uiState.update { it.copy(suggestion = null, brainDumpHandledItemIds = emptySet()) }
-    }
-
-    fun saveNote(title: String, spaceId: Long?) {
-        performConfirmedAction(
-            successMessage = "Saved as a note.",
-        ) { suggestion ->
-            confirmCaptureAction.saveNote(
-                captureId = suggestion.captureId,
-                spaceId = spaceId,
-                title = title,
-                scheduledDateEpochDay = suggestion.calendarDateContextEpochDay,
-            )
-            CaptureSuggestionLearningDecision(
-                surface = AiSuggestionSurface.Capture,
-                userAction = "save_note",
-                finalType = SuggestedItemType.Note,
-                finalSpaceId = spaceId,
-                finalSpaceName = suggestion.spaceNameFor(spaceId),
-                finalTitle = title,
-                sourceText = suggestion.analysis.rawText,
-            )
-        }
-    }
-
-    fun createTask(title: String, dueAt: Long?, spaceId: Long?) {
-        performConfirmedAction(
-            successMessage = "Task created.",
-        ) { suggestion ->
-            val finalSchedule = calendarTaskSchedule(
-                dueAt = dueAt,
-                calendarDateContextEpochDay = suggestion.calendarDateContextEpochDay,
-            )
-            confirmCaptureAction.createTask(
-                captureId = suggestion.captureId,
-                spaceId = spaceId,
-                title = title,
-                dueAt = finalSchedule.dueAt,
-                scheduledDateEpochDay = finalSchedule.scheduledDateEpochDay,
-            )
-            CaptureSuggestionLearningDecision(
-                surface = AiSuggestionSurface.Capture,
-                userAction = "create_task",
-                finalType = SuggestedItemType.Task,
-                finalSpaceId = spaceId,
-                finalSpaceName = suggestion.spaceNameFor(spaceId),
-                finalTitle = title,
-                finalDueAt = dueAt,
-                sourceText = suggestion.analysis.rawText,
-            )
-        }
-    }
-
-    fun createReminder(
-        title: String,
-        dueAt: Long,
-        spaceId: Long?,
-        linkedTaskId: Long? = null,
-    ) {
-        performConfirmedAction(
-            successMessage = "Reminder created.",
-            requestNotificationPermission = true,
-        ) { suggestion ->
-            confirmCaptureAction.createReminder(
-                captureId = suggestion.captureId,
-                spaceId = spaceId,
-                title = title,
-                dueAt = dueAt,
-                linkedTaskId = linkedTaskId,
-            )
-            CaptureSuggestionLearningDecision(
-                surface = AiSuggestionSurface.Capture,
-                userAction = "create_reminder",
-                finalType = SuggestedItemType.Reminder,
-                finalSpaceId = spaceId,
-                finalSpaceName = suggestion.spaceNameFor(spaceId),
-                finalTitle = title,
-                finalDueAt = dueAt,
-                sourceText = suggestion.analysis.rawText,
-            )
-        }
-    }
-
-    fun saveBrainDumpItem(
-        item: BrainDumpSuggestion,
-        title: String,
-        type: SuggestedItemType,
-        spaceId: Long?,
-    ) {
-        handleBrainDumpItem(item.id, successMessage = "Saved one Brain Dump item.") { suggestion ->
-            val cleanTitle = title.trim().ifBlank { item.title }
-            when (type) {
-                SuggestedItemType.Task,
-                SuggestedItemType.Reminder,
-                SuggestedItemType.MondayItem,
-                -> confirmCaptureAction.saveBrainDumpTask(
-                    title = cleanTitle,
-                    notes = item.rawText.takeUnless { it == cleanTitle }.orEmpty(),
-                    spaceId = spaceId,
-                )
-
-                SuggestedItemType.Note -> confirmCaptureAction.saveBrainDumpNote(
-                    title = cleanTitle,
-                    body = item.rawText,
-                    spaceId = spaceId,
+    private suspend fun onAnalyzed(captureId: Long, analysis: CaptureAnalysis) {
+        val settings = appSettingsRepository.settings.first()
+        when {
+            settings.sortRightAfterSaving ->
+                _uiState.update { it.copy(sortRequest = SortRequest(captureId, startWithReminderSetup = false)) }
+            analysis.needsImmediateTimeQuestion(now()) -> _uiState.update {
+                it.copy(
+                    quickReminder = QuickReminderQuestion(
+                        captureId = captureId,
+                        title = analysis.suggestedTitle.ifBlank { analysis.rawText },
+                        reminderAt = analysis.suggestedReminderAt?.takeIf { at -> at > now() },
+                        phrase = analysis.reminderPhrase,
+                    ),
                 )
             }
-            recordLearningOutcome(
-                context = suggestion.learningContext(item),
-                decision = CaptureSuggestionLearningDecision(
-                    surface = AiSuggestionSurface.BrainDump,
-                    userAction = "save_brain_dump_item",
-                    finalType = type,
-                    finalSpaceId = spaceId,
-                    finalSpaceName = suggestion.spaceNameFor(spaceId),
-                    finalTitle = cleanTitle,
-                    sourceItemId = item.id,
-                    sourceText = item.rawText,
-                ),
-            )
-            suggestion
         }
     }
 
-    fun keepBrainDumpItemInInbox(item: BrainDumpSuggestion, editedText: String) {
-        handleBrainDumpItem(item.id, successMessage = "Kept one item in Inbox.") {
-            captureRepository.insert(
-                CaptureEntity(
-                    rawText = editedText.trim().ifBlank { item.rawText },
-                    status = CaptureStatus.Inbox,
-                    suggestedType = item.suggestedType,
-                ),
-            )
-            runCatching {
-                recordAiLearningEvent.recordRejected(
-                    context = it.learningContext(item),
-                    userAction = "keep_brain_dump_item_in_inbox",
-                    surface = AiSuggestionSurface.BrainDump,
-                    sourceItemId = item.id,
-                    sourceText = editedText.trim().ifBlank { item.rawText },
-                )
+    /** "Remind me" on the quick question: the user's tap is the confirmation. */
+    fun confirmQuickReminder() {
+        val question = _uiState.value.quickReminder ?: return
+        val at = question.reminderAt
+        if (at == null) {
+            _uiState.update {
+                it.copy(quickReminder = null, sortRequest = SortRequest(question.captureId, startWithReminderSetup = true))
             }
-            it
+            return
         }
-    }
-
-    fun skipBrainDumpItem(item: BrainDumpSuggestion) {
-        handleBrainDumpItem(item.id, successMessage = "Skipped one suggestion.") { suggestion ->
-            runCatching {
-                recordAiLearningEvent.recordBrainDumpRejected(
-                    context = suggestion.learningContext(item),
-                    itemId = item.id,
-                    sourceText = item.rawText,
-                    suggestedType = item.suggestedType,
-                    suggestedSpaceName = item.suggestedSpaceName,
-                )
-            }
-            suggestion
-        }
-    }
-
-    private fun performConfirmedAction(
-        successMessage: String,
-        requestNotificationPermission: Boolean = false,
-        action: suspend (CaptureSuggestion) -> CaptureSuggestionLearningDecision,
-    ) {
-        val suggestion = _uiState.value.suggestion ?: return
-        if (_uiState.value.isPerformingAction) return
-
-        _uiState.update { it.copy(isPerformingAction = true, message = null) }
+        if (_uiState.value.isSettingReminder) return
+        _uiState.update { it.copy(isSettingReminder = true) }
         viewModelScope.launch {
-            try {
-                val decision = action(suggestion)
-                recordLearningOutcome(suggestion.learningContext(), decision)
-                _uiState.update {
-                    it.copy(
-                        isPerformingAction = false,
-                        suggestion = null,
-                        brainDumpHandledItemIds = emptySet(),
-                        message = successMessage,
-                        notificationPermissionRequestPending = requestNotificationPermission,
-                    )
-                }
-            } catch (_: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isPerformingAction = false,
-                        message = "That action didn't finish. Your capture is still in the Inbox.",
-                    )
-                }
-            }
-        }
-    }
-
-    private fun handleBrainDumpItem(
-        itemId: String,
-        successMessage: String,
-        action: suspend (CaptureSuggestion) -> CaptureSuggestion,
-    ) {
-        val suggestion = _uiState.value.suggestion ?: return
-        if (_uiState.value.isPerformingAction || itemId in _uiState.value.brainDumpHandledItemIds) return
-
-        _uiState.update { it.copy(isPerformingAction = true, message = null) }
-        viewModelScope.launch {
-            try {
-                val activeSuggestion = action(suggestion)
-                val handledIds = _uiState.value.brainDumpHandledItemIds + itemId
-                val allHandled = handledIds.size >= activeSuggestion.analysis.brainDumpItems.size
-                if (allHandled) {
-                    confirmCaptureAction.markCaptureReviewed(activeSuggestion.captureId)
-                    _uiState.update {
-                        it.copy(
-                            isPerformingAction = false,
-                            suggestion = null,
-                            brainDumpHandledItemIds = emptySet(),
-                            message = "Brain Dump reviewed. The original capture is still saved.",
-                        )
-                    }
-                } else {
-                    _uiState.update {
-                        it.copy(
-                            isPerformingAction = false,
-                            brainDumpHandledItemIds = handledIds,
-                            message = successMessage,
-                        )
-                    }
-                }
-            } catch (_: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isPerformingAction = false,
-                        message = "That item did not save. The original dump is still in Inbox.",
-                    )
-                }
-            }
-        }
-    }
-
-    private suspend fun recordLearningOutcome(
-        context: CaptureSuggestionLearningContext,
-        decision: CaptureSuggestionLearningDecision,
-    ) {
-        runCatching {
-            if (recordAiLearningEvent.hasCorrections(context, decision)) {
-                recordAiLearningEvent.recordCorrected(context, decision)
-            } else {
-                recordAiLearningEvent.recordAccepted(context, decision)
-            }
-        }
-    }
-
-    private suspend fun loadSpaceOptions(): List<CaptureSpaceOption> {
-        val activeSpaces = spaceRepository.observeAll()
-            .first()
-            .filterNot { it.hidden || it.archived }
-            .sortedBy { it.sortOrder }
-            .map { CaptureSpaceOption(id = it.id, name = it.name) }
-        return listOf(CaptureSpaceOption(id = null, name = "Inbox")) + activeSpaces
-    }
-
-    private fun CaptureSuggestion.learningContext(): CaptureSuggestionLearningContext =
-        CaptureSuggestionLearningContext(
-            captureId = captureId,
-            analysis = analysis,
-            suggestedSpaceId = suggestedSpaceId,
-        )
-
-    private fun CaptureSuggestion.learningContext(item: BrainDumpSuggestion): CaptureSuggestionLearningContext =
-        CaptureSuggestionLearningContext(
-            captureId = captureId,
-            analysis = analysis.copy(
-                rawText = item.rawText,
-                suggestedType = item.suggestedType,
-                suggestedSpaceName = item.suggestedSpaceName,
-                suggestedTitle = item.title,
-                suggestedNextAction = item.tinyNextAction,
-                relatedTopics = listOf(item.suggestedSpaceName),
-                reminderPossible = false,
-                suggestedReminderAt = null,
-                confidence = item.confidence,
-                typeReason = item.reason,
-                spaceReason = "Brain Dump item suggested for ${item.suggestedSpaceName}.",
-                brainDumpItems = emptyList(),
-            ),
-            suggestedSpaceId = spaceOptions
-                .firstOrNull { it.name.equals(item.suggestedSpaceName, ignoreCase = true) }
-                ?.id,
-        )
-
-    private fun CaptureSuggestion.spaceNameFor(spaceId: Long?): String =
-        spaceOptions.firstOrNull { it.id == spaceId }?.name ?: "Inbox"
-
-    private fun manualFallbackAnalysis(rawText: String): CaptureAnalysis = CaptureAnalysis(
-        rawText = rawText,
-        suggestedType = SuggestedItemType.Note,
-        suggestedSpaceName = "Inbox",
-        possibleMondayItem = false,
-        suggestedNextAction = "Keep this in Inbox for now",
-        relatedTopics = listOf("Inbox"),
-        reminderPossible = false,
-        confidence = 0.18f,
-        typeReason = "Analysis paused, so no type is being forced.",
-        spaceReason = "Inbox keeps the raw capture safe until you choose.",
-        analyzerFailed = true,
-    )
-
-    fun notificationPermissionRequestStarted() {
-        _uiState.update { it.copy(notificationPermissionRequestPending = false) }
-    }
-
-    fun onNotificationPermissionResult(granted: Boolean) {
-        if (!granted) {
+            val outcome = runCatching { quickReminder(question.captureId, question.title, at) }
             _uiState.update {
                 it.copy(
-                    message = "Reminder saved. Notifications are off; it is still available in Review.",
+                    isSettingReminder = false,
+                    quickReminder = null,
+                    message = when {
+                        outcome.isFailure -> HomeMessage.ReminderFailed
+                        outcome.getOrDefault(false) -> HomeMessage.ReminderSetNeedsAttention
+                        else -> HomeMessage.ReminderSet
+                    },
                 )
             }
         }
+    }
+
+    /** Opens the full reminder setup to pick another time. */
+    fun changeQuickReminderTime() {
+        val question = _uiState.value.quickReminder ?: return
+        _uiState.update {
+            it.copy(quickReminder = null, sortRequest = SortRequest(question.captureId, startWithReminderSetup = true))
+        }
+    }
+
+    /** "Not now": the thought stays in To sort. */
+    fun dismissQuickReminder() {
+        if (_uiState.value.quickReminder == null) return
+        _uiState.update { it.copy(quickReminder = null, message = HomeMessage.KeptForLater) }
+    }
+
+    fun sortRequestHandled() {
+        _uiState.update { it.copy(sortRequest = null) }
     }
 
     fun messageShown() {
@@ -491,25 +224,25 @@ class HomeCaptureViewModel(
     }
 
     class Factory(
-        private val captureRepository: CaptureRepository,
-        private val spaceRepository: SpaceRepository,
+        private val captureInbox: CaptureInbox,
         private val appSettingsRepository: AppSettingsRepository,
-        private val aiRouter: OrbitAiRouter,
-        private val confirmCaptureAction: ConfirmCaptureActionUseCase,
-        private val recordAiLearningEvent: RecordAiLearningEventUseCase,
+        private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> Boolean,
+        private val savedStateHandle: SavedStateHandle,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(HomeCaptureViewModel::class.java))
             return HomeCaptureViewModel(
-                captureRepository = captureRepository,
-                spaceRepository = spaceRepository,
+                captureInbox = captureInbox,
                 appSettingsRepository = appSettingsRepository,
-                aiRouter = aiRouter,
-                confirmCaptureAction = confirmCaptureAction,
-                recordAiLearningEvent = recordAiLearningEvent,
+                quickReminder = quickReminder,
+                savedStateHandle = savedStateHandle,
             ) as T
         }
+    }
+
+    private companion object {
+        const val DraftTextKey = "homeCaptureDraft"
     }
 }
 

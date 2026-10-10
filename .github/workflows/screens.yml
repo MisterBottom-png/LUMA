@@ -1,0 +1,61 @@
+name: Screens
+
+# Renders every main screen to PNG (Robolectric, native graphics) and pushes the
+# images to the branch "screens/<branch>", so the design can be reviewed without a device.
+
+on:
+  push:
+    branches: ['ccr-**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screens-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Render screens
+        shell: bash
+        env:
+          LUMA_SCREENS_DIR: ${{ github.workspace }}/screens-out
+        run: |
+          chmod +x ./gradlew
+          mkdir -p "$LUMA_SCREENS_DIR"
+          ./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.orbit.app.screens.*' 2>&1 | tee "$LUMA_SCREENS_DIR/gradle.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Publish screens to a branch
+        if: always()
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          out="$GITHUB_WORKSPACE/screens-out"
+          mkdir -p "$out"
+          tail -c 200000 "$out/gradle.log" > "$out/gradle-tail.log" 2>/dev/null || true
+          rm -f "$out/gradle.log"
+          cp app/build/test-results/testDebugUnitTest/TEST-com.orbit.app.screens.*.xml "$out/" 2>/dev/null || true
+          echo "${GITHUB_SHA}" > "$out/SOURCE_SHA"
+          cd "$out"
+          git init -q -b out
+          git add -A
+          git -c user.name="screens-bot" -c user.email="screens-bot" commit -q -m "Screens for ${GITHUB_SHA}"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "out:refs/heads/screens/${GITHUB_REF_NAME}"

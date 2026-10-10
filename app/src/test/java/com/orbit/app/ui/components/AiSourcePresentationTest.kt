@@ -11,7 +11,7 @@ class AiSourcePresentationTest {
     fun `user visible label excludes internal source identifier`() {
         val source = source(sourceId = "task:5", title = "Send revised proposal")
 
-        val label = source.userVisibleLabel()
+        val label = source.userVisibleLabel(fallback = "Untitled task")
 
         assertEquals("Send revised proposal", label)
         assertFalse(label.contains(source.sourceId))
@@ -21,7 +21,7 @@ class AiSourcePresentationTest {
     fun `blank title uses human readable type fallback without database id`() {
         val source = source(sourceId = "capture:26", title = "   ", type = ItemDetailType.Capture)
 
-        val label = source.userVisibleLabel()
+        val label = source.userVisibleLabel(fallback = "Capture")
 
         assertEquals("Capture", label)
         assertFalse(label.contains("26"))

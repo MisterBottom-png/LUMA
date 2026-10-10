@@ -5,6 +5,7 @@ import com.orbit.app.ui.navigation.ItemDetailType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SourceLinkedGeminiValidatorTest {
@@ -42,6 +43,43 @@ class SourceLinkedGeminiValidatorTest {
 
         assertNotNull(summary)
         assertEquals(listOf("capture:3"), checkNotNull(summary).sourceItemIds)
+    }
+
+    @Test
+    fun askPromptRequiresSourceLanguageAndStructuredLocalizedNoDataResponse() {
+        val question = "Что важно завтра?"
+
+        val prompt = SourceLinkedPromptBuilders.askLuma(
+            question = question,
+            sources = listOf(source("task:1")),
+        )
+
+        assertTrue(prompt.contains(question))
+        assertTrue(prompt.contains("source or dominant language"))
+        assertTrue(prompt.contains("explicitly asks for translation"))
+        assertTrue(prompt.contains("hasSufficientData"))
+        assertTrue(prompt.contains("empty sourceItemIds"))
+    }
+
+    @Test
+    fun localizedNoDataAnswerUsesStructuredFlagAndNoSourceIds() {
+        val answer = SourceLinkedGeminiValidator.answer(
+            text = """{"answer":"Данных недостаточно.","sourceItemIds":[],"hasSufficientData":false}""",
+            sources = listOf(source("task:1")),
+        )
+
+        assertNotNull(answer)
+        assertEquals(emptyList<String>(), checkNotNull(answer).sourceItemIds)
+    }
+
+    @Test
+    fun noDataFlagRejectsContradictorySourceIds() {
+        assertNull(
+            SourceLinkedGeminiValidator.answer(
+                text = """{"answer":"Andmeid ei ole piisavalt.","sourceItemIds":["task:1"],"hasSufficientData":false}""",
+                sources = listOf(source("task:1")),
+            ),
+        )
     }
 
     private fun source(

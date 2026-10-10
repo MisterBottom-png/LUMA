@@ -1,14 +1,22 @@
 package com.orbit.app.ui.screens.settings
 
+import android.content.res.Configuration
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.orbit.app.OrbitContainer
+import com.orbit.app.R
+import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.integrations.gemini.GeminiApiResult
+import com.orbit.app.integrations.gemini.GeminiApiErrorKind
+import com.orbit.app.ui.localization.effectiveAppLocale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 data class AiSettingsUiState(
@@ -17,14 +25,33 @@ data class AiSettingsUiState(
     val isTestingConnection: Boolean = false,
     val connectionMessage: String? = null,
     val connectionSucceeded: Boolean? = null,
+    val isClearingLearning: Boolean = false,
+    val learningClearSucceeded: Boolean? = null,
+    val learnedRules: List<LearnedRuleEntity> = emptyList(),
 )
 
 class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
+    // Resolved on every use: this ViewModel outlives the recreation that follows a
+    // language change, so a cached context would keep producing the old language.
+    private val localizedContext: android.content.Context
+        get() {
+            val base = container.applicationContext
+            return base.createConfigurationContext(
+                Configuration(base.resources.configuration).apply {
+                    setLocale(effectiveAppLocale(base))
+                },
+            )
+        }
     private val _uiState = MutableStateFlow(AiSettingsUiState())
     val uiState: StateFlow<AiSettingsUiState> = _uiState.asStateFlow()
 
     init {
         refreshKeyState()
+        viewModelScope.launch {
+            container.learnedRuleRepository.observeAll().collect { rules ->
+                _uiState.update { it.copy(learnedRules = rules) }
+            }
+        }
     }
 
     fun refreshKeyState() {
@@ -45,7 +72,7 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                         it.copy(
                             hasKey = true,
                             isSavingKey = false,
-                            connectionMessage = "Gemini key saved on this device.",
+                            connectionMessage = localized(R.string.settings_gemini_key_saved),
                             connectionSucceeded = true,
                         )
                     }
@@ -54,7 +81,7 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                     _uiState.update {
                         it.copy(
                             isSavingKey = false,
-                            connectionMessage = "That key could not be saved.",
+                            connectionMessage = localized(R.string.settings_gemini_key_save_failed),
                             connectionSucceeded = false,
                         )
                     }
@@ -64,8 +91,25 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
 
     fun deleteKey() {
         viewModelScope.launch {
-            container.geminiApiKeyStore.deleteKey()
-            _uiState.value = AiSettingsUiState(connectionMessage = "Gemini key removed.")
+            runCatching { container.geminiApiKeyStore.deleteKey() }
+                .onSuccess {
+                    // Keep everything else (for example the learned rules list) in place.
+                    _uiState.update {
+                        it.copy(
+                            hasKey = false,
+                            connectionMessage = localized(R.string.settings_gemini_key_removed),
+                            connectionSucceeded = null,
+                        )
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            connectionMessage = localized(R.string.settings_gemini_key_remove_failed),
+                            connectionSucceeded = false,
+                        )
+                    }
+                }
         }
     }
 
@@ -81,7 +125,7 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                     it.copy(
                         isTestingConnection = false,
                         hasKey = false,
-                        connectionMessage = "Add a Gemini API key first. Local mode still works.",
+                        connectionMessage = localized(GeminiApiErrorKind.MissingKey.settingsMessageRes()),
                         connectionSucceeded = false,
                     )
                 }
@@ -110,7 +154,10 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                         it.copy(
                             isTestingConnection = false,
                             hasKey = true,
-                            connectionMessage = "Gemini connection works for $testedModels.",
+                            connectionMessage = localized(
+                                R.string.settings_gemini_connection_succeeded,
+                                testedModels,
+                            ),
                             connectionSucceeded = true,
                         )
                     }
@@ -121,12 +168,60 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
                         it.copy(
                             isTestingConnection = false,
                             hasKey = true,
-                            connectionMessage = failure.error.userMessage,
+                            connectionMessage = localized(failure.error.kind.settingsMessageRes()),
                             connectionSucceeded = false,
                         )
                     }
                 }
             }
+        }
+    }
+
+    fun clearLearningData() {
+        if (_uiState.value.isClearingLearning) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isClearingLearning = true, learningClearSucceeded = null) }
+            runCatching {
+                container.database.withTransaction {
+                    container.database.aiCorrectionHistoryDao().deleteAll()
+                    container.database.learnedRuleDao().deleteAll()
+                    container.database.personMemoryDao().deleteAll()
+                    container.database.projectMemoryDao().deleteAll()
+                    container.database.spaceAliasMemoryDao().deleteAll()
+                    container.database.aiSuggestionHistoryDao().deleteAll()
+                }
+            }.onSuccess {
+                _uiState.update {
+                    it.copy(isClearingLearning = false, learningClearSucceeded = true)
+                }
+            }.onFailure {
+                _uiState.update {
+                    it.copy(isClearingLearning = false, learningClearSucceeded = false)
+                }
+            }
+        }
+    }
+
+    fun updateLearnedRule(rule: LearnedRuleEntity) {
+        viewModelScope.launch {
+            runCatching { container.learnedRuleRepository.update(rule) }
+                .onFailure { reportLearnedRuleFailure() }
+        }
+    }
+
+    fun deleteLearnedRule(rule: LearnedRuleEntity) {
+        viewModelScope.launch {
+            runCatching { container.learnedRuleRepository.delete(rule) }
+                .onFailure { reportLearnedRuleFailure() }
+        }
+    }
+
+    private fun reportLearnedRuleFailure() {
+        _uiState.update {
+            it.copy(
+                connectionMessage = localized(R.string.settings_learned_rule_update_failed),
+                connectionSucceeded = false,
+            )
         }
     }
 
@@ -137,4 +232,21 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
             return AiSettingsViewModel(container) as T
         }
     }
+
+    private fun localized(@StringRes resId: Int, vararg formatArgs: Any): String =
+        localizedContext.getString(resId, *formatArgs)
+}
+
+@StringRes
+internal fun GeminiApiErrorKind.settingsMessageRes(): Int = when (this) {
+    GeminiApiErrorKind.MissingKey -> R.string.settings_gemini_error_missing_key
+    GeminiApiErrorKind.BadKey -> R.string.settings_gemini_error_bad_key
+    GeminiApiErrorKind.RateLimited -> R.string.settings_gemini_error_rate_limited
+    GeminiApiErrorKind.Timeout -> R.string.settings_gemini_error_timeout
+    GeminiApiErrorKind.NoInternet -> R.string.settings_gemini_error_no_internet
+    GeminiApiErrorKind.InvalidResponse -> R.string.settings_gemini_error_invalid_response
+    GeminiApiErrorKind.SafetyBlocked -> R.string.settings_gemini_error_safety_blocked
+    GeminiApiErrorKind.Server -> R.string.settings_gemini_error_server
+    GeminiApiErrorKind.ModelNotFound -> R.string.settings_gemini_error_model_not_found
+    GeminiApiErrorKind.Unknown -> R.string.settings_gemini_error_unknown
 }

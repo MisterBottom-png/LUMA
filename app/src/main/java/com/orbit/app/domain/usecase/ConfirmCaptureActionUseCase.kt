@@ -1,5 +1,8 @@
 package com.orbit.app.domain.usecase
 
+import androidx.room.withTransaction
+import com.orbit.app.data.export.deriveItemTitle
+import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.NoteEntity
@@ -7,17 +10,31 @@ import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.TaskEntity
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.data.repository.CaptureRepository
+import com.orbit.app.data.repository.LabelRepository
 import com.orbit.app.data.repository.NoteRepository
 import com.orbit.app.data.repository.ReminderRepository
 import com.orbit.app.data.repository.TaskRepository
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+interface CaptureFinalizationTransaction {
+    suspend fun <T> run(block: suspend () -> T): T
+}
+
+class RoomCaptureFinalizationTransaction(
+    private val database: OrbitDatabase,
+) : CaptureFinalizationTransaction {
+    override suspend fun <T> run(block: suspend () -> T): T =
+        database.withTransaction { block() }
+}
+
 class ConfirmCaptureActionUseCase(
     private val captureRepository: CaptureRepository,
     private val noteRepository: NoteRepository,
     private val taskRepository: TaskRepository,
     private val reminderRepository: ReminderRepository,
+    private val transaction: CaptureFinalizationTransaction,
+    private val labelRepository: LabelRepository? = null,
 ) {
     private val finalizationMutex = Mutex()
 
@@ -26,24 +43,31 @@ class ConfirmCaptureActionUseCase(
         spaceId: Long?,
         title: String,
         scheduledDateEpochDay: Long? = null,
+        labelNames: List<String> = emptyList(),
     ): Long =
         finalizationMutex.withLock {
-            val capture = requireInboxCapture(captureId)
-            val noteId = noteRepository.insert(
-                NoteEntity(
-                    title = title.ifBlank { capture.rawText.toNoteTitle() },
-                    body = capture.rawText,
-                    spaceId = spaceId,
-                    scheduledDateEpochDay = scheduledDateEpochDay,
-                ),
-            )
-            try {
-                markProcessed(capture, noteId)
-            } catch (exception: Exception) {
-                noteRepository.deleteById(noteId)
-                throw exception
+            transaction.run {
+                val capture = requireInboxCapture(captureId)
+                val noteId = noteRepository.insert(
+                    NoteEntity(
+                        title = title.ifBlank { capture.rawText.toNoteTitle() },
+                        body = capture.rawText,
+                        spaceId = spaceId,
+                        scheduledDateEpochDay = scheduledDateEpochDay,
+                    ),
+                )
+                try {
+                    labelRepository?.replaceNoteLabels(
+                        noteId,
+                        labelNames.map { labelRepository.findOrCreate(it).id }.toSet(),
+                    )
+                    markProcessed(capture, noteId)
+                } catch (exception: Exception) {
+                    noteRepository.deleteById(noteId)
+                    throw exception
+                }
+                noteId
             }
-            noteId
         }
 
     suspend fun createTask(
@@ -53,26 +77,33 @@ class ConfirmCaptureActionUseCase(
         dueAt: Long?,
         scheduledDateEpochDay: Long? = null,
         status: TaskStatus = TaskStatus.Open,
+        labelNames: List<String> = emptyList(),
     ): Long = finalizationMutex.withLock {
-        val capture = requireInboxCapture(captureId)
-        val taskTitle = title.trim().ifBlank { capture.rawText }
-        val taskId = taskRepository.insert(
-            TaskEntity(
-                title = taskTitle,
-                notes = capture.rawText.takeUnless { it == taskTitle }.orEmpty(),
-                spaceId = spaceId,
-                status = status,
-                dueAt = dueAt,
-                scheduledDateEpochDay = scheduledDateEpochDay,
-            ),
-        )
-        try {
-            markProcessed(capture, taskId)
-        } catch (exception: Exception) {
-            taskRepository.deleteById(taskId)
-            throw exception
+        transaction.run {
+            val capture = requireInboxCapture(captureId)
+            val taskTitle = title.trim().ifBlank { capture.rawText.toNoteTitle() }
+            val taskId = taskRepository.insert(
+                TaskEntity(
+                    title = taskTitle,
+                    notes = capture.rawText.takeUnless { it == taskTitle }.orEmpty(),
+                    spaceId = spaceId,
+                    status = status,
+                    dueAt = dueAt,
+                    scheduledDateEpochDay = scheduledDateEpochDay,
+                ),
+            )
+            try {
+                labelRepository?.replaceTaskLabels(
+                    taskId,
+                    labelNames.map { labelRepository.findOrCreate(it).id }.toSet(),
+                )
+                markProcessed(capture, taskId)
+            } catch (exception: Exception) {
+                taskRepository.deleteById(taskId)
+                throw exception
+            }
+            taskId
         }
-        taskId
     }
 
     suspend fun createReminder(
@@ -81,24 +112,31 @@ class ConfirmCaptureActionUseCase(
         title: String,
         dueAt: Long,
         linkedTaskId: Long? = null,
+        labelNames: List<String> = emptyList(),
     ): Long = finalizationMutex.withLock {
-        val capture = requireInboxCapture(captureId)
-        val reminderId = reminderRepository.insert(
-            ReminderEntity(
-                title = title.trim().ifBlank { capture.rawText },
-                dueAt = dueAt,
-                spaceId = spaceId,
-                linkedTaskId = linkedTaskId,
-                linkedCaptureId = capture.id,
-            ),
-        )
-        try {
-            markProcessed(capture, reminderId)
-        } catch (exception: Exception) {
-            reminderRepository.deleteById(reminderId)
-            throw exception
+        transaction.run {
+            val capture = requireInboxCapture(captureId)
+            val reminderId = reminderRepository.insert(
+                ReminderEntity(
+                    title = title.trim().ifBlank { capture.rawText.toNoteTitle() },
+                    dueAt = dueAt,
+                    spaceId = spaceId,
+                    linkedTaskId = linkedTaskId,
+                    linkedCaptureId = capture.id,
+                ),
+            )
+            try {
+                labelRepository?.replaceReminderLabels(
+                    reminderId,
+                    labelNames.map { labelRepository.findOrCreate(it).id }.toSet(),
+                )
+                markProcessed(capture, reminderId)
+            } catch (exception: Exception) {
+                reminderRepository.deleteById(reminderId)
+                throw exception
+            }
+            reminderId
         }
-        reminderId
     }
 
     suspend fun saveBrainDumpNote(
@@ -119,7 +157,7 @@ class ConfirmCaptureActionUseCase(
         spaceId: Long?,
     ): Long = taskRepository.insert(
         TaskEntity(
-            title = title.trim().ifBlank { "Untitled task" },
+            title = title.trim().ifBlank { notes.toNoteTitle() },
             notes = notes,
             spaceId = spaceId,
         ),
@@ -159,5 +197,5 @@ class ConfirmCaptureActionUseCase(
     }
 
     private fun String.toNoteTitle(): String =
-        lineSequence().firstOrNull().orEmpty().trim().ifBlank { "Untitled note" }.take(80)
+        deriveItemTitle(this) ?: trim().take(80)
 }

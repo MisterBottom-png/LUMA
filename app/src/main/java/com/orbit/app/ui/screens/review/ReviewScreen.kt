@@ -1,7 +1,14 @@
 package com.orbit.app.ui.screens.review
 
+import android.app.DatePickerDialog
+import androidx.annotation.StringRes
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -10,64 +17,111 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.HourglassTop
-import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Spa
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import com.orbit.app.ui.components.AssistChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.graphicsLayer
+import android.animation.ValueAnimator
+import android.os.Build
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.orbit.app.R
+import com.orbit.app.ui.screens.home.sortedMessageRes
 import com.orbit.app.domain.analyzer.ReviewLoop
 import com.orbit.app.domain.analyzer.ReviewLoopType
-import com.orbit.app.domain.ai.AiSourceItem
-import com.orbit.app.domain.analyzer.TinyActionSuggestion
-import com.orbit.app.ui.components.GlassSurface
 import com.orbit.app.ui.components.GlassSurfaceStyle
-import com.orbit.app.ui.components.LocalOrbitUsesCustomBackground
+import com.orbit.app.ui.components.LumaModalBottomSheet
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.components.SoftGlassSurface
+import com.orbit.app.ui.components.orbitScrollEdgeFade
 import com.orbit.app.ui.components.userVisibleLabel
 import com.orbit.app.ui.time.OrbitTimeFormat
+import com.orbit.app.ui.theme.OrbitMotion
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import kotlinx.coroutines.delay
 
-private enum class ReviewMode(val label: String, val icon: ImageVector) {
-    Morning("Morning", Icons.Rounded.LightMode),
-    Evening("Evening", Icons.Rounded.NightsStay),
-    Weekly("Weekly", Icons.Rounded.Schedule),
-    Reset("Reset", Icons.Rounded.Refresh),
+
+internal enum class ReviewPeriod {
+    Morning,
+    Midday,
+    Evening,
+}
+
+internal data class ReviewContext(
+    val period: ReviewPeriod,
+    val weeklyReviewAvailable: Boolean,
+)
+
+internal object ReviewSchedule {
+    const val MIDDAY_START_HOUR = 12
+    const val EVENING_START_HOUR = 17
+
+    fun resolve(localDateTime: LocalDateTime): ReviewContext = ReviewContext(
+        period = when (localDateTime.hour) {
+            in 0 until MIDDAY_START_HOUR -> ReviewPeriod.Morning
+            in MIDDAY_START_HOUR until EVENING_START_HOUR -> ReviewPeriod.Midday
+            else -> ReviewPeriod.Evening
+        },
+        weeklyReviewAvailable = localDateTime.dayOfWeek.value >= 6,
+    )
 }
 
 @Composable
 fun ReviewScreen(
     uiState: ReviewUiState,
     timeFormat: OrbitTimeFormat,
-    onReminderSelected: (Long) -> Unit,
+    onReviewItemSelected: (ReviewItem) -> Unit,
     onKeepTaskActive: (ReviewLoop) -> Unit,
     onConfirmCapture: (ReviewLoop) -> Unit,
     onArchive: (ReviewLoop) -> Unit,
@@ -75,248 +129,385 @@ fun ReviewScreen(
     onDeferTask: (ReviewLoop) -> Unit,
     onDismissCapture: (ReviewLoop) -> Unit,
     onMakeSmaller: (ReviewLoop) -> Unit,
+    onUndoTaskMutation: (Long) -> Unit,
+    onTaskUndoExpired: (Long) -> Unit,
+    onCarryForwardTomorrow: (ReviewItem) -> Unit,
+    onCarryForwardToDate: (ReviewItem, Long) -> Unit,
+    onKeepCarryForwardUnscheduled: (ReviewItem) -> Unit,
+    onCompleteCarryForward: (ReviewItem) -> Unit,
+    onWeeklyLookBackVisible: () -> Unit,
+    onAskLuma: (AskLumaPrompt?) -> Unit = {},
+    onAcceptToSort: (ToSortItem) -> Unit = {},
+    onChangeToSort: (ToSortItem) -> Unit = {},
+    onHideSuggestion: (ToSortItem) -> Unit = {},
+    onLetGo: (ToSortItem) -> Unit = {},
+    onUndoSort: (SortUndoToken) -> Unit = {},
+    onSortFeedbackShown: () -> Unit = {},
+    sortHost: @Composable (SnackbarHostState) -> Unit = {},
 ) {
-    var mode by rememberSaveable { mutableStateOf(ReviewMode.Morning) }
+    val reviewContext by rememberReviewContext()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val undoLabel = stringResource(R.string.core_action_undo)
+    val pendingTaskUndo = uiState.pendingTaskUndo
+    val pendingTaskUndoMessage = pendingTaskUndo?.let { taskUndo ->
+        stringResource(taskUndo.action.undoMessageRes())
+    }
+    val sortUndo = uiState.pendingSortUndo
+    val sortUndoMessage = sortUndo?.let { stringResource(it.messageRes()) }
+    val sortMessage = uiState.sortMessage?.let { stringResource(it.messageRes()) }
+    var showOpenLoops by rememberSaveable { mutableStateOf(false) }
+    var showAllOpenLoops by rememberSaveable { mutableStateOf(false) }
+    var showAllToSort by rememberSaveable { mutableStateOf(false) }
+    var showAllToday by rememberSaveable { mutableStateOf(false) }
+    var weeklyExpanded by rememberSaveable { mutableStateOf(false) }
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
     val statusBarTopPadding = with(LocalDensity.current) {
         WindowInsets.statusBars.getTop(this).toDp()
     }
-    val usesCustomBackground = LocalOrbitUsesCustomBackground.current
-    val themeBackground = MaterialTheme.colorScheme.background
-    val backdropColor = themeBackground.copy(
-        alpha = reviewBackdropAlpha(
-            hasCustomBackground = usesCustomBackground,
-            isDark = themeBackground.luminance() < 0.5f,
-        ),
-    )
 
-    LazyColumn(
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    val measuredHeaderClearance = with(LocalDensity.current) {
+        headerHeightPx.toDp() + 20.dp
+    }
+    val headerClearance = maxOf(statusBarTopPadding + 96.dp, measuredHeaderClearance)
+    val reviewTitle = stringResource(R.string.core_review_title)
+    LaunchedEffect(pendingTaskUndo?.operationId) {
+        val taskUndo = pendingTaskUndo ?: return@LaunchedEffect
+        val message = pendingTaskUndoMessage ?: return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(
+            message = message,
+            actionLabel = undoLabel,
+            duration = SnackbarDuration.Short,
+        )
+        if (result == SnackbarResult.ActionPerformed) {
+            onUndoTaskMutation(taskUndo.operationId)
+        } else {
+            onTaskUndoExpired(taskUndo.operationId)
+        }
+    }
+    LaunchedEffect(sortUndo, sortMessage) {
+        when {
+            sortUndo != null && sortUndoMessage != null -> {
+                onSortFeedbackShown()
+                val result = snackbarHostState.showSnackbar(
+                    message = sortUndoMessage,
+                    actionLabel = undoLabel,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) onUndoSort(sortUndo)
+            }
+            sortMessage != null -> {
+                onSortFeedbackShown()
+                snackbarHostState.showSnackbar(sortMessage)
+            }
+        }
+    }
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backdropColor)
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(
-            start = 24.dp,
-            top = (64.dp - statusBarTopPadding).coerceAtLeast(24.dp),
-            end = 24.dp,
-            bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .semantics { paneTitle = reviewTitle },
     ) {
-        item {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .orbitScrollEdgeFade(
+                    top = headerClearance,
+                    bottom = OrbitBottomNavigationDefaults.ContentClearance,
+                ),
+            contentPadding = PaddingValues(
+                start = 24.dp,
+                top = headerClearance,
+                end = 24.dp,
+                bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            reviewSectionOrder(reviewContext.period).forEach { section ->
+                when (section) {
+                    ReviewSection.AskLuma -> {
+                        item(key = "ask") { AskLumaCard(onAskLuma) }
+                        item(key = "breathe") { BreathingMoment() }
+                        if (uiState.nothingWaiting) item(key = "all_sorted") { AllSortedCard() }
+                    }
+
+                    ReviewSection.ToSort -> if (uiState.toSort.isNotEmpty()) {
+                        item(key = "to_sort_heading") {
+                            SectionHeading(
+                                stringResource(R.string.review_to_sort_title),
+                                stringResource(R.string.review_to_sort_subtitle),
+                            )
+                        }
+                        val visible = if (showAllToSort) uiState.toSort else uiState.toSort.take(ReviewSectionPreviewSize)
+                        items(visible, key = { "to_sort_${it.captureId}" }) { item ->
+                            ToSortRow(
+                                item = item,
+                                timeFormat = timeFormat,
+                                onAccept = { onAcceptToSort(item) },
+                                onChange = { onChangeToSort(item) },
+                                onHideSuggestion = { onHideSuggestion(item) },
+                                onLetGo = { onLetGo(item) },
+                                modifier = Modifier.animateItem(
+                                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                                ),
+                            )
+                        }
+                        if (uiState.toSort.size > ReviewSectionPreviewSize) {
+                            item(key = "to_sort_more") {
+                                TextButton(onClick = { showAllToSort = !showAllToSort }) {
+                                    Text(
+                                        if (showAllToSort) {
+                                            stringResource(R.string.review_show_fewer)
+                                        } else {
+                                            stringResource(R.string.review_to_sort_show_all, uiState.toSort.size)
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    ReviewSection.Today -> {
+                        item(key = "today_heading") {
+                            SectionHeading(
+                                stringResource(R.string.review_today_title),
+                                stringResource(R.string.review_today_subtitle),
+                            )
+                        }
+                        if (uiState.dueToday.isEmpty()) {
+                            item(key = "today_empty") { EmptyMessage(stringResource(R.string.review_today_empty)) }
+                        } else {
+                            val visible = if (showAllToday) uiState.dueToday else uiState.dueToday.take(ReviewSectionPreviewSize)
+                            items(visible, key = { "due_${it.key}" }) { item ->
+                                ReviewItemRow(
+                                    item = item,
+                                    badge = if (item.schedule == ReviewItemSchedule.DateOnly) {
+                                        stringResource(R.string.core_today)
+                                    } else {
+                                        timeFormat.formatTime(item.timestamp)
+                                    },
+                                    onClick = reviewRowClick(item, onReviewItemSelected),
+                                )
+                            }
+                            if (uiState.dueToday.size > ReviewSectionPreviewSize) {
+                                item(key = "today_more") {
+                                    TextButton(onClick = { showAllToday = !showAllToday }) {
+                                        Text(
+                                            if (showAllToday) {
+                                                stringResource(R.string.review_show_fewer)
+                                            } else {
+                                                stringResource(
+                                                    R.string.review_show_more,
+                                                    uiState.dueToday.size - ReviewSectionPreviewSize,
+                                                )
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ReviewSection.CarryForward -> if (uiState.carryForwardSuggestions.isNotEmpty()) {
+                        item(key = "carry_heading") {
+                            SectionHeading(
+                                stringResource(R.string.review_carry_title),
+                                stringResource(R.string.review_carry_subtitle),
+                            )
+                        }
+                        items(uiState.carryForwardSuggestions, key = { "carry_${it.item.key}" }) { suggestion ->
+                            CarryForwardDecisionCard(
+                                suggestion = suggestion,
+                                onOpen = { onReviewItemSelected(suggestion.item) },
+                                onTomorrow = { onCarryForwardTomorrow(suggestion.item) },
+                                onChooseDate = { epochDay -> onCarryForwardToDate(suggestion.item, epochDay) },
+                                onKeepUnscheduled = { onKeepCarryForwardUnscheduled(suggestion.item) },
+                                onMarkComplete = { onCompleteCarryForward(suggestion.item) },
+                            )
+                        }
+                    }
+
+                    ReviewSection.WeeklyLookBack -> {
+                        item(key = "weekly_entry") {
+                            WeeklyLookBackEntry(
+                                expanded = weeklyExpanded,
+                                suggested = reviewContext.weeklyReviewAvailable,
+                                onToggle = { weeklyExpanded = !weeklyExpanded },
+                            )
+                        }
+                        if (weeklyExpanded) {
+                            item(key = "weekly_pager") { WeeklyReviewPager(uiState, onWeeklyLookBackVisible) }
+                        }
+                    }
+                }
+            }
+
+            item(key = "open_loops_action") {
+                OpenLoopsAction(
+                    expanded = showOpenLoops,
+                    onClick = { showOpenLoops = !showOpenLoops },
+                )
+            }
+            if (showOpenLoops) {
+                openLoopsWorkflow(
+                    uiState = uiState,
+                    onKeepTaskActive = onKeepTaskActive,
+                    onConfirmCapture = onConfirmCapture,
+                    onArchive = onArchive,
+                    onCompleteTask = onCompleteTask,
+                    onDeferTask = onDeferTask,
+                    onDismissCapture = onDismissCapture,
+                    onMakeSmaller = onMakeSmaller,
+                    showAll = showAllOpenLoops,
+                    onShowAllChanged = { showAllOpenLoops = it },
+                )
+            }
+            supportingReviewSections(
+                uiState = uiState,
+                onReviewItemSelected = onReviewItemSelected,
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .onSizeChanged { headerHeightPx = it.height }
+                .padding(
+                    start = 24.dp,
+                    top = statusBarTopPadding + 26.dp,
+                    end = 24.dp,
+                ),
+        ) {
             Text(
-                text = "Review",
+                text = reviewTitle,
+                modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(
-                text = "A quiet check-in. Nothing here is a score.",
-                modifier = Modifier.padding(top = 6.dp, bottom = 14.dp),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            ReviewModeSelector(mode = mode, onModeSelected = { mode = it })
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(
+                    start = 16.dp,
+                    top = 16.dp,
+                    end = 16.dp,
+                    bottom = navigationBottomPadding + OrbitBottomNavigationDefaults.ContentClearance,
+                ),
+        )
+        sortHost(snackbarHostState)
+    }
+}
 
-        when (mode) {
-            ReviewMode.Morning -> morningScan(uiState, timeFormat, onReminderSelected)
-            ReviewMode.Evening -> eveningSweep(uiState, onReminderSelected)
-            ReviewMode.Weekly -> weeklyReview(uiState)
-            ReviewMode.Reset -> resetMode(
-                uiState = uiState,
-                onKeepTaskActive = onKeepTaskActive,
-                onConfirmCapture = onConfirmCapture,
-                onArchive = onArchive,
-                onCompleteTask = onCompleteTask,
-                onDeferTask = onDeferTask,
-                onDismissCapture = onDismissCapture,
-                onMakeSmaller = onMakeSmaller,
-            )
-        }
+private fun SortUndoToken.messageRes(): Int = when (this) {
+    is SortUndoToken.Accepted -> itemType.sortedMessageRes()
+    is SortUndoToken.LetGo -> R.string.review_sort_let_go
+    is SortUndoToken.Hidden -> R.string.review_sort_hidden
+}
 
-        if (uiState.staleLoops.isNotEmpty()) item {
-            SectionHeading(
-                title = "Stale loops",
-                subtitle = "Quiet for ${uiState.staleLoopDays} days or more",
+private fun ReviewSortMessage.messageRes(): Int = when (this) {
+    ReviewSortMessage.ActionFailed -> R.string.review_sort_failed
+    ReviewSortMessage.NeedsChoice -> R.string.review_sort_needs_choice
+    ReviewSortMessage.Undone -> R.string.core_sort_undone
+}
+
+@Composable
+private fun rememberReviewContext() = produceState(
+    initialValue = ReviewSchedule.resolve(LocalDateTime.now()),
+) {
+    while (true) {
+        val now = LocalDateTime.now()
+        value = ReviewSchedule.resolve(now)
+        delay(reviewContextRefreshDelayMillis(now))
+    }
+}
+
+internal fun reviewContextRefreshDelayMillis(now: LocalDateTime): Long {
+    val nextBoundary = when {
+        now.hour < ReviewSchedule.MIDDAY_START_HOUR ->
+            now.withHour(ReviewSchedule.MIDDAY_START_HOUR).withMinute(0).withSecond(0).withNano(0)
+        now.hour < ReviewSchedule.EVENING_START_HOUR ->
+            now.withHour(ReviewSchedule.EVENING_START_HOUR).withMinute(0).withSecond(0).withNano(0)
+        else -> now.plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0)
+    }
+    return java.time.Duration.between(now, nextBoundary).toMillis().coerceAtLeast(1L)
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun CarryForwardDecisionCard(
+    suggestion: CarryForwardSuggestion,
+    onOpen: () -> Unit,
+    onTomorrow: () -> Unit,
+    onChooseDate: (Long) -> Unit,
+    onKeepUnscheduled: () -> Unit,
+    onMarkComplete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val zoneId = ZoneId.systemDefault()
+    val initialDate = Instant.ofEpochMilli(suggestion.item.timestamp)
+        .atZone(zoneId)
+        .toLocalDate()
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        ReviewItemRow(
+            item = suggestion.item,
+            badge = stringResource(suggestion.guidance.labelRes()),
+            onClick = onOpen,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            AssistChip(
+                onClick = onTomorrow,
+                label = { Text(stringResource(R.string.core_tomorrow)) },
             )
-        }
-        if (uiState.staleLoops.isNotEmpty()) {
-            items(uiState.staleLoops, key = { "stale_${it.key}" }) { loop ->
-                LoopRow(
-                    loop = loop,
-                    badge = "Needs review: no update for ${uiState.staleLoopDays} days.",
+            AssistChip(
+                onClick = {
+                    showCarryForwardDatePicker(context, initialDate, onChooseDate)
+                },
+                label = { Text(stringResource(R.string.core_choose_date)) },
+            )
+            if (suggestion.item.type == ReviewItemType.Task) {
+                AssistChip(
+                    onClick = onKeepUnscheduled,
+                    label = { Text(stringResource(R.string.core_review_keep_unscheduled)) },
                 )
             }
-        }
-
-        if (uiState.waitingFor.isNotEmpty()) item {
-            SectionHeading(
-                title = "Waiting for",
-                subtitle = "Deferred tasks waiting on an external response",
+            AssistChip(
+                onClick = onMarkComplete,
+                label = { Text(stringResource(R.string.core_mark_complete)) },
+                leadingIcon = { Icon(Icons.Rounded.CheckCircle, contentDescription = null) },
             )
-        }
-        if (uiState.waitingFor.isNotEmpty()) {
-            items(uiState.waitingFor, key = { "waiting_${it.key}" }) { item ->
-                ReviewItemRow(item = item, badge = "Waiting for")
-            }
-        }
-
-        if (uiState.someday.isNotEmpty()) item {
-            SectionHeading(
-                title = "Someday",
-                subtitle = "Quiet ideas, not urgent tasks",
-            )
-        }
-        if (uiState.someday.isNotEmpty()) {
-            items(uiState.someday, key = { "someday_${it.key}" }) { item ->
-                ReviewItemRow(item = item, badge = "Someday")
-            }
         }
     }
 }
 
-internal fun reviewBackdropAlpha(hasCustomBackground: Boolean, isDark: Boolean): Float = when {
-    hasCustomBackground -> 0.96f
-    isDark -> 0.78f
-    else -> 0.74f
-}
-
-private fun androidx.compose.foundation.lazy.LazyListScope.weeklyReview(
-    uiState: ReviewUiState,
+private fun showCarryForwardDatePicker(
+    context: android.content.Context,
+    initialDate: LocalDate,
+    onSelected: (Long) -> Unit,
 ) {
-    item {
-        ReviewSummaryCard(
-            title = "Weekly review",
-            text = buildList {
-                val sourceCount = uiState.weeklySummary?.sourceItemIds?.size ?: 0
-                add("$sourceCount local sources")
-                if (uiState.staleLoops.isNotEmpty()) add("${uiState.staleLoops.size} stale loops")
-            }.joinToString(" · "),
-            reviewState = reviewProgressLabel(uiState.staleLoops.size),
-        )
-    }
-    item {
-        SectionHeading("Weekly review", "A short sourced summary from local items")
-    }
-    item {
-        SmallActionCard(
-            title = if (uiState.weeklySummary?.fromGemini == true) {
-                "Gemini weekly summary"
-            } else {
-                "Local weekly summary"
-            },
-            suggestion = uiState.weeklySummary?.let {
-                TinyActionSuggestion(
-                    sourceKey = "weekly",
-                    sourceTitle = it.sourceItems.joinToString { source -> source.userVisibleLabel() },
-                    action = it.answer,
-                    sourceLabel = if (it.fromGemini) "Sources validated" else "Local sources",
-                )
-            },
-        )
-    }
-    uiState.weeklySummary?.sourceItems?.takeIf { it.isNotEmpty() }?.let { sources ->
-        item {
-            SourceList(title = "Sources", sources = sources)
-        }
-    }
+    DatePickerDialog(
+        context,
+        { _, year, month, day ->
+            onSelected(LocalDate.of(year, month + 1, day).toEpochDay())
+        },
+        initialDate.year,
+        initialDate.monthValue - 1,
+        initialDate.dayOfMonth,
+    ).show()
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.morningScan(
-    uiState: ReviewUiState,
-    timeFormat: OrbitTimeFormat,
-    onReminderSelected: (Long) -> Unit,
-) {
-    item {
-        ReviewSummaryCard(
-            title = "Morning review",
-            text = buildList {
-                add("${uiState.dueToday.size} due")
-                add("${uiState.recentInboxCaptures.size} recent captures")
-                if (uiState.waitingFor.isNotEmpty()) add("${uiState.waitingFor.size} waiting")
-            }.joinToString(" · "),
-            reviewState = reviewProgressLabel(uiState.unresolvedCaptures.size),
-        )
-    }
-    item {
-        SectionHeading("Morning scan", "See the shape of today, then begin gently")
-    }
-    if (uiState.dueToday.isNotEmpty()) {
-        item { Subheading("Due today") }
-        items(uiState.dueToday, key = { "due_${it.key}" }) { item ->
-            ReviewItemRow(
-                item = item,
-                badge = timeFormat.formatTime(item.timestamp),
-                onClick = item.takeIf { it.type == ReviewItemType.Reminder }
-                    ?.let { { onReminderSelected(it.id) } },
-            )
-        }
-    }
-    if (uiState.recentInboxCaptures.isNotEmpty()) {
-        item { Subheading("Recent inbox captures") }
-        items(uiState.recentInboxCaptures, key = { "recent_${it.key}" }) { item ->
-            ReviewItemRow(item = item, badge = item.reviewReason)
-        }
-    }
-    if (uiState.morningSuggestion != null) item {
-        SmallActionCard(
-            title = "One small place to start",
-            suggestion = uiState.morningSuggestion,
-        )
-    }
-}
-
-private fun androidx.compose.foundation.lazy.LazyListScope.eveningSweep(
-    uiState: ReviewUiState,
-    onReminderSelected: (Long) -> Unit,
-) {
-    item {
-        ReviewSummaryCard(
-            title = "Evening review",
-            text = buildList {
-                add("${uiState.unresolvedCaptures.size} unresolved captures")
-                add("${uiState.completedToday.size} done today")
-                add("${uiState.carryForwardSuggestions.size} to carry forward")
-            }.joinToString(" · "),
-            reviewState = reviewProgressLabel(
-                uiState.unresolvedCaptures.size + uiState.carryForwardSuggestions.size,
-            ),
-        )
-    }
-    item {
-        SectionHeading("Evening review", "Close what you can; carry the rest without pressure")
-    }
-    if (uiState.unresolvedCaptures.isNotEmpty()) {
-        item { Subheading("Unresolved captures") }
-        items(uiState.unresolvedCaptures, key = { "unresolved_${it.key}" }) { item ->
-            ReviewItemRow(item = item, badge = item.reviewReason)
-        }
-    }
-    if (uiState.completedToday.isNotEmpty()) {
-        item { Subheading("Done today") }
-        items(uiState.completedToday, key = { "completed_${it.key}" }) { item ->
-            ReviewItemRow(item = item, badge = "Done today")
-        }
-    }
-    if (uiState.carryForwardSuggestions.isNotEmpty()) {
-        item { Subheading("Carry forward") }
-        items(
-            uiState.carryForwardSuggestions,
-            key = { "carry_${it.item.key}" },
-        ) { suggestion ->
-            ReviewItemRow(
-                item = suggestion.item,
-                badge = suggestion.suggestion,
-                onClick = suggestion.item.takeIf { it.type == ReviewItemType.Reminder }
-                    ?.let { { onReminderSelected(it.id) } },
-            )
-        }
-    }
-}
-
-private fun androidx.compose.foundation.lazy.LazyListScope.resetMode(
+private fun androidx.compose.foundation.lazy.LazyListScope.openLoopsWorkflow(
     uiState: ReviewUiState,
     onKeepTaskActive: (ReviewLoop) -> Unit,
     onConfirmCapture: (ReviewLoop) -> Unit,
@@ -325,14 +516,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.resetMode(
     onDeferTask: (ReviewLoop) -> Unit,
     onDismissCapture: (ReviewLoop) -> Unit,
     onMakeSmaller: (ReviewLoop) -> Unit,
+    showAll: Boolean,
+    onShowAllChanged: (Boolean) -> Unit,
 ) {
     item {
-        SectionHeading("Reset mode", "Give each open loop a kind, deliberate decision")
+        SectionHeading(
+            stringResource(R.string.core_review_open_loops),
+            stringResource(R.string.core_review_open_loops_subtitle),
+        )
     }
     if (uiState.openLoops.isEmpty()) {
-        item { EmptyMessage("No open loops need a decision.") }
+        item { EmptyMessage(stringResource(R.string.core_review_no_open_loops)) }
     } else {
-        items(uiState.openLoops.take(3), key = { "reset_${it.key}" }) { loop ->
+        items(if (showAll) uiState.openLoops else uiState.openLoops.take(3), key = { "reset_${it.key}" }) { loop ->
             ResetLoopCard(
                 loop = loop,
                 smallerAction = uiState.smallerAction?.takeIf { it.sourceKey == loop.key },
@@ -343,57 +539,139 @@ private fun androidx.compose.foundation.lazy.LazyListScope.resetMode(
                 onDeferTask = { onDeferTask(loop) },
                 onDismissCapture = { onDismissCapture(loop) },
                 onMakeSmaller = { onMakeSmaller(loop) },
+                modifier = Modifier.animateItem(
+                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                ),
             )
         }
         if (uiState.openLoops.size > 3) {
-            item { EmptyMessage("${uiState.openLoops.size - 3} more will wait for the next small pass.") }
+            item {
+                FilledTonalButton(
+                    onClick = { onShowAllChanged(!showAll) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(if (showAll) R.string.core_review_show_fewer_open_loops else R.string.core_review_show_all_open_loops))
+                }
+            }
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ReviewModeSelector(
-    mode: ReviewMode,
-    onModeSelected: (ReviewMode) -> Unit,
+private fun androidx.compose.foundation.lazy.LazyListScope.supportingReviewSections(
+    uiState: ReviewUiState,
+    onReviewItemSelected: (ReviewItem) -> Unit,
 ) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        ReviewMode.entries.forEach { option ->
-            FilterChip(
-                selected = mode == option,
-                onClick = { onModeSelected(option) },
-                label = { Text(option.label, maxLines = 1) },
-                leadingIcon = {
-                    Icon(
-                        option.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-                colors = reviewModeChipColors(),
+    if (uiState.staleLoops.isNotEmpty()) {
+        item {
+            SectionHeading(
+                title = stringResource(R.string.core_review_stale_loops),
+                subtitle = pluralStringResource(
+                    R.plurals.core_review_quiet_days_or_more,
+                    uiState.staleLoopDays,
+                    uiState.staleLoopDays,
+                ),
+            )
+        }
+        items(uiState.staleLoops, key = { "stale_${it.key}" }) { loop ->
+            LoopRow(
+                loop = loop,
+                badge = pluralStringResource(
+                    R.plurals.core_review_no_update_days,
+                    uiState.staleLoopDays,
+                    uiState.staleLoopDays,
+                ),
+                onClick = onReviewItemSelected,
+                modifier = Modifier.animateItem(
+                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                ),
+            )
+        }
+    }
+
+    if (uiState.waitingFor.isNotEmpty()) {
+        item {
+            SectionHeading(
+                title = stringResource(R.string.core_waiting_for),
+                subtitle = stringResource(R.string.core_review_waiting_for_subtitle),
+            )
+        }
+        items(uiState.waitingFor, key = { "waiting_${it.key}" }) { item ->
+            ReviewItemRow(
+                item = item,
+                badge = stringResource(R.string.core_waiting_for),
+                onClick = reviewRowClick(item, onReviewItemSelected),
+                modifier = Modifier.animateItem(
+                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                ),
+            )
+        }
+    }
+
+    if (uiState.someday.isNotEmpty()) {
+        item {
+            SectionHeading(
+                title = stringResource(R.string.core_someday),
+                subtitle = stringResource(R.string.core_review_someday_subtitle),
+            )
+        }
+        items(uiState.someday, key = { "someday_${it.key}" }) { item ->
+            ReviewItemRow(
+                item = item,
+                badge = stringResource(R.string.core_someday),
+                onClick = reviewRowClick(item, onReviewItemSelected),
+                modifier = Modifier.animateItem(
+                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
+                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
+                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
+                ),
             )
         }
     }
 }
 
 @Composable
-private fun reviewModeChipColors() = FilterChipDefaults.filterChipColors(
-    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.24f),
-    labelColor = MaterialTheme.colorScheme.onSurface,
-    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-)
+private fun OpenLoopsAction(
+    expanded: Boolean,
+    onClick: () -> Unit,
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    ) {
+        Icon(
+            Icons.Rounded.Refresh,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = stringResource(
+                if (expanded) {
+                    R.string.core_review_close_open_loops
+                } else {
+                    R.string.core_review_sort_open_loops
+                },
+            ),
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
+}
 
 @Composable
-private fun SectionHeading(title: String, subtitle: String) {
+internal fun SectionHeading(title: String, subtitle: String) {
     Column(modifier = Modifier.padding(top = 14.dp, bottom = 2.dp)) {
         Text(
             text = title,
+            modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
         )
@@ -410,7 +688,9 @@ private fun SectionHeading(title: String, subtitle: String) {
 private fun Subheading(title: String) {
     Text(
         text = title,
-        modifier = Modifier.padding(top = 8.dp),
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .semantics { heading() },
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -418,7 +698,7 @@ private fun Subheading(title: String) {
 }
 
 @Composable
-private fun EmptyMessage(text: String) {
+internal fun EmptyMessage(text: String) {
     Text(
         text = text,
         modifier = Modifier.padding(vertical = 7.dp),
@@ -439,6 +719,7 @@ private fun ReviewSummaryCard(title: String, text: String, reviewState: String) 
         ) {
             Text(
                 text = title,
+                modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -457,13 +738,16 @@ private fun ReviewSummaryCard(title: String, text: String, reviewState: String) 
 }
 
 @Composable
-private fun ReviewItemRow(
+internal fun ReviewItemRow(
     item: ReviewItem,
-    badge: String? = item.supportingText,
-    onClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+    badge: String?,
+    modifier: Modifier = Modifier,
 ) {
     SoftGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { role = Role.Button },
         shape = MaterialTheme.shapes.large,
         onClick = onClick,
     ) {
@@ -490,27 +774,35 @@ private fun ReviewItemRow(
 }
 
 @Composable
-private fun LoopRow(loop: ReviewLoop, badge: String) {
+private fun LoopRow(
+    loop: ReviewLoop,
+    badge: String,
+    onClick: (ReviewItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val item = ReviewItem(
+        id = loop.id,
+        type = if (loop.type == ReviewLoopType.Task) {
+            ReviewItemType.Task
+        } else {
+            ReviewItemType.Capture
+        },
+        title = loop.title,
+        timestamp = loop.updatedAt,
+    )
     ReviewItemRow(
-        item = ReviewItem(
-            id = loop.id,
-            type = if (loop.type == ReviewLoopType.Task) {
-                ReviewItemType.Task
-            } else {
-                ReviewItemType.Capture
-            },
-            title = loop.title,
-            timestamp = loop.updatedAt,
-        ),
+        item = item,
         badge = badge,
+        onClick = reviewRowClick(item, onClick),
+        modifier = modifier,
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ResetLoopCard(
+@OptIn(ExperimentalMaterial3Api::class)
+internal fun ResetLoopCard(
     loop: ReviewLoop,
-    smallerAction: TinyActionSuggestion?,
+    smallerAction: ReviewSuggestion?,
     onKeepTaskActive: () -> Unit,
     onConfirmCapture: () -> Unit,
     onArchive: () -> Unit,
@@ -518,9 +810,28 @@ private fun ResetLoopCard(
     onDeferTask: () -> Unit,
     onDismissCapture: () -> Unit,
     onMakeSmaller: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val actionPlan = reviewLoopActionPlan(loop)
+    val moreActionsTitle = stringResource(R.string.core_review_more_actions)
+    var showMoreActions by rememberSaveable(loop.key) { mutableStateOf(false) }
+
+    fun perform(action: ReviewLoopAction) {
+        showMoreActions = false
+        when (action) {
+            ReviewLoopAction.KeepActive -> onKeepTaskActive()
+            ReviewLoopAction.ConfirmCapture,
+            ReviewLoopAction.ResumeBrainDump -> onConfirmCapture()
+            ReviewLoopAction.CompleteTask -> onCompleteTask()
+            ReviewLoopAction.DeferTask -> onDeferTask()
+            ReviewLoopAction.DismissCapture -> onDismissCapture()
+            ReviewLoopAction.MakeSmaller -> onMakeSmaller()
+            ReviewLoopAction.Archive -> onArchive()
+        }
+    }
+
     SoftGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
     ) {
         Column(modifier = Modifier.padding(17.dp)) {
@@ -530,20 +841,20 @@ private fun ResetLoopCard(
                 fontWeight = FontWeight.Medium,
             )
             Text(
-                text = loop.reviewReason(),
+                text = stringResource(loop.reviewReasonRes()),
                 modifier = Modifier.padding(top = 4.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = loop.actionExplanation(),
+                text = stringResource(loop.actionExplanationRes()),
                 modifier = Modifier.padding(top = 4.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             smallerAction?.let {
                 Text(
-                    text = it.sourceLabel,
+                    text = stringResource(it.source.labelRes()),
                     modifier = Modifier.padding(top = 10.dp),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -555,54 +866,46 @@ private fun ResetLoopCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            FlowRow(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+            FilledTonalButton(
+                onClick = { perform(actionPlan.primary) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
             ) {
-                if (loop.type == ReviewLoopType.Task) {
-                    AssistChip(onClick = onKeepTaskActive, label = { Text("Keep active") })
-                    AssistChip(
-                        onClick = onCompleteTask,
-                        label = { Text("Mark task done") },
-                        leadingIcon = {
-                            Icon(Icons.Rounded.CheckCircle, contentDescription = null)
-                        },
-                    )
-                    AssistChip(
-                        onClick = onDeferTask,
-                        label = { Text("Defer to Someday") },
-                        leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
-                    )
-                } else {
-                    AssistChip(
-                        onClick = onConfirmCapture,
-                        label = { Text("Confirm as Someday task") },
-                        leadingIcon = {
-                            Icon(Icons.Rounded.CheckCircle, contentDescription = null)
-                        },
-                    )
-                    AssistChip(onClick = onDismissCapture, label = { Text("Dismiss capture") })
-                }
-                AssistChip(
-                    onClick = onArchive,
-                    label = {
-                        Text(
-                            if (loop.type == ReviewLoopType.Task) {
-                                "Archive task"
-                            } else {
-                                "Archive source"
-                            },
-                        )
-                    },
-                    leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
-                )
-                AssistChip(
-                    onClick = onMakeSmaller,
-                    label = { Text("Make smaller") },
-                    leadingIcon = { Icon(Icons.Rounded.Spa, contentDescription = null) },
-                )
+                Text(stringResource(actionPlan.primary.labelRes(loop)))
             }
+            AssistChip(
+                onClick = { showMoreActions = true },
+                modifier = Modifier.padding(top = 8.dp),
+                label = { Text(moreActionsTitle) },
+            )
+        }
+    }
+
+    if (showMoreActions) {
+        LumaModalBottomSheet(
+            onDismissRequest = { showMoreActions = false },
+            modifier = Modifier.semantics { paneTitle = moreActionsTitle },
+        ) {
+            Text(
+                text = moreActionsTitle,
+                modifier = Modifier
+                    .padding(start = 24.dp, top = 20.dp, end = 24.dp)
+                    .semantics { heading() },
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            actionPlan.more.forEach { action ->
+                FilledTonalButton(
+                    onClick = { perform(action) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, top = 12.dp, end = 16.dp),
+                ) {
+                    Text(stringResource(action.labelRes(loop)))
+                }
+            }
+            Box(Modifier.height(20.dp))
         }
     }
 }
@@ -610,9 +913,9 @@ private fun ResetLoopCard(
 @Composable
 private fun SmallActionCard(
     title: String,
-    suggestion: TinyActionSuggestion?,
+    suggestion: ReviewSuggestion?,
 ) {
-    GlassSurface(
+    SoftGlassSurface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 7.dp),
@@ -635,7 +938,7 @@ private fun SmallActionCard(
             )
             suggestion?.let {
                 Text(
-                    text = it.sourceLabel,
+                    text = stringResource(it.source.labelRes()),
                     modifier = Modifier.padding(top = 5.dp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -648,41 +951,77 @@ private fun SmallActionCard(
 }
 
 @Composable
-private fun SourceList(title: String, sources: List<AiSourceItem>) {
-    Column(
-        modifier = Modifier.padding(vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        sources.forEach { source ->
-            Text(
-                text = source.userVisibleLabel(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+private fun reviewProgressLabel(pendingCount: Int): String = if (pendingCount == 0) {
+    stringResource(R.string.core_review_clear)
+} else {
+    pluralStringResource(
+        R.plurals.core_review_pending_decisions,
+        pendingCount,
+        pendingCount,
+    )
+}
+
+@StringRes
+private fun ReviewLoop.reviewReasonRes(): Int = when (type) {
+    ReviewLoopType.Task -> R.string.core_review_reason_open_task
+    ReviewLoopType.Capture -> if (hasPendingBrainDump) {
+        R.string.core_review_reason_brain_dump
+    } else {
+        R.string.core_review_reason_unfinalized_capture
     }
 }
 
-internal fun reviewProgressLabel(pendingCount: Int): String = when (pendingCount) {
-    0 -> "Review clear"
-    1 -> "1 item still needs a review decision"
-    else -> "$pendingCount items still need a review decision"
+@StringRes
+private fun ReviewLoop.actionExplanationRes(): Int = when (type) {
+    ReviewLoopType.Task -> R.string.core_review_task_action_explanation
+
+    ReviewLoopType.Capture -> if (hasPendingBrainDump) {
+        R.string.core_review_brain_dump_action_explanation
+    } else {
+        R.string.core_review_capture_action_explanation
+    }
 }
 
-private fun ReviewLoop.reviewReason(): String = when (type) {
-    ReviewLoopType.Task -> "Needs review because this task is still open."
-    ReviewLoopType.Capture -> "Needs review because this capture is not finalized or dismissed."
+@StringRes
+private fun ReviewLoopAction.labelRes(loop: ReviewLoop): Int = when (this) {
+    ReviewLoopAction.KeepActive -> R.string.core_review_keep_active
+    ReviewLoopAction.ConfirmCapture -> R.string.core_review_confirm_as_someday
+    ReviewLoopAction.ResumeBrainDump -> R.string.core_review_resume_brain_dump
+    ReviewLoopAction.CompleteTask -> R.string.core_review_mark_task_done
+    ReviewLoopAction.DeferTask -> R.string.core_review_defer_to_someday
+    ReviewLoopAction.DismissCapture -> R.string.core_review_dismiss_capture
+    ReviewLoopAction.MakeSmaller -> R.string.core_review_make_smaller
+    ReviewLoopAction.Archive -> if (loop.type == ReviewLoopType.Task) {
+        R.string.core_review_archive_task
+    } else {
+        R.string.core_review_archive_source
+    }
 }
 
-private fun ReviewLoop.actionExplanation(): String = when (type) {
-    ReviewLoopType.Task ->
-        "Keep active leaves it open; Someday defers it; Done completes it; Archive hides it."
+@StringRes
+private fun ReviewTaskMutationAction.undoMessageRes(): Int = when (this) {
+    ReviewTaskMutationAction.Completed -> R.string.core_review_task_completed
+    ReviewTaskMutationAction.Deferred -> R.string.core_review_task_deferred
+    ReviewTaskMutationAction.Archived -> R.string.core_review_task_archived
+}
 
-    ReviewLoopType.Capture ->
-        "Confirm creates one task; Dismiss creates no item; Archive stores the source away."
+@StringRes
+private fun ReviewReason.labelRes(): Int = when (this) {
+    ReviewReason.UnfinalizedCapture -> R.string.core_review_reason_unfinalized_capture
+}
+
+@StringRes
+private fun CarryForwardGuidance.labelRes(): Int = when (this) {
+    CarryForwardGuidance.ChooseNewDayOrSmallerStep ->
+        R.string.core_review_choose_day_or_smaller
+
+    CarryForwardGuidance.RescheduleIfRelevant ->
+        R.string.core_review_reschedule_if_relevant
+}
+
+@StringRes
+private fun ReviewSuggestionSource.labelRes(): Int = when (this) {
+    ReviewSuggestionSource.Gemini -> R.string.core_review_suggested_by_gemini
+    ReviewSuggestionSource.Local -> R.string.core_review_local_suggestion
+    ReviewSuggestionSource.LocalFallback -> R.string.core_review_local_fallback
 }

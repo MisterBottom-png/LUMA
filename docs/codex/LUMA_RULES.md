@@ -39,6 +39,15 @@ It helps the user capture messy life input, clarify it, remember it, and act on 
 - Prefer small safe changes.
 - Run validation after meaningful code changes.
 
+## Settings-menu design law
+
+- Use `LUMA_DESIGN_LANGUAGE.md` only for Settings menu hierarchy, grouped lists, and the definition of done for Settings additions. It does not prescribe layouts for Home, Review, Spaces, Calendar, Search, item details, or Situation AI.
+- Treat the Appearance settings index as the Settings reference: clear title/subtitle hierarchy, one coherent rounded group, consistent rows, and secondary actions outside the group.
+- Reuse existing Settings typography, spacing, shape, color, surface, and motion roles before creating a new one.
+- Add controls to an existing Settings group only when they share its purpose; otherwise use a focused submenu or a clearly separate Settings section.
+- Do not copy the Settings menu pattern into unrelated app screens. Extract a shared Settings component only when the same pattern is genuinely needed in more than one Settings menu.
+- A Settings addition is incomplete until obsolete duplicates are removed with evidence and the affected hierarchy, accessibility, themes, Back behavior, insets, and scrolling are checked.
+
 ## Home rules
 
 Allowed on Home:

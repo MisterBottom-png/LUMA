@@ -19,7 +19,6 @@ data class CalendarMonthCell(
     val date: LocalDate,
     val isInVisibleMonth: Boolean,
     val isToday: Boolean,
-    val isSelected: Boolean,
     val hasItems: Boolean,
 )
 
@@ -29,9 +28,15 @@ data class CalendarMonthGrid(
     val weeks: List<List<CalendarMonthCell>>,
 )
 
+data class CalendarMonthCellAccessibilityLabels(
+    val today: String,
+    val outsideCurrentMonth: String,
+    val hasScheduledItems: String,
+    val separator: String,
+)
+
 fun buildCalendarMonthGrid(
     visibleMonth: YearMonth,
-    selectedDate: LocalDate,
     today: LocalDate,
     datesWithItems: Set<LocalDate>,
     locale: Locale,
@@ -48,7 +53,6 @@ fun buildCalendarMonthGrid(
             date = date,
             isInVisibleMonth = YearMonth.from(date) == visibleMonth,
             isToday = date == today,
-            isSelected = date == selectedDate,
             hasItems = date in datesWithItems,
         )
     }
@@ -67,13 +71,25 @@ fun buildCalendarMonthGrid(
     )
 }
 
-fun calendarMonthCellContentDescription(cell: CalendarMonthCell, locale: Locale): String = buildList {
-    if (cell.isToday) add("Today")
+fun calendarMonthCellContentDescription(
+    cell: CalendarMonthCell,
+    locale: Locale,
+    labels: CalendarMonthCellAccessibilityLabels,
+): String = buildList {
+    if (cell.isToday) add(labels.today)
     add(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale).format(cell.date))
-    if (cell.isSelected) add("selected")
-    if (!cell.isInVisibleMonth) add("outside current month")
-    if (cell.hasItems) add("has scheduled items")
-}.joinToString(", ")
+    if (!cell.isInVisibleMonth) add(labels.outsideCurrentMonth)
+    if (cell.hasItems) add(labels.hasScheduledItems)
+}.joinToString(labels.separator)
+
+enum class CalendarDatePillState { None, Today, Pressed, TodayPressed }
+
+fun resolveCalendarDatePillState(isToday: Boolean, isPressed: Boolean): CalendarDatePillState = when {
+    isToday && isPressed -> CalendarDatePillState.TodayPressed
+    isToday -> CalendarDatePillState.Today
+    isPressed -> CalendarDatePillState.Pressed
+    else -> CalendarDatePillState.None
+}
 
 private fun daysFrom(first: DayOfWeek, target: DayOfWeek): Int =
     (DaysPerWeek + target.value - first.value) % DaysPerWeek

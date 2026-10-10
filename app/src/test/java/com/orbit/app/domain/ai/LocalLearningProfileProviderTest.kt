@@ -22,6 +22,24 @@ import org.junit.Test
 
 class LocalLearningProfileProviderTest {
     @Test
+    fun disabledLearningReturnsNoProfile() = runBlocking {
+        val provider = provider(
+            rules = listOf(
+                LearnedRuleEntity(
+                    id = 1,
+                    title = "Local rule",
+                    ruleText = "local rule should stay private",
+                    category = LearnedRuleCategory.Other,
+                    enabled = true,
+                ),
+            ),
+            isLearningEnabled = false,
+        )
+
+        assertTrue(provider.profileFor("local rule").isEmpty())
+    }
+
+    @Test
     fun profileUsesEnabledRelevantRulesAndSkipsDisabledRules() = runBlocking {
         val provider = provider(
             rules = listOf(
@@ -44,7 +62,7 @@ class LocalLearningProfileProviderTest {
             ),
         )
 
-        val profile = provider.profileFor("Ask manager about Monday board")
+        val profile = provider.profileFor("Ask manager about work board")
 
         assertTrue(profile.contains("manager usually maps to Work"))
         assertFalse(profile.contains("money worries"))
@@ -98,6 +116,7 @@ class LocalLearningProfileProviderTest {
         spaces: List<SpaceEntity> = emptyList(),
         aliases: List<SpaceAliasMemoryEntity> = emptyList(),
         corrections: List<AiCorrectionHistoryEntity> = emptyList(),
+        isLearningEnabled: Boolean = true,
     ) = LocalLearningProfileProvider(
         learnedRuleRepository = FakeLearnedRuleRepository(rules),
         personMemoryRepository = FakePersonMemoryRepository(people),
@@ -105,6 +124,7 @@ class LocalLearningProfileProviderTest {
         spaceRepository = FakeSpaceRepository(spaces),
         spaceAliasMemoryRepository = FakeSpaceAliasMemoryRepository(aliases),
         correctionHistoryRepository = FakeCorrectionHistoryRepository(corrections),
+        isLearningEnabled = { isLearningEnabled },
     )
 
     private class FakeLearnedRuleRepository(

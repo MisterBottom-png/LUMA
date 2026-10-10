@@ -144,7 +144,7 @@ class LocalSearchTest {
             ),
         )
 
-        assertEquals("Someday", results.single().status)
+        assertEquals(LocalSearchStatus.Someday, results.single().status)
     }
 
     @Test
@@ -159,5 +159,31 @@ class LocalSearchTest {
 
         assertTrue(search.search(query = "", corpus = corpus).isEmpty())
         assertTrue(search.search(query = "p", corpus = corpus).isEmpty())
+    }
+
+    private fun notes(vararg titles: String) = SearchCorpus(
+        captures = emptyList(),
+        notes = titles.mapIndexed { index, title -> NoteEntity(id = index + 1L, title = title, body = "") },
+        tasks = emptyList(),
+        reminders = emptyList(),
+        spaces = emptyList(),
+    )
+
+    @Test
+    fun unicodeFormsCaseAndYoMatchInEveryLanguage() {
+        val corpus = notes("Cafe\u0301 menüü", "Ёлка на праздник", "ÕUNAD turult")
+
+        assertEquals(listOf(1L), search.search("café", corpus).map { it.id })
+        assertEquals(listOf(1L), search.search("MENÜÜ", corpus).map { it.id })
+        assertEquals(listOf(2L), search.search("елка", corpus).map { it.id })
+        assertEquals(listOf(3L), search.search("õunad", corpus).map { it.id })
+    }
+
+    @Test
+    fun everyWordMustAppear_inAnyOrder_ignoringPunctuation() {
+        val corpus = notes("Call the dentist about «Tuesday»", "Call mum")
+
+        assertEquals(listOf(1L), search.search("tuesday, dentist", corpus).map { it.id })
+        assertTrue(search.search("dentist friday", corpus).isEmpty())
     }
 }

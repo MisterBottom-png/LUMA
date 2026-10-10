@@ -1,11 +1,18 @@
 package com.orbit.app.data.export
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.BrainDumpItemEntity
+import com.orbit.app.data.local.entity.BrainDumpSessionEntity
+import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.local.entity.CaptureStatus
+import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.NoteEntity
+import com.orbit.app.data.local.entity.NoteLabelCrossRef
 import com.orbit.app.data.local.entity.ReminderEntity
+import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import com.orbit.app.data.local.entity.TaskStatus
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -17,6 +24,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocalDataRestoreTest {
+    @Test
+    fun versionThreeRoundTripPreservesPendingBrainDumpProgress() {
+        val capture = CaptureEntity(id = 1, rawText = "first\nsecond")
+        val snapshot = LocalDataSnapshot(
+            spaces = emptyList(),
+            captures = listOf(capture),
+            notes = emptyList(),
+            tasks = emptyList(),
+            reminders = emptyList(),
+            brainDumpSessions = listOf(BrainDumpSessionEntity(captureId = capture.id, analyzerSource = "Local")),
+            brainDumpItems = listOf(
+                BrainDumpItemEntity(
+                    id = 1,
+                    captureId = capture.id,
+                    sourceKey = "brain:1",
+                    ordinal = 1,
+                    rawText = "first",
+                    suggestedTitle = "First",
+                    suggestedType = SuggestedItemType.Note,
+                    suggestedSpaceName = "Inbox",
+                    confidence = 0.7f,
+                    tinyNextAction = "Keep it small",
+                    reason = "A note is safest.",
+                ),
+            ),
+        )
+
+        assertEquals(snapshot, LocalDataBackupCodec.decode(LocalDataBackupCodec.encode(snapshot, 1L)))
+    }
     @Test
     fun validExportRoundTripPreservesSupportedDataAndRelationships() {
         val original = completeSnapshot()
@@ -38,6 +74,55 @@ class LocalDataRestoreTest {
         assertEquals(45L, decoded.reminders.single().notificationOffsetMinutes)
         assertEquals(2L, decoded.reminders.single().linkedTaskId)
         assertEquals(3L, decoded.reminders.single().linkedCaptureId)
+        assertEquals(original.labels, decoded.labels)
+        assertEquals(original.noteLabels, decoded.noteLabels)
+        assertEquals(original.taskLabels, decoded.taskLabels)
+        assertEquals(original.reminderLabels, decoded.reminderLabels)
+    }
+
+    @Test
+    fun versionThreeExportDefaultsLabelCollectionsToEmpty() {
+        val root = JSONObject(LocalDataBackupCodec.encode(completeSnapshot(), exportedAt = 900L))
+        root.getJSONObject("metadata").put("version", 3)
+        root.remove("labels")
+        root.remove("noteLabels")
+        root.remove("taskLabels")
+        root.remove("reminderLabels")
+
+        val decoded = LocalDataBackupCodec.decode(root.toString())
+
+        assertEquals(emptyList<LabelEntity>(), decoded.labels)
+        assertEquals(emptyList<NoteLabelCrossRef>(), decoded.noteLabels)
+        assertEquals(emptyList<TaskLabelCrossRef>(), decoded.taskLabels)
+        assertEquals(emptyList<ReminderLabelCrossRef>(), decoded.reminderLabels)
+    }
+
+    @Test
+    fun danglingLabelRelationFailsValidation() {
+        val invalid = completeSnapshot().copy(
+            noteLabels = listOf(NoteLabelCrossRef(noteId = 4, labelId = 999)),
+        )
+
+        assertThrows(LocalDataValidationException::class.java) {
+            LocalDataBackupCodec.decode(LocalDataBackupCodec.encode(invalid, exportedAt = 900L))
+        }
+    }
+
+    @Test
+    fun encodingClearsDanglingOptionalCaptureLink() {
+        val capture = CaptureEntity(
+            id = 1,
+            rawText = "Source material",
+            status = CaptureStatus.Processed,
+            linkedItemId = 99,
+        )
+        val snapshot = emptySnapshot().copy(captures = listOf(capture))
+
+        val decoded = LocalDataBackupCodec.decode(
+            LocalDataBackupCodec.encode(snapshot, exportedAt = 1L),
+        )
+
+        assertNull(decoded.captures.single().linkedItemId)
     }
 
     @Test
@@ -59,6 +144,29 @@ class LocalDataRestoreTest {
         }
         assertEquals(0, store.readCount)
         assertEquals(0, store.replaceCount)
+    }
+
+    @Test
+    fun oversizedExportFailsBeforeJsonParsing() {
+        val oversized = "x".repeat(LocalDataBackupCodec.MaximumInputBytes + 1)
+
+        val exception = assertThrows(LocalDataValidationException::class.java) {
+            LocalDataBackupCodec.decode(oversized)
+        }
+
+        assertTrue(exception.message.orEmpty().contains("too large"))
+    }
+
+    @Test
+    fun excessivelyNestedExportFailsBeforeJsonParsing() {
+        val nested = "[".repeat(LocalDataBackupCodec.MaximumStructureDepth + 1) +
+            "]".repeat(LocalDataBackupCodec.MaximumStructureDepth + 1)
+
+        val exception = assertThrows(LocalDataValidationException::class.java) {
+            LocalDataBackupCodec.decode(nested)
+        }
+
+        assertTrue(exception.message.orEmpty().contains("nested too deeply"))
     }
 
     @Test
@@ -387,5 +495,17 @@ private fun completeSnapshot(): LocalDataSnapshot {
                 completedAt = 800,
             ),
         ),
+        labels = listOf(
+            LabelEntity(
+                id = 7,
+                name = "Errand",
+                normalizedName = "errand",
+                createdAt = 650,
+                updatedAt = 650,
+            ),
+        ),
+        noteLabels = listOf(NoteLabelCrossRef(noteId = 4, labelId = 7)),
+        taskLabels = listOf(TaskLabelCrossRef(taskId = 2, labelId = 7)),
+        reminderLabels = listOf(ReminderLabelCrossRef(reminderId = 5, labelId = 7)),
     )
 }
