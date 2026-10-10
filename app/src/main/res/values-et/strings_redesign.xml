@@ -92,8 +92,6 @@
     <string name="home_capture_hint_remind">Proovi: helista homme kell 10 hambaarstile</string>
     <string name="home_capture_hint_dump">Kirjuta kõik välja — Tallele sorteerib hiljem</string>
     <string name="home_capture_hint_small">Ka poolik mõte väärib hoidmist</string>
-    <string name="settings_capture_reminders_title">Kirjapanek ja meeldetuletused</string>
-    <string name="settings_capture_reminders_subtitle">Kuidas salvestamine ja meeldetuletused käituvad</string>
     <string name="settings_sort_right_after_saving">Sorteeri kohe pärast salvestamist</string>
     <string name="settings_sort_right_after_saving_body">Ava Tallele soovitus kohe. Kui see on väljas, ootavad mõtted rahulikult jaotises Ülevaade → Sorteerida.</string>
     <string name="settings_focus_capture">Ava avalehel klaviatuur</string>
@@ -102,11 +100,6 @@
     <string name="settings_reminder_delivery_ready">Meeldetuletused saabuvad õigel ajal.</string>
     <string name="settings_reminder_delivery_may_be_late">Meeldetuletused võivad mõne minuti hilineda. Täpse aja jaoks luba „Äratused ja meeldetuletused”.</string>
     <string name="settings_reminder_delivery_blocked">Märguanded on välja lülitatud, seega meeldetuletused sinuni ei jõua. Sinu meeldetuletused on endiselt salvestatud.</string>
-    <string name="settings_open_notification_settings">Ava märguannete seaded</string>
-    <string name="settings_allow_exact_alarms">Luba täpne ajastus</string>
-    <string name="settings_status_reminders_ready">Õigel ajal</string>
-    <string name="settings_status_reminders_may_be_late">Võivad hilineda</string>
-    <string name="settings_status_reminders_blocked">Märguanded väljas</string>
     <string name="settings_glass_effect">Klaasiefekt</string>
     <string name="settings_glass_effect_strong">Tugev</string>
     <string name="settings_glass_effect_soft">Pehme</string>

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -167,11 +168,12 @@ abstract class ScreenTour(private val theme: String) {
         tapTab("Home")
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick() }
         shot("$prefix-settings")
-        step("system") { compose.onNodeWithText("System", substring = true).performClick() }
-        shot("$prefix-settings-system")
-        back()
-        step("appearance") { compose.onNodeWithText("Appearance", substring = true).performClick() }
-        shot("$prefix-settings-appearance")
+        scrollDown("settings")
+        shot("$prefix-settings-scrolled")
+        scrollDown("settings 2")
+        shot("$prefix-settings-scrolled2")
+        step("background") { compose.onNodeWithText("Background").performScrollTo().performClick(); compose.waitForIdle() }
+        shot("$prefix-settings-background")
         back()
         back()
     }
@@ -190,13 +192,9 @@ abstract class ScreenTour(private val theme: String) {
 
         // The same screens in the violet look (accent + background).
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick() }
-        step("appearance") { compose.onNodeWithText("Appearance", substring = true).performClick() }
-        step("colors") { compose.onNodeWithText("Colors").performClick(); compose.waitForIdle() }
-        step("violet accent") { compose.onAllNodesWithText("Tallele violet", substring = true)[0].performClick() }
-        back()
-        step("background") { compose.onNodeWithText("Background").performClick(); compose.waitForIdle() }
+        step("violet accent") { compose.onNodeWithContentDescription("Tallele violet").performScrollTo().performClick() }
+        step("background") { compose.onNodeWithText("Background").performScrollTo().performClick(); compose.waitForIdle() }
         step("violet mist") { compose.onAllNodesWithText("Violet Mist", substring = true)[0].performClick() }
-        back()
         back()
         back()
         mainScreens("v")

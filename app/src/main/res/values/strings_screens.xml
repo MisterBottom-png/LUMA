@@ -42,6 +42,17 @@
     <string name="review_one_back">Back to Review</string>
     <string name="review_one_done_body">Nothing else is waiting. You can let the rest of the day be.</string>
     <string name="review_one_skipped_body">The thoughts you skipped wait in To sort.</string>
+    <string name="settings_section_reminders">Reminders</string>
+    <string name="settings_section_language_time">Language and time</string>
+    <string name="settings_section_data">Your data</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_turn_on">Turn on</string>
+    <string name="settings_allow">Allow</string>
+    <string name="settings_add_name">Add your name</string>
+    <string name="settings_backup_title">Backup and restore</string>
+    <string name="settings_data_footer">Your items are kept on this phone. A backup file keeps a copy somewhere else.</string>
+    <string name="settings_ai_footer">Tallele works without AI. With your own Gemini key, it can suggest more.</string>
+    <string name="settings_version">Version</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d note</item><item quantity="other">%1$d notes</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorted %1$d thought</item><item quantity="other">Sorted %1$d thoughts</item></plurals>
 </resources>

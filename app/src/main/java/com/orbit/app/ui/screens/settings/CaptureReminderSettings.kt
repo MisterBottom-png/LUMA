@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
-import com.orbit.app.ui.components.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -31,77 +32,59 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.orbit.app.R
-import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.reminders.ReminderCapabilities
 import com.orbit.app.reminders.ReminderCapabilityState
 import com.orbit.app.reminders.ReminderCapabilityStatus
+import com.orbit.app.ui.components.TintedIconChip
 
-/** Capture behaviour and an honest view of whether reminders can reach the user. */
+/**
+ * Whether reminders can reach the user, said plainly, with the one fix right on the row
+ * ("Turn on" when notifications are off, "Allow" when exact timing is off).
+ */
 @Composable
-internal fun CaptureAndRemindersSection(
-    settings: AppSettings,
-    onSettingsChanged: (AppSettings) -> Unit,
-) {
-    Column(
-        modifier = Modifier.padding(top = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        AppearanceCard {
-            SettingsSwitchRow(
-                title = stringResource(R.string.settings_sort_right_after_saving),
-                body = stringResource(R.string.settings_sort_right_after_saving_body),
-                checked = settings.sortRightAfterSaving,
-                onCheckedChange = { onSettingsChanged(settings.copy(sortRightAfterSaving = it)) },
-            )
-            SettingsSwitchRow(
-                title = stringResource(R.string.settings_focus_capture),
-                body = stringResource(R.string.settings_focus_capture_body),
-                checked = settings.focusCaptureOnOpen,
-                onCheckedChange = { onSettingsChanged(settings.copy(focusCaptureOnOpen = it)) },
-            )
-        }
-        ReminderDeliveryCard()
-    }
-}
-
-@Composable
-private fun ReminderDeliveryCard() {
+internal fun ReminderStatusRow(icon: ImageVector, iconColor: Color) {
     val context = LocalContext.current
     val status = rememberReminderCapabilityStatus()
-    AppearanceCard {
-        SettingsGroup(title = stringResource(R.string.settings_reminder_delivery_title)) {
+    val exactAlarmIntent = if (status.state == ReminderCapabilityState.MayBeLate && status.exactAlarmsAdjustable) {
+        ReminderCapabilities.exactAlarmSettingsIntent(context)
+    } else {
+        null
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        TintedIconChip(icon = icon, color = iconColor)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(R.string.settings_reminder_delivery_title),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
             Text(
                 text = stringResource(status.state.messageRes()),
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = if (status.state == ReminderCapabilityState.Blocked) {
                     MaterialTheme.colorScheme.error
                 } else {
-                    MaterialTheme.colorScheme.onSurface
+                    MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
-            if (status.state == ReminderCapabilityState.Blocked) {
-                OutlinedButton(
-                    onClick = { context.startSafely(ReminderCapabilities.notificationSettingsIntent(context)) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp),
-                ) {
-                    Text(stringResource(R.string.settings_open_notification_settings))
-                }
-            }
-            if (status.state == ReminderCapabilityState.MayBeLate && status.exactAlarmsAdjustable) {
-                ReminderCapabilities.exactAlarmSettingsIntent(context)?.let { intent ->
-                    OutlinedButton(
-                        onClick = { context.startSafely(intent) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp),
-                    ) {
-                        Text(stringResource(R.string.settings_allow_exact_alarms))
-                    }
-                }
-            }
+        }
+        when {
+            status.state == ReminderCapabilityState.Blocked -> RowActionButton(
+                label = stringResource(R.string.settings_turn_on),
+                onClick = { context.startSafely(ReminderCapabilities.notificationSettingsIntent(context)) },
+            )
+            exactAlarmIntent != null -> RowActionButton(
+                label = stringResource(R.string.settings_allow),
+                onClick = { context.startSafely(exactAlarmIntent) },
+            )
         }
     }
 }
@@ -123,13 +106,6 @@ internal fun ReminderCapabilityState.messageRes(): Int = when (this) {
     ReminderCapabilityState.Ready -> R.string.settings_reminder_delivery_ready
     ReminderCapabilityState.MayBeLate -> R.string.settings_reminder_delivery_may_be_late
     ReminderCapabilityState.Blocked -> R.string.settings_reminder_delivery_blocked
-}
-
-@StringRes
-internal fun ReminderCapabilityState.statusRes(): Int = when (this) {
-    ReminderCapabilityState.Ready -> R.string.settings_status_reminders_ready
-    ReminderCapabilityState.MayBeLate -> R.string.settings_status_reminders_may_be_late
-    ReminderCapabilityState.Blocked -> R.string.settings_status_reminders_blocked
 }
 
 /** A whole-row switch: the label and the switch are one target for touch and TalkBack. */

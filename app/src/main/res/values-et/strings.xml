@@ -15,9 +15,6 @@
     <string name="settings_back">Tagasi sätetesse</string>
     <string name="settings_back_to_menu">Tagasi menüüsse %1$s</string>
     <string name="settings_appearance_title">Välimus</string>
-    <string name="settings_appearance_subtitle">Teema, taust ja pinnad</string>
-    <string name="settings_system_title">Süsteem</string>
-    <string name="settings_system_subtitle">Keel, kellaaeg, AI ja kohalikud andmed</string>
 
     <string name="settings_time_title">Kellaaeg</string>
     <string name="settings_time_subtitle">Seadme vaikeseade, 12-tunnine või 24-tunnine</string>
@@ -44,15 +41,7 @@
     <string name="settings_background_subtitle">Valmistaust või oma pilt</string>
     <string name="settings_transparency_title">Läbipaistvus</string>
     <string name="settings_transparency_subtitle">Taustaefektid ja pindade läbipaistmatus</string>
-    <string name="settings_no_name">Nimi pole määratud</string>
-    <string name="settings_status_custom_background">%1$s, oma taustapilt</string>
-    <string name="settings_status_preset_background">%1$s, %2$s</string>
-    <string name="settings_status_colors">%1$s, %2$s, teksti värv %3$s</string>
-    <string name="settings_status_surface_opacity">Pinna läbipaistmatus %1$s</string>
-    <string name="settings_status_time_ai_ready">%1$s, Gemini API valmis</string>
-    <string name="settings_status_time_ai_mode">%1$s, %2$s</string>
     <string name="settings_status_gemini_ready">Gemini API valmis</string>
-    <string name="settings_status_ai_key">%1$s, võti %2$s</string>
     <string name="settings_status_key_saved">salvestatud</string>
     <string name="settings_status_key_not_saved">pole salvestatud</string>
     <string name="settings_status_last_export">Viimane eksport on valmis</string>
@@ -174,7 +163,6 @@
     <string name="tutorial_progress">Samm %1$d/%2$d</string>
     <string name="tutorial_go_to_step">Mine sammule %1$d</string>
     <string name="settings_first_time_guide_title">Esmakasutaja juhend</string>
-    <string name="settings_first_time_guide_status">Vaata sissejuhatust uuesti</string>
     <string name="tutorial_idea_step">01 · Idee</string>
     <string name="tutorial_idea_title">Mõtetele kodu enne, kui neist saavad plaanid.</string>
     <string name="tutorial_idea_body">Tallele on rahulik elu sisendkast. Pane mõte esmalt kirja ja otsusta alles siis, kas sellest saab märge, ülesanne, meeldetuletus või jääb see lihtsalt Sisendkasti.</string>

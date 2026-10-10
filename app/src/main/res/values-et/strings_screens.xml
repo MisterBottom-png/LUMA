@@ -42,6 +42,17 @@
     <string name="review_one_back">Tagasi ülevaatesse</string>
     <string name="review_one_done_body">Muud midagi ei oota. Ülejäänud päev võib rahulikult minna.</string>
     <string name="review_one_skipped_body">Vahele jäetud mõtted ootavad sorteerimist.</string>
+    <string name="settings_section_reminders">Meeldetuletused</string>
+    <string name="settings_section_language_time">Keel ja aeg</string>
+    <string name="settings_section_data">Sinu andmed</string>
+    <string name="settings_section_about">Rakendusest</string>
+    <string name="settings_turn_on">Lülita sisse</string>
+    <string name="settings_allow">Luba</string>
+    <string name="settings_add_name">Lisa oma nimi</string>
+    <string name="settings_backup_title">Varundus ja taastamine</string>
+    <string name="settings_data_footer">Sinu kirjed on selles telefonis. Varukoopia fail hoiab koopiat ka mujal.</string>
+    <string name="settings_ai_footer">Tallele töötab ka ilma tehisarult. Oma Gemini võtmega oskab see rohkem soovitada.</string>
+    <string name="settings_version">Versioon</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d märge</item><item quantity="other">%1$d märget</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorteeritud %1$d mõte</item><item quantity="other">Sorteeritud %1$d mõtet</item></plurals>
 </resources>

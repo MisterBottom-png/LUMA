@@ -42,6 +42,17 @@
     <string name="review_one_back">Вернуться к обзору</string>
     <string name="review_one_done_body">Больше ничего не ждёт. Остаток дня можно провести спокойно.</string>
     <string name="review_one_skipped_body">Пропущенные мысли ждут в разделе «Разобрать».</string>
+    <string name="settings_section_reminders">Напоминания</string>
+    <string name="settings_section_language_time">Язык и время</string>
+    <string name="settings_section_data">Ваши данные</string>
+    <string name="settings_section_about">О приложении</string>
+    <string name="settings_turn_on">Включить</string>
+    <string name="settings_allow">Разрешить</string>
+    <string name="settings_add_name">Добавьте своё имя</string>
+    <string name="settings_backup_title">Резервная копия</string>
+    <string name="settings_data_footer">Ваши записи хранятся на этом телефоне. Файл резервной копии хранит копию в другом месте.</string>
+    <string name="settings_ai_footer">Tallele работает и без ИИ. С вашим ключом Gemini приложение может предлагать больше.</string>
+    <string name="settings_version">Версия</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d заметка</item><item quantity="few">%1$d заметки</item><item quantity="many">%1$d заметок</item><item quantity="other">%1$d заметки</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Разобрана %1$d мысль</item><item quantity="few">Разобраны %1$d мысли</item><item quantity="many">Разобрано %1$d мыслей</item><item quantity="other">Разобрано %1$d мысли</item></plurals>
 </resources>

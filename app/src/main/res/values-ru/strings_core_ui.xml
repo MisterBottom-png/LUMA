@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="core_back">Назад</string>
-    <string name="core_add">Добавить</string>
     <string name="core_clear">Очистить</string>
     <string name="core_today">Сегодня</string>
     <string name="core_tomorrow">Завтра</string>

@@ -8,13 +8,9 @@
     <string name="navigation_settings">Settings</string>
 
     <string name="settings_title">Settings</string>
-    <string name="settings_empty_subtitle" translatable="false"></string>
     <string name="settings_back">Back to Settings</string>
     <string name="settings_back_to_menu">Back to %1$s menu</string>
     <string name="settings_appearance_title">Appearance</string>
-    <string name="settings_appearance_subtitle">Theme, background, and surfaces</string>
-    <string name="settings_system_title">System</string>
-    <string name="settings_system_subtitle">Language, time, AI, and local data</string>
 
     <string name="settings_time_title">Time</string>
     <string name="settings_time_subtitle">Device default, 12-hour, or 24-hour</string>
@@ -44,15 +40,7 @@
     <string name="settings_background_subtitle">Preset or custom image</string>
     <string name="settings_transparency_title">Transparency</string>
     <string name="settings_transparency_subtitle">Background effects and surface opacity</string>
-    <string name="settings_no_name">No name set</string>
-    <string name="settings_status_custom_background">%1$s, custom background</string>
-    <string name="settings_status_preset_background">%1$s, %2$s</string>
-    <string name="settings_status_colors">%1$s, %2$s, %3$s text</string>
-    <string name="settings_status_surface_opacity">Surface opacity %1$s</string>
-    <string name="settings_status_time_ai_ready">%1$s, Gemini API ready</string>
-    <string name="settings_status_time_ai_mode">%1$s, %2$s</string>
     <string name="settings_status_gemini_ready">Gemini API ready</string>
-    <string name="settings_status_ai_key">%1$s, key %2$s</string>
     <string name="settings_status_key_saved">saved</string>
     <string name="settings_status_key_not_saved">not saved</string>
     <string name="settings_status_last_export">Last export ready</string>
@@ -181,7 +169,6 @@
     <string name="tutorial_progress">Step %1$d of %2$d</string>
     <string name="tutorial_go_to_step">Go to step %1$d</string>
     <string name="settings_first_time_guide_title">First-time guide</string>
-    <string name="settings_first_time_guide_status">Replay the introduction</string>
     <string name="tutorial_idea_step">01 · The idea</string>
     <string name="tutorial_idea_title">A home for thoughts before they become plans.</string>
     <string name="tutorial_idea_body">Tallele is a calm life inbox. Put a thought in first, then decide whether it belongs as a note, task, reminder, or simply in the Inbox.</string>

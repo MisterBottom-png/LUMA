@@ -18,7 +18,6 @@
     <string name="core_restore">Восстановить</string>
     <string name="core_archive">Архивировать</string>
     <string name="core_hide">Скрыть</string>
-    <string name="core_expand">Развернуть</string>
     <string name="core_collapse">Свернуть</string>
     <string name="core_search">Поиск</string>
     <string name="core_inbox">Входящие</string>

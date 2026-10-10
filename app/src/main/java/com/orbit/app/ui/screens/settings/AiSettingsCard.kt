@@ -1,7 +1,6 @@
 package com.orbit.app.ui.screens.settings
 
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -32,17 +30,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
+import com.orbit.app.ui.components.GroupDivider
+import com.orbit.app.ui.components.GroupedCard
 import com.orbit.app.data.local.entity.LearnedRuleEntity
 import com.orbit.app.domain.model.AiMode
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.model.GeminiConsent
 import com.orbit.app.domain.model.hasCurrentGeminiConsent
-import com.orbit.app.ui.components.GlassSurfaceStyle
-import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.calmPressHaptics
 
 internal enum class AiSettingsPage(
@@ -209,33 +208,28 @@ private fun AiSettingsMenuCard(
     aiSettings: AiSettingsUiState,
     onSectionSelected: (AiSettingsPage) -> Unit,
 ) {
-    SoftGlassSurface(
-        modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
-        shape = RoundedCornerShape(24.dp),
-        style = GlassSurfaceStyle.Standard,
-    ) {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-            AiSettingsPage.entries.forEachIndexed { index, section ->
-                SettingsMenuRow(
-                    icon = section.icon,
-                    title = stringResource(section.titleRes),
-                    status = when (section) {
-                        AiSettingsPage.Mode -> stringResource(settings.aiMode.labelRes())
-                        AiSettingsPage.GeminiSetup -> stringResource(
-                            if (aiSettings.hasKey) R.string.settings_status_key_saved
-                            else R.string.settings_status_key_not_saved,
-                        )
-                        AiSettingsPage.Features -> stringResource(settings.aiMode.labelRes())
-                        AiSettingsPage.LocalLearning -> stringResource(
-                            if (settings.enableLocalAiLearning) R.string.settings_selected
-                            else R.string.settings_not_selected,
-                        )
-                    },
-                    onClick = { onSectionSelected(section) },
-                )
-                if (index < AiSettingsPage.entries.lastIndex) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-                }
+    GroupedCard(modifier = Modifier.padding(top = 22.dp)) {
+        AiSettingsPage.entries.forEachIndexed { index, section ->
+            SettingsLinkRow(
+                icon = section.icon,
+                iconColor = Color(0xFF9A5FC0),
+                title = stringResource(section.titleRes),
+                value = when (section) {
+                    AiSettingsPage.Mode -> stringResource(settings.aiMode.labelRes())
+                    AiSettingsPage.GeminiSetup -> stringResource(
+                        if (aiSettings.hasKey) R.string.settings_status_key_saved
+                        else R.string.settings_status_key_not_saved,
+                    )
+                    AiSettingsPage.Features -> stringResource(settings.aiMode.labelRes())
+                    AiSettingsPage.LocalLearning -> stringResource(
+                        if (settings.enableLocalAiLearning) R.string.settings_selected
+                        else R.string.settings_not_selected,
+                    )
+                },
+                onClick = { onSectionSelected(section) },
+            )
+            if (index < AiSettingsPage.entries.lastIndex) {
+                GroupDivider(startInset = 64.dp)
             }
         }
     }

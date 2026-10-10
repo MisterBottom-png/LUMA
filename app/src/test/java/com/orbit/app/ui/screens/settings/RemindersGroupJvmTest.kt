@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class CaptureAndRemindersSectionJvmTest {
+class RemindersGroupJvmTest {
     @get:Rule
     val composeRule = JvmComposeRule()
 
@@ -27,7 +27,7 @@ class CaptureAndRemindersSectionJvmTest {
         var settings by mutableStateOf(AppSettings())
         composeRule.setContent {
             MaterialTheme {
-                CaptureAndRemindersSection(settings = settings, onSettingsChanged = { settings = it })
+                RemindersGroup(settings = settings, onSettingsChanged = { settings = it })
             }
         }
 

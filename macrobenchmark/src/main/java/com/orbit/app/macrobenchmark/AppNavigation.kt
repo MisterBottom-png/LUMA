@@ -51,7 +51,7 @@ internal object AppNavigation {
             device.wait(Until.findObject(By.desc("Open settings")), UiTimeoutMillis)
         }
         requireNotNull(button) { "The Settings button on Home was not available" }.click()
-        // Settings rows read as one label ("Appearance, Theme, …"), so match the start.
+        // The first group on the Settings page is headed "Appearance".
         requireNotNull(device.wait(Until.findObject(By.textStartsWith("Appearance")), UiTimeoutMillis)) {
             "Settings did not open"
         }

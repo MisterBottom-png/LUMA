@@ -12,7 +12,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -31,10 +30,8 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import com.orbit.app.ui.components.OutlinedButton
@@ -45,12 +42,9 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +56,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.annotation.StringRes
 import com.orbit.app.R
@@ -76,10 +69,7 @@ import com.orbit.app.domain.model.BackgroundPreset
 import com.orbit.app.domain.model.GlassEffect
 import com.orbit.app.domain.model.GlassPreference
 import com.orbit.app.domain.model.SettingsThemeMode
-import com.orbit.app.domain.model.withDefaultAppearance
 import com.orbit.app.ui.components.GlassRolePreview
-import com.orbit.app.ui.components.GlassSurfaceStyle
-import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.orbitPressFeedback
 import kotlin.math.roundToInt
 
@@ -87,11 +77,9 @@ import kotlin.math.roundToInt
 internal fun AppearanceSettingsSection(
     settings: AppSettings,
     onSettingsChanged: (AppSettings) -> Unit,
-    selectedMenuSection: AppearanceMenuSection?,
-    onSectionSelected: (AppearanceMenuSection) -> Unit,
+    selectedMenuSection: AppearanceMenuSection,
 ) {
     val context = LocalContext.current
-    var showResetConfirmation by rememberSaveable { mutableStateOf(false) }
     val customBackgroundPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
@@ -109,63 +97,29 @@ internal fun AppearanceSettingsSection(
         modifier = Modifier.padding(top = 22.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (selectedMenuSection == null) {
-            AppearanceMenuCard(
+        when (selectedMenuSection) {
+            AppearanceMenuSection.Profile -> AppearanceProfileSection(
                 settings = settings,
-                onSectionSelected = onSectionSelected,
+                onSettingsChanged = onSettingsChanged,
             )
-            // A rarely used action: a quiet text button, not a full-width button.
-            TextButton(
-                onClick = { showResetConfirmation = true },
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_reset_appearance),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (showResetConfirmation) {
-                AlertDialog(
-                    onDismissRequest = { showResetConfirmation = false },
-                    title = { Text(stringResource(R.string.settings_reset_appearance)) },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            onSettingsChanged(settings.withDefaultAppearance())
-                            showResetConfirmation = false
-                        }) { Text(stringResource(R.string.settings_reset_appearance)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showResetConfirmation = false }) {
-                            Text(stringResource(R.string.settings_cancel))
-                        }
-                    },
-                )
-            }
-        } else {
-            when (selectedMenuSection) {
-                AppearanceMenuSection.Profile -> AppearanceProfileSection(
-                    settings = settings,
-                    onSettingsChanged = onSettingsChanged,
-                )
 
-                AppearanceMenuSection.Colors -> AppearanceColorsSection(
-                    settings = settings,
-                    onSettingsChanged = onSettingsChanged,
-                )
+            AppearanceMenuSection.Colors -> AppearanceColorsSection(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged,
+            )
 
-                AppearanceMenuSection.Background -> AppearanceBackgroundSection(
-                    settings = settings,
-                    onSettingsChanged = onSettingsChanged,
-                    onChooseCustomBackground = {
-                        customBackgroundPicker.launch(arrayOf("image/*"))
-                    },
-                )
+            AppearanceMenuSection.Background -> AppearanceBackgroundSection(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged,
+                onChooseCustomBackground = {
+                    customBackgroundPicker.launch(arrayOf("image/*"))
+                },
+            )
 
-                AppearanceMenuSection.Glass -> AppearanceGlassSection(
-                    settings = settings,
-                    onSettingsChanged = onSettingsChanged,
-                )
-            }
+            AppearanceMenuSection.Glass -> AppearanceGlassSection(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged,
+            )
         }
     }
 }
@@ -188,68 +142,6 @@ internal enum class AppearanceMenuSection(
         Icons.Filled.Tune,
     ),
 }
-
-@Composable
-private fun AppearanceMenuCard(
-    settings: AppSettings,
-    onSectionSelected: (AppearanceMenuSection) -> Unit,
-) {
-    SoftGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        style = GlassSurfaceStyle.Standard,
-    ) {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-            AppearanceMenuRow(
-                section = AppearanceMenuSection.Profile,
-                status = settings.userName.ifBlank { stringResource(R.string.settings_no_name) },
-                onClick = { onSectionSelected(AppearanceMenuSection.Profile) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            AppearanceMenuRow(
-                section = AppearanceMenuSection.Colors,
-                status = stringResource(
-                    R.string.settings_status_colors,
-                    stringResource(settings.themeMode.labelRes()),
-                    stringResource(settings.accentColor.labelRes()),
-                    stringResource(settings.textColor.labelRes()),
-                ),
-                onClick = { onSectionSelected(AppearanceMenuSection.Colors) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            AppearanceMenuRow(
-                section = AppearanceMenuSection.Background,
-                status = if (settings.customBackgroundUri != null) {
-                    stringResource(R.string.settings_custom_image)
-                } else {
-                    stringResource(settings.backgroundPreset.labelRes())
-                },
-                onClick = { onSectionSelected(AppearanceMenuSection.Background) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            AppearanceMenuRow(
-                section = AppearanceMenuSection.Glass,
-                status = stringResource(
-                    R.string.settings_status_surface_opacity,
-                    stringResource(settings.glassPreference.labelRes()),
-                ),
-                onClick = { onSectionSelected(AppearanceMenuSection.Glass) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun AppearanceMenuRow(
-    section: AppearanceMenuSection,
-    status: String,
-    onClick: () -> Unit,
-) = SettingsMenuRow(
-    icon = section.icon,
-    title = stringResource(section.titleRes),
-    status = status,
-    onClick = onClick,
-)
 
 @Composable
 private fun AppearanceProfileSection(
@@ -886,7 +778,7 @@ private fun AppearanceSlider(
     }
 }
 
-private fun presetPreviewColors(preset: BackgroundPreset): List<Color> = when (preset) {
+internal fun presetPreviewColors(preset: BackgroundPreset): List<Color> = when (preset) {
     BackgroundPreset.InkPaper -> listOf(Color(0xFFFBF9F5), Color(0xFFEEF2F0))
     BackgroundPreset.SoftDawn -> listOf(Color(0xFFFFD8CA), Color(0xFFDCCAF1))
     BackgroundPreset.VioletMist -> listOf(Color(0xFFDCCAF4), Color(0xFF9D86CD))
@@ -894,7 +786,7 @@ private fun presetPreviewColors(preset: BackgroundPreset): List<Color> = when (p
     BackgroundPreset.NightOrbit -> listOf(Color(0xFF34315D), Color(0xFF163C4C))
 }
 
-private fun accentSwatchColors(choice: AppAccentColor): List<Color> = when (choice) {
+internal fun accentSwatchColors(choice: AppAccentColor): List<Color> = when (choice) {
     AppAccentColor.InkPaper -> listOf(Color(0xFF3D5962), Color(0xFF705D4A))
     AppAccentColor.LumaViolet -> listOf(Color(0xFF6550C8), Color(0xFF3F7479))
     AppAccentColor.Sage -> listOf(Color(0xFF3E6F45), Color(0xFF74642F))

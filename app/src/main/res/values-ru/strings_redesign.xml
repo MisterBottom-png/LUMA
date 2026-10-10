@@ -98,8 +98,6 @@
     <string name="home_capture_hint_remind">Например: позвонить стоматологу завтра в 10</string>
     <string name="home_capture_hint_dump">Запишите всё как есть — Tallele разберёт позже</string>
     <string name="home_capture_hint_small">Даже полмысли стоит сохранить</string>
-    <string name="settings_capture_reminders_title">Записи и напоминания</string>
-    <string name="settings_capture_reminders_subtitle">Как работают сохранение и напоминания</string>
     <string name="settings_sort_right_after_saving">Разбирать сразу после сохранения</string>
     <string name="settings_sort_right_after_saving_body">Сразу показывать предложение Tallele. Если выключено, мысли спокойно ждут в разделе «Обзор» → «Разобрать».</string>
     <string name="settings_focus_capture">Открывать клавиатуру на главном экране</string>
@@ -108,11 +106,6 @@
     <string name="settings_reminder_delivery_ready">Напоминания придут вовремя.</string>
     <string name="settings_reminder_delivery_may_be_late">Напоминания могут приходить с опозданием на несколько минут. Для точного времени разрешите «Будильники и напоминания».</string>
     <string name="settings_reminder_delivery_blocked">Уведомления выключены, поэтому напоминания не смогут до вас дойти. Ваши напоминания по-прежнему сохранены.</string>
-    <string name="settings_open_notification_settings">Открыть настройки уведомлений</string>
-    <string name="settings_allow_exact_alarms">Разрешить точное время</string>
-    <string name="settings_status_reminders_ready">Вовремя</string>
-    <string name="settings_status_reminders_may_be_late">Возможны задержки</string>
-    <string name="settings_status_reminders_blocked">Уведомления выключены</string>
     <string name="settings_glass_effect">Эффект стекла</string>
     <string name="settings_glass_effect_strong">Сильный</string>
     <string name="settings_glass_effect_soft">Мягкий</string>

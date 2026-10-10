@@ -1,35 +1,24 @@
 package com.orbit.app.ui.screens.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.annotation.StringRes
 import com.orbit.app.R
-import com.orbit.app.domain.model.AiMode
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.model.SettingsTimeFormatMode
-import com.orbit.app.ui.components.GlassSurfaceStyle
-import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.localization.AppLanguage
 
 internal enum class SystemMenuSection(
@@ -39,95 +28,8 @@ internal enum class SystemMenuSection(
 ) {
     Time(R.string.settings_time_title, R.string.settings_time_subtitle, Icons.Filled.AccessTime),
     Language(R.string.settings_language_title, R.string.settings_language_subtitle, Icons.Filled.Language),
-    CaptureReminders(
-        R.string.settings_capture_reminders_title,
-        R.string.settings_capture_reminders_subtitle,
-        Icons.Filled.Notifications,
-    ),
     Ai(R.string.settings_ai_title, R.string.settings_ai_subtitle, Icons.Filled.AutoAwesome),
     LocalData(R.string.settings_local_data_title, R.string.settings_local_data_subtitle, Icons.Filled.Storage),
-}
-
-@Composable
-internal fun SystemMenuCard(
-    settings: AppSettings,
-    applicationLanguage: AppLanguage,
-    aiSettings: AiSettingsUiState,
-    localDataTools: LocalDataToolsUiState,
-    onOpenFirstTimeGuide: () -> Unit,
-    onSectionSelected: (SystemMenuSection) -> Unit,
-) {
-    SoftGlassSurface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 22.dp),
-        shape = RoundedCornerShape(24.dp),
-        style = GlassSurfaceStyle.Standard,
-    ) {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-            SettingsMenuRow(
-                icon = SystemMenuSection.Time.icon,
-                title = stringResource(SystemMenuSection.Time.titleRes),
-                status = stringResource(settings.timeFormatMode.labelRes()),
-                onClick = { onSectionSelected(SystemMenuSection.Time) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            SettingsMenuRow(
-                icon = SystemMenuSection.Language.icon,
-                title = stringResource(SystemMenuSection.Language.titleRes),
-                status = stringResource(applicationLanguage.labelRes()),
-                onClick = { onSectionSelected(SystemMenuSection.Language) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            SettingsMenuRow(
-                icon = SystemMenuSection.CaptureReminders.icon,
-                title = stringResource(SystemMenuSection.CaptureReminders.titleRes),
-                status = stringResource(rememberReminderCapabilityStatus().state.statusRes()),
-                onClick = { onSectionSelected(SystemMenuSection.CaptureReminders) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            SettingsMenuRow(
-                icon = SystemMenuSection.Ai.icon,
-                title = stringResource(SystemMenuSection.Ai.titleRes),
-                status = if (settings.aiMode == AiMode.GeminiApi && aiSettings.hasKey) {
-                    stringResource(R.string.settings_status_gemini_ready)
-                } else {
-                    stringResource(
-                        R.string.settings_status_ai_key,
-                        stringResource(settings.aiMode.labelRes()),
-                        stringResource(
-                            if (aiSettings.hasKey) {
-                                R.string.settings_status_key_saved
-                            } else {
-                                R.string.settings_status_key_not_saved
-                            },
-                        ),
-                    )
-                },
-                onClick = { onSectionSelected(SystemMenuSection.Ai) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            SettingsMenuRow(
-                icon = SystemMenuSection.LocalData.icon,
-                title = stringResource(SystemMenuSection.LocalData.titleRes),
-                status = stringResource(
-                    if (localDataTools.exportCompleted) {
-                        R.string.settings_status_last_export
-                    } else {
-                        R.string.settings_export_json
-                    },
-                ),
-                onClick = { onSectionSelected(SystemMenuSection.LocalData) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            SettingsMenuRow(
-                icon = Icons.Filled.Info,
-                title = stringResource(R.string.settings_first_time_guide_title),
-                status = stringResource(R.string.settings_first_time_guide_status),
-                onClick = onOpenFirstTimeGuide,
-            )
-        }
-    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)

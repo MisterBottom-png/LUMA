@@ -52,8 +52,8 @@ class GlassSurfaceMacrobenchmark {
 
     @Test
     fun renderAppearanceGlassPreview() = measureSettings {
-        device.findObject(By.textStartsWith("Appearance")).click()
-        device.wait(Until.hasObject(By.textStartsWith("Transparency")), UiTimeoutMillis)
+        device.findObject(By.text("Transparency")).click()
+        device.wait(Until.hasObject(By.textStartsWith("Surface preview")), UiTimeoutMillis)
     }
 
     private fun measureRoute(routeLabel: String, measuredBlock: MacrobenchmarkScope.() -> Unit) {
