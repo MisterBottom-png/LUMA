@@ -124,9 +124,14 @@ internal fun BrainDumpOverview(
             modifier = Modifier.padding(top = 8.dp),
         )
 
+        // With nothing ticked, the main button starts with the first thought instead of
+        // showing a disabled "Save 0".
+        val firstRow = rows.firstOrNull()
         Button(
-            onClick = callbacks.onSaveTicked,
-            enabled = tickedCount > 0 && !state.actionInProgress,
+            onClick = {
+                if (tickedCount > 0) callbacks.onSaveTicked() else firstRow?.let { callbacks.onOpenRow(it.sourceKey) }
+            },
+            enabled = (tickedCount > 0 || firstRow != null) && !state.actionInProgress,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 18.dp)
@@ -136,12 +141,16 @@ internal fun BrainDumpOverview(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
                 Text(
-                    text = pluralStringResource(R.plurals.brain_overview_save, tickedCount, tickedCount),
+                    text = if (tickedCount > 0) {
+                        pluralStringResource(R.plurals.brain_overview_save, tickedCount, tickedCount)
+                    } else {
+                        stringResource(R.string.review_sort_one_by_one)
+                    },
                     style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp),
                 )
             }
         }
-        if (tickedCount < rows.size) {
+        if (tickedCount in 1 until rows.size) {
             Text(
                 text = stringResource(R.string.brain_overview_rest_one_by_one),
                 modifier = Modifier
