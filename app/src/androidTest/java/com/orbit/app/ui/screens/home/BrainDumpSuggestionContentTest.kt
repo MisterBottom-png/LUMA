@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.home
 
+import com.orbit.app.R
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
@@ -152,10 +153,34 @@ class BrainDumpSuggestionContentTest {
             }
         }
 
-        composeRule.onNodeWithText("Reminder saved, but notification scheduling needs attention.")
-            .assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.reminder_outcome_not_scheduled)).assertIsDisplayed()
         composeRule.onNodeWithText("Skipped this thought").assertIsDisplayed()
     }
+
+    @Test
+    fun blockedNotificationsWarningOffersTurnOn() {
+        composeRule.setContent {
+            OrbitTheme(settings = AppSettings()) {
+                BrainDumpSuggestionContent(
+                    suggestion = suggestion(type = SuggestedItemType.Note, spaceName = "Personal"),
+                    state = interactionState(itemNumber = 1, totalItems = 1).copy(
+                        warning = BrainDumpStatus(
+                            kind = BrainDumpStatusKind.Warning,
+                            message = BrainDumpStatusMessage.NotificationsBlocked,
+                        ),
+                    ),
+                    timeFormat = OrbitTimeFormat(uses24HourClock = true),
+                    callbacks = recordingCallbacks(),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(string(R.string.reminder_outcome_notifications_off)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.settings_turn_on)).assertIsDisplayed()
+    }
+
+    private fun string(id: Int): String =
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
     @Test
     fun taskSetupSurfacesAndInvokesRetryForSaveFailure() {
