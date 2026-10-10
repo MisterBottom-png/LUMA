@@ -6,12 +6,10 @@
     <string name="settings_advanced_full_palette">Täiustatud täispalett</string>
     <string name="settings_adaptive_dimming">Kohanduv tumedus</string>
     <string name="settings_manual_dimming">Käsitsi tumedus</string>
-    <string name="home_default_user_label">Kasutaja</string>
     <string name="navigation_home">Avaleht</string>
     <string name="navigation_spaces">Alad</string>
     <string name="navigation_review">Ülevaade</string>
     <string name="navigation_settings">Sätted</string>
-    <string name="navigation_situation_ai">Olukorra AI</string>
 
     <string name="settings_title">Sätted</string>
     <string name="settings_back">Tagasi sätetesse</string>
@@ -70,8 +68,6 @@
     <string name="settings_time_explanation">Seadme vaikeseade järgib Androidi kellaajasätet.</string>
     <string name="settings_surface_preview">Pinna eelvaade</string>
     <string name="settings_image_blur">Pildi hägusus</string>
-    <string name="settings_blur_disabled_explanation">Hägususe muutmiseks vali oma pilt. Valmistaustad on juba pehmelt kujundatud.</string>
-    <string name="settings_blur_explanation">Pehmendab valitud pilti, kuid jätab juhtelemendid ja teksti teravaks.</string>
     <string name="settings_sharp">Terav</string>
     <string name="settings_soft">Pehme</string>
     <string name="settings_blur_medium">Keskmine</string>
@@ -86,9 +82,6 @@
     <string name="settings_bright">Hele</string>
     <string name="settings_dim">Tume</string>
     <string name="settings_surface_opacity">Pinna läbipaistmatus</string>
-    <string name="settings_opacity_explanation">Juhib Tallele kaarte, hõljuvaid juhtelemente ja rakenduse paneele, säilitades teksti loetavuse.</string>
-    <string name="settings_more_transparent">Läbipaistvam</string>
-    <string name="settings_more_solid">Katvam</string>
     <string name="settings_selected">Valitud</string>
     <string name="settings_not_selected">Pole valitud</string>
     <string name="settings_custom">Oma pilt</string>
@@ -152,7 +145,6 @@
     <string name="settings_capture_suggestions">Sisestuste soovitused</string>
     <string name="settings_make_smaller">Tee väiksemaks</string>
     <string name="settings_brain_dump">Mõtete korrastamine</string>
-    <string name="settings_situation_ai">Olukorra AI</string>
     <string name="settings_review">Ülevaade</string>
     <string name="settings_ai_privacy_explanation">Tallele talletab sinu andmeid kohapeal. Gemini API on valikuline pilve-AI. Kui see on lubatud, saadab Tallele ainult valitud teksti või toiminguks vajaliku konteksti. Algsed sisestused salvestatakse enne pilveanalüüsi kohapeal. Sina otsustad.</string>
 
@@ -171,8 +163,6 @@
     <string name="accent_rose">Roosa</string>
     <string name="accent_amber">Merevaik</string>
     <string name="accent_ocean">Ookean</string>
-    <string name="text_default">Vaikimisi</string>
-    <string name="text_ink">Tint</string>
     <string name="text_plum">Ploom</string>
     <string name="text_forest">Mets</string>
     <string name="text_warm_ivory">Soe elevandiluu</string>

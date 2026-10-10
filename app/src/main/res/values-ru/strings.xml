@@ -6,12 +6,10 @@
     <string name="settings_advanced_full_palette">Расширенная полная палитра</string>
     <string name="settings_adaptive_dimming">Адаптивное затемнение</string>
     <string name="settings_manual_dimming">Ручное затемнение</string>
-    <string name="home_default_user_label">Пользователь</string>
     <string name="navigation_home">Главная</string>
     <string name="navigation_spaces">Пространства</string>
     <string name="navigation_review">Обзор</string>
     <string name="navigation_settings">Настройки</string>
-    <string name="navigation_situation_ai">Ситуационный ИИ</string>
 
     <string name="settings_title">Настройки</string>
     <string name="settings_back">Назад к настройкам</string>
@@ -70,8 +68,6 @@
     <string name="settings_time_explanation">Системный формат следует настройке времени Android.</string>
     <string name="settings_surface_preview">Предпросмотр поверхности</string>
     <string name="settings_image_blur">Размытие изображения</string>
-    <string name="settings_blur_disabled_explanation">Чтобы настроить размытие, выберите своё изображение. Готовые фоны уже оформлены с мягким эффектом.</string>
-    <string name="settings_blur_explanation">Смягчает выбранное изображение, не размывая элементы управления и текст.</string>
     <string name="settings_sharp">Чётко</string>
     <string name="settings_soft">Мягко</string>
     <string name="settings_blur_medium">Среднее</string>
@@ -86,9 +82,6 @@
     <string name="settings_bright">Светлее</string>
     <string name="settings_dim">Темнее</string>
     <string name="settings_surface_opacity">Непрозрачность поверхностей</string>
-    <string name="settings_opacity_explanation">Настраивает карточки Tallele, плавающие элементы управления и панели приложения, сохраняя читаемость текста.</string>
-    <string name="settings_more_transparent">Прозрачнее</string>
-    <string name="settings_more_solid">Непрозрачнее</string>
     <string name="settings_selected">Выбрано</string>
     <string name="settings_not_selected">Не выбрано</string>
     <string name="settings_custom">Своё изображение</string>
@@ -156,7 +149,6 @@
     <string name="settings_capture_suggestions">Предложения для записей</string>
     <string name="settings_make_smaller">Упростить</string>
     <string name="settings_brain_dump">Разбор мыслей</string>
-    <string name="settings_situation_ai">Ситуационный ИИ</string>
     <string name="settings_review">Обзор</string>
     <string name="settings_ai_privacy_explanation">Tallele хранит ваши данные локально. Gemini API — необязательный облачный ИИ. Когда он включён, Tallele отправляет только выбранный текст или контекст, необходимый для запрошенного действия. Исходные записи сохраняются локально до облачного анализа. Решение остаётся за вами.</string>
 
@@ -175,8 +167,6 @@
     <string name="accent_rose">Роза</string>
     <string name="accent_amber">Янтарь</string>
     <string name="accent_ocean">Океан</string>
-    <string name="text_default">По умолчанию</string>
-    <string name="text_ink">Чернила</string>
     <string name="text_plum">Слива</string>
     <string name="text_forest">Лес</string>
     <string name="text_warm_ivory">Тёплая слоновая кость</string>

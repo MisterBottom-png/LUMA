@@ -99,12 +99,8 @@
 
     <!-- Review -->
     <string name="core_review_title">Review</string>
-    <string name="core_review_subtitle">A quiet check-in. Nothing here is a score.</string>
-    <string name="core_review_midday_title">Let the day breathe.</string>
-    <string name="core_review_midday_subtitle">Nothing needs sorting here right now.</string>
     <string name="core_review_breathe_in">Breathe in</string>
     <string name="core_review_breathe_out">Breathe out</string>
-    <string name="core_review_breathe_gently">Take a gentle breath</string>
     <string name="core_review_weekly_title">Weekly review</string>
     <string name="core_review_weekly_subtitle">Swipe through at your own pace</string>
     <string name="core_review_look_back">Look back</string>
@@ -123,16 +119,6 @@
     <string name="core_review_due_today">Due today</string>
     <string name="core_review_possible_carry_forwards">Possible carry-forwards</string>
     <string name="core_review_look_ahead_message">Nothing on this page asks for a decision.</string>
-    <string name="core_review_morning_review">Morning review</string>
-    <string name="core_review_morning_scan">Morning scan</string>
-    <string name="core_review_morning_scan_subtitle">See the shape of today, then begin gently</string>
-    <string name="core_review_recent_inbox_captures">Recent inbox captures</string>
-    <string name="core_review_one_small_place">One small place to start</string>
-    <string name="core_review_evening_review">Evening review</string>
-    <string name="core_review_evening_subtitle">Close what you can; carry the rest without pressure</string>
-    <string name="core_review_unresolved_captures">Unresolved captures</string>
-    <string name="core_review_done_today">Done today</string>
-    <string name="core_review_carry_forward">Carry forward</string>
     <string name="core_review_choose_day_or_smaller">Choose a new day, or make the next step smaller.</string>
     <string name="core_review_reschedule_if_relevant">Reschedule when this still matters.</string>
     <string name="core_review_keep_unscheduled">Keep unscheduled</string>
@@ -169,37 +155,9 @@
     <string name="core_review_local_suggestion">Local suggestion</string>
     <string name="core_review_local_fallback">Local fallback</string>
 
-    <plurals name="core_review_due_count">
-        <item quantity="one">%1$d due</item>
-        <item quantity="other">%1$d due</item>
-    </plurals>
-    <plurals name="core_review_recent_capture_count">
-        <item quantity="one">%1$d recent capture</item>
-        <item quantity="other">%1$d recent captures</item>
-    </plurals>
-    <plurals name="core_review_waiting_count">
-        <item quantity="one">%1$d waiting</item>
-        <item quantity="other">%1$d waiting</item>
-    </plurals>
-    <plurals name="core_review_unresolved_capture_count">
-        <item quantity="one">%1$d unresolved capture</item>
-        <item quantity="other">%1$d unresolved captures</item>
-    </plurals>
-    <plurals name="core_review_done_today_count">
-        <item quantity="one">%1$d done today</item>
-        <item quantity="other">%1$d done today</item>
-    </plurals>
-    <plurals name="core_review_carry_forward_count">
-        <item quantity="one">%1$d to carry forward</item>
-        <item quantity="other">%1$d to carry forward</item>
-    </plurals>
     <plurals name="core_review_pending_decisions">
         <item quantity="one">%1$d item still needs a review decision</item>
         <item quantity="other">%1$d items still need a review decision</item>
-    </plurals>
-    <plurals name="core_review_more_waiting">
-        <item quantity="one">%1$d more will wait for the next small pass.</item>
-        <item quantity="other">%1$d more will wait for the next small pass.</item>
     </plurals>
     <plurals name="core_review_quiet_days_or_more">
         <item quantity="one">Quiet for %1$d day or more</item>

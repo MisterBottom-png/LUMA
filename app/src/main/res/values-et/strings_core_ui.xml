@@ -89,12 +89,8 @@
     <string name="core_situation_what_is_stuck">Mis on takerdunud?</string>
 
     <string name="core_review_title">Ülevaade</string>
-    <string name="core_review_subtitle">Rahulik vahepeatus. Siin pole miski hinnang.</string>
-    <string name="core_review_midday_title">Lase päeval hingata.</string>
-    <string name="core_review_midday_subtitle">Praegu pole siin vaja midagi sorteerida.</string>
     <string name="core_review_breathe_in">Hinga sisse</string>
     <string name="core_review_breathe_out">Hinga välja</string>
-    <string name="core_review_breathe_gently">Hinga rahulikult</string>
     <string name="core_review_weekly_title">Nädala ülevaade</string>
     <string name="core_review_weekly_subtitle">Liigu omas tempos</string>
     <string name="core_review_look_back">Tagasivaade</string>
@@ -113,16 +109,6 @@
     <string name="core_review_due_today">Tähtaeg täna</string>
     <string name="core_review_possible_carry_forwards">Võimalik edasi kanda</string>
     <string name="core_review_look_ahead_message">See leht ei nõua ühtegi otsust.</string>
-    <string name="core_review_morning_review">Hommikune ülevaade</string>
-    <string name="core_review_morning_scan">Hommikune pilk</string>
-    <string name="core_review_morning_scan_subtitle">Vaata päeva kuju ja alusta rahulikult</string>
-    <string name="core_review_recent_inbox_captures">Hiljutised sisendkausta sisestused</string>
-    <string name="core_review_one_small_place">Üks väike koht alustamiseks</string>
-    <string name="core_review_evening_review">Õhtune ülevaade</string>
-    <string name="core_review_evening_subtitle">Lõpeta, mida saad; kanna ülejäänu edasi ilma surveta</string>
-    <string name="core_review_unresolved_captures">Lahendamata sisestused</string>
-    <string name="core_review_done_today">Täna tehtud</string>
-    <string name="core_review_carry_forward">Kanna edasi</string>
     <string name="core_review_choose_day_or_smaller">Vali uus päev või tee järgmine samm väiksemaks.</string>
     <string name="core_review_reschedule_if_relevant">Ajasta uuesti, kui see on endiselt oluline.</string>
     <string name="core_review_keep_unscheduled">Jäta ajastamata</string>
@@ -159,37 +145,9 @@
     <string name="core_review_local_suggestion">Kohalik soovitus</string>
     <string name="core_review_local_fallback">Kohalik varuvariant</string>
 
-    <plurals name="core_review_due_count">
-        <item quantity="one">%1$d täna tähtajaga</item>
-        <item quantity="other">%1$d täna tähtajaga</item>
-    </plurals>
-    <plurals name="core_review_recent_capture_count">
-        <item quantity="one">%1$d hiljutine sisestus</item>
-        <item quantity="other">%1$d hiljutist sisestust</item>
-    </plurals>
-    <plurals name="core_review_waiting_count">
-        <item quantity="one">%1$d ootel</item>
-        <item quantity="other">%1$d ootel</item>
-    </plurals>
-    <plurals name="core_review_unresolved_capture_count">
-        <item quantity="one">%1$d lahendamata sisestus</item>
-        <item quantity="other">%1$d lahendamata sisestust</item>
-    </plurals>
-    <plurals name="core_review_done_today_count">
-        <item quantity="one">%1$d täna tehtud</item>
-        <item quantity="other">%1$d täna tehtud</item>
-    </plurals>
-    <plurals name="core_review_carry_forward_count">
-        <item quantity="one">%1$d edasi kanda</item>
-        <item quantity="other">%1$d edasi kanda</item>
-    </plurals>
     <plurals name="core_review_pending_decisions">
         <item quantity="one">%1$d üksus vajab veel ülevaatamise otsust</item>
         <item quantity="other">%1$d üksust vajab veel ülevaatamise otsust</item>
-    </plurals>
-    <plurals name="core_review_more_waiting">
-        <item quantity="one">%1$d järgmine ootab järgmist väikest ringi.</item>
-        <item quantity="other">%1$d järgmist ootab järgmist väikest ringi.</item>
     </plurals>
     <plurals name="core_review_quiet_days_or_more">
         <item quantity="one">Vaikne vähemalt %1$d päeva</item>

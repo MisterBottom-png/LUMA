@@ -91,12 +91,8 @@
     <string name="core_situation_what_is_stuck">Что застопорилось?</string>
 
     <string name="core_review_title">Обзор</string>
-    <string name="core_review_subtitle">Спокойная сверка. Здесь нет оценок.</string>
-    <string name="core_review_midday_title">Дайте дню немного воздуха.</string>
-    <string name="core_review_midday_subtitle">Сейчас здесь ничего не нужно разбирать.</string>
     <string name="core_review_breathe_in">Вдох</string>
     <string name="core_review_breathe_out">Выдох</string>
-    <string name="core_review_breathe_gently">Дышите спокойно</string>
     <string name="core_review_weekly_title">Обзор недели</string>
     <string name="core_review_weekly_subtitle">Листайте в удобном темпе</string>
     <string name="core_review_look_back">Оглянуться назад</string>
@@ -115,16 +111,6 @@
     <string name="core_review_due_today">Срок сегодня</string>
     <string name="core_review_possible_carry_forwards">Можно перенести</string>
     <string name="core_review_look_ahead_message">Эта страница не требует решений.</string>
-    <string name="core_review_morning_review">Утренний обзор</string>
-    <string name="core_review_morning_scan">Утренний взгляд</string>
-    <string name="core_review_morning_scan_subtitle">Увидьте очертания дня и начните спокойно</string>
-    <string name="core_review_recent_inbox_captures">Недавние записи во входящих</string>
-    <string name="core_review_one_small_place">Одно небольшое место для начала</string>
-    <string name="core_review_evening_review">Вечерний обзор</string>
-    <string name="core_review_evening_subtitle">Завершите возможное, а остальное перенесите без давления</string>
-    <string name="core_review_unresolved_captures">Необработанные записи</string>
-    <string name="core_review_done_today">Завершено сегодня</string>
-    <string name="core_review_carry_forward">Перенести</string>
     <string name="core_review_choose_day_or_smaller">Выберите новый день или уменьшите следующий шаг.</string>
     <string name="core_review_reschedule_if_relevant">Перенесите, если это всё ещё важно.</string>
     <string name="core_review_keep_unscheduled">Оставить без даты</string>
@@ -161,53 +147,11 @@
     <string name="core_review_local_suggestion">Локальное предложение</string>
     <string name="core_review_local_fallback">Локальный резервный вариант</string>
 
-    <plurals name="core_review_due_count">
-        <item quantity="one">Сегодня срок: %1$d</item>
-        <item quantity="few">Сегодня срок: %1$d</item>
-        <item quantity="many">Сегодня срок: %1$d</item>
-        <item quantity="other">Сегодня срок: %1$d</item>
-    </plurals>
-    <plurals name="core_review_recent_capture_count">
-        <item quantity="one">%1$d недавняя запись</item>
-        <item quantity="few">%1$d недавние записи</item>
-        <item quantity="many">%1$d недавних записей</item>
-        <item quantity="other">%1$d недавней записи</item>
-    </plurals>
-    <plurals name="core_review_waiting_count">
-        <item quantity="one">Ожидает: %1$d</item>
-        <item quantity="few">Ожидают: %1$d</item>
-        <item quantity="many">Ожидают: %1$d</item>
-        <item quantity="other">Ожидает: %1$d</item>
-    </plurals>
-    <plurals name="core_review_unresolved_capture_count">
-        <item quantity="one">%1$d необработанная запись</item>
-        <item quantity="few">%1$d необработанные записи</item>
-        <item quantity="many">%1$d необработанных записей</item>
-        <item quantity="other">%1$d необработанной записи</item>
-    </plurals>
-    <plurals name="core_review_done_today_count">
-        <item quantity="one">Сегодня завершено: %1$d</item>
-        <item quantity="few">Сегодня завершено: %1$d</item>
-        <item quantity="many">Сегодня завершено: %1$d</item>
-        <item quantity="other">Сегодня завершено: %1$d</item>
-    </plurals>
-    <plurals name="core_review_carry_forward_count">
-        <item quantity="one">Перенести: %1$d</item>
-        <item quantity="few">Перенести: %1$d</item>
-        <item quantity="many">Перенести: %1$d</item>
-        <item quantity="other">Перенести: %1$d</item>
-    </plurals>
     <plurals name="core_review_pending_decisions">
         <item quantity="one">%1$d элемент всё ещё требует решения</item>
         <item quantity="few">%1$d элемента всё ещё требуют решения</item>
         <item quantity="many">%1$d элементов всё ещё требуют решения</item>
         <item quantity="other">%1$d элемента всё ещё требуют решения</item>
-    </plurals>
-    <plurals name="core_review_more_waiting">
-        <item quantity="one">Ещё %1$d элемент подождёт следующего небольшого прохода.</item>
-        <item quantity="few">Ещё %1$d элемента подождут следующего небольшого прохода.</item>
-        <item quantity="many">Ещё %1$d элементов подождут следующего небольшого прохода.</item>
-        <item quantity="other">Ещё %1$d элемента подождут следующего небольшого прохода.</item>
     </plurals>
     <plurals name="core_review_quiet_days_or_more">
         <item quantity="one">Без изменений %1$d день или больше</item>
