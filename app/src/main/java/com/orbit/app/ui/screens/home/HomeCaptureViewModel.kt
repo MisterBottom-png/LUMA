@@ -223,6 +223,11 @@ class HomeCaptureViewModel(
         _uiState.update { it.copy(message = null) }
     }
 
+    /** Clears [shown] only if it is still the current message, so a newer one is kept. */
+    internal fun messageShown(shown: HomeMessage) {
+        _uiState.update { if (it.message == shown) it.copy(message = null) else it }
+    }
+
     class Factory(
         private val captureInbox: CaptureInbox,
         private val appSettingsRepository: AppSettingsRepository,

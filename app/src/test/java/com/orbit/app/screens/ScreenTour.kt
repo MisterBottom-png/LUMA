@@ -34,6 +34,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
@@ -49,6 +50,10 @@ import org.robolectric.annotation.GraphicsMode
  * Design review tour: renders every main screen of the real app to PNG so the look can be
  * judged without a device. Runs only when LUMA_SCREENS_DIR is set (the "Screens" workflow);
  * ordinary unit-test runs skip it.
+ *
+ * Each theme must run in its own test JVM: the app's database and settings store are
+ * process-wide singletons, so a second tour in the same JVM starts with the first tour's
+ * data (no first-run guide, duplicate Spaces). The Screens workflow runs them one by one.
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -331,6 +336,11 @@ abstract class ScreenTour(private val theme: String) {
         outDir?.let { dir ->
             File(dir, "$theme-problems.txt").writeText(problems.joinToString("\n").ifEmpty { "none" })
         }
+        // A step that failed means some renders show the wrong state; the run must say so.
+        assertTrue(
+            "Screen tour steps failed ($theme):\n" + problems.joinToString("\n"),
+            problems.isEmpty(),
+        )
     }
 }
 

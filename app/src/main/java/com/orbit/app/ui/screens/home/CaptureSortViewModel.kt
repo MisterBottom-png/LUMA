@@ -944,8 +944,19 @@ class CaptureSortViewModel(
         _uiState.update { it.copy(message = null) }
     }
 
+    /** Clears [shown] only if it is still the current message, so a newer one is kept. */
+    fun messageShown(shown: String?) {
+        if (shown == null) return
+        _uiState.update { if (it.message == shown) it.copy(message = null) else it }
+    }
+
     fun resolvedHandled() {
         _uiState.update { it.copy(lastResolved = null) }
+    }
+
+    /** Clears [handled] only if it is still the latest sorted thought. */
+    fun resolvedHandled(handled: ResolvedCapture) {
+        _uiState.update { if (it.lastResolved == handled) it.copy(lastResolved = null) else it }
     }
 
     /** Undo right after sorting: the new item is removed and the thought is back in To sort. */

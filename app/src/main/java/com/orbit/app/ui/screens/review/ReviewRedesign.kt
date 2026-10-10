@@ -741,6 +741,12 @@ internal fun SortOneByOne(
 
 private const val MaxProgressSegments = 12
 
+/**
+ * Space a snackbar needs above the one-by-one buttons: their stack (56 + 10 + 52 dp)
+ * sits 24 dp lower than the usual bottom clearance, plus a small gap.
+ */
+internal val SortOneByOneActionsClearance = 104.dp
+
 @Composable
 private fun SortOneByOneCard(item: ToSortItem, timeFormat: OrbitTimeFormat, onChange: () -> Unit) {
     SoftGlassSurface(

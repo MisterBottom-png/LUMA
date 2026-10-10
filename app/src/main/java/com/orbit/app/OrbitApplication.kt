@@ -194,6 +194,7 @@ class OrbitContainer(application: Application) {
                 ).analysis
             },
             scope = applicationScope,
+            transaction = RoomCaptureFinalizationTransaction(database),
         )
     }
     val captureResolution: CaptureResolution by lazy {

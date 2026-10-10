@@ -166,7 +166,8 @@ fun HomeScreen(
     var pendingSentText by remember { mutableStateOf("") }
     var sentGhostText by remember { mutableStateOf<String?>(null) }
     val sentGhostProgress = remember { Animatable(0f) }
-    val messageText = uiState.message?.takeIf { it != HomeMessage.Saved }?.let { stringResource(it.textRes) }
+    val pendingMessage = uiState.message?.takeIf { it != HomeMessage.Saved }
+    val messageText = pendingMessage?.let { stringResource(it.textRes) }
     val voiceAvailable = remember(context) { VoiceCapture.isAvailable(context) }
     val voicePrompt = stringResource(R.string.home_voice_prompt)
     val voiceLocale = LocalConfiguration.current.locales[0]
@@ -221,10 +222,15 @@ fun HomeScreen(
         savedConfirmationVisible = false
     }
 
-    LaunchedEffect(messageText) {
-        messageText?.let { message ->
-            viewModel.messageShown()
-            snackbarHostState.showSnackbar(message)
+    // Cleared only after the snackbar is gone; clearing first would cancel this
+    // effect and dismiss the message almost at once.
+    LaunchedEffect(pendingMessage) {
+        val shown = pendingMessage ?: return@LaunchedEffect
+        val text = messageText ?: return@LaunchedEffect
+        try {
+            snackbarHostState.showSnackbar(text)
+        } finally {
+            viewModel.messageShown(shown)
         }
     }
 

@@ -55,24 +55,43 @@ fun CaptureSortHost(
         }
     }
 
-    LaunchedEffect(uiState.message, uiState.brainDumpInteraction, uiState.lastResolved) {
-        val resolved = uiState.lastResolved
-        when {
-            resolved != null && resolvedText != null -> {
-                viewModel.resolvedHandled()
-                viewModel.messageShown()
-                val result = snackbarHostState.showSnackbar(
-                    message = resolvedText,
-                    actionLabel = undoLabel,
-                    duration = SnackbarDuration.Long,
-                )
-                if (result == SnackbarResult.ActionPerformed) viewModel.undo(resolved)
-            }
-            uiState.message != null && uiState.brainDumpInteraction == null -> {
-                val message = uiState.message.orEmpty()
-                viewModel.messageShown()
-                snackbarHostState.showSnackbar(message)
-            }
+    // Feedback is cleared only after its snackbar is gone. Clearing first would
+    // change the effect's key, cancel it and dismiss the snackbar (and its Undo)
+    // almost at once.
+    val message = uiState.message
+    val resolved = uiState.lastResolved
+    val brainDumpOpen = uiState.brainDumpInteraction != null
+
+    // Undo for a just-sorted thought, keyed on that thought alone so a later
+    // message (for example "notifications are off") waits instead of cancelling it.
+    LaunchedEffect(resolved) {
+        val handled = resolved ?: return@LaunchedEffect
+        val text = resolvedText ?: return@LaunchedEffect
+        // The success message set together with the sorted thought; the Undo snackbar
+        // already says it.
+        val successMessage = message
+        try {
+            val result = snackbarHostState.showSnackbar(
+                message = text,
+                actionLabel = undoLabel,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) viewModel.undo(handled)
+        } finally {
+            viewModel.resolvedHandled(handled)
+            viewModel.messageShown(successMessage)
+        }
+    }
+
+    // Plain messages, once no Undo is showing and no Brain Dump is open (only whether
+    // one is open matters, not each step inside it).
+    LaunchedEffect(message, brainDumpOpen, resolved == null) {
+        if (resolved != null || brainDumpOpen) return@LaunchedEffect
+        val shown = message ?: return@LaunchedEffect
+        try {
+            snackbarHostState.showSnackbar(shown)
+        } finally {
+            viewModel.messageShown(shown)
         }
     }
 

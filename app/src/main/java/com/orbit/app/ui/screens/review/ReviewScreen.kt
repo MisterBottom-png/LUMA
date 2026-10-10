@@ -125,7 +125,7 @@ fun ReviewScreen(
     onLetGo: (ToSortItem) -> Unit = {},
     onUndoSort: (SortUndoToken) -> Unit = {},
     onAcceptAllToSort: (List<ToSortItem>) -> Unit = {},
-    onSortFeedbackShown: () -> Unit = {},
+    onSortFeedbackShown: (SortUndoToken?, ReviewSortMessage?) -> Unit = { _, _ -> },
     sortHost: @Composable (SnackbarHostState) -> Unit = {},
 ) {
     val reviewContext by rememberReviewContext()
@@ -179,21 +179,25 @@ fun ReviewScreen(
             onTaskUndoExpired(taskUndo.operationId)
         }
     }
-    LaunchedEffect(sortUndo, sortMessage) {
-        when {
-            sortUndo != null && sortUndoMessage != null -> {
-                onSortFeedbackShown()
-                val result = snackbarHostState.showSnackbar(
-                    message = sortUndoMessage,
-                    actionLabel = undoLabel,
-                    duration = SnackbarDuration.Long,
-                )
-                if (result == SnackbarResult.ActionPerformed) onUndoSort(sortUndo)
+    // Keyed on the feedback itself and cleared only after the snackbar is gone.
+    // Clearing first would change the key, cancel this effect and dismiss the
+    // snackbar (and its Undo) almost at once.
+    val sortMessageKind = uiState.sortMessage
+    LaunchedEffect(sortUndo, sortMessageKind) {
+        try {
+            when {
+                sortUndo != null && sortUndoMessage != null -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = sortUndoMessage,
+                        actionLabel = undoLabel,
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) onUndoSort(sortUndo)
+                }
+                sortMessage != null -> snackbarHostState.showSnackbar(sortMessage)
             }
-            sortMessage != null -> {
-                onSortFeedbackShown()
-                snackbarHostState.showSnackbar(sortMessage)
-            }
+        } finally {
+            onSortFeedbackShown(sortUndo, sortMessageKind)
         }
     }
     Box(
@@ -336,17 +340,6 @@ fun ReviewScreen(
                 .onSizeChanged { headerHeightPx = it.height }
                 .padding(start = 20.dp, top = statusBarTopPadding + 20.dp, end = 12.dp),
         )
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(
-                    start = 16.dp,
-                    top = 16.dp,
-                    end = 16.dp,
-                    bottom = navigationBottomPadding + OrbitBottomNavigationDefaults.ContentClearance,
-                ),
-        )
         if (sortingOneByOne) {
             SortOneByOne(
                 items = uiState.toSort,
@@ -357,6 +350,20 @@ fun ReviewScreen(
                 onClose = { sortingOneByOne = false },
             )
         }
+        // Drawn after the one-by-one view so its Undo is not hidden behind it, and
+        // lifted above that view's buttons while it is open.
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(
+                    start = 16.dp,
+                    top = 16.dp,
+                    end = 16.dp,
+                    bottom = navigationBottomPadding + OrbitBottomNavigationDefaults.ContentClearance +
+                        if (sortingOneByOne) SortOneByOneActionsClearance else 0.dp,
+                ),
+        )
         sortHost(snackbarHostState)
     }
 }

@@ -23,6 +23,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -55,20 +56,45 @@ class CaptureInboxRoomTest {
     @After
     fun tearDown() = database.close()
 
-    private fun inbox(scope: CoroutineScope = this.scope, onAnalysis: () -> Unit = {}): CaptureInbox = CaptureInbox(
+    private fun inbox(
+        scope: CoroutineScope = this.scope,
+        beforeResult: suspend () -> Unit = {},
+        onAnalysis: () -> Unit = {},
+    ): CaptureInbox = CaptureInbox(
         captureRepository = RoomCaptureRepository(database.captureDao()),
         suggestionDao = database.captureSuggestionDao(),
         brainDumpRepository = RoomBrainDumpRepository(database.brainDumpDao()),
         spaceRepository = RoomSpaceRepository(database.spaceDao()),
         suggester = { text, _ ->
             onAnalysis()
+            beforeResult()
             if (suggesterFails) error("analysis unavailable")
             LocalRulesCaptureAnalyzer(now = { Instant.ofEpochMilli(now) }, zoneId = { ZoneId.of("Europe/Tallinn") })
                 .analyze(text)
         },
         scope = scope,
         now = { now },
+        transaction = RoomCaptureFinalizationTransaction(database),
     )
+
+    private fun confirm() = ConfirmCaptureActionUseCase(
+        captureRepository = RoomCaptureRepository(database.captureDao()),
+        noteRepository = RoomNoteRepository(database.noteDao()),
+        taskRepository = RoomTaskRepository(database.taskDao()),
+        reminderRepository = RoomReminderRepository(database.reminderDao(), PolicyRecordingScheduler { now }),
+        transaction = RoomCaptureFinalizationTransaction(database),
+        labelRepository = RoomLabelRepository(database.labelDao()),
+    )
+
+    /** Holds the suggester until [release] completes, so a test can act on the thought meanwhile. */
+    private class SlowAnalysis {
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val hook: suspend () -> Unit = {
+            started.complete(Unit)
+            release.await()
+        }
+    }
 
     private fun resolution() = CaptureResolution(
         captureRepository = RoomCaptureRepository(database.captureDao()),
@@ -104,10 +130,10 @@ class CaptureInboxRoomTest {
         var awaited: Long? = null
         var awaitedWhenAnalysed: Long? = null
         val analysed = CompletableDeferred<Unit>()
-        val inbox = inbox(liveScope) {
+        val inbox = inbox(liveScope, onAnalysis = {
             awaitedWhenAnalysed = awaited
             analysed.complete(Unit)
-        }
+        })
 
         val id = inbox.save("call the bank tomorrow") { awaited = it }
         withTimeout(5_000) { analysed.await() }
@@ -224,5 +250,81 @@ class CaptureInboxRoomTest {
         val reminder = database.reminderDao().observeAll().first().single()
         assertEquals(at, reminder.dueAt)
         assertEquals(CaptureStatus.Processed, database.captureDao().getById(id)?.status)
+    }
+
+    @Test
+    fun lettingGoWhileAnalysisRunsIsNotUndoneByTheLateResult() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        resolution().archive(id)
+        slow.release.complete(Unit)
+
+        assertNull(withTimeout(5_000) { result.await() })
+        assertEquals(CaptureStatus.Archived, database.captureDao().getById(id)?.status)
+        assertNull(database.captureSuggestionDao().getByCaptureId(id))
+    }
+
+    @Test
+    fun sortingWhileAnalysisRunsKeepsTheItemLinkAndCreatesNoDuplicate() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        val noteId = confirm().saveNote(captureId = id, spaceId = null, title = "Quarterly report")
+        slow.release.complete(Unit)
+
+        assertNull(withTimeout(5_000) { result.await() })
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Processed, capture.status)
+        assertEquals(noteId, capture.linkedItemId)
+        assertNull(database.captureSuggestionDao().getByCaptureId(id))
+        assertEquals(1, database.noteDao().observeAll().first().size)
+        assertTrue(database.taskDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun aBrainDumpSortedWhileAnalysisRunsGetsNoSession() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("buy milk\ncall the dentist\nremind me tomorrow at 1600 to pay rent")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        confirm().saveNote(captureId = id, spaceId = null, title = "Errands")
+        slow.release.complete(Unit)
+
+        assertNull(withTimeout(5_000) { result.await() })
+        assertNull(RoomBrainDumpRepository(database.brainDumpDao()).getSession(id))
+        assertEquals(CaptureStatus.Processed, database.captureDao().getById(id)?.status)
+    }
+
+    @Test
+    fun aSpaceChosenWhileAnalysisRunsIsKept() = runBlocking {
+        val home = database.spaceDao().insert(
+            SpaceEntity(name = "Home", icon = "home", colorAccent = "#000000", sortOrder = 0),
+        )
+        database.spaceDao().insert(SpaceEntity(name = "Work", icon = "work", colorAccent = "#000000", sortOrder = 1))
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        val capture = requireNotNull(database.captureDao().getById(id))
+        database.captureDao().update(capture.copy(suggestedSpaceId = home))
+        slow.release.complete(Unit)
+
+        assertNotNull(withTimeout(5_000) { result.await() })
+        val stored = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, stored.status)
+        assertEquals(home, stored.suggestedSpaceId)
+        // Sorting reads the suggestion's Space, so it must name the chosen one too.
+        assertEquals("Home", database.captureSuggestionDao().getByCaptureId(id)?.suggestedSpaceName)
     }
 }

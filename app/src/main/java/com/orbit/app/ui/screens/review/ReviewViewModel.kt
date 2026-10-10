@@ -171,6 +171,7 @@ class ReviewViewModel internal constructor(
     private val weeklySummary = MutableStateFlow<SourceLinkedAnswer?>(null)
     private val pendingTaskUndo = MutableStateFlow<ReviewTaskUndoToken?>(null)
     private val sortFeedback = MutableStateFlow<Pair<SortUndoToken?, ReviewSortMessage?>>(null to null)
+    private var sortActionInProgress = false
     private var weeklyDataVersion = 0L
 
     private val corpus = combine(
@@ -251,7 +252,7 @@ class ReviewViewModel internal constructor(
 
     /** One tap: turn the thought into what LUMA suggested. */
     fun acceptSuggestion(item: ToSortItem) {
-        viewModelScope.launch {
+        runSortAction {
             runCatching { container.captureResolution.acceptSuggestion(item.captureId) }
                 .onSuccess { accepted ->
                     sortFeedback.value = if (accepted == null) {
@@ -271,7 +272,7 @@ class ReviewViewModel internal constructor(
     fun acceptAllSuggestions(items: List<ToSortItem>) {
         val ready = items.filter { it.state == ToSortState.Suggested }
         if (ready.isEmpty()) return
-        viewModelScope.launch {
+        runSortAction {
             val accepted = mutableListOf<SortUndoToken.Accepted>()
             var failed = false
             ready.forEach { item ->
@@ -324,8 +325,30 @@ class ReviewViewModel internal constructor(
         }
     }
 
-    fun sortFeedbackShown() {
-        sortFeedback.value = null to null
+    /**
+     * Clears the feedback the screen just finished showing. It only clears that exact
+     * feedback, so a newer result (for example "Undone") that arrived meanwhile is
+     * still shown.
+     */
+    fun sortFeedbackShown(token: SortUndoToken?, message: ReviewSortMessage?) {
+        sortFeedback.compareAndSet(token to message, null to null)
+    }
+
+    /**
+     * Runs one accept action at a time. A second tap while the first is still saving
+     * would otherwise fail on the already sorted thought and replace the first
+     * action's Undo with an error message.
+     */
+    private fun runSortAction(action: suspend () -> Unit) {
+        if (sortActionInProgress) return
+        sortActionInProgress = true
+        viewModelScope.launch {
+            try {
+                action()
+            } finally {
+                sortActionInProgress = false
+            }
+        }
     }
 
     fun keepTaskActive(loop: ReviewLoop) = updateLoop(loop, actions::keepTaskActive)
