@@ -263,7 +263,7 @@ private fun CalendarWeekStrip(
     val todayLabel = stringResource(R.string.core_today)
     val hasItemsLabel = stringResource(R.string.core_has_scheduled_items)
     val selectedLabel = stringResource(R.string.core_selected)
-    val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEEE d MMMM", locale) }
+    val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern(com.orbit.app.domain.model.LocalizedDatePatterns.forLocale(locale).longWeekdayDate, locale) }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -534,7 +534,7 @@ private fun CalendarMonthView(
 
 @Composable
 internal fun CalendarDayTitle(date: LocalDate, today: LocalDate, locale: Locale, modifier: Modifier = Modifier) {
-    val formatter = remember(locale) { DateTimeFormatter.ofPattern("EEEE d MMMM", locale) }
+    val formatter = remember(locale) { DateTimeFormatter.ofPattern(com.orbit.app.domain.model.LocalizedDatePatterns.forLocale(locale).longWeekdayDate, locale) }
     val dayText = date.format(formatter).replaceFirstChar { it.titlecase(locale) }
     Text(
         text = if (date == today) stringResource(R.string.calendar_today_prefix, dayText) else dayText,
