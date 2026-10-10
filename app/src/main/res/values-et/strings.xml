@@ -3,7 +3,6 @@
     <string name="accent_ink_paper">Tint ja paber</string>
     <string name="background_ink_paper">Tint ja paber</string>
     <string name="text_neutral">Neutraalne</string>
-    <string name="settings_advanced_full_palette">Täiustatud täispalett</string>
     <string name="settings_adaptive_dimming">Kohanduv tumedus</string>
     <string name="settings_manual_dimming">Käsitsi tumedus</string>
     <string name="navigation_home">Avaleht</string>
@@ -36,7 +35,7 @@
     <string name="settings_profile_title">Profiil</string>
     <string name="settings_profile_subtitle">Rakenduses kuvatav nimi</string>
     <string name="settings_colors_title">Värvid</string>
-    <string name="settings_colors_subtitle">Teema, põhivärv ja tekst</string>
+    <string name="settings_colors_subtitle">Teksti värv ja teine värv</string>
     <string name="settings_background_title">Taust</string>
     <string name="settings_background_subtitle">Valmistaust või oma pilt</string>
     <string name="settings_transparency_title">Läbipaistvus</string>
@@ -50,7 +49,6 @@
     <string name="settings_your_name">Sinu nimi</string>
     <string name="settings_name_supporting">Kuvatakse tervituses</string>
     <string name="settings_theme">Teema</string>
-    <string name="settings_theme_auto_explanation">Automaatne valik järgib Androidi süsteemisätet.</string>
     <string name="settings_overall_color">Põhivärv</string>
     <string name="settings_text_color">Teksti värv</string>
     <string name="settings_time_format">Kellaaja vorming</string>

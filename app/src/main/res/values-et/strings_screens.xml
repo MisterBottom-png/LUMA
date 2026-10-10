@@ -113,6 +113,8 @@
     <string name="tutorial_demo_other_1">ideed aia jaoks</string>
     <string name="tutorial_demo_other_2">uuenda passi</string>
     <string name="tutorial_demo_title">Helista hambaarstile</string>
+    <string name="settings_second_color">Kasuta teist värvi</string>
+    <string name="settings_second_color_body">Lisab teema teise värvi mõnele nupule ja sildile.</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d märge</item><item quantity="other">%1$d märget</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorteeritud %1$d mõte</item><item quantity="other">Sorteeritud %1$d mõtet</item></plurals>
     <plurals name="brain_overview_subtitle"><item quantity="one">%1$d mõte. Märgitud näivad selged; rea muutmiseks puuduta seda.</item><item quantity="other">%1$d mõtet. Märgitud näivad selged; rea muutmiseks puuduta seda.</item></plurals>

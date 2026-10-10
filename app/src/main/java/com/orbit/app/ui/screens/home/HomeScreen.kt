@@ -852,7 +852,7 @@ private val CaptureHints = listOf(
     R.string.home_capture_hint_small,
 )
 
-/** "Good afternoon, Name" on one line, or just the greeting when no name is set. */
+/** "Good afternoon, Name", or just the greeting when no name is set. */
 @Composable
 private fun homeGreeting(hour: Int, userName: String): String {
     val name = userName.trim()
@@ -871,16 +871,19 @@ private fun HomeHeader(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
+        // A name that does not fit after the greeting moves to its own line instead
+        // of being cut off ("Good afternoon," / "Vitautas").
         Text(
             text = greeting,
             modifier = Modifier
                 .weight(1f)
+                .padding(top = 6.dp)
                 .semantics { heading() },
             style = HomeTypography.userName.copy(fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.45).sp),
             color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         IconButton(

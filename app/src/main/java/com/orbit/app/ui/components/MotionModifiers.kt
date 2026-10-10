@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
 import com.orbit.app.ui.theme.OrbitMotion
 
@@ -51,6 +52,8 @@ fun Modifier.orbitPressFeedback(
 fun Modifier.orbitScrollEdgeFade(
     top: Dp = 0.dp,
     bottom: Dp = 0.dp,
+    /** How much of [top] fades in; the rest is fully hidden. Unset keeps the last fifth. */
+    topFadeLength: Dp = Dp.Unspecified,
 ): Modifier {
     if (top <= 0.dp && bottom <= 0.dp) return this
 
@@ -61,11 +64,16 @@ fun Modifier.orbitScrollEdgeFade(
 
         val topPx = top.toPx().coerceAtMost(size.height)
         if (topPx > 0f) {
+            val hiddenUntil = if (topFadeLength.isSpecified) {
+                (1f - topFadeLength.toPx() / topPx).coerceIn(0f, 1f)
+            } else {
+                0.8f
+            }
             drawRect(
                 brush = Brush.verticalGradient(
                     colorStops = arrayOf(
                         0f to Color.Transparent,
-                        0.8f to Color.Transparent,
+                        hiddenUntil to Color.Transparent,
                         1f to Color.Black,
                     ),
                     startY = 0f,

@@ -103,7 +103,6 @@
     <string name="settings_glass_effect_strong">Tugev</string>
     <string name="settings_glass_effect_soft">Pehme</string>
     <string name="settings_glass_effect_off">Väljas</string>
-    <string name="settings_glass_effect_body">Pehme ja Väljas kasutavad vähem akut ning neid on kergem lugeda.</string>
     <string name="spaces_name_taken">Sul on juba ruum nimega „%1$s”.</string>
     <string name="spaces_name_taken_archived">„%1$s” on arhiveeritud. Kas taastad selle, selle asemel et teise teha?</string>
     <string name="spaces_name_taken_hidden">„%1$s” on peidetud. Kas näitad seda uuesti, selle asemel et teise teha?</string>

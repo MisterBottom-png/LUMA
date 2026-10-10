@@ -106,6 +106,11 @@ fun SettingsScreen(
     LaunchedEffect(isSettingsSubsectionOpen) {
         onSettingsSubsectionChanged(isSettingsSubsectionOpen)
     }
+    // Pages share scroll states, so each page opens at its top instead of where
+    // another page was left.
+    LaunchedEffect(appearanceSubsection, systemSubsection, aiSubsection) {
+        if (activeScrollState !== homeScrollState) activeScrollState.scrollTo(0)
+    }
 
     BackHandler(enabled = appearanceSubsection != null) {
         appearanceSubsection = null
@@ -146,7 +151,7 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .orbitScrollEdgeFade(top = headerClearance)
+                .orbitScrollEdgeFade(top = headerClearance, topFadeLength = 12.dp)
                 .verticalScroll(activeScrollState)
                 .padding(horizontal = 24.dp)
                 .padding(top = headerClearance),

@@ -103,7 +103,6 @@
     <string name="settings_glass_effect_strong">Strong</string>
     <string name="settings_glass_effect_soft">Soft</string>
     <string name="settings_glass_effect_off">Off</string>
-    <string name="settings_glass_effect_body">Soft and Off use less battery and are easier to read.</string>
     <string name="spaces_name_taken">You already have a Space called “%1$s”.</string>
     <string name="spaces_name_taken_archived">“%1$s” is archived. Restore it instead of making a second one?</string>
     <string name="spaces_name_taken_hidden">“%1$s” is hidden. Show it again instead of making a second one?</string>

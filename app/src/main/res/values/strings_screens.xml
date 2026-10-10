@@ -113,6 +113,8 @@
     <string name="tutorial_demo_other_1">ideas for the garden</string>
     <string name="tutorial_demo_other_2">renew passport</string>
     <string name="tutorial_demo_title">Call the dentist</string>
+    <string name="settings_second_color">Use a second color</string>
+    <string name="settings_second_color_body">Adds your theme’s second color to some buttons and tags.</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d note</item><item quantity="other">%1$d notes</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorted %1$d thought</item><item quantity="other">Sorted %1$d thoughts</item></plurals>
     <plurals name="brain_overview_subtitle"><item quantity="one">%1$d thought. Ticked ones look clear; tap a row to change it.</item><item quantity="other">%1$d thoughts. Ticked ones look clear; tap a row to change it.</item></plurals>

@@ -3,7 +3,6 @@
     <string name="accent_ink_paper">Чернила и бумага</string>
     <string name="background_ink_paper">Чернила и бумага</string>
     <string name="text_neutral">Нейтральный</string>
-    <string name="settings_advanced_full_palette">Расширенная полная палитра</string>
     <string name="settings_adaptive_dimming">Адаптивное затемнение</string>
     <string name="settings_manual_dimming">Ручное затемнение</string>
     <string name="navigation_home">Главная</string>
@@ -36,7 +35,7 @@
     <string name="settings_profile_title">Профиль</string>
     <string name="settings_profile_subtitle">Имя, отображаемое в Tallele</string>
     <string name="settings_colors_title">Цвета</string>
-    <string name="settings_colors_subtitle">Тема, акцент и текст</string>
+    <string name="settings_colors_subtitle">Цвет текста и второй цвет</string>
     <string name="settings_background_title">Фон</string>
     <string name="settings_background_subtitle">Готовый фон или своё изображение</string>
     <string name="settings_transparency_title">Прозрачность</string>
@@ -50,7 +49,6 @@
     <string name="settings_your_name">Ваше имя</string>
     <string name="settings_name_supporting">Отображается в приветствии</string>
     <string name="settings_theme">Тема</string>
-    <string name="settings_theme_auto_explanation">Автоматический режим следует системной настройке Android.</string>
     <string name="settings_overall_color">Основной цвет</string>
     <string name="settings_text_color">Цвет текста</string>
     <string name="settings_time_format">Формат времени</string>

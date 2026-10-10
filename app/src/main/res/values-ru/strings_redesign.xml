@@ -109,7 +109,6 @@
     <string name="settings_glass_effect_strong">Сильный</string>
     <string name="settings_glass_effect_soft">Мягкий</string>
     <string name="settings_glass_effect_off">Выкл.</string>
-    <string name="settings_glass_effect_body">«Мягкий» и «Выкл.» расходуют меньше заряда и легче читаются.</string>
     <string name="spaces_name_taken">Пространство «%1$s» уже есть.</string>
     <string name="spaces_name_taken_archived">Пространство «%1$s» в архиве. Восстановить его вместо создания второго?</string>
     <string name="spaces_name_taken_hidden">Пространство «%1$s» скрыто. Показать его снова вместо создания второго?</string>

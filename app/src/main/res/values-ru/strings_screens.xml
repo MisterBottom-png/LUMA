@@ -113,6 +113,8 @@
     <string name="tutorial_demo_other_1">идеи для сада</string>
     <string name="tutorial_demo_other_2">продлить паспорт</string>
     <string name="tutorial_demo_title">Позвонить стоматологу</string>
+    <string name="settings_second_color">Второй цвет</string>
+    <string name="settings_second_color_body">Добавляет второй цвет темы к некоторым кнопкам и меткам.</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d заметка</item><item quantity="few">%1$d заметки</item><item quantity="many">%1$d заметок</item><item quantity="other">%1$d заметки</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Разобрана %1$d мысль</item><item quantity="few">Разобраны %1$d мысли</item><item quantity="many">Разобрано %1$d мыслей</item><item quantity="other">Разобрано %1$d мысли</item></plurals>
     <plurals name="brain_overview_subtitle"><item quantity="one">%1$d мысль. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item><item quantity="few">%1$d мысли. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item><item quantity="many">%1$d мыслей. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item><item quantity="other">%1$d мысли. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item></plurals>

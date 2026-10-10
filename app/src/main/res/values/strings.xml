@@ -35,7 +35,7 @@
     <string name="settings_profile_title">Profile</string>
     <string name="settings_profile_subtitle">Name shown in Tallele</string>
     <string name="settings_colors_title">Colors</string>
-    <string name="settings_colors_subtitle">Theme, accent, and text</string>
+    <string name="settings_colors_subtitle">Text color and a second color</string>
     <string name="settings_background_title">Background</string>
     <string name="settings_background_subtitle">Preset or custom image</string>
     <string name="settings_transparency_title">Transparency</string>
@@ -49,12 +49,10 @@
     <string name="settings_your_name">Your name</string>
     <string name="settings_name_supporting">Shown in your greeting</string>
     <string name="settings_theme">Theme</string>
-    <string name="settings_theme_auto_explanation">Auto follows your Android system setting.</string>
     <string name="settings_overall_color">Overall color</string>
     <string name="accent_ink_paper">Ink &amp; Paper</string>
     <string name="background_ink_paper">Ink &amp; Paper</string>
     <string name="text_neutral">Neutral</string>
-    <string name="settings_advanced_full_palette">Advanced full palette</string>
     <string name="settings_adaptive_dimming">Adaptive dimming</string>
     <string name="settings_manual_dimming">Manual dimming</string>
     <string name="settings_text_color">Text color</string>
