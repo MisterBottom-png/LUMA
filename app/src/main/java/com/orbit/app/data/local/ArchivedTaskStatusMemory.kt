@@ -16,10 +16,14 @@ interface ArchivedTaskStatusMemory {
     fun recall(taskId: Long): TaskStatus?
     fun forget(taskId: Long)
 
+    /** Forgets everything: task ids mean other tasks once data is restored or reset. */
+    fun clear()
+
     object None : ArchivedTaskStatusMemory {
         override fun remember(taskId: Long, status: TaskStatus) = Unit
         override fun recall(taskId: Long): TaskStatus? = null
         override fun forget(taskId: Long) = Unit
+        override fun clear() = Unit
     }
 }
 
@@ -37,6 +41,10 @@ class SharedPreferencesArchivedTaskStatusMemory(context: Context) : ArchivedTask
 
     override fun forget(taskId: Long) {
         preferences.edit { remove(taskId.toString()) }
+    }
+
+    override fun clear() {
+        preferences.edit { clear() }
     }
 }
 

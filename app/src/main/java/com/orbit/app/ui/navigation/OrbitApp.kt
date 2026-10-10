@@ -240,6 +240,13 @@ fun OrbitApp(
                         homeWeekViewModel.refreshToday()
                         onPauseOrDispose { }
                     }
+                    // Home left open across midnight moves to the new day too.
+                    LaunchedEffect(homeWeekViewModel) {
+                        while (true) {
+                            kotlinx.coroutines.delay(millisUntilNextLocalMidnight(java.time.ZonedDateTime.now()))
+                            homeWeekViewModel.refreshToday()
+                        }
+                    }
                     val homeWeekUiState by homeWeekViewModel.uiState.collectAsStateWithLifecycle()
                     val calendarCaptureEpochDay by entry.savedStateHandle
                         .getStateFlow<Long?>(CalendarCaptureContext.EpochDayKey, null)
@@ -835,3 +842,8 @@ private fun com.orbit.app.ui.screens.spaces.SpaceItemReference.route(): String {
     }
     return ItemDetailDestination.route(detailType, id)
 }
+
+/** Time until the next local midnight, plus a second so the new day has begun. */
+internal fun millisUntilNextLocalMidnight(now: java.time.ZonedDateTime): Long =
+    java.time.Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(now.zone)).toMillis()
+        .coerceAtLeast(0L) + 1_000L

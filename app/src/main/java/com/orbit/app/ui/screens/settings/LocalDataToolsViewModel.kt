@@ -157,6 +157,8 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
             _uiState.update { it.copy(isRestoring = true, errorMessage = null) }
             runCatching { container.localDataRestorer.restore(plan) }
                 .onSuccess { result ->
+                    // Task ids now name the restored tasks, not the ones remembered here.
+                    container.archivedTaskStatusMemory.clear()
                     _uiState.update {
                         it.copy(
                             isRestoring = false,
@@ -206,6 +208,7 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
                     }
                 }
             }.onSuccess {
+                container.archivedTaskStatusMemory.clear()
                 _uiState.update {
                     it.copy(
                         isResetting = false,
