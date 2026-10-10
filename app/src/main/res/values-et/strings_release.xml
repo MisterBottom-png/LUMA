@@ -8,8 +8,8 @@
     <string name="settings_gemini_consent_body">Kui see on lubatud, saadab Tallele Google Gemini API-le sinu valitud teksti ja ainult selle toimingu jaoks vajaliku asjakohase kohaliku konteksti. Sinu API-võti jääb selles seadmes krüptituks. Gemini ei saa sinu andmeid ilma kinnituseta muuta, ajastada, kustutada ega saata. Režiimi Ainult kohalik valimine tühistab selle nõusoleku.</string>
     <string name="settings_gemini_consent_confirm">Luba Gemini</string>
     <string name="settings_local_learning_title">Kohalik AI õppimine</string>
-    <string name="settings_local_learning_toggle">Õpi minu valikutest</string>
-    <string name="settings_local_learning_explanation">Vaikimisi väljas. Kui see on lubatud, talletab Tallele selles seadmes lühikesi paranduste mustreid ja selgesõnalisi õppimiskirjeid. Õpitud reeglid lisatakse varukoopiasse. Nende aluseks olev paranduste ajalugu jääb sellesse seadmesse ja seda hoitakse 90 päeva.</string>
+    <string name="settings_local_learning_toggle">Kasuta minu parandusi Gemini soovitustes</string>
+    <string name="settings_local_learning_explanation">Vaikimisi väljas. Parandused, mida teed korduvalt, jäävad sellesse seadmesse lühikeste eelistustena. Neid kasutatakse ainult Gemini soovitustes, kui Gemini ja „Jaga õpitut Geminiga“ on sees; kohalikud soovitused neid ei kasuta. Õpitud reeglid on varukoopias. Nende aluseks olev parandusajalugu jääb sellesse seadmesse 90 päevaks.</string>
     <string name="settings_clear_learning">Kustuta õpitud andmed</string>
     <string name="settings_clearing_learning">Õpitud andmete kustutamine…</string>
     <string name="settings_clear_learning_title">Kas kustutada kõik õpitud andmed?</string>

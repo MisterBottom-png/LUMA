@@ -131,3 +131,10 @@ fun AppSettings.withDefaultAppearance(): AppSettings {
         textColor = defaults.textColor,
     )
 }
+
+/**
+ * Learned rules are used only in Gemini prompts: with learning on, sharing with
+ * Gemini on, and Gemini chosen. Local suggestions never read them.
+ */
+val AppSettings.learnedRulesReachGemini: Boolean
+    get() = enableLocalAiLearning && shareLocalLearningWithGemini && aiMode == AiMode.GeminiApi

@@ -1,5 +1,6 @@
 package com.orbit.app
 
+import com.orbit.app.domain.model.learnedRulesReachGemini
 import android.app.Application
 import com.orbit.app.data.export.LocalDataExporter
 import com.orbit.app.data.export.LocalDataRestorer
@@ -256,6 +257,7 @@ class OrbitContainer(application: Application) {
             correctionHistoryRepository = aiCorrectionHistoryRepository,
             learnedRuleRepository = learnedRuleRepository,
             isLearningEnabled = { appSettingsRepository.settings.first().enableLocalAiLearning },
+            rulesAreUsed = { appSettingsRepository.settings.first().learnedRulesReachGemini },
         )
     }
     private val localDataStore: RoomLocalDataRestoreStore by lazy {
