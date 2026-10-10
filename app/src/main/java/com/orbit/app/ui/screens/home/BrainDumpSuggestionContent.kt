@@ -1,5 +1,8 @@
 package com.orbit.app.ui.screens.home
 
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import com.orbit.app.ui.reminders.messageRes
+import com.orbit.app.reminders.ReminderSaveOutcome
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
@@ -220,8 +223,13 @@ private fun BrainDumpSuggestionCard(
             spaces = spaces,
             selectedSpaceId = draft.spaceId,
             onSpaceSelected = { callbacks.onDraftChanged(draft.copy(spaceId = it)) },
-            taskDueAt = draft.scheduledAt,
-            onTaskDueAtChanged = { callbacks.onDraftChanged(draft.copy(scheduledAt = it)) },
+            taskDue = TaskDue(
+                dayEpochDay = draft.scheduledDateEpochDay,
+                at = draft.scheduledAt.takeIf { draft.scheduledDateEpochDay == null },
+            ),
+            onTaskDueChanged = { due ->
+                callbacks.onDraftChanged(draft.copy(scheduledAt = due.at, scheduledDateEpochDay = due.dayEpochDay))
+            },
             reminderAt = draft.scheduledAt,
             onReminderAtChanged = { callbacks.onDraftChanged(draft.copy(scheduledAt = it)) },
             initialDate = null,
@@ -617,6 +625,7 @@ internal fun BrainDumpInlineStatus(
 ) {
     val statuses = listOfNotNull(warning, status).distinct()
     if (statuses.isEmpty()) return
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
     Column(modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
         statuses.forEach { visibleStatus ->
             Text(
@@ -633,6 +642,9 @@ internal fun BrainDumpInlineStatus(
             }
             if (visibleStatus.canRetry) {
                 TextButton(onClick = onRetry) { Text(stringResource(R.string.core_brain_dump_retry)) }
+            }
+            if (visibleStatus.message == BrainDumpStatusMessage.NotificationsBlocked) {
+                TextButton(onClick = turnOnNotifications) { Text(stringResource(R.string.settings_turn_on)) }
             }
         }
     }
@@ -711,11 +723,13 @@ private fun brainDumpSpaceName(space: CaptureSpaceOption?): String = when (space
 private fun BrainDumpStatusMessage.labelRes(): Int = when (this) {
     BrainDumpStatusMessage.NoteSaved -> R.string.core_home_message_note_saved
     BrainDumpStatusMessage.TaskCreated -> R.string.core_home_message_task_created
-    BrainDumpStatusMessage.ReminderCreated -> R.string.core_home_message_reminder_created
+    BrainDumpStatusMessage.ReminderCreated -> ReminderSaveOutcome.Saved.messageRes()
     BrainDumpStatusMessage.KeptInInbox -> R.string.core_home_message_kept_in_inbox
     BrainDumpStatusMessage.ThoughtSkipped -> R.string.core_brain_dump_status_skipped
     BrainDumpStatusMessage.SaveFailed -> R.string.core_home_message_brain_dump_item_save_failed
-    BrainDumpStatusMessage.NotificationAttention -> R.string.core_home_message_reminder_notification_attention
+    BrainDumpStatusMessage.NotificationAttention -> ReminderSaveOutcome.SavedNotScheduled.messageRes()
+    BrainDumpStatusMessage.NotificationsBlocked -> ReminderSaveOutcome.SavedNotificationsBlocked.messageRes()
+    BrainDumpStatusMessage.NeedsTime -> R.string.brain_dump_needs_time_status
 }
 
 private fun showBrainDumpDateTimePicker(

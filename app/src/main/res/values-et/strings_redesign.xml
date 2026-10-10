@@ -124,4 +124,9 @@
     <string name="reminder_repeat_explanation">Kui märgid selle tehtuks, viib Tallele selle järgmisele korrale. Sinu eest ei looda midagi.</string>
     <string name="reminder_repeat_updated">Kordus muudetud.</string>
     <string name="reminder_repeat_update_failed">Kordust ei õnnestunud muuta. Midagi ei läinud kaduma.</string>
+    <string name="reminder_outcome_saved">Meeldetuletus on seatud.</string>
+    <string name="reminder_outcome_not_scheduled">Meeldetuletus on salvestatud, kuid selle teavitust ei õnnestunud seadistada.</string>
+    <string name="reminder_outcome_notifications_off">Meeldetuletus on salvestatud, kuid teavitused on välja lülitatud, nii et see ei anna märku.</string>
+    <string name="reminder_outcome_turn_on_prompt">Lülita teavitused sisse, et meeldetuletused saaksid märku anda.</string>
+    <string name="brain_dump_needs_time_status">Mõni meeldetuletus vajab enne salvestamist aega.</string>
 </resources>

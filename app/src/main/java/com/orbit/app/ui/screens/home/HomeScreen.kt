@@ -101,6 +101,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.orbit.app.R
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarDuration
 import com.orbit.app.capture.VoiceCapture
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
@@ -224,11 +227,22 @@ fun HomeScreen(
 
     // Cleared only after the snackbar is gone; clearing first would cancel this
     // effect and dismiss the message almost at once.
+    val turnOnLabel = stringResource(R.string.settings_turn_on)
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
     LaunchedEffect(pendingMessage) {
         val shown = pendingMessage ?: return@LaunchedEffect
         val text = messageText ?: return@LaunchedEffect
         try {
-            snackbarHostState.showSnackbar(text)
+            if (shown == HomeMessage.ReminderNotificationsOff) {
+                val result = snackbarHostState.showSnackbar(
+                    message = text,
+                    actionLabel = turnOnLabel,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) turnOnNotifications()
+            } else {
+                snackbarHostState.showSnackbar(text)
+            }
         } finally {
             viewModel.messageShown(shown)
         }

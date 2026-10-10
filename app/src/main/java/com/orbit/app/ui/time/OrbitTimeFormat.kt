@@ -7,6 +7,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.orbit.app.domain.model.SettingsTimeFormatMode
 import com.orbit.app.domain.model.uses24HourClock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -30,6 +31,9 @@ data class OrbitTimeFormat(
 
     fun formatDate(epochMillis: Long): String =
         epochMillis.formatWithPattern("EEE, MMM d", locale)
+
+    fun formatDate(date: LocalDate): String =
+        date.format(DateTimeFormatter.ofPattern("EEE, MMM d", locale))
 
     fun formatDateWithYear(epochMillis: Long): String =
         epochMillis.formatWithPattern("MMM d, yyyy", locale)

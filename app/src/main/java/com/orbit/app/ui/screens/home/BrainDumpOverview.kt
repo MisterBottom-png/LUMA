@@ -296,7 +296,8 @@ private fun overviewMeta(row: BrainDumpOverviewRow, timeFormat: OrbitTimeFormat)
         ),
     )
     add(row.spaceName?.let { localizedSpaceName(it) } ?: stringResource(R.string.core_inbox))
-    row.draft.scheduledAt?.let { add(timeFormat.formatWeekdayDateTime(it)) }
+    row.draft.scheduledDateEpochDay?.let { add(timeFormat.formatDate(java.time.LocalDate.ofEpochDay(it))) }
+        ?: row.draft.scheduledAt?.let { add(timeFormat.formatWeekdayDateTime(it)) }
     when (row.lifeSignal) {
         CaptureLifeSignal.Someday -> add(stringResource(R.string.core_someday))
         CaptureLifeSignal.WaitingFor -> add(stringResource(R.string.core_waiting_for))

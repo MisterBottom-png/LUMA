@@ -185,13 +185,9 @@
     <string name="core_home_message_brain_dump_unavailable">See mõtete korrastamine ei oota enam ülevaatamist.</string>
     <string name="core_home_message_note_saved">Salvestati märkmena.</string>
     <string name="core_home_message_task_created">Ülesanne loodi.</string>
-    <string name="core_home_message_reminder_created">Meeldetuletus loodi.</string>
     <string name="core_home_message_capture_action_failed">Toiming ei lõppenud. Sisestus on endiselt sisendkaustas.</string>
-    <string name="core_home_message_brain_dump_completed_notification_attention">Mõtete korrastamine on üle vaadatud. Meeldetuletus salvestati, kuid teavituse ajastamine vajab tähelepanu.</string>
-    <string name="core_home_message_reminder_notification_attention">Meeldetuletus salvestati, kuid teavituse ajastamine vajab tähelepanu.</string>
     <string name="core_home_message_brain_dump_item_save_failed">Seda üksust ei saanud salvestada. Algne mõtete kogum on endiselt sisendkaustas.</string>
     <string name="core_home_message_preference_save_failed">Seda eelistust ei saanud salvestada. Proovi uuesti.</string>
-    <string name="core_home_message_reminder_notifications_disabled">Meeldetuletus salvestati. Teavitused on väljas, kuid see on endiselt ülevaates saadaval.</string>
     <string name="core_home_brain_dump_resume_summary">Mitmeosaline sisestus on ülevaatamiseks valmis.</string>
     <string name="core_home_brain_dump_review_split">Vaata eraldatud soovitused läbi ükshaaval.</string>
     <string name="core_home_fallback_next_action">Jäta see praegu sisendkausta.</string>

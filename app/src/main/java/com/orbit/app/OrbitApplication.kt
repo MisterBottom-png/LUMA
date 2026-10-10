@@ -49,6 +49,9 @@ import com.orbit.app.domain.usecase.RecordAiLearningEventUseCase
 import com.orbit.app.domain.usecase.ProposeLearnedRuleUseCase
 import com.orbit.app.integrations.gemini.GeminiApiClient
 import com.orbit.app.integrations.gemini.HttpGeminiApiClient
+import com.orbit.app.reminders.NotificationAccess
+import com.orbit.app.reminders.ReminderCapabilities
+import com.orbit.app.reminders.ReminderSaveOutcomes
 import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.reminders.ReminderNotifications
 import com.orbit.app.reminders.WorkManagerReminderScheduler
@@ -207,6 +210,20 @@ class OrbitContainer(application: Application) {
             suggestionDao = database.captureSuggestionDao(),
             confirmCaptureAction = confirmCaptureAction,
             transaction = RoomCaptureFinalizationTransaction(database),
+            reminderOutcomes = reminderSaveOutcomes,
+        )
+    }
+
+    /** What saving a reminder achieved, read from Android's current notification settings. */
+    val reminderSaveOutcomes: ReminderSaveOutcomes by lazy {
+        ReminderSaveOutcomes(
+            reminderById = reminderRepository::getById,
+            access = {
+                NotificationAccess(
+                    notificationsAllowed = ReminderCapabilities.notificationsAllowed(applicationContext),
+                    reminderChannelEnabled = ReminderCapabilities.reminderChannelEnabled(applicationContext),
+                )
+            },
         )
     }
     val thoughtSplitter: ThoughtSplitter by lazy {

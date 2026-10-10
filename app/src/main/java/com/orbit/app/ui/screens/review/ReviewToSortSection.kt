@@ -123,7 +123,10 @@ internal fun ToSortRow(
                         contentDescription = stringResource(acceptLabelRes(item.suggestedType)),
                     )
                 }
-                ToSortState.NeedsChoice -> CompactTonalButton(stringResource(R.string.review_to_sort_pick_time), onChange)
+                ToSortState.NeedsChoice -> CompactTonalButton(
+                    stringResource(if (item.lowConfidence) R.string.review_to_sort_sort else R.string.review_to_sort_pick_time),
+                    onChange,
+                )
                 ToSortState.BrainDump -> CompactTonalButton(stringResource(R.string.review_to_sort_continue), onChange)
                 ToSortState.NoSuggestion, ToSortState.Analyzing ->
                     CompactTonalButton(stringResource(R.string.review_to_sort_sort), onChange)
@@ -190,6 +193,7 @@ internal fun toSortSuggestionLine(item: ToSortItem, timeFormat: OrbitTimeFormat)
         add(stringResource(typeLabelRes(item.suggestedType)))
         item.suggestedSpaceName?.let { add(localizedSpaceName(it)) }
         item.reminderAt?.let { add(timeFormat.formatWeekdayDateTime(it)) }
+        item.taskDateEpochDay?.let { add(timeFormat.formatDate(java.time.LocalDate.ofEpochDay(it))) }
         item.suggestedLabels.forEach { add("#$it") }
         if (item.fromGemini) add(stringResource(R.string.review_suggestion_from_gemini))
     }.joinToString(stringResource(R.string.core_metadata_dot_separator))

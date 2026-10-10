@@ -1,5 +1,7 @@
 package com.orbit.app.ui.screens.review
 
+import com.orbit.app.reminders.ReminderSaveOutcome
+import com.orbit.app.reminders.worst
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -125,7 +127,13 @@ data class ReviewUiState(
 sealed interface SortUndoToken {
     val captureId: Long
 
-    data class Accepted(override val captureId: Long, val itemType: com.orbit.app.data.local.entity.SuggestedItemType, val itemId: Long) : SortUndoToken
+    data class Accepted(
+        override val captureId: Long,
+        val itemType: com.orbit.app.data.local.entity.SuggestedItemType,
+        val itemId: Long,
+        /** For a reminder: whether it can actually reach the user. */
+        val reminderOutcome: ReminderSaveOutcome? = null,
+    ) : SortUndoToken
     data class LetGo(override val captureId: Long) : SortUndoToken
     data class Hidden(override val captureId: Long) : SortUndoToken
 
@@ -133,6 +141,14 @@ sealed interface SortUndoToken {
     data class AcceptedMany(val accepted: List<Accepted>) : SortUndoToken {
         override val captureId: Long get() = accepted.first().captureId
     }
+}
+
+/** The least happy reminder outcome in this feedback, if it saved any reminder. */
+val SortUndoToken.reminderOutcome: ReminderSaveOutcome?
+    get() = when (this) {
+        is SortUndoToken.Accepted -> reminderOutcome
+        is SortUndoToken.AcceptedMany -> accepted.mapNotNull { it.reminderOutcome }.worst()
+        else -> null
 }
 
 enum class ReviewSortMessage { ActionFailed, NeedsChoice, Undone }
@@ -258,7 +274,7 @@ class ReviewViewModel internal constructor(
                     sortFeedback.value = if (accepted == null) {
                         null to ReviewSortMessage.NeedsChoice
                     } else {
-                        SortUndoToken.Accepted(item.captureId, accepted.itemType, accepted.itemId) to null
+                        SortUndoToken.Accepted(item.captureId, accepted.itemType, accepted.itemId, accepted.reminderOutcome) to null
                     }
                 }
                 .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
@@ -278,7 +294,9 @@ class ReviewViewModel internal constructor(
             ready.forEach { item ->
                 runCatching { container.captureResolution.acceptSuggestion(item.captureId) }
                     .onSuccess { result ->
-                        result?.let { accepted += SortUndoToken.Accepted(item.captureId, it.itemType, it.itemId) }
+                        result?.let {
+                            accepted += SortUndoToken.Accepted(item.captureId, it.itemType, it.itemId, it.reminderOutcome)
+                        }
                     }
                     .onFailure { failed = true }
             }

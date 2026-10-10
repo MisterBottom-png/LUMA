@@ -15,6 +15,8 @@ import com.orbit.app.data.repository.RoomLabelRepository
 import com.orbit.app.domain.analyzer.LocalRulesCaptureAnalyzer
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
 import com.orbit.app.domain.usecase.RoomCaptureFinalizationTransaction
+import com.orbit.app.reminders.NotificationAccess
+import com.orbit.app.reminders.ReminderSaveOutcomes
 import com.orbit.app.testing.PolicyRecordingScheduler
 import com.orbit.app.testing.inMemoryOrbitDatabase
 import java.time.Instant
@@ -112,6 +114,9 @@ class CaptureInboxRoomTest {
             labelRepository = RoomLabelRepository(database.labelDao()),
         ),
         transaction = RoomCaptureFinalizationTransaction(database),
+        reminderOutcomes = ReminderSaveOutcomes(database.reminderDao()::getById) {
+            NotificationAccess(notificationsAllowed = true, reminderChannelEnabled = true)
+        },
         now = { now },
     )
 

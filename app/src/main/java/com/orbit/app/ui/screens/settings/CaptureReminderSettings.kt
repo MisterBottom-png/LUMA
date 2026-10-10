@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.orbit.app.R
+import com.orbit.app.ui.reminders.openReminderNotificationSettings
 import com.orbit.app.reminders.ReminderCapabilities
 import com.orbit.app.reminders.ReminderCapabilityState
 import com.orbit.app.reminders.ReminderCapabilityStatus
@@ -79,7 +80,7 @@ internal fun ReminderStatusRow(icon: ImageVector, iconColor: Color) {
         when {
             status.state == ReminderCapabilityState.Blocked -> RowActionButton(
                 label = stringResource(R.string.settings_turn_on),
-                onClick = { context.startSafely(ReminderCapabilities.notificationSettingsIntent(context)) },
+                onClick = { openReminderNotificationSettings(context) },
             )
             exactAlarmIntent != null -> RowActionButton(
                 label = stringResource(R.string.settings_allow),

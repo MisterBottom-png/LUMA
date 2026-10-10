@@ -183,13 +183,9 @@
     <string name="core_home_message_brain_dump_unavailable">That Brain Dump is no longer waiting for review.</string>
     <string name="core_home_message_note_saved">Saved as a note.</string>
     <string name="core_home_message_task_created">Task created.</string>
-    <string name="core_home_message_reminder_created">Reminder created.</string>
     <string name="core_home_message_capture_action_failed">That action did not finish. Your capture is still in the Inbox.</string>
-    <string name="core_home_message_brain_dump_completed_notification_attention">Brain Dump reviewed. The reminder was saved, but notification scheduling needs attention.</string>
-    <string name="core_home_message_reminder_notification_attention">Reminder saved, but notification scheduling needs attention.</string>
     <string name="core_home_message_brain_dump_item_save_failed">That item did not save. The original dump is still in Inbox.</string>
     <string name="core_home_message_preference_save_failed">That preference could not be saved. You can try again.</string>
-    <string name="core_home_message_reminder_notifications_disabled">Reminder saved. Notifications are off; it is still available in Review.</string>
     <string name="core_home_brain_dump_resume_summary">A multi-part capture ready to review.</string>
     <string name="core_home_brain_dump_review_split">Review the split suggestions one at a time.</string>
     <string name="core_home_fallback_next_action">Keep this in Inbox for now.</string>

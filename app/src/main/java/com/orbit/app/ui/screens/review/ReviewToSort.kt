@@ -6,8 +6,11 @@ import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.CaptureAnalyzerSource
 import com.orbit.app.domain.analyzer.ReminderTimeStatus
+import com.orbit.app.domain.capture.isLowConfidence
 import com.orbit.app.domain.capture.labelNames
 import com.orbit.app.domain.capture.reminderStatus
+import com.orbit.app.domain.capture.reminderTime
+import com.orbit.app.domain.capture.taskDateEpochDay
 
 enum class ToSortState {
     /** LUMA is still looking at a just-saved thought. */
@@ -36,6 +39,10 @@ data class ToSortItem(
     val suggestedSpaceName: String? = null,
     val suggestedLabels: List<String> = emptyList(),
     val reminderAt: Long? = null,
+    /** For a task: its day, without a time. */
+    val taskDateEpochDay: Long? = null,
+    /** Tallele is not sure: no one tap, the user sorts it. */
+    val lowConfidence: Boolean = false,
     val brainDumpPending: Int = 0,
     val fromGemini: Boolean = false,
     /** "Looks like N thoughts": a one-line thought the user may choose to split. */
@@ -79,8 +86,9 @@ internal fun buildToSort(
                 },
             )
             else -> {
-                val reminderAt = suggestion.suggestedReminderAt?.takeIf { it > now }
-                val needsChoice = suggestion.suggestedType == SuggestedItemType.Reminder &&
+                val reminderAt = suggestion.reminderTime()?.takeIf { it > now }
+                val lowConfidence = suggestion.isLowConfidence
+                val needsChoice = lowConfidence || suggestion.suggestedType == SuggestedItemType.Reminder &&
                     (reminderAt == null || suggestion.reminderStatus() != ReminderTimeStatus.Resolved)
                 ToSortItem(
                     captureId = capture.id,
@@ -92,6 +100,8 @@ internal fun buildToSort(
                     suggestedSpaceName = suggestion.suggestedSpaceName,
                     suggestedLabels = suggestion.labelNames(),
                     reminderAt = reminderAt,
+                    taskDateEpochDay = suggestion.taskDateEpochDay(),
+                    lowConfidence = lowConfidence,
                     fromGemini = suggestion.analyzerSource == CaptureAnalyzerSource.Gemini.name,
                 )
             }

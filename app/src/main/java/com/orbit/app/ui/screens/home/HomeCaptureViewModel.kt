@@ -11,9 +11,9 @@ import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.capture.CaptureInbox
 import com.orbit.app.domain.capture.CaptureInboxEvent
 import com.orbit.app.domain.capture.needsImmediateTimeQuestion
-import java.time.Instant
+import com.orbit.app.reminders.ReminderSaveOutcome
+import com.orbit.app.ui.reminders.messageRes
 import java.time.LocalDate
-import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,10 +50,17 @@ internal data class QuickReminderQuestion(
 internal enum class HomeMessage(@param:StringRes val textRes: Int) {
     Saved(R.string.core_home_saved_let_go),
     SaveFailed(R.string.core_home_message_capture_save_failed),
-    ReminderSet(R.string.core_home_message_reminder_created),
-    ReminderSetNeedsAttention(R.string.core_home_message_reminder_notification_attention),
+    ReminderSet(ReminderSaveOutcome.Saved.messageRes()),
+    ReminderNotScheduled(ReminderSaveOutcome.SavedNotScheduled.messageRes()),
+    ReminderNotificationsOff(ReminderSaveOutcome.SavedNotificationsBlocked.messageRes()),
     ReminderFailed(R.string.core_home_message_capture_action_failed),
     KeptForLater(R.string.core_home_message_kept_in_inbox),
+}
+
+internal fun ReminderSaveOutcome.toHomeMessage(): HomeMessage = when (this) {
+    ReminderSaveOutcome.Saved -> HomeMessage.ReminderSet
+    ReminderSaveOutcome.SavedNotScheduled -> HomeMessage.ReminderNotScheduled
+    ReminderSaveOutcome.SavedNotificationsBlocked -> HomeMessage.ReminderNotificationsOff
 }
 
 internal data class HomeCaptureUiState(
@@ -88,7 +95,7 @@ internal data class SortRequest(val captureId: Long, val startWithReminderSetup:
 class HomeCaptureViewModel(
     private val captureInbox: CaptureInbox,
     private val appSettingsRepository: AppSettingsRepository,
-    private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> Boolean,
+    private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> ReminderSaveOutcome,
     private val savedStateHandle: SavedStateHandle,
     private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
@@ -191,11 +198,10 @@ class HomeCaptureViewModel(
                 it.copy(
                     isSettingReminder = false,
                     quickReminder = null,
-                    message = when {
-                        outcome.isFailure -> HomeMessage.ReminderFailed
-                        outcome.getOrDefault(false) -> HomeMessage.ReminderSetNeedsAttention
-                        else -> HomeMessage.ReminderSet
-                    },
+                    message = outcome.fold(
+                        onSuccess = { it.toHomeMessage() },
+                        onFailure = { HomeMessage.ReminderFailed },
+                    ),
                 )
             }
         }
@@ -231,7 +237,7 @@ class HomeCaptureViewModel(
     class Factory(
         private val captureInbox: CaptureInbox,
         private val appSettingsRepository: AppSettingsRepository,
-        private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> Boolean,
+        private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> ReminderSaveOutcome,
         private val savedStateHandle: SavedStateHandle,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -249,24 +255,4 @@ class HomeCaptureViewModel(
     private companion object {
         const val DraftTextKey = "homeCaptureDraft"
     }
-}
-
-internal data class CalendarTaskSchedule(
-    val dueAt: Long?,
-    val scheduledDateEpochDay: Long?,
-)
-
-internal fun calendarTaskSchedule(
-    dueAt: Long?,
-    calendarDateContextEpochDay: Long?,
-    zoneId: ZoneId = ZoneId.systemDefault(),
-): CalendarTaskSchedule {
-    val contextDate = calendarDateContextEpochDay
-        ?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
-    val dueDate = dueAt?.let { Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate() }
-    val usesContext = contextDate != null && dueDate == contextDate
-    return CalendarTaskSchedule(
-        dueAt = dueAt.takeUnless { usesContext },
-        scheduledDateEpochDay = contextDate?.toEpochDay().takeIf { usesContext },
-    )
 }

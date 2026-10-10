@@ -1,5 +1,7 @@
 package com.orbit.app.domain.capture
 
+import com.orbit.app.domain.analyzer.confidenceLevel
+import com.orbit.app.domain.analyzer.CaptureConfidence
 import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.CaptureAnalysis
@@ -19,7 +21,8 @@ fun CaptureSuggestionEntity.toAnalysis(rawText: String): CaptureAnalysis = Captu
     suggestedLabels = labelNames(),
     reminderPossible = suggestedType == SuggestedItemType.Reminder || suggestedReminderAt != null ||
         reminderStatus() != ReminderTimeStatus.Unspecified,
-    suggestedReminderAt = suggestedReminderAt,
+    suggestedReminderAt = reminderTime(),
+    taskDateEpochDay = taskDateEpochDay(),
     reminderPhrase = reminderPhrase,
     reminderTimeStatus = reminderStatus(),
     lifeSignal = runCatching { CaptureLifeSignal.valueOf(lifeSignal) }.getOrDefault(CaptureLifeSignal.None),
@@ -29,6 +32,13 @@ fun CaptureSuggestionEntity.toAnalysis(rawText: String): CaptureAnalysis = Captu
     analyzerSource = runCatching { CaptureAnalyzerSource.valueOf(analyzerSource) }
         .getOrDefault(CaptureAnalyzerSource.Local),
 )
+
+/**
+ * Tallele is not sure enough to offer one tap: the user picks, and "Accept all"
+ * leaves it alone. Same threshold as the sort sheet, which opens on "Keep in To sort".
+ */
+val CaptureSuggestionEntity.isLowConfidence: Boolean
+    get() = toAnalysis(suggestedTitle).confidenceLevel == CaptureConfidence.Low
 
 fun CaptureSuggestionEntity.labelNames(): List<String> =
     suggestedLabels.split('\n').map { it.trim() }.filter { it.isNotEmpty() }

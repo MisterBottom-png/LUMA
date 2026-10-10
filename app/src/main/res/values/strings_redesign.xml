@@ -124,4 +124,9 @@
     <string name="reminder_repeat_explanation">When you mark it done, Tallele moves it to the next time. Nothing is created for you.</string>
     <string name="reminder_repeat_updated">Repeat updated.</string>
     <string name="reminder_repeat_update_failed">Repeat could not be changed. Nothing was lost.</string>
+    <string name="reminder_outcome_saved">Reminder set.</string>
+    <string name="reminder_outcome_not_scheduled">Reminder saved, but its notification couldn’t be set up.</string>
+    <string name="reminder_outcome_notifications_off">Reminder saved, but notifications are off, so it won’t ring.</string>
+    <string name="reminder_outcome_turn_on_prompt">Turn on notifications so reminders can ring.</string>
+    <string name="brain_dump_needs_time_status">Some reminders need a time before they can be saved.</string>
 </resources>

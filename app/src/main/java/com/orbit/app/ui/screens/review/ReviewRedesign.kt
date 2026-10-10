@@ -697,7 +697,11 @@ internal fun SortOneByOne(
                             Text(
                                 stringResource(
                                     when (current.state) {
-                                        ToSortState.NeedsChoice -> R.string.review_to_sort_pick_time
+                                        ToSortState.NeedsChoice -> if (current.lowConfidence) {
+                                            R.string.review_to_sort_sort
+                                        } else {
+                                            R.string.review_to_sort_pick_time
+                                        }
                                         ToSortState.BrainDump -> R.string.review_to_sort_continue
                                         else -> R.string.review_to_sort_sort
                                     },

@@ -58,6 +58,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import com.orbit.app.ui.reminders.offerTurnOnIfBlocked
+import com.orbit.app.ui.reminders.offersTurnOn
+import com.orbit.app.ui.reminders.messageRes
+import com.orbit.app.reminders.ReminderSaveOutcome
 import com.orbit.app.ui.screens.home.sortedMessageRes
 import com.orbit.app.domain.analyzer.ReviewLoop
 import com.orbit.app.domain.analyzer.ReviewLoopType
@@ -143,6 +148,16 @@ fun ReviewScreen(
             stringResource(token.messageRes())
         }
     }
+    val sortReminderFollowUp = sortUndo?.reminderOutcome
+        ?.takeIf { it != ReminderSaveOutcome.Saved }
+        ?.let { outcome ->
+            // A single reminder already says it in its Undo snackbar.
+            if (sortUndo is SortUndoToken.AcceptedMany || outcome.offersTurnOn) outcome else null
+        }
+    val turnOnPrompt = stringResource(R.string.reminder_outcome_turn_on_prompt)
+    val notScheduledText = stringResource(R.string.reminder_outcome_not_scheduled)
+    val turnOnLabel = stringResource(R.string.settings_turn_on)
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
     val sortMessage = uiState.sortMessage?.let { stringResource(it.messageRes()) }
     var showOpenLoops by rememberSaveable { mutableStateOf(false) }
     var showAllOpenLoops by rememberSaveable { mutableStateOf(false) }
@@ -192,7 +207,20 @@ fun ReviewScreen(
                         actionLabel = undoLabel,
                         duration = SnackbarDuration.Long,
                     )
-                    if (result == SnackbarResult.ActionPerformed) onUndoSort(sortUndo)
+                    if (result == SnackbarResult.ActionPerformed) {
+                        onUndoSort(sortUndo)
+                    } else {
+                        when {
+                            sortReminderFollowUp == null -> Unit
+                            sortReminderFollowUp.offersTurnOn -> snackbarHostState.offerTurnOnIfBlocked(
+                                outcome = sortReminderFollowUp,
+                                prompt = turnOnPrompt,
+                                turnOnLabel = turnOnLabel,
+                                onTurnOn = turnOnNotifications,
+                            )
+                            else -> snackbarHostState.showSnackbar(notScheduledText)
+                        }
+                    }
                 }
                 sortMessage != null -> snackbarHostState.showSnackbar(sortMessage)
             }
@@ -369,7 +397,7 @@ fun ReviewScreen(
 }
 
 private fun SortUndoToken.messageRes(): Int = when (this) {
-    is SortUndoToken.Accepted -> itemType.sortedMessageRes()
+    is SortUndoToken.Accepted -> reminderOutcome?.messageRes() ?: itemType.sortedMessageRes()
     is SortUndoToken.LetGo -> R.string.review_sort_let_go
     is SortUndoToken.Hidden -> R.string.review_sort_hidden
     is SortUndoToken.AcceptedMany -> accepted.first().itemType.sortedMessageRes()

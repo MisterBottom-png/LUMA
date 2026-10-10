@@ -91,7 +91,7 @@ internal fun CaptureSuggestionSheet(
     brainDumpCallbacks: BrainDumpCallbacks?,
     isPerformingAction: Boolean,
     onSaveNote: (title: String, spaceId: Long?, labelNames: List<String>) -> Unit,
-    onCreateTask: (title: String, dueAt: Long?, spaceId: Long?, labelNames: List<String>) -> Unit,
+    onCreateTask: (title: String, due: TaskDue, spaceId: Long?, labelNames: List<String>) -> Unit,
     onCreateReminder: (title: String, dueAt: Long, spaceId: Long?, linkedTaskId: Long?, labelNames: List<String>) -> Unit,
     onKeepInInbox: () -> Unit,
     onCancel: () -> Unit,
@@ -125,14 +125,15 @@ internal fun CaptureSuggestionSheet(
                 .ifBlank { analysis.rawText },
         )
     }
-    var taskDueAt by rememberSaveable(suggestion.captureId) {
-        mutableStateOf(
-            analysis.suggestedReminderAt ?: calendarDateContext
-                ?.atTime(23, 59)
-                ?.atZone(ZoneId.systemDefault())
-                ?.toInstant()
-                ?.toEpochMilli(),
-        )
+    // A task is due on a day (found in the thought, or the Calendar day) or at a time
+    // the thought named; never at a made-up 23:59.
+    val initialTaskDue = remember(suggestion.captureId) { initialTaskDue(analysis, calendarDateContext) }
+    var taskDueAt by rememberSaveable(suggestion.captureId) { mutableStateOf(initialTaskDue.at) }
+    var taskDueDay by rememberSaveable(suggestion.captureId) { mutableStateOf(initialTaskDue.dayEpochDay) }
+    val taskDue = TaskDue(dayEpochDay = taskDueDay, at = taskDueAt.takeIf { taskDueDay == null })
+    val onTaskDueChanged: (TaskDue) -> Unit = { due ->
+        taskDueDay = due.dayEpochDay
+        taskDueAt = due.at
     }
     var reminderTitle by rememberSaveable(suggestion.captureId) {
         mutableStateOf(analysis.suggestedTitle.ifBlank { analysis.rawText })
@@ -234,14 +235,14 @@ internal fun CaptureSuggestionSheet(
                 when (actionSetup) {
                     ActionSetup.Task -> TaskSetup(
                         title = taskTitle,
-                        dueAt = taskDueAt,
+                        due = taskDue,
                         timeFormat = timeFormat,
                         isPerformingAction = isPerformingAction,
                         onTitleChanged = { taskTitle = it },
-                        onDueAtChanged = { taskDueAt = it },
+                        onDueChanged = onTaskDueChanged,
                         onConfirm = {
                             confirmAction {
-                                onCreateTask(taskTitle, taskDueAt, selectedSpaceId, selectedLabels)
+                                onCreateTask(taskTitle, taskDue, selectedSpaceId, selectedLabels)
                             }
                         },
                         onBack = { actionSetup = null },
@@ -289,8 +290,8 @@ internal fun CaptureSuggestionSheet(
                             selectedAction = selectedAction,
                             selectedSpaceId = selectedSpaceId,
                             selectedLabels = selectedLabels,
-                            taskDueAt = taskDueAt,
-                            onTaskDueAtChanged = { taskDueAt = it },
+                            taskDue = taskDue,
+                            onTaskDueChanged = onTaskDueChanged,
                             reminderAt = reminderAt,
                             onReminderAtChanged = { reminderAt = it },
                             initialDate = calendarDateContext,
@@ -303,7 +304,7 @@ internal fun CaptureSuggestionSheet(
                                         CaptureDecisionAction.SaveNote ->
                                             onSaveNote(itemTitle, selectedSpaceId, selectedLabels)
                                         CaptureDecisionAction.CreateTask ->
-                                            onCreateTask(itemTitle, taskDueAt, selectedSpaceId, selectedLabels)
+                                            onCreateTask(itemTitle, taskDue, selectedSpaceId, selectedLabels)
                                         CaptureDecisionAction.CreateReminder -> reminderAt?.let { dueAt ->
                                             onCreateReminder(itemTitle, dueAt, selectedSpaceId, null, selectedLabels)
                                         }
@@ -384,19 +385,23 @@ internal fun decisionActions(): List<CaptureDecisionAction> = listOf(
     CaptureDecisionAction.KeepInbox,
 )
 
-internal fun brainDumpTaskInitialDueAt(item: BrainDumpSuggestion): Long? = item.suggestedReminderAt
+/** Where the sheet's "When" starts for a task: the time the thought named, else its day, else the Calendar day. */
+internal fun initialTaskDue(analysis: com.orbit.app.domain.analyzer.CaptureAnalysis, calendarDateContext: LocalDate?): TaskDue =
+    analysis.suggestedReminderAt?.let { TaskDue(at = it) }
+        ?: TaskDue(dayEpochDay = analysis.taskDateEpochDay ?: calendarDateContext?.toEpochDay())
 
-internal fun taskDueAtLabel(dueAt: Long?, timeFormat: OrbitTimeFormat): String? =
-    dueAt?.let(timeFormat::formatWeekdayDateTime)
+internal fun taskDueLabel(due: TaskDue, timeFormat: OrbitTimeFormat): String? =
+    due.dayEpochDay?.let { timeFormat.formatDate(LocalDate.ofEpochDay(it)) }
+        ?: due.at?.let(timeFormat::formatWeekdayDateTime)
 
 @Composable
 private fun TaskSetup(
     title: String,
-    dueAt: Long?,
+    due: TaskDue,
     timeFormat: OrbitTimeFormat,
     isPerformingAction: Boolean,
     onTitleChanged: (String) -> Unit,
-    onDueAtChanged: (Long?) -> Unit,
+    onDueChanged: (TaskDue) -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -416,22 +421,22 @@ private fun TaskSetup(
             .padding(top = 14.dp),
     )
     Text(
-        text = taskDueAtLabel(dueAt, timeFormat) ?: stringResource(R.string.core_capture_no_due_date),
+        text = taskDueLabel(due, timeFormat) ?: stringResource(R.string.core_capture_no_due_date),
         modifier = Modifier.padding(top = 16.dp),
         style = MaterialTheme.typography.bodyLarge,
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TextButton(
             onClick = {
-                showTaskDateTimePicker(context, dueAt, timeFormat, onDueAtChanged)
+                showTaskDateTimePicker(context, due.at, timeFormat) { onDueChanged(TaskDue(at = it)) }
             },
             enabled = !isPerformingAction,
         ) {
-            Text(stringResource(if (dueAt == null) R.string.core_capture_add_due_date_time else R.string.core_capture_change_date_time))
+            Text(stringResource(if (due == TaskDue()) R.string.core_capture_add_due_date_time else R.string.core_capture_change_date_time))
         }
-        if (dueAt != null) {
+        if (due != TaskDue()) {
             TextButton(
-                onClick = { onDueAtChanged(null) },
+                onClick = { onDueChanged(TaskDue()) },
                 enabled = !isPerformingAction,
             ) {
                 Text(stringResource(R.string.core_remove))

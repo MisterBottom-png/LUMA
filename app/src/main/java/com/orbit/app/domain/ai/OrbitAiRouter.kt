@@ -1,5 +1,6 @@
 package com.orbit.app.domain.ai
 
+import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.analyzer.CaptureAnalyzer
 import com.orbit.app.domain.analyzer.LocalReviewAnalyzer
@@ -17,6 +18,8 @@ import com.orbit.app.integrations.gemini.SourceLinkedPromptBuilders
 import com.orbit.app.integrations.gemini.geminiError
 import com.orbit.app.integrations.gemini.GeminiApiErrorKind
 import com.orbit.app.security.GeminiApiKeyStore
+import java.time.Instant
+import java.time.ZoneId
 import java.util.Locale
 
 enum class AiRouteSource {
@@ -48,6 +51,7 @@ class OrbitAiRouter(
     private val geminiApiKeyStore: GeminiApiKeyStore,
     private val learningProfileProvider: LearningProfileProvider = EmptyLearningProfileProvider,
     private val locale: () -> Locale = { Locale.ENGLISH },
+    private val zoneId: () -> ZoneId = { ZoneId.systemDefault() },
 ) {
     suspend fun analyzeCapture(
         rawText: String,
@@ -128,7 +132,17 @@ class OrbitAiRouter(
             reminderTimeStatus = ReminderTimeStatus.NeedsClarification,
         )
 
-        ReminderTimeStatus.Unspecified -> this
+        // A task gets a day, never a clock time: the day the local rules found, else
+        // the day Gemini named.
+        ReminderTimeStatus.Unspecified -> if (suggestedType == SuggestedItemType.Task || suggestedType == SuggestedItemType.MondayItem) {
+            copy(
+                suggestedReminderAt = null,
+                taskDateEpochDay = localAnalysis.taskDateEpochDay
+                    ?: suggestedReminderAt?.let { Instant.ofEpochMilli(it).atZone(zoneId()).toLocalDate().toEpochDay() },
+            )
+        } else {
+            this
+        }
     }
 
     /**

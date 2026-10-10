@@ -19,6 +19,7 @@ import com.orbit.app.domain.analyzer.CaptureAnalyzerSource
 import com.orbit.app.domain.analyzer.ReminderTimeStatus
 import com.orbit.app.domain.analyzer.confidenceLevel
 import com.orbit.app.domain.usecase.CaptureFinalizationTransaction
+import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -241,13 +242,19 @@ internal fun CaptureAnalysis.toSuggestionEntity(
         typeReason = if (fromGemini) typeReason else "",
         spaceReason = if (fromGemini) spaceReason else "",
         nextAction = if (fromGemini) suggestedNextAction else "",
-        contextDateEpochDay = contextDateEpochDay,
+        // For a task this is its day: the day named in the thought, else the Calendar day.
+        contextDateEpochDay = taskDateEpochDay.takeIf { suggestedType.isTaskLike() } ?: contextDateEpochDay,
         createdAt = timestamp,
         updatedAt = timestamp,
     )
 }
 
-internal fun BrainDumpSuggestion.toEntity(captureId: Long, ordinal: Int, timestamp: Long) = BrainDumpItemEntity(
+internal fun BrainDumpSuggestion.toEntity(
+    captureId: Long,
+    ordinal: Int,
+    timestamp: Long,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+) = BrainDumpItemEntity(
     captureId = captureId,
     sourceKey = id,
     ordinal = ordinal,
@@ -263,7 +270,10 @@ internal fun BrainDumpSuggestion.toEntity(captureId: Long, ordinal: Int, timesta
         ReminderTimeStatus.Resolved -> BrainDumpReminderStatus.Resolved
         ReminderTimeStatus.NeedsClarification -> BrainDumpReminderStatus.NeedsClarification
     },
-    suggestedReminderAt = suggestedReminderAt,
+    // Brain Dump rows have no date-only column; a task's day is kept as a placeholder
+    // and read back as a day (see TaskDatePlaceholder).
+    suggestedReminderAt = suggestedReminderAt
+        ?: taskDateEpochDay?.takeIf { suggestedType.isTaskLike() }?.let { TaskDatePlaceholder.encode(it, zoneId) },
     reminderPhrase = reminderPhrase,
     createdAt = timestamp,
     updatedAt = timestamp,

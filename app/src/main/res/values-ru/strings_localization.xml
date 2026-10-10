@@ -189,13 +189,9 @@
     <string name="core_home_message_brain_dump_unavailable">Этот разбор мыслей больше не ожидает просмотра.</string>
     <string name="core_home_message_note_saved">Сохранено как заметка.</string>
     <string name="core_home_message_task_created">Задача создана.</string>
-    <string name="core_home_message_reminder_created">Напоминание создано.</string>
     <string name="core_home_message_capture_action_failed">Действие не завершилось. Ваша запись всё ещё во Входящих.</string>
-    <string name="core_home_message_brain_dump_completed_notification_attention">Разбор мыслей завершён. Напоминание сохранено, но настройке уведомлений нужно уделить внимание.</string>
-    <string name="core_home_message_reminder_notification_attention">Напоминание сохранено, но настройке уведомлений нужно уделить внимание.</string>
     <string name="core_home_message_brain_dump_item_save_failed">Не удалось сохранить этот элемент. Исходная запись всё ещё во Входящих.</string>
     <string name="core_home_message_preference_save_failed">Не удалось сохранить это предпочтение. Попробуйте ещё раз.</string>
-    <string name="core_home_message_reminder_notifications_disabled">Напоминание сохранено. Уведомления выключены, но оно всё ещё доступно в обзоре.</string>
     <string name="core_home_brain_dump_resume_summary">Многочастная запись готова к просмотру.</string>
     <string name="core_home_brain_dump_review_split">Просмотрите разделённые предложения по одному.</string>
     <string name="core_home_fallback_next_action">Пока оставьте это во Входящих.</string>

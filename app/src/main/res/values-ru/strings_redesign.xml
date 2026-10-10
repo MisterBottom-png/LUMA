@@ -132,4 +132,9 @@
     <string name="reminder_repeat_explanation">Когда вы отмечаете его выполненным, Tallele переносит его на следующий раз. Ничего не создаётся за вас.</string>
     <string name="reminder_repeat_updated">Повтор изменён.</string>
     <string name="reminder_repeat_update_failed">Не удалось изменить повтор. Ничего не потеряно.</string>
+    <string name="reminder_outcome_saved">Напоминание установлено.</string>
+    <string name="reminder_outcome_not_scheduled">Напоминание сохранено, но уведомление для него настроить не удалось.</string>
+    <string name="reminder_outcome_notifications_off">Напоминание сохранено, но уведомления выключены, поэтому оно не сработает.</string>
+    <string name="reminder_outcome_turn_on_prompt">Включите уведомления, чтобы напоминания срабатывали.</string>
+    <string name="brain_dump_needs_time_status">Некоторым напоминаниям нужно время, прежде чем их можно сохранить.</string>
 </resources>

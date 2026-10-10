@@ -3,6 +3,7 @@ package com.orbit.app.ui.screens.home
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
 import com.orbit.app.ui.time.OrbitTimeFormat
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -45,9 +46,9 @@ class CaptureSuggestionSheetTest {
     }
 
     @Test
-    fun brainDumpTaskSetupStartsWithTheParsedTime() {
+    fun brainDumpDraftKeepsAReminderTimeAndGivesATaskOnlyItsDay() {
         val parsedTime = 1_789_000_000_000L
-        val item = BrainDumpSuggestion(
+        val reminder = BrainDumpSuggestion(
             id = "brain:1",
             rawText = "Walk the dog tomorrow at 1500",
             title = "Walk the dog",
@@ -58,19 +59,31 @@ class CaptureSuggestionSheetTest {
             reason = "The fragment contains a resolved time.",
             suggestedReminderAt = parsedTime,
         )
+        val tomorrow = LocalDate.of(2026, 8, 20).toEpochDay()
+        val task = reminder.copy(
+            rawText = "Buy milk tomorrow",
+            suggestedType = SuggestedItemType.Task,
+            suggestedReminderAt = null,
+            taskDateEpochDay = tomorrow,
+        )
 
-        assertEquals(parsedTime, brainDumpTaskInitialDueAt(item))
+        assertEquals(parsedTime, initialBrainDumpDraft(reminder, emptyList()).scheduledAt)
+        val taskDraft = initialBrainDumpDraft(task, emptyList())
+        assertEquals(tomorrow, taskDraft.scheduledDateEpochDay)
+        assertEquals(null, taskDraft.scheduledAt)
     }
 
     @Test
-    fun taskDueAtLabelShowsTheParsedTime() {
+    fun taskDueLabelShowsAPickedTimeButNoTimeForADay() {
+        val format = OrbitTimeFormat(uses24HourClock = true)
         val dueAt = LocalDateTime.of(2026, 8, 19, 21, 0)
             .atZone(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()
 
-        val label = taskDueAtLabel(dueAt, OrbitTimeFormat(uses24HourClock = true))
-
-        assertTrue(label?.endsWith("21:00") == true)
+        assertTrue(taskDueLabel(TaskDue(at = dueAt), format)?.endsWith("21:00") == true)
+        val dayLabel = requireNotNull(taskDueLabel(TaskDue(dayEpochDay = LocalDate.of(2026, 8, 19).toEpochDay()), format))
+        assertFalse(dayLabel.contains(":"))
+        assertEquals(null, taskDueLabel(TaskDue(), format))
     }
 }
