@@ -48,6 +48,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -108,8 +111,15 @@ fun SearchScreen(
     onBack: () -> Unit,
     onResultSelected: (LocalSearchResult) -> Unit,
     onOpenSpace: (Long) -> Unit = {},
+    initialQuery: String? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Words handed over (for example by Ask) are typed in once; later edits are the user's.
+    var initialQueryApplied by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(initialQuery) {
+        if (!initialQueryApplied && !initialQuery.isNullOrBlank()) viewModel.updateQuery(initialQuery)
+        initialQueryApplied = true
+    }
     SearchContent(
         state = state,
         onBack = onBack,

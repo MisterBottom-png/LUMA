@@ -85,7 +85,12 @@ object ItemDetailDestination {
 }
 
 object SearchDestination {
-    const val Route = "search"
+    const val QueryArgument = "query"
+    const val BaseRoute = "search"
+    const val Route = "$BaseRoute?$QueryArgument={$QueryArgument}"
+
+    /** Search, opened with [query] already typed (for example from Ask). */
+    fun route(query: String): String = "$BaseRoute?$QueryArgument=${android.net.Uri.encode(query)}"
 }
 
 object SpaceDetailDestination {

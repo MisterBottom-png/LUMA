@@ -171,6 +171,7 @@ class OrbitContainer(application: Application) {
             geminiApiKeyStore = geminiApiKeyStore,
             learningProfileProvider = learningProfileProvider,
             locale = { effectiveAppLocale(applicationContext) },
+            answerText = com.orbit.app.ui.localization.ResourceLocalAnswerText(applicationContext),
         )
     }
     val confirmCaptureAction: ConfirmCaptureActionUseCase by lazy {

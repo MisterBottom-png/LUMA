@@ -137,4 +137,13 @@
     <string name="reminder_outcome_notifications_off">Напоминание сохранено, но уведомления выключены, поэтому оно не сработает.</string>
     <string name="reminder_outcome_turn_on_prompt">Включите уведомления, чтобы напоминания срабатывали.</string>
     <string name="brain_dump_needs_time_status">Некоторым напоминаниям нужно время, прежде чем их можно сохранить.</string>
+    <string name="ask_found_nothing">В Tallele об этом ничего нет.</string>
+    <string name="ask_found_no_data">Ничего не найдено.</string>
+    <string name="ask_found_matches">Об этом есть здесь: %1$s.</string>
+    <string name="ask_found_overdue">Срок уже прошёл: %1$s.</string>
+    <string name="ask_found_waiting">Это чего-то ждёт: %1$s.</string>
+    <string name="ask_found_completed">Сделано: %1$s.</string>
+    <string name="ask_found_upcoming">Скоро срок: %1$s.</string>
+    <string name="ask_found_recent">Недавно изменено: %1$s.</string>
+    <string name="ask_search_for">Искать «%1$s»</string>
 </resources>

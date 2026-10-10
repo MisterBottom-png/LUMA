@@ -129,4 +129,13 @@
     <string name="reminder_outcome_notifications_off">Meeldetuletus on salvestatud, kuid teavitused on välja lülitatud, nii et see ei anna märku.</string>
     <string name="reminder_outcome_turn_on_prompt">Lülita teavitused sisse, et meeldetuletused saaksid märku anda.</string>
     <string name="brain_dump_needs_time_status">Mõni meeldetuletus vajab enne salvestamist aega.</string>
+    <string name="ask_found_nothing">Talleles pole selle kohta midagi.</string>
+    <string name="ask_found_no_data">Midagi ei leitud.</string>
+    <string name="ask_found_matches">Seda mainivad: %1$s.</string>
+    <string name="ask_found_overdue">Tähtaeg on möödas: %1$s.</string>
+    <string name="ask_found_waiting">Need ootavad millegi järel: %1$s.</string>
+    <string name="ask_found_completed">Tehtud: %1$s.</string>
+    <string name="ask_found_upcoming">Kuupäev on tulekul: %1$s.</string>
+    <string name="ask_found_recent">Hiljuti muutunud: %1$s.</string>
+    <string name="ask_search_for">Otsi „%1$s“</string>
 </resources>

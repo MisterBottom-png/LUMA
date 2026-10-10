@@ -313,7 +313,7 @@ fun OrbitApp(
                             }
                         },
                         onOpenSearch = {
-                            navController.navigate(SearchDestination.Route) {
+                            navController.navigate(SearchDestination.BaseRoute) {
                                 launchSingleTop = true
                             }
                         },
@@ -344,7 +344,7 @@ fun OrbitApp(
                         onUndoMove = spacesViewModel::undoLastMove,
                         onRetryMove = spacesViewModel::retryFailedMove,
                         onUnfiledSelected = {},
-                        onOpenSearch = { navController.navigate(SearchDestination.Route) },
+                        onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
                     )
@@ -375,7 +375,7 @@ fun OrbitApp(
                         onUndoMove = spacesViewModel::undoLastMove,
                         onRetryMove = spacesViewModel::retryFailedMove,
                         onUnfiledSelected = {},
-                        onOpenSearch = { navController.navigate(SearchDestination.Route) },
+                        onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
                     )
@@ -521,12 +521,20 @@ fun OrbitApp(
                 }
                 composable(
                     route = SearchDestination.Route,
-                ) {
+                    arguments = listOf(
+                        navArgument(SearchDestination.QueryArgument) {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
+                ) { entry ->
                     val searchViewModel: SearchViewModel = viewModel(
                         factory = SearchViewModel.Factory(container),
                     )
                     SearchScreen(
                         viewModel = searchViewModel,
+                        initialQuery = entry.arguments?.getString(SearchDestination.QueryArgument),
                         onBack = { navController.popBackStack() },
                         onResultSelected = { result ->
                             navController.navigate(ItemDetailDestination.route(result.type, result.id))
@@ -657,6 +665,10 @@ fun OrbitApp(
                     },
                     onAskQueryChanged = situationViewModel::updateAskQuery,
                     onAskLuma = situationViewModel::askLuma,
+                    onSearch = { query ->
+                        showSituationAi = false
+                        navController.navigate(SearchDestination.route(query)) { launchSingleTop = true }
+                    },
                 )
             }
         }

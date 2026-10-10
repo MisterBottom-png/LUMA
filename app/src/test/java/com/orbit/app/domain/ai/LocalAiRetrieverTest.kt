@@ -77,4 +77,61 @@ class LocalAiRetrieverTest {
 
         assertEquals(listOf("task:7"), LocalAiRetriever().retrieve("What did I finish?", corpus).map { it.sourceId })
     }
+
+    private val mixedCorpus = SearchCorpus(
+        captures = emptyList(),
+        notes = listOf(
+            NoteEntity(id = 1, title = "Garden plan", body = "Tomatoes by the fence"),
+            NoteEntity(id = 2, title = "Aiaplaan", body = "Tomatid aia äärde"),
+            NoteEntity(id = 3, title = "План сада", body = "Помидоры у забора"),
+        ),
+        tasks = listOf(
+            TaskEntity(id = 4, title = "Buy dog food"),
+            TaskEntity(id = 5, title = "Osta koerale toitu"),
+            TaskEntity(id = 6, title = "Купить корм собаке"),
+        ),
+        reminders = listOf(ReminderEntity(id = 7, title = "Call the bank", dueAt = Long.MAX_VALUE / 2)),
+        spaces = emptyList(),
+    )
+
+    @Test
+    fun aQuestionWithNoMatchCitesNothingInEveryLanguage() {
+        val retriever = LocalAiRetriever()
+        listOf(
+            "What did I decide about the car insurance?",
+            "Mida ma autokindlustuse kohta otsustasin?",
+            "Что я решил насчёт страховки машины?",
+        ).forEach { question ->
+            assertEquals(question, emptyList<AiSourceItem>(), retriever.retrieve(question, mixedCorpus))
+        }
+    }
+
+    @Test
+    fun oneMatchAmongUnrelatedItemsReturnsExactlyThatOne() {
+        val retriever = LocalAiRetriever()
+        assertEquals(listOf("note:1"), retriever.retrieve("What about the garden?", mixedCorpus).map { it.sourceId })
+        assertEquals(listOf("task:5"), retriever.retrieve("Mis oli koerale?", mixedCorpus).map { it.sourceId })
+        assertEquals(listOf("task:6"), retriever.retrieve("Что там с кормом?", mixedCorpus).map { it.sourceId })
+        assertEquals(listOf("note:3"), retriever.retrieve("Что с помидорами?", mixedCorpus).map { it.sourceId })
+    }
+
+    @Test
+    fun stateQuestionsWorkInEstonianAndRussianWithoutMatchingWords() {
+        val now = 10_000L
+        val corpus = SearchCorpus(
+            captures = emptyList(),
+            notes = emptyList(),
+            tasks = listOf(
+                TaskEntity(id = 4, title = "Renew document", dueAt = now - 1),
+                TaskEntity(id = 6, title = "Waiting item", status = TaskStatus.WaitingFor),
+            ),
+            reminders = emptyList(),
+            spaces = emptyList(),
+        )
+        val retriever = LocalAiRetriever()
+        assertEquals(listOf("task:4"), retriever.retrieve("Mis on hilinenud?", corpus, now = now).map { it.sourceId })
+        assertEquals(listOf("task:4"), retriever.retrieve("Что просрочено?", corpus, now = now).map { it.sourceId })
+        assertEquals(listOf("task:6"), retriever.retrieve("Mis ootab?", corpus, now = now).map { it.sourceId })
+        assertEquals(listOf("task:6"), retriever.retrieve("Что ждёт ответа?", corpus, now = now).map { it.sourceId })
+    }
 }

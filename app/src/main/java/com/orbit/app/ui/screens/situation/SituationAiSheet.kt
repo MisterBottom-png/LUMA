@@ -29,6 +29,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -61,6 +62,7 @@ fun SituationAiSheet(
     onSourceSelected: (AiSourceItem) -> Unit,
     onAskQueryChanged: (String) -> Unit,
     onAskLuma: () -> Unit,
+    onSearch: (String) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val sheetPaneTitle = stringResource(R.string.core_situation_title)
@@ -123,6 +125,7 @@ fun SituationAiSheet(
                             AskLumaAnswer(
                                 answer = answer,
                                 onSourceSelected = onSourceSelected,
+                                onSearch = onSearch,
                             )
                         }
                     }
@@ -232,6 +235,7 @@ private fun AskLumaSection(
 private fun AskLumaAnswer(
     answer: SourceLinkedAnswer,
     onSourceSelected: (AiSourceItem) -> Unit,
+    onSearch: (String) -> Unit,
 ) {
     Surface(
         shape = OrbitShapes.Standard,
@@ -264,6 +268,11 @@ private fun AskLumaAnswer(
                     sources = answer.sourceItems,
                     onSourceSelected = onSourceSelected,
                 )
+            }
+            answer.searchQuery?.takeIf { it.isNotBlank() }?.let { query ->
+                TextButton(onClick = { onSearch(query) }) {
+                    Text(stringResource(R.string.ask_search_for, query))
+                }
             }
         }
     }
