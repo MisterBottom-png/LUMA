@@ -134,4 +134,32 @@ class LocalAiRetrieverTest {
         assertEquals(listOf("task:6"), retriever.retrieve("Mis ootab?", corpus, now = now).map { it.sourceId })
         assertEquals(listOf("task:6"), retriever.retrieve("Что ждёт ответа?", corpus, now = now).map { it.sourceId })
     }
+
+    @Test
+    fun aTypeQuestionWithUnmatchedSubjectWordsCitesNothing() {
+        val corpus = SearchCorpus(
+            captures = emptyList(),
+            notes = emptyList(),
+            tasks = listOf(TaskEntity(id = 1, title = "Buy dog food"), TaskEntity(id = 2, title = "Water the plants")),
+            reminders = emptyList(),
+            spaces = emptyList(),
+        )
+        assertEquals(emptyList<AiSourceItem>(), LocalAiRetriever().retrieve("Which tasks mention car insurance?", corpus))
+        assertEquals(listOf("task:1"), LocalAiRetriever().retrieve("Which tasks mention dog food?", corpus).map { it.sourceId })
+    }
+
+    @Test
+    fun wordsMatchWholeWordStartsNotPiecesOfOtherWords() {
+        val corpus = SearchCorpus(
+            captures = emptyList(),
+            notes = listOf(NoteEntity(id = 1, title = "Travel plan", body = "Book the train")),
+            tasks = listOf(TaskEntity(id = 2, title = "Discard old receipts")),
+            reminders = emptyList(),
+            spaces = emptyList(),
+        )
+        val retriever = LocalAiRetriever()
+        assertEquals(emptyList<AiSourceItem>(), retriever.retrieve("What about the plants?", corpus))
+        assertEquals(emptyList<AiSourceItem>(), retriever.retrieve("Where is my card?", corpus))
+        assertEquals(listOf("note:1"), retriever.retrieve("What were my travel plans?", corpus).map { it.sourceId })
+    }
 }

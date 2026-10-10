@@ -133,12 +133,11 @@ class LocalAiRetriever {
             .let { candidates ->
                 val matching = candidates.filter { (_, matches) -> matches > 0 }
                 when {
-                    // An ordinary question cites only items that share a word with it.
-                    !intent.isStateQuestion -> matching
-                    // A state question (overdue, waiting, ...) needs no matching word, but
-                    // when some items do share one, those are the ones meant.
-                    matching.isNotEmpty() -> matching
-                    else -> candidates
+                    // Any question with its own subject words cites only items that share one.
+                    content.isNotEmpty() -> matching
+                    // A pure state question (overdue, waiting, ...) needs no matching word.
+                    intent.isStateQuestion -> candidates
+                    else -> matching
                 }
             }
             .map { (item, matches) -> item to item.score(matches, query, intent, now) }
@@ -168,10 +167,11 @@ class LocalAiRetriever {
         }
     }
 
+    /** How many question words start a word of this item ("card" does not match "discard"). */
     private fun AiSourceItem.wordMatches(content: List<String>): Int {
         if (content.isEmpty()) return 0
-        val haystack = SearchText.fold(listOf(title, snippet, spaceName.orEmpty()).joinToString(" "))
-        return content.count { word -> haystack.contains(word.stem()) }
+        val words = SearchText.tokens(listOf(title, snippet, spaceName.orEmpty()).joinToString(" "))
+        return content.count { word -> val stem = word.stem(); words.any { it.startsWith(stem) } }
     }
 
     private fun AiSourceItem.score(matches: Int, query: String, intent: QueryIntent, now: Long): Int {
@@ -197,11 +197,16 @@ class LocalAiRetriever {
         )
 
     /** A light stem so "milk" finds "milking" and "молоко" finds "молока". */
-    private fun String.stem(): String = when {
-        length >= 8 -> dropLast(3)
-        length >= 6 -> dropLast(2)
-        length >= 5 -> dropLast(1)
-        else -> this
+    private fun String.stem(): String = if (any { it in 'а'..'я' }) {
+        when {
+            length >= 8 -> dropLast(3)
+            length >= 6 -> dropLast(2)
+            length >= 5 -> dropLast(1)
+            else -> this
+        }
+    } else {
+        // English and Estonian endings only, so "plants" stays "plant" and does not become "plan".
+        LatinSuffixes.firstOrNull { endsWith(it) && length - it.length >= 4 }?.let { dropLast(it.length) } ?: this
     }
 
     private fun String.firstLineOr(): String =
@@ -290,6 +295,7 @@ class LocalAiRetriever {
         const val DueSoonDays = 7L
         const val RecentDays = 7L
         const val RecentQuery = "recent"
+        val LatinSuffixes = listOf("ing", "sse", "ed", "es", "le", "lt", "ga", "ta", "ks", "st", "ni", "de", "te", "id", "s", "d", "t")
 
         val Overdue = QuestionWord("overdue", "late", "hilin*", "tähtaja*", "просроч*", "опозд*")
         val Today = QuestionWord("today", "täna", "сегодня*")
@@ -312,13 +318,17 @@ class LocalAiRetriever {
             "what", "about", "with", "from", "that", "this", "did", "the", "and", "are", "any", "anything",
             "have", "has", "was", "were", "which", "who", "how", "when", "where", "for", "you", "your",
             "mine", "there", "show", "tell", "list", "all", "does", "can",
+            "now", "right", "just", "still", "currently", "these", "those", "some", "thing", "things",
+            "stuff", "item", "items", "need", "needs", "should", "must", "here", "mention", "mentions", "say", "says",
             // Estonian
             "mis", "mida", "kas", "kus", "kes", "kui", "mul", "minu", "mulle", "olen", "oli", "olid", "ning",
             "selle", "see", "need", "kõik", "näita", "millal", "kuidas", "miks", "üle", "veel", "midagi",
+            "praegu", "nüüd", "asjad", "asju", "asi", "vaja", "peab", "pean", "mainib", "kohta",
             // Russian
             "что", "как", "где", "кто", "когда", "мне", "мой", "мои", "моя", "мое", "моё", "это", "эти",
             "был", "была", "были", "есть", "все", "всё", "или", "про", "для", "чем", "какие", "какой",
             "покажи", "нужно", "надо", "уже", "ещё", "еще", "что-то",
+            "сейчас", "пока", "дела", "вещи", "ответа", "ответ", "упоминается", "насчет", "насчёт", "там",
         )
     }
 }
