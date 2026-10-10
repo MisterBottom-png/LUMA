@@ -38,7 +38,15 @@ class ReviewScreenJvmTest {
     @get:Rule
     val composeRule = JvmComposeRule()
 
-    private fun setReview(state: ReviewUiState, fontScale: Float = 1f, onAccept: (ToSortItem) -> Unit = {}, onChange: (ToSortItem) -> Unit = {}) {
+    private fun setReview(
+        state: ReviewUiState,
+        fontScale: Float = 1f,
+        onAccept: (ToSortItem) -> Unit = {},
+        onChange: (ToSortItem) -> Unit = {},
+        onAsk: (AskLumaPrompt?) -> Unit = {},
+        onUndoChange: (Long) -> Unit = {},
+        onChangeUndoExpired: (Long) -> Unit = {},
+    ) {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, fontScale)) {
                 MaterialTheme {
@@ -63,6 +71,9 @@ class ReviewScreenJvmTest {
                             onWeeklyLookBackVisible = {},
                             onAcceptToSort = onAccept,
                             onChangeToSort = onChange,
+                            onAskLuma = onAsk,
+                            onUndoChange = onUndoChange,
+                            onChangeUndoExpired = onChangeUndoExpired,
                         )
                     }
                 }
@@ -91,7 +102,7 @@ class ReviewScreenJvmTest {
         var accepted: ToSortItem? = null
         setReview(ReviewUiState(toSort = listOf(item)), onAccept = { accepted = it })
 
-        // The suggestion is one check button; its label says what it does.
+        // The suggestion is one small "Save" button; TalkBack hears what it saves.
         composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasContentDescription("Make it a task"))
         composeRule.onNodeWithContentDescription("Make it a task").performClick()
         assertEquals(7L, accepted?.captureId)
@@ -210,5 +221,34 @@ class ReviewScreenJvmTest {
         composeRule.mainClock.advanceTimeBy(12_000)
         composeRule.waitForIdle()
         assertNull(remaining)
+    }
+
+    @Test
+    fun movingThingsToTomorrowOffersUndoAndClearsOnlyAfterTheSnackbar() {
+        var undone: Long? = null
+        var expired: Long? = null
+        setReview(
+            ReviewUiState(pendingChangeUndo = ReviewChangeToken(operationId = 4, kind = ReviewChangeKind.MovedTomorrow, count = 3)),
+            onUndoChange = { undone = it },
+            onChangeUndoExpired = { expired = it },
+        )
+
+        composeRule.onNodeWithText("3 items moved to tomorrow.").assertExists()
+        composeRule.onNodeWithText("Undo").performClick()
+        composeRule.waitForIdle()
+        assertEquals(4L, undone)
+        assertNull(expired)
+    }
+
+    @Test
+    fun askYourOwnComesFirstAndOpensAnEmptyQuestion() {
+        var asked: AskLumaPrompt? = AskLumaPrompt.WhatNow
+        var askCount = 0
+        setReview(ReviewUiState(), onAsk = { asked = it; askCount += 1 })
+
+        composeRule.onNodeWithText("Ask").performClick()
+        composeRule.onNodeWithText("Ask your own…").performClick()
+        assertEquals(1, askCount)
+        assertNull(asked)
     }
 }

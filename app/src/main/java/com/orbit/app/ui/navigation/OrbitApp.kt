@@ -422,6 +422,9 @@ fun OrbitApp(
                             reviewViewModel::keepCarryForwardUnscheduled,
                         onCompleteCarryForward = reviewViewModel::completeCarryForward,
                         onWeeklyLookBackVisible = reviewViewModel::loadWeeklySummary,
+                        onCarryForwardAllTomorrow = reviewViewModel::carryForwardAllTomorrow,
+                        onUndoChange = reviewViewModel::undoChange,
+                        onChangeUndoExpired = reviewViewModel::changeUndoExpired,
                         onAskLuma = { prompt ->
                             situationAiQuestion = prompt?.name
                             showSituationAi = true

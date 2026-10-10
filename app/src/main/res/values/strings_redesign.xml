@@ -163,4 +163,17 @@
     <string name="item_offsets_need_notifications">Turn on “Notify me” to choose when.</string>
     <string name="item_making_smaller">Finding a smaller step…</string>
     <string name="core_list_and_separator">\u0020and\u0020</string>
+    <string name="review_change_moved_tomorrow_one">Moved to tomorrow.</string>
+    <plurals name="review_change_moved_tomorrow_many">
+        <item quantity="one">%d item moved to tomorrow.</item>
+        <item quantity="other">%d items moved to tomorrow.</item>
+    </plurals>
+    <string name="review_change_moved_date">Moved to the day you chose.</string>
+    <string name="review_change_kept_undated">Kept without a date.</string>
+    <string name="review_change_completed">Marked done.</string>
+    <string name="review_change_thought_kept">Kept for Someday.</string>
+    <string name="review_change_thought_handled">Marked as handled.</string>
+    <string name="review_ask_own">Ask your own…</string>
+    <string name="review_weekly_loading">Looking back over your week…</string>
+    <string name="review_to_sort_accept_short">Save</string>
 </resources>

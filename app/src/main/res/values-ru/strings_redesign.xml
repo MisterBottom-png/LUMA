@@ -173,4 +173,19 @@
     <string name="item_offsets_need_notifications">Включите «Уведомлять меня», чтобы выбрать время.</string>
     <string name="item_making_smaller">Ищу шаг поменьше…</string>
     <string name="core_list_and_separator">\u0020и\u0020</string>
+    <string name="review_change_moved_tomorrow_one">Перенесено на завтра.</string>
+    <plurals name="review_change_moved_tomorrow_many">
+        <item quantity="one">%d пункт перенесён на завтра.</item>
+        <item quantity="few">%d пункта перенесены на завтра.</item>
+        <item quantity="many">%d пунктов перенесены на завтра.</item>
+        <item quantity="other">%d пункта перенесены на завтра.</item>
+    </plurals>
+    <string name="review_change_moved_date">Перенесено на выбранный день.</string>
+    <string name="review_change_kept_undated">Оставлено без даты.</string>
+    <string name="review_change_completed">Отмечено как сделанное.</string>
+    <string name="review_change_thought_kept">Оставлено на «Когда-нибудь».</string>
+    <string name="review_change_thought_handled">Отмечено как разобранное.</string>
+    <string name="review_ask_own">Задать свой вопрос…</string>
+    <string name="review_weekly_loading">Просматриваю вашу неделю…</string>
+    <string name="review_to_sort_accept_short">Сохранить</string>
 </resources>

@@ -163,4 +163,17 @@
     <string name="item_offsets_need_notifications">Lülita sisse „Teavita mind“, et aega valida.</string>
     <string name="item_making_smaller">Otsin väiksemat sammu…</string>
     <string name="core_list_and_separator">\u0020ja\u0020</string>
+    <string name="review_change_moved_tomorrow_one">Viidi homsesse.</string>
+    <plurals name="review_change_moved_tomorrow_many">
+        <item quantity="one">%d asi viidi homsesse.</item>
+        <item quantity="other">%d asja viidi homsesse.</item>
+    </plurals>
+    <string name="review_change_moved_date">Viidi valitud päevale.</string>
+    <string name="review_change_kept_undated">Jäeti kuupäevata.</string>
+    <string name="review_change_completed">Märgiti tehtuks.</string>
+    <string name="review_change_thought_kept">Jäeti „Kunagi“ alla.</string>
+    <string name="review_change_thought_handled">Märgiti käsitletuks.</string>
+    <string name="review_ask_own">Küsi oma küsimus…</string>
+    <string name="review_weekly_loading">Vaatan su nädala üle…</string>
+    <string name="review_to_sort_accept_short">Salvesta</string>
 </resources>
