@@ -86,10 +86,22 @@
     <string name="home_voice_next_hint">Нажмите на микрофон ещё раз для следующей мысли.</string>
     <string name="home_voice_next">Сказать следующую мысль</string>
     <string name="brain_overview_back">Назад к списку</string>
+    <string name="spaces_preview_placeholder">Ваше новое пространство</string>
+    <string name="spaces_colour">Цвет</string>
+    <string name="spaces_icon_travel">Путешествия</string>
+    <string name="search_filter_all">Все</string>
+    <string name="search_group_to_sort">Разобрать</string>
+    <string name="search_group_tasks">Задачи</string>
+    <string name="search_group_reminders">Напоминания</string>
+    <string name="search_group_notes">Заметки</string>
+    <string name="search_group_archived">В архиве</string>
+    <string name="search_look_in_space">Заглянуть в пространство</string>
+    <string name="search_stays_on_phone">Поиск не покидает этот телефон.</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d заметка</item><item quantity="few">%1$d заметки</item><item quantity="many">%1$d заметок</item><item quantity="other">%1$d заметки</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Разобрана %1$d мысль</item><item quantity="few">Разобраны %1$d мысли</item><item quantity="many">Разобрано %1$d мыслей</item><item quantity="other">Разобрано %1$d мысли</item></plurals>
     <plurals name="brain_overview_subtitle"><item quantity="one">%1$d мысль. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item><item quantity="few">%1$d мысли. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item><item quantity="many">%1$d мыслей. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item><item quantity="other">%1$d мысли. Отмеченные выглядят ясными; нажмите на строку, чтобы изменить.</item></plurals>
     <plurals name="brain_overview_already_sorted"><item quantity="one">%1$d уже разобрана</item><item quantity="few">%1$d уже разобраны</item><item quantity="many">%1$d уже разобрано</item><item quantity="other">%1$d уже разобрано</item></plurals>
     <plurals name="brain_overview_save"><item quantity="one">Сохранить %1$d</item><item quantity="few">Сохранить %1$d</item><item quantity="many">Сохранить %1$d</item><item quantity="other">Сохранить %1$d</item></plurals>
     <plurals name="split_offer"><item quantity="one">Похоже на %1$d мысль</item><item quantity="few">Похоже на %1$d мысли</item><item quantity="many">Похоже на %1$d мыслей</item><item quantity="other">Похоже на %1$d мысли</item></plurals>
+    <plurals name="search_result_count"><item quantity="one">%1$d результат</item><item quantity="few">%1$d результата</item><item quantity="many">%1$d результатов</item><item quantity="other">%1$d результата</item></plurals>
 </resources>

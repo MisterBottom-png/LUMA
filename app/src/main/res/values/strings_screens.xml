@@ -86,10 +86,22 @@
     <string name="home_voice_next_hint">Tap the mic again for the next thought.</string>
     <string name="home_voice_next">Say the next thought</string>
     <string name="brain_overview_back">Back to the list</string>
+    <string name="spaces_preview_placeholder">Your new Space</string>
+    <string name="spaces_colour">Colour</string>
+    <string name="spaces_icon_travel">Travel</string>
+    <string name="search_filter_all">All</string>
+    <string name="search_group_to_sort">To sort</string>
+    <string name="search_group_tasks">Tasks</string>
+    <string name="search_group_reminders">Reminders</string>
+    <string name="search_group_notes">Notes</string>
+    <string name="search_group_archived">Archived</string>
+    <string name="search_look_in_space">Look inside a Space</string>
+    <string name="search_stays_on_phone">Search stays on this phone.</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d note</item><item quantity="other">%1$d notes</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorted %1$d thought</item><item quantity="other">Sorted %1$d thoughts</item></plurals>
     <plurals name="brain_overview_subtitle"><item quantity="one">%1$d thought. Ticked ones look clear; tap a row to change it.</item><item quantity="other">%1$d thoughts. Ticked ones look clear; tap a row to change it.</item></plurals>
     <plurals name="brain_overview_already_sorted"><item quantity="one">%1$d already sorted</item><item quantity="other">%1$d already sorted</item></plurals>
     <plurals name="brain_overview_save"><item quantity="one">Save %1$d</item><item quantity="other">Save %1$d</item></plurals>
     <plurals name="split_offer"><item quantity="one">Looks like %1$d thought</item><item quantity="other">Looks like %1$d thoughts</item></plurals>
+    <plurals name="search_result_count"><item quantity="one">%1$d result</item><item quantity="other">%1$d results</item></plurals>
 </resources>

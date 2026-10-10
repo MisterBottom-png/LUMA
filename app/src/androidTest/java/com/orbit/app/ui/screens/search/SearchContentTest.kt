@@ -69,7 +69,7 @@ class SearchContentTest {
             SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Search"),
         ).assertExists()
         composeRule.onNode(isHeading()).assertExists()
-        composeRule.onNodeWithText("Search local data").assertIsDisplayed()
+        composeRule.onNodeWithText("Search everything you saved").assertIsDisplayed()
     }
 
     @Test
@@ -86,7 +86,7 @@ class SearchContentTest {
             }
         }
 
-        composeRule.onNodeWithText("Type to search your local items.").assertIsDisplayed()
+        composeRule.onNodeWithText("Type a word from a note, task or reminder.").assertIsDisplayed()
     }
 
     @Test

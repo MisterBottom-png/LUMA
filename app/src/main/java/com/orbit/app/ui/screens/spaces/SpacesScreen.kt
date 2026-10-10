@@ -33,8 +33,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -121,6 +119,18 @@ import com.orbit.app.ui.components.LumaMenu
 import com.orbit.app.ui.components.LumaMenuItem
 import com.orbit.app.ui.components.LumaMenuGap
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Flight
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.semantics.Role
+import com.orbit.app.ui.components.LumaModalBottomSheet
 
 private val iconChoices = listOf(
     "work",
@@ -134,6 +144,7 @@ private val iconChoices = listOf(
     "school",
     "folder",
     "palette",
+    "flight",
 )
 
 private val accentChoices = listOf(
@@ -1092,7 +1103,11 @@ private fun NoteRow(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * New Space / Edit Space as a sheet: a live preview of the Space at the top, then the
+ * name, the colour and the icon. "Create Space" stays off until the name is there.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SpaceEditorDialog(
     space: SpaceEntity?,
@@ -1106,155 +1121,203 @@ private fun SpaceEditorDialog(
     var accent by rememberSaveable(space?.id) {
         mutableStateOf(space?.colorAccent ?: accentChoices.first())
     }
-
-    Dialog(
+    val conflict = SpaceNames.conflict(name, existingSpaces, excludingSpaceId = space?.id)
+    val canSave = name.isNotBlank() && conflict == null
+    val accentColor = accent.asColor()
+    LumaModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        ModalSurface(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = OrbitSpacing.ExtraLarge)
-                .calmPressHaptics(),
-            shape = OrbitModalDefaults.DialogShape,
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
         ) {
-            Column(modifier = Modifier.padding(OrbitSpacing.ExtraLarge)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .heightIn(min = 48.dp),
+            ) {
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterStart)) {
+                    Text(stringResource(R.string.core_cancel))
+                }
                 Text(
-                    text = stringResource(
-                        if (space == null) R.string.core_spaces_create else R.string.core_spaces_edit,
-                    ),
-                    style = MaterialTheme.typography.headlineSmall,
+                    text = stringResource(if (space == null) R.string.spaces_new_space else R.string.core_spaces_edit),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .semantics { heading() },
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Column(
+            }
+
+            // The Space as it will look in the list.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
                     modifier = Modifier
-                        .padding(top = 18.dp)
-                        .verticalScroll(rememberScrollState()),
+                        .size(76.dp)
+                        .background(accentColor.copy(alpha = 0.16f), RoundedCornerShape(26.dp))
+                        .border(1.dp, accentColor.copy(alpha = 0.22f), RoundedCornerShape(26.dp)),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    val conflict = SpaceNames.conflict(name, existingSpaces, excludingSpaceId = space?.id)
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text(stringResource(R.string.core_name)) },
-                        isError = conflict != null,
-                        supportingText = conflict?.let { existing ->
-                            {
-                                Text(
-                                    text = stringResource(
-                                        when {
-                                            existing.archived -> R.string.spaces_name_taken_archived
-                                            existing.hidden -> R.string.spaces_name_taken_hidden
-                                            else -> R.string.spaces_name_taken
-                                        },
-                                        existing.name,
-                                    ),
-                                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                                )
-                            }
-                        },
+                    Icon(
+                        imageVector = icon.asImageVector(),
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(34.dp),
                     )
-                    if (conflict != null && (conflict.archived || conflict.hidden) && onRestoreExisting != null) {
-                        TextButton(
-                            onClick = { onRestoreExisting(conflict.id) },
-                            modifier = Modifier.heightIn(min = 48.dp),
+                }
+                Text(
+                    text = name.trim().ifBlank { stringResource(R.string.spaces_preview_placeholder) },
+                    modifier = Modifier.padding(top = 12.dp),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (name.isBlank()) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 18.dp),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                label = { Text(stringResource(R.string.core_name)) },
+                isError = conflict != null,
+                supportingText = conflict?.let { existing ->
+                    {
+                        Text(
+                            text = stringResource(
+                                when {
+                                    existing.archived -> R.string.spaces_name_taken_archived
+                                    existing.hidden -> R.string.spaces_name_taken_hidden
+                                    else -> R.string.spaces_name_taken
+                                },
+                                existing.name,
+                            ),
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                        )
+                    }
+                },
+            )
+            if (conflict != null && (conflict.archived || conflict.hidden) && onRestoreExisting != null) {
+                TextButton(
+                    onClick = { onRestoreExisting(conflict.id) },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(stringResource(R.string.core_restore))
+                }
+            }
+
+            EditorLabel(stringResource(R.string.spaces_colour))
+            Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
+                accentChoices.forEach { choice ->
+                    val selected = accent == choice
+                    val swatch = choice.asColor()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .selectable(selected = selected, role = Role.RadioButton, onClick = { accent = choice }),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(if (selected) 38.dp else 32.dp)
+                                .then(
+                                    if (selected) Modifier.border(2.dp, swatch, CircleShape) else Modifier,
+                                ),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Text(stringResource(R.string.core_restore))
+                            Box(
+                                modifier = Modifier
+                                    .size(if (selected) 28.dp else 32.dp)
+                                    .background(swatch, CircleShape),
+                            )
                         }
                     }
-                    Text(
-                        text = stringResource(R.string.core_icon),
-                        modifier = Modifier.padding(top = 18.dp, bottom = 8.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
-                        verticalArrangement = Arrangement.spacedBy(7.dp),
-                    ) {
-                        iconChoices.forEach { choice ->
+                }
+            }
+
+            EditorLabel(stringResource(R.string.core_icon))
+            Column(
+                modifier = Modifier.selectableGroup(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                iconChoices.chunked(6).forEach { rowChoices ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        rowChoices.forEach { choice ->
+                            val selected = icon == choice
                             Surface(
-                                onClick = { icon = choice },
                                 modifier = Modifier
-                                    .size(42.dp)
-                                    .then(
-                                        if (icon == choice) {
-                                            Modifier.border(2.dp, accent.asColor(), CircleShape)
-                                        } else {
-                                            Modifier
-                                        },
-                                    ),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .selectable(selected = selected, role = Role.RadioButton, onClick = { icon = choice }),
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (selected) accentColor.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceContainerLowest,
+                                contentColor = if (selected) accentColor else MaterialTheme.colorScheme.onSurface,
+                                border = if (selected) {
+                                    BorderStroke(1.5.dp, accentColor)
+                                } else {
+                                    BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
+                                },
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = choice.asImageVector(),
                                         contentDescription = stringResource(choice.iconContentDescriptionRes()),
-                                        modifier = Modifier.size(21.dp),
+                                        modifier = Modifier.size(22.dp),
                                     )
                                 }
                             }
                         }
-                    }
-                    Text(
-                        text = stringResource(R.string.core_accent),
-                        modifier = Modifier.padding(top = 18.dp, bottom = 8.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Medium),
-                    ) {
-                        accentChoices.chunked(4).forEach { rowChoices ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(
-                                    OrbitSpacing.Medium,
-                                    Alignment.CenterHorizontally,
-                                ),
-                            ) {
-                                rowChoices.forEach { choice ->
-                                    Surface(
-                                        onClick = { accent = choice },
-                                        modifier = Modifier
-                                            .size(42.dp)
-                                            .then(
-                                                if (accent == choice) {
-                                                    Modifier.border(
-                                                        3.dp,
-                                                        MaterialTheme.colorScheme.onSurface,
-                                                        CircleShape,
-                                                    )
-                                                } else {
-                                                    Modifier
-                                                },
-                                            ),
-                                        shape = CircleShape,
-                                        color = choice.asColor(),
-                                    ) {}
-                                }
-                            }
-                        }
-                    }
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 18.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.core_cancel)) }
-                    TextButton(
-                        onClick = { onConfirm(name, icon, accent) },
-                        enabled = name.isNotBlank() &&
-                            SpaceNames.conflict(name, existingSpaces, excludingSpaceId = space?.id) == null,
-                    ) {
-                        Text(stringResource(if (space == null) R.string.core_create else R.string.core_save))
+                        repeat(6 - rowChoices.size) { Spacer(modifier = Modifier.weight(1f)) }
                     }
                 }
             }
+
+            Button(
+                onClick = { onConfirm(name.trim(), icon, accent) },
+                enabled = canSave,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp)
+                    .heightIn(min = 56.dp),
+            ) {
+                Text(
+                    text = stringResource(if (space == null) R.string.core_spaces_create else R.string.core_save),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun EditorLabel(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(top = 18.dp, bottom = 6.dp),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
@@ -1352,7 +1415,7 @@ private fun SpaceIcon(
     )
 }
 
-private fun String.asImageVector(): ImageVector = when (this) {
+internal fun String.asImageVector(): ImageVector = when (this) {
     "work" -> Icons.Rounded.Work
     "person" -> Icons.Rounded.Person
     "directions_car" -> Icons.Rounded.DirectionsCar
@@ -1363,6 +1426,7 @@ private fun String.asImageVector(): ImageVector = when (this) {
     "favorite" -> Icons.Rounded.Favorite
     "school" -> Icons.Rounded.School
     "palette" -> Icons.Rounded.Palette
+    "flight" -> Icons.Rounded.Flight
     else -> Icons.Rounded.Folder
 }
 
@@ -1377,9 +1441,10 @@ private fun String.iconContentDescriptionRes(): Int = when (this) {
     "favorite" -> R.string.core_spaces_icon_favorite
     "school" -> R.string.core_spaces_icon_school
     "palette" -> R.string.core_spaces_icon_palette
+    "flight" -> R.string.spaces_icon_travel
     else -> R.string.core_spaces_icon_folder
 }
 
-private fun String.asColor(): Color = runCatching {
+internal fun String.asColor(): Color = runCatching {
     Color(toColorInt())
 }.getOrElse { Color(0xFF6D7CFF) }

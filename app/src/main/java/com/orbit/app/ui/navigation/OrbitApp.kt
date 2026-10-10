@@ -531,6 +531,7 @@ fun OrbitApp(
                         onResultSelected = { result ->
                             navController.navigate(ItemDetailDestination.route(result.type, result.id))
                         },
+                        onOpenSpace = { spaceId -> navController.navigate(SpaceDetailDestination.route(spaceId)) },
                     )
                 }
                 composable(

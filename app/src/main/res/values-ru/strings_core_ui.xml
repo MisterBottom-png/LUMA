@@ -47,9 +47,9 @@
     <string name="core_calendar_notifications_off">Уведомления выключены</string>
 
     <string name="core_search_title">Поиск</string>
-    <string name="core_search_local_data">Поиск в локальных данных</string>
+    <string name="core_search_local_data">Искать во всём сохранённом</string>
     <string name="core_search_include_archived">Включая архивные</string>
-    <string name="core_search_start_typing">Начните вводить запрос для поиска в локальных данных.</string>
+    <string name="core_search_start_typing">Введите слово из заметки, задачи или напоминания.</string>
     <string name="core_search_minimum_query">Введите не менее двух символов.</string>
     <string name="core_search_empty">Здесь пока ничего не найдено.</string>
     <string name="core_search_empty_recovery">Попробуйте другое слово или очистите поиск.</string>
