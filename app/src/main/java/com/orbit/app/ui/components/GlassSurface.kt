@@ -460,13 +460,9 @@ internal fun softGlassContainerAlpha(
     }
 
     if (style == GlassSurfaceStyle.Sheet) {
-        val themeFloor = if (isDark) 0.74f else 0.70f
-        val customBackgroundBoost = if (hasCustomBackground) 0.02f else 0f
-        return (
-            themeFloor +
-                (glassStrength.coerceIn(0f, 1f) * 0.18f) +
-                customBackgroundBoost
-            ).coerceIn(0.70f, 0.94f)
+        // Sheets and dialogs are drawn without blur, so anything lighter lets the list
+        // behind read through the sheet's own text. They stay solid.
+        return SolidSurfaceAlpha
     }
 
     if (style == GlassSurfaceStyle.HomeNavigation) {

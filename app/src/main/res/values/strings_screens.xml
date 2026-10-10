@@ -53,6 +53,9 @@
     <string name="settings_data_footer">Your items are kept on this phone. A backup file keeps a copy somewhere else.</string>
     <string name="settings_ai_footer">Tallele works without AI. With your own Gemini key, it can suggest more.</string>
     <string name="settings_version">Version</string>
+    <string name="review_to_sort_open">Open the thought</string>
+    <string name="review_menu_let_go">Let it go</string>
+    <string name="review_to_sort_let_go_hint">Moves it to the archive</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d note</item><item quantity="other">%1$d notes</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorted %1$d thought</item><item quantity="other">Sorted %1$d thoughts</item></plurals>
 </resources>

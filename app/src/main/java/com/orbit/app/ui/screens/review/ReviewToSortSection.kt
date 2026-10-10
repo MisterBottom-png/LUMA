@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,6 +36,13 @@ import com.orbit.app.R
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.ui.localization.localizedSpaceName
 import com.orbit.app.ui.time.OrbitTimeFormat
+import com.orbit.app.ui.components.LumaMenu
+import com.orbit.app.ui.components.LumaMenuItem
+import com.orbit.app.ui.components.LumaMenuGap
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Archive
 
 /**
  * One unresolved thought in the To sort list: the text, LUMA's suggestion in one quiet line,
@@ -53,6 +58,7 @@ internal fun ToSortRow(
     onChange: () -> Unit,
     onHideSuggestion: () -> Unit,
     onLetGo: () -> Unit,
+    onOpen: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -114,19 +120,37 @@ internal fun ToSortRow(
                     CompactTonalButton(stringResource(R.string.review_to_sort_sort), onChange)
             }
         }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(
+        LumaMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            LumaMenuItem(
                 text = { Text(changeLabel) },
+                leadingIcon = { Icon(Icons.Rounded.Tune, contentDescription = null) },
                 onClick = { menuOpen = false; onChange() },
             )
+            LumaMenuItem(
+                text = { Text(stringResource(R.string.review_to_sort_open)) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Notes, contentDescription = null) },
+                onClick = { menuOpen = false; onOpen() },
+            )
             if (item.state == ToSortState.Suggested || item.state == ToSortState.NeedsChoice) {
-                DropdownMenuItem(
+                LumaMenuItem(
                     text = { Text(stringResource(R.string.review_to_sort_hide)) },
+                    leadingIcon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
                     onClick = { menuOpen = false; onHideSuggestion() },
                 )
             }
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.review_to_sort_let_go)) },
+            LumaMenuGap()
+            LumaMenuItem(
+                text = {
+                    Column {
+                        Text(stringResource(R.string.review_menu_let_go))
+                        Text(
+                            text = stringResource(R.string.review_to_sort_let_go_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
                 onClick = { menuOpen = false; onLetGo() },
             )
         }

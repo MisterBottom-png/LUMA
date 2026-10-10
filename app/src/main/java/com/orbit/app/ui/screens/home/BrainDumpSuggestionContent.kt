@@ -6,7 +6,6 @@ import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -18,14 +17,11 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import com.orbit.app.ui.components.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -59,6 +55,12 @@ import com.orbit.app.ui.time.OrbitTimeFormat
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import com.orbit.app.ui.components.LumaMenu
+import com.orbit.app.ui.components.LumaMenuItem
+import com.orbit.app.ui.components.LumaMenuGap
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.DeleteSweep
 
 internal data class BrainDumpCallbacks(
     val onPrimaryAction: () -> Unit,
@@ -364,25 +366,27 @@ internal fun BrainDumpActionMenu(
     onSkip: () -> Unit,
     onDiscardRemaining: () -> Unit,
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(
+    LumaMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        LumaMenuItem(
             text = { Text(stringResource(R.string.core_brain_dump_keep_thought)) },
+            leadingIcon = { Icon(Icons.Rounded.Inbox, contentDescription = null) },
             onClick = onKeepInInbox,
         )
-        DropdownMenuItem(
+        LumaMenuItem(
             text = { Text(stringResource(R.string.core_brain_dump_skip_thought)) },
+            leadingIcon = { Icon(Icons.Rounded.SkipNext, contentDescription = null) },
             onClick = onSkip,
         )
-        HorizontalDivider()
-        DropdownMenuItem(
+        LumaMenuGap()
+        LumaMenuItem(
             text = {
                 Text(
                     text = stringResource(R.string.core_capture_discard_remaining),
                     color = MaterialTheme.colorScheme.error,
                 )
             },
+            leadingIcon = { Icon(Icons.Rounded.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             onClick = onDiscardRemaining,
-            colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error),
         )
     }
 }

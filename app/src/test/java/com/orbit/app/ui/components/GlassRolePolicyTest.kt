@@ -106,25 +106,18 @@ class GlassRolePolicyTest {
     }
 
     @Test
-    fun modalSurfaceKeepsAReadableTranslucentFloorAtBothStrengthExtremes() {
+    fun sheetsAndDialogsStaySolidSoTheListBehindNeverReadsThrough() {
         listOf(false, true).forEach { isDark ->
             listOf(false, true).forEach { hasCustomBackground ->
-                val lowest = softGlassContainerAlpha(
-                    style = GlassSurfaceStyle.Sheet,
-                    isDark = isDark,
-                    glassStrength = 0f,
-                    hasCustomBackground = hasCustomBackground,
-                )
-                val highest = softGlassContainerAlpha(
-                    style = GlassSurfaceStyle.Sheet,
-                    isDark = isDark,
-                    glassStrength = 1f,
-                    hasCustomBackground = hasCustomBackground,
-                )
-
-                assertTrue(lowest >= 0.70f)
-                assertTrue(highest <= 0.94f)
-                assertTrue(highest - lowest >= 0.17f)
+                listOf(0f, 0.5f, 1f).forEach { strength ->
+                    val alpha = softGlassContainerAlpha(
+                        style = GlassSurfaceStyle.Sheet,
+                        isDark = isDark,
+                        glassStrength = strength,
+                        hasCustomBackground = hasCustomBackground,
+                    )
+                    assertTrue(alpha >= 0.96f)
+                }
             }
         }
     }

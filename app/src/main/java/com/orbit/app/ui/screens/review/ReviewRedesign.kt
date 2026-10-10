@@ -37,10 +37,7 @@ import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -82,6 +79,14 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.delay
+import com.orbit.app.ui.components.LumaMenu
+import com.orbit.app.ui.components.LumaMenuItem
+import com.orbit.app.ui.components.LumaMenuGap
+import androidx.compose.material.icons.rounded.WbTwilight
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.EventBusy
+import androidx.compose.material.icons.rounded.CheckCircleOutline
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 
 /*
  * Review, redesigned: a title with a small Ask button and a breath button, one plain
@@ -127,9 +132,9 @@ internal fun ReviewHeader(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(stringResource(R.string.review_ask_button), style = MaterialTheme.typography.labelLarge)
                 }
-                DropdownMenu(expanded = askOpen, onDismissRequest = { askOpen = false }) {
+                LumaMenu(expanded = askOpen, onDismissRequest = { askOpen = false }) {
                     AskLumaPrompt.entries.forEach { prompt ->
-                        DropdownMenuItem(
+                        LumaMenuItem(
                             text = {
                                 Text(
                                     stringResource(prompt.labelRes),
@@ -139,7 +144,7 @@ internal fun ReviewHeader(
                             onClick = { askOpen = false; onAsk(prompt) },
                         )
                     }
-                    HorizontalDivider()
+                    LumaMenuGap()
                     Text(
                         text = stringResource(R.string.review_ask_subtitle),
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -225,6 +230,7 @@ internal fun ToSortGroup(
     onChange: (ToSortItem) -> Unit,
     onHideSuggestion: (ToSortItem) -> Unit,
     onLetGo: (ToSortItem) -> Unit,
+    onOpen: (ToSortItem) -> Unit = {},
 ) {
     val visible = if (showAll) items else items.take(ReviewSectionPreviewSize)
     val readyCount = items.count { it.state == ToSortState.Suggested }
@@ -238,6 +244,7 @@ internal fun ToSortGroup(
                 onChange = { onChange(item) },
                 onHideSuggestion = { onHideSuggestion(item) },
                 onLetGo = { onLetGo(item) },
+                onOpen = { onOpen(item) },
             )
         }
         val hasMore = items.size > ReviewSectionPreviewSize
@@ -493,18 +500,35 @@ private fun EarlierRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             )
         }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(text = { Text(stringResource(R.string.core_tomorrow)) }, onClick = { menuOpen = false; onTomorrow() })
-            DropdownMenuItem(text = { Text(stringResource(R.string.core_choose_date)) }, onClick = { menuOpen = false; onChooseDate() })
+        LumaMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            LumaMenuItem(
+                text = { Text(stringResource(R.string.core_tomorrow)) },
+                leadingIcon = { Icon(Icons.Rounded.WbTwilight, contentDescription = null) },
+                onClick = { menuOpen = false; onTomorrow() },
+            )
+            LumaMenuItem(
+                text = { Text(stringResource(R.string.core_choose_date)) },
+                leadingIcon = { Icon(Icons.Rounded.CalendarMonth, contentDescription = null) },
+                onClick = { menuOpen = false; onChooseDate() },
+            )
             if (suggestion.item.type == ReviewItemType.Task) {
-                DropdownMenuItem(
+                LumaMenuItem(
                     text = { Text(stringResource(R.string.core_review_keep_unscheduled)) },
+                    leadingIcon = { Icon(Icons.Rounded.EventBusy, contentDescription = null) },
                     onClick = { menuOpen = false; onKeepUnscheduled() },
                 )
             }
-            DropdownMenuItem(text = { Text(stringResource(R.string.core_mark_complete)) }, onClick = { menuOpen = false; onComplete() })
-            HorizontalDivider()
-            DropdownMenuItem(text = { Text(stringResource(R.string.review_open_item)) }, onClick = { menuOpen = false; onOpen() })
+            LumaMenuItem(
+                text = { Text(stringResource(R.string.core_mark_complete)) },
+                leadingIcon = { Icon(Icons.Rounded.CheckCircleOutline, contentDescription = null) },
+                onClick = { menuOpen = false; onComplete() },
+            )
+            LumaMenuGap()
+            LumaMenuItem(
+                text = { Text(stringResource(R.string.review_open_item)) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null) },
+                onClick = { menuOpen = false; onOpen() },
+            )
         }
     }
 }
@@ -568,6 +592,7 @@ internal fun SortOneByOne(
     onAccept: (ToSortItem) -> Unit,
     onChange: (ToSortItem) -> Unit,
     onLetGo: (ToSortItem) -> Unit,
+    onOpen: (ToSortItem) -> Unit = {},
     onClose: () -> Unit,
 ) {
     BackHandler(onBack = onClose)

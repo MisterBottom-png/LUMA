@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -39,8 +38,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -93,6 +90,10 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import com.orbit.app.ui.components.LumaMenu
+import com.orbit.app.ui.components.LumaMenuItem
+import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material.icons.rounded.DeleteOutline
 
 private enum class DetailSheet { Type, Schedule, LifeState, Space, Notification, Repeat }
 
@@ -374,15 +375,17 @@ private fun ItemDetailContent(
             }
             if (!isEditing) Box {
                 IconButton(onClick = { overflowOpen = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.core_item_detail_more_actions)) }
-                DropdownMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
+                LumaMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
                     if (state.canArchive) {
-                        DropdownMenuItem(
+                        LumaMenuItem(
                             text = { Text(stringResource(R.string.core_action_archive)) },
+                            leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
                             onClick = { overflowOpen = false; onArchive() },
                         )
                     }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.core_action_delete)) },
+                    LumaMenuItem(
+                        text = { Text(stringResource(R.string.core_action_delete), color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                         onClick = { overflowOpen = false; onDelete() },
                     )
                 }

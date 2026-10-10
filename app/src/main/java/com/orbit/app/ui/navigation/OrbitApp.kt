@@ -423,6 +423,9 @@ fun OrbitApp(
                         },
                         onAcceptToSort = reviewViewModel::acceptSuggestion,
                         onChangeToSort = { item -> reviewSortViewModel.open(item.captureId) },
+                        onOpenToSort = { item ->
+                            navController.navigate(ItemDetailDestination.route(ItemDetailType.Capture, item.captureId))
+                        },
                         onHideSuggestion = reviewViewModel::hideSuggestion,
                         onLetGo = reviewViewModel::letGo,
                         onUndoSort = reviewViewModel::undoSort,

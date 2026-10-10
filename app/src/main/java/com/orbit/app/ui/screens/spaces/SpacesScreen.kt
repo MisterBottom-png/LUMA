@@ -72,9 +72,6 @@ import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -120,6 +117,10 @@ import com.orbit.app.ui.localization.localizedSpaceName
 import com.orbit.app.ui.time.OrbitTimeFormat
 import com.orbit.app.ui.theme.OrbitSpacing
 import com.orbit.app.ui.theme.OrbitMotion
+import com.orbit.app.ui.components.LumaMenu
+import com.orbit.app.ui.components.LumaMenuItem
+import com.orbit.app.ui.components.LumaMenuGap
+import androidx.compose.material.icons.rounded.Edit
 
 private val iconChoices = listOf(
     "work",
@@ -551,34 +552,34 @@ private fun SpaceRow(
             }
             RowChevron()
         }
-        DropdownMenu(
+        LumaMenu(
             expanded = menuExpanded,
             onDismissRequest = { menuExpanded = false },
         ) {
-            DropdownMenuItem(
+            LumaMenuItem(
                 text = { Text(stringResource(R.string.core_edit)) },
-                leadingIcon = { Icon(space.icon.asImageVector(), contentDescription = null) },
+                leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
                 onClick = { menuExpanded = false; onEdit() },
             )
-            DropdownMenuItem(
+            LumaMenuItem(
                 text = { Text(stringResource(R.string.core_spaces_move_up)) },
                 leadingIcon = { Icon(Icons.Rounded.ArrowUpward, contentDescription = null) },
                 enabled = canMoveUp,
                 onClick = { menuExpanded = false; onMoveUp() },
             )
-            DropdownMenuItem(
+            LumaMenuItem(
                 text = { Text(stringResource(R.string.core_spaces_move_down)) },
                 leadingIcon = { Icon(Icons.Rounded.ArrowDownward, contentDescription = null) },
                 enabled = canMoveDown,
                 onClick = { menuExpanded = false; onMoveDown() },
             )
-            HorizontalDivider()
-            DropdownMenuItem(
+            LumaMenuGap()
+            LumaMenuItem(
                 text = { Text(stringResource(R.string.core_hide)) },
                 leadingIcon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
                 onClick = { menuExpanded = false; onHide() },
             )
-            DropdownMenuItem(
+            LumaMenuItem(
                 text = { Text(stringResource(R.string.core_archive)) },
                 leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
                 onClick = { menuExpanded = false; onArchive() },
@@ -1032,8 +1033,8 @@ private fun AgendaRow(
                 )
             }
         }
-        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            DropdownMenuItem(
+        LumaMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            LumaMenuItem(
                 text = { Text(moveLabel) },
                 leadingIcon = { Icon(Icons.AutoMirrored.Rounded.DriveFileMove, contentDescription = null) },
                 onClick = { menuExpanded = false; onMove() },
@@ -1081,8 +1082,8 @@ private fun NoteRow(
                 )
             }
         }
-        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            DropdownMenuItem(
+        LumaMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            LumaMenuItem(
                 text = { Text(moveLabel) },
                 leadingIcon = { Icon(Icons.AutoMirrored.Rounded.DriveFileMove, contentDescription = null) },
                 onClick = { menuExpanded = false; onMove() },

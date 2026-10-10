@@ -6,7 +6,7 @@
 
 `SoftGlassSurface` is the default material. It uses the same tint, border, shadow, shape, and color family without backdrop blur. Cards, lists, panels, calendar content, details, and performance fallbacks use this role.
 
-`ModalSurface` is a behavioral modal role built from SoftGlass. `LumaModalBottomSheet` owns the shared scrim, shape, elevation, and surface composition while Material 3 continues to own dismissal, focus, Back, and window-inset behavior.
+`ModalSurface` is a behavioral modal role built from SoftGlass. `LumaModalBottomSheet` owns the shared scrim, shape, elevation, and surface composition while Material 3 continues to own dismissal, focus, Back, and window-inset behavior. Sheets and dialogs are drawn without blur, so their surface stays solid (97 %): text behind a modal must never read through it.
 
 ## Route policy
 

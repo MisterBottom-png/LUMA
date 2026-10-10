@@ -53,6 +53,9 @@
     <string name="settings_data_footer">Sinu kirjed on selles telefonis. Varukoopia fail hoiab koopiat ka mujal.</string>
     <string name="settings_ai_footer">Tallele töötab ka ilma tehisarult. Oma Gemini võtmega oskab see rohkem soovitada.</string>
     <string name="settings_version">Versioon</string>
+    <string name="review_to_sort_open">Ava mõte</string>
+    <string name="review_menu_let_go">Lase lahti</string>
+    <string name="review_to_sort_let_go_hint">Viib selle arhiivi</string>
     <plurals name="spaces_detail_note_count"><item quantity="one">%1$d märge</item><item quantity="other">%1$d märget</item></plurals>
     <plurals name="review_sorted_many"><item quantity="one">Sorteeritud %1$d mõte</item><item quantity="other">Sorteeritud %1$d mõtet</item></plurals>
 </resources>

@@ -119,6 +119,7 @@ fun ReviewScreen(
     onAskLuma: (AskLumaPrompt?) -> Unit = {},
     onAcceptToSort: (ToSortItem) -> Unit = {},
     onChangeToSort: (ToSortItem) -> Unit = {},
+    onOpenToSort: (ToSortItem) -> Unit = {},
     onHideSuggestion: (ToSortItem) -> Unit = {},
     onLetGo: (ToSortItem) -> Unit = {},
     onUndoSort: (SortUndoToken) -> Unit = {},
@@ -244,6 +245,7 @@ fun ReviewScreen(
                                 onChange = onChangeToSort,
                                 onHideSuggestion = onHideSuggestion,
                                 onLetGo = onLetGo,
+                                onOpen = onOpenToSort,
                             )
                         }
                     }
