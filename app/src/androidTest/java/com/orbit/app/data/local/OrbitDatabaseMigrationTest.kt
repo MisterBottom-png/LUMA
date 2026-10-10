@@ -229,7 +229,7 @@ class OrbitDatabaseMigrationTest {
         const val TEST_DATABASE_3_TO_4 = "orbit-migration-3-to-4"
         const val TEST_DATABASE_4_TO_5 = "orbit-migration-4-to-5"
         const val TEST_DATABASE_5_TO_6 = "orbit-migration-5-to-6"
-        const val CURRENT_VERSION = 9
+        const val CURRENT_VERSION = 10
 
         fun androidx.sqlite.db.SupportSQLiteDatabase.insertCapture(id: Long, rawText: String) {
             execSQL(

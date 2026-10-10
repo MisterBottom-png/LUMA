@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.home
 
+import com.orbit.app.domain.capture.isTaskLike
 import com.orbit.app.domain.capture.taskDateEpochDay
 import com.orbit.app.domain.capture.reminderTime
 import com.orbit.app.ui.reminders.messageRes
@@ -209,7 +210,10 @@ class CaptureSortViewModel(
                             suggestedSpaceId = space?.id,
                             analysis = analysis,
                             spaceOptions = spaceOptions,
-                            calendarDateContextEpochDay = stored?.contextDateEpochDay,
+                            // The thought's own Calendar day. Thoughts saved before it was
+                            // kept on the thought have it only on a non-task suggestion.
+                            calendarDateContextEpochDay = capture.contextDateEpochDay
+                                ?: stored?.takeUnless { it.suggestedType.isTaskLike() }?.contextDateEpochDay,
                             startWithReminderSetup = startWithReminderSetup,
                             possibleThoughts = runCatching { thoughtSplitter.possibleThoughts(capture.rawText) }.getOrDefault(0),
                         ),

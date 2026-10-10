@@ -68,6 +68,7 @@ class BackupRoundTripRoomTest {
         assertTrue(result.remindersReconciled)
         assertEquals(original.spaces, restored.spaces)
         assertEquals(original.captures, restored.captures)
+        assertEquals(20_650L, restored.captures.single { it.id == 10L }.contextDateEpochDay)
         assertEquals(original.notes, restored.notes)
         assertEquals(original.tasks, restored.tasks)
         assertEquals(original.labels, restored.labels)
@@ -116,6 +117,27 @@ class BackupRoundTripRoomTest {
         assertEquals("Garden notes go to Home", restored.ruleText)
         assertEquals(0.8f, restored.strength)
         assertNull(restored.sourceSuggestionHistoryId)
+    }
+
+    @Test
+    fun backupsFromFormatsOneToFiveStillRestoreWithoutACalendarDayOnThoughts() = runBlocking {
+        seed(source)
+        val current = org.json.JSONObject(buildLocalDataExportPayload(RoomLocalDataRestoreStore(source), exportedAt = now))
+        assertEquals(6L, current.getJSONObject("metadata").getLong("version"))
+        (1..5).forEach { version ->
+            val old = org.json.JSONObject(current.toString())
+            old.getJSONObject("metadata").put("version", version)
+            val captures = old.getJSONArray("captures")
+            (0 until captures.length()).forEach { captures.getJSONObject(it).remove("contextDateEpochDay") }
+            val restorer = LocalDataRestorer(
+                RoomLocalDataRestoreStore(target),
+                LocalReminderRestoreReconciler(PolicyRecordingScheduler { now }, target.reminderDao(), now = { now }),
+            )
+            restorer.restore(requireNotNull(restorer.prepare(old.toString())))
+            val restored = RoomLocalDataRestoreStore(target).read()
+            assertEquals("v$version", 3, restored.captures.size)
+            assertTrue("v$version", restored.captures.all { it.contextDateEpochDay == null })
+        }
     }
 
     @Test
@@ -183,7 +205,7 @@ class BackupRoundTripRoomTest {
         )
         db.captureDao().insertAll(
             listOf(
-                CaptureEntity(id = 10, rawText = "unsorted thought", createdAt = 3, updatedAt = 3, status = CaptureStatus.Inbox, suggestedType = SuggestedItemType.Task, suggestedSpaceId = 1),
+                CaptureEntity(id = 10, rawText = "unsorted thought", createdAt = 3, updatedAt = 3, status = CaptureStatus.Inbox, suggestedType = SuggestedItemType.Task, suggestedSpaceId = 1, contextDateEpochDay = 20_650),
                 CaptureEntity(id = 11, rawText = "a\nb", createdAt = 4, updatedAt = 4, status = CaptureStatus.Inbox),
                 CaptureEntity(id = 12, rawText = "done one", createdAt = 4, updatedAt = 5, status = CaptureStatus.Processed, linkedItemId = 20),
             ),

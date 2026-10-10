@@ -121,6 +121,21 @@ class CaptureInboxRoomTest {
     )
 
     @Test
+    fun theCalendarDayIsKeptWithTheThoughtAndSurvivesARestartBeforeAnalysis() = runBlocking {
+        val day = java.time.LocalDate.of(2026, 7, 20).toEpochDay()
+        // The test scope is cancelled, so no analysis runs: the app "stops" right after saving.
+        val note = inbox().save("Ideas for the garden", contextDateEpochDay = day)
+        val dump = inbox().save("Ideas for the garden\nCall the plumber", contextDateEpochDay = day)
+        assertEquals(day, database.captureDao().getById(note)?.contextDateEpochDay)
+
+        // After the restart a new inbox picks the pending thoughts up.
+        inbox().analyzePending()
+
+        assertEquals(day, database.captureSuggestionDao().getByCaptureId(note)?.contextDateEpochDay)
+        assertEquals(day, database.brainDumpDao().getSession(dump)?.calendarDateContextEpochDay)
+    }
+
+    @Test
     fun aThoughtIsSafeInTheInboxBeforeAnyAnalysis() = runBlocking {
         val id = inbox().save("  call the bank tomorrow  ")
         val capture = requireNotNull(database.captureDao().getById(id))
