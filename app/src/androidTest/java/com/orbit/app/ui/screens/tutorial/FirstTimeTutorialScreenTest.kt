@@ -91,7 +91,7 @@ class FirstTimeTutorialScreenTest {
         repeat(2) { composeRule.onNodeWithText("Continue").performClick() }
 
         composeRule.onNodeWithText("Pick your Spaces").assertIsDisplayed()
-        composeRule.onNodeWithText("Home").performClick()
+        composeRule.onNodeWithText("Household").performClick()
         composeRule.onNodeWithContentDescription("Add Space").assertIsDisplayed()
     }
 }

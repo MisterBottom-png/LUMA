@@ -99,3 +99,37 @@ fun Modifier.orbitScrollEdgeFade(
         }
     }
 }
+
+/** Fades the left and/or right edge of a horizontally scrolling row over [length]. */
+fun Modifier.horizontalEdgeFade(
+    fadeStart: Boolean,
+    fadeEnd: Boolean,
+    length: Dp = 28.dp,
+): Modifier {
+    if (!fadeStart && !fadeEnd) return this
+    return graphicsLayer {
+        compositingStrategy = CompositingStrategy.Offscreen
+    }.drawWithContent {
+        drawContent()
+        val fadePx = length.toPx().coerceAtMost(size.width / 2f)
+        if (fadeStart) {
+            drawRect(
+                brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = fadePx),
+                size = Size(fadePx, size.height),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+        if (fadeEnd) {
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    listOf(Color.Black, Color.Transparent),
+                    startX = size.width - fadePx,
+                    endX = size.width,
+                ),
+                topLeft = Offset(size.width - fadePx, 0f),
+                size = Size(fadePx, size.height),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+    }
+}

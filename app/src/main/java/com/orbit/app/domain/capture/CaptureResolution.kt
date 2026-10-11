@@ -10,7 +10,8 @@ import com.orbit.app.data.repository.SpaceRepository
 import com.orbit.app.data.repository.TaskRepository
 import com.orbit.app.domain.usecase.CaptureFinalizationTransaction
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
-import com.orbit.app.reminders.shouldScheduleNotification
+import com.orbit.app.reminders.ReminderSaveOutcome
+import com.orbit.app.reminders.ReminderSaveOutcomes
 import kotlinx.coroutines.flow.first
 
 /**
@@ -26,23 +27,21 @@ class CaptureResolution(
     private val suggestionDao: CaptureSuggestionDao,
     private val confirmCaptureAction: ConfirmCaptureActionUseCase,
     private val transaction: CaptureFinalizationTransaction,
+    private val reminderOutcomes: ReminderSaveOutcomes,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
-    /**
-     * Creates the reminder from the quick question on Home. Returns true when the
-     * reminder was saved but its notification could not be scheduled.
-     */
-    suspend fun createQuickReminder(captureId: Long, title: String, reminderAt: Long): Boolean {
+    /** Creates the reminder from the quick question on Home and says what it achieved. */
+    suspend fun createQuickReminder(captureId: Long, title: String, reminderAt: Long): ReminderSaveOutcome {
         val suggestion = suggestionDao.getByCaptureId(captureId)
         val reminderId = confirmCaptureAction.createReminder(
             captureId = captureId,
-            spaceId = spaceIdFor(suggestion?.suggestedSpaceName),
+            spaceId = activeSpaceId(captureRepository.getById(captureId)?.suggestedSpaceId)
+                ?: spaceIdFor(suggestion?.suggestedSpaceName),
             title = title,
             dueAt = reminderAt,
             labelNames = suggestion?.labelNames().orEmpty(),
         )
-        val reminder = reminderRepository.getById(reminderId) ?: return true
-        return reminder.shouldScheduleNotification() && reminder.notificationWorkId == null
+        return reminderOutcomes.of(reminderId)
     }
 
     /**
@@ -53,14 +52,17 @@ class CaptureResolution(
         val capture = captureRepository.getById(captureId) ?: return null
         if (capture.status != CaptureStatus.Inbox) return null
         val suggestion = suggestionDao.getByCaptureId(captureId)?.takeUnless { it.dismissed } ?: return null
-        val spaceId = spaceIdFor(suggestion.suggestedSpaceName)
+        // Not sure enough for one tap: the user chooses in the sheet.
+        if (suggestion.isLowConfidence) return null
+        // A Space the user picked when saving wins over the suggested one.
+        val spaceId = activeSpaceId(capture.suggestedSpaceId) ?: spaceIdFor(suggestion.suggestedSpaceName)
         val labels = suggestion.labelNames()
         val title = suggestion.suggestedTitle
         return when (suggestion.suggestedType) {
             SuggestedItemType.Reminder -> {
                 val at = suggestion.suggestedReminderAt?.takeIf { it > now() } ?: return null
                 val id = confirmCaptureAction.createReminder(captureId, spaceId, title, at, labelNames = labels)
-                AcceptedSuggestion(SuggestedItemType.Reminder, id)
+                AcceptedSuggestion(SuggestedItemType.Reminder, id, reminderOutcomes.of(id))
             }
             SuggestedItemType.Task, SuggestedItemType.MondayItem -> {
                 val id = confirmCaptureAction.createTask(
@@ -68,7 +70,7 @@ class CaptureResolution(
                     spaceId = spaceId,
                     title = title,
                     dueAt = suggestion.suggestedDueAt,
-                    scheduledDateEpochDay = suggestion.contextDateEpochDay.takeIf { suggestion.suggestedDueAt == null },
+                    scheduledDateEpochDay = suggestion.taskDateEpochDay().takeIf { suggestion.suggestedDueAt == null },
                     labelNames = labels,
                 )
                 AcceptedSuggestion(SuggestedItemType.Task, id)
@@ -115,6 +117,10 @@ class CaptureResolution(
         captureRepository.update(capture.copy(status = CaptureStatus.Inbox, updatedAt = now()))
     }
 
+    private suspend fun activeSpaceId(id: Long?): Long? = id?.let { spaceId ->
+        spaceRepository.getById(spaceId)?.takeUnless { it.archived }?.id
+    }
+
     private suspend fun spaceIdFor(name: String?): Long? = name?.let { spaceName ->
         spaceRepository.observeAll().first()
             .firstOrNull { !it.archived && it.name.equals(spaceName, ignoreCase = true) }
@@ -122,4 +128,9 @@ class CaptureResolution(
     }
 }
 
-data class AcceptedSuggestion(val itemType: SuggestedItemType, val itemId: Long)
+data class AcceptedSuggestion(
+    val itemType: SuggestedItemType,
+    val itemId: Long,
+    /** Set for a reminder: whether it can actually reach the user. */
+    val reminderOutcome: ReminderSaveOutcome? = null,
+)

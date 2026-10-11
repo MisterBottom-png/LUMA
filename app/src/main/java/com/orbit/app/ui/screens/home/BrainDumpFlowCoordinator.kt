@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.home
 
+import com.orbit.app.reminders.ReminderSaveOutcome
 import com.orbit.app.data.local.entity.BrainDumpItemOutcome
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
@@ -168,6 +169,7 @@ internal class BrainDumpFlowCoordinator(
         if (toSave.isEmpty()) return@runDurableAction
         failedKeys.clear()
         var completed = false
+        var needsTime = false
         for (item in toSave) {
             val draft = initialBrainDumpDraft(item, spaces)
             val request = when (draft.type) {
@@ -177,7 +179,9 @@ internal class BrainDumpFlowCoordinator(
                 SuggestedItemType.Reminder -> {
                     val at = draft.scheduledAt?.takeIf { it > now() }
                     if (at == null) {
-                        failedKeys += item.id
+                        // Its time passed while the list was open: it waits for a time,
+                        // it did not fail.
+                        needsTime = true
                         continue
                     }
                     BrainDumpCommitRequest.SaveReminder(captureId, item.id, draft, at)
@@ -192,12 +196,7 @@ internal class BrainDumpFlowCoordinator(
                         return@runDurableAction
                     }
                     BrainDumpActionStatus.Applied, BrainDumpActionStatus.AlreadyHandled -> {
-                        if (request is BrainDumpCommitRequest.SaveReminder && result.notificationScheduled == false) {
-                            sessionWarning = BrainDumpStatus(
-                                kind = BrainDumpStatusKind.Warning,
-                                message = BrainDumpStatusMessage.NotificationAttention,
-                            )
-                        }
+                        reminderWarning(request, result)?.let { sessionWarning = it }
                         recordOutcome(request)
                         if (result.sessionCompleted) completed = true
                     }
@@ -208,10 +207,10 @@ internal class BrainDumpFlowCoordinator(
                 failedKeys += item.id
             }
         }
-        val failedStatus = if (failedKeys.isNotEmpty()) {
-            BrainDumpStatus(BrainDumpStatusKind.Error, BrainDumpStatusMessage.SaveFailed)
-        } else {
-            null
+        val failedStatus = when {
+            failedKeys.isNotEmpty() -> BrainDumpStatus(BrainDumpStatusKind.Error, BrainDumpStatusMessage.SaveFailed)
+            needsTime -> BrainDumpStatus(BrainDumpStatusKind.Warning, BrainDumpStatusMessage.NeedsTime)
+            else -> null
         }
         when {
             completed || pendingItems().isEmpty() -> showCompletion(status = failedStatus)
@@ -495,12 +494,7 @@ internal class BrainDumpFlowCoordinator(
                 onClose(false)
                 return
             }
-            if (request is BrainDumpCommitRequest.SaveReminder && result.notificationScheduled == false) {
-                sessionWarning = BrainDumpStatus(
-                    kind = BrainDumpStatusKind.Warning,
-                    message = BrainDumpStatusMessage.NotificationAttention,
-                )
-            }
+            reminderWarning(request, result)?.let { sessionWarning = it }
             recordOutcome(request)
             retryIntent = null
             advanceAfterCommit(request, result)
@@ -727,6 +721,22 @@ internal class BrainDumpFlowCoordinator(
             }
         }
 
+    /** A saved reminder that cannot reach the user is said so, never "Reminder set". */
+    private fun reminderWarning(
+        request: BrainDumpCommitRequest,
+        result: BrainDumpActionResult,
+    ): BrainDumpStatus? {
+        if (request !is BrainDumpCommitRequest.SaveReminder) return null
+        val message = when (result.reminderOutcome) {
+            ReminderSaveOutcome.SavedNotificationsBlocked -> BrainDumpStatusMessage.NotificationsBlocked
+            ReminderSaveOutcome.SavedNotScheduled -> BrainDumpStatusMessage.NotificationAttention
+            // Unknown means the commit did not report one; treat that as not scheduled.
+            null -> if (result.status == BrainDumpActionStatus.Applied) BrainDumpStatusMessage.NotificationAttention else null
+            ReminderSaveOutcome.Saved -> null
+        } ?: return null
+        return BrainDumpStatus(kind = BrainDumpStatusKind.Warning, message = message)
+    }
+
     private fun successStatus(
         request: BrainDumpCommitRequest,
         result: BrainDumpActionResult,
@@ -736,7 +746,8 @@ internal class BrainDumpFlowCoordinator(
         request is BrainDumpCommitRequest.SaveTask ->
             BrainDumpStatus(BrainDumpStatusKind.Success, BrainDumpStatusMessage.TaskCreated)
         request is BrainDumpCommitRequest.SaveReminder ->
-            BrainDumpStatus(BrainDumpStatusKind.Success, BrainDumpStatusMessage.ReminderCreated)
+            reminderWarning(request, result)
+                ?: BrainDumpStatus(BrainDumpStatusKind.Success, BrainDumpStatusMessage.ReminderCreated)
         request is BrainDumpCommitRequest.KeepInInbox ->
             BrainDumpStatus(BrainDumpStatusKind.Success, BrainDumpStatusMessage.KeptInInbox)
         request is BrainDumpCommitRequest.KeepRestAsOneNote ->

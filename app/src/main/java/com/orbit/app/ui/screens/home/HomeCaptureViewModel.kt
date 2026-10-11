@@ -11,9 +11,9 @@ import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.capture.CaptureInbox
 import com.orbit.app.domain.capture.CaptureInboxEvent
 import com.orbit.app.domain.capture.needsImmediateTimeQuestion
-import java.time.Instant
+import com.orbit.app.reminders.ReminderSaveOutcome
+import com.orbit.app.ui.reminders.messageRes
 import java.time.LocalDate
-import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,10 +50,17 @@ internal data class QuickReminderQuestion(
 internal enum class HomeMessage(@param:StringRes val textRes: Int) {
     Saved(R.string.core_home_saved_let_go),
     SaveFailed(R.string.core_home_message_capture_save_failed),
-    ReminderSet(R.string.core_home_message_reminder_created),
-    ReminderSetNeedsAttention(R.string.core_home_message_reminder_notification_attention),
+    ReminderSet(ReminderSaveOutcome.Saved.messageRes()),
+    ReminderNotScheduled(ReminderSaveOutcome.SavedNotScheduled.messageRes()),
+    ReminderNotificationsOff(ReminderSaveOutcome.SavedNotificationsBlocked.messageRes()),
     ReminderFailed(R.string.core_home_message_capture_action_failed),
     KeptForLater(R.string.core_home_message_kept_in_inbox),
+}
+
+internal fun ReminderSaveOutcome.toHomeMessage(): HomeMessage = when (this) {
+    ReminderSaveOutcome.Saved -> HomeMessage.ReminderSet
+    ReminderSaveOutcome.SavedNotScheduled -> HomeMessage.ReminderNotScheduled
+    ReminderSaveOutcome.SavedNotificationsBlocked -> HomeMessage.ReminderNotificationsOff
 }
 
 internal data class HomeCaptureUiState(
@@ -88,7 +95,7 @@ internal data class SortRequest(val captureId: Long, val startWithReminderSetup:
 class HomeCaptureViewModel(
     private val captureInbox: CaptureInbox,
     private val appSettingsRepository: AppSettingsRepository,
-    private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> Boolean,
+    private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> ReminderSaveOutcome,
     private val savedStateHandle: SavedStateHandle,
     private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
@@ -99,15 +106,22 @@ class HomeCaptureViewModel(
     )
     internal val uiState: StateFlow<HomeCaptureUiState> = _uiState.asStateFlow()
     private var awaitingAnalysisFor: Long? = null
+    /** True when the awaited thought was added for a Calendar day. */
+    private var awaitingForCalendarDay = false
 
     init {
         viewModelScope.launch {
             captureInbox.events.collect { event ->
                 if (event.captureId != awaitingAnalysisFor) return@collect
                 awaitingAnalysisFor = null
+                val forCalendarDay = awaitingForCalendarDay
+                awaitingForCalendarDay = false
                 when (event) {
-                    is CaptureInboxEvent.Analyzed -> onAnalyzed(event.captureId, event.analysis)
-                    is CaptureInboxEvent.AnalysisFailed -> Unit
+                    is CaptureInboxEvent.Analyzed -> onAnalyzed(event.captureId, event.analysis, forCalendarDay)
+                    // Added for a Calendar day: still open the sheet, so the day can be used.
+                    is CaptureInboxEvent.AnalysisFailed -> if (forCalendarDay) {
+                        _uiState.update { it.copy(sortRequest = SortRequest(event.captureId, startWithReminderSetup = false)) }
+                    }
                 }
             }
         }
@@ -125,7 +139,7 @@ class HomeCaptureViewModel(
     }
 
     /** Saves the thought. Returns false when there is nothing to save. */
-    fun send(calendarDateContextEpochDay: Long? = null): Boolean {
+    fun send(calendarDateContextEpochDay: Long? = null, spaceId: Long? = null): Boolean {
         val rawText = _uiState.value.inputText.trim()
         if (rawText.isBlank() || _uiState.value.isProcessing) return false
         val safeContext = calendarDateContextEpochDay
@@ -134,7 +148,10 @@ class HomeCaptureViewModel(
         viewModelScope.launch {
             try {
                 // Registered before analysis starts, so a fast result is not missed.
-                captureInbox.save(rawText, contextDateEpochDay = safeContext) { id -> awaitingAnalysisFor = id }
+                captureInbox.save(rawText, contextDateEpochDay = safeContext, spaceId = spaceId) { id ->
+                    awaitingAnalysisFor = id
+                    awaitingForCalendarDay = safeContext != null
+                }
             } catch (_: Exception) {
                 // Nothing was saved: keep the text in the box so it is not lost.
                 _uiState.update {
@@ -155,12 +172,13 @@ class HomeCaptureViewModel(
         return true
     }
 
-    private suspend fun onAnalyzed(captureId: Long, analysis: CaptureAnalysis) {
+    private suspend fun onAnalyzed(captureId: Long, analysis: CaptureAnalysis, forCalendarDay: Boolean) {
         val settings = appSettingsRepository.settings.first()
-        when {
-            settings.sortRightAfterSaving ->
+        when (afterSaving(analysis, settings.sortRightAfterSaving, forCalendarDay, now())) {
+            AfterSaving.OpenSortSheet ->
                 _uiState.update { it.copy(sortRequest = SortRequest(captureId, startWithReminderSetup = false)) }
-            analysis.needsImmediateTimeQuestion(now()) -> _uiState.update {
+            AfterSaving.Nothing -> Unit
+            AfterSaving.AskForTime -> _uiState.update {
                 it.copy(
                     quickReminder = QuickReminderQuestion(
                         captureId = captureId,
@@ -191,11 +209,10 @@ class HomeCaptureViewModel(
                 it.copy(
                     isSettingReminder = false,
                     quickReminder = null,
-                    message = when {
-                        outcome.isFailure -> HomeMessage.ReminderFailed
-                        outcome.getOrDefault(false) -> HomeMessage.ReminderSetNeedsAttention
-                        else -> HomeMessage.ReminderSet
-                    },
+                    message = outcome.fold(
+                        onSuccess = { it.toHomeMessage() },
+                        onFailure = { HomeMessage.ReminderFailed },
+                    ),
                 )
             }
         }
@@ -231,7 +248,7 @@ class HomeCaptureViewModel(
     class Factory(
         private val captureInbox: CaptureInbox,
         private val appSettingsRepository: AppSettingsRepository,
-        private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> Boolean,
+        private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> ReminderSaveOutcome,
         private val savedStateHandle: SavedStateHandle,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -251,22 +268,19 @@ class HomeCaptureViewModel(
     }
 }
 
-internal data class CalendarTaskSchedule(
-    val dueAt: Long?,
-    val scheduledDateEpochDay: Long?,
-)
+internal enum class AfterSaving { OpenSortSheet, AskForTime, Nothing }
 
-internal fun calendarTaskSchedule(
-    dueAt: Long?,
-    calendarDateContextEpochDay: Long?,
-    zoneId: ZoneId = ZoneId.systemDefault(),
-): CalendarTaskSchedule {
-    val contextDate = calendarDateContextEpochDay
-        ?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
-    val dueDate = dueAt?.let { Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate() }
-    val usesContext = contextDate != null && dueDate == contextDate
-    return CalendarTaskSchedule(
-        dueAt = dueAt.takeUnless { usesContext },
-        scheduledDateEpochDay = contextDate?.toEpochDay().takeIf { usesContext },
-    )
+/**
+ * What Home does once a saved thought is analysed. A thought added from a Calendar
+ * day opens the sort sheet with that day preset, as if "Sort right after saving" were on.
+ */
+internal fun afterSaving(
+    analysis: CaptureAnalysis,
+    sortRightAfterSaving: Boolean,
+    addedForCalendarDay: Boolean,
+    now: Long,
+): AfterSaving = when {
+    sortRightAfterSaving || addedForCalendarDay -> AfterSaving.OpenSortSheet
+    analysis.needsImmediateTimeQuestion(now) -> AfterSaving.AskForTime
+    else -> AfterSaving.Nothing
 }

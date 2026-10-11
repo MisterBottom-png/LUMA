@@ -12,6 +12,16 @@ The app asks for notification permission where required and handles denial witho
 - Editing title, Space or labels never re-arms a reminder; only a change of timing, enablement or completion does. A time in the past is never scheduled.
 - Settings > Capture & reminders shows whether notifications are allowed and whether exact timing is available, with links to the Android screens.
 
+## What a save reports
+
+Every place that saves a reminder (the quick question on Home, one tap and "Accept all" in Review, the sort sheet, and Brain Dump one by one or ticked) reports one outcome, read after the database commit (`ReminderSaveOutcome`):
+
+- **Saved**: "Reminder set."
+- **Saved, not scheduled** (the scheduler gave no token): "Reminder saved, but its notification couldn't be set up."
+- **Saved, notifications blocked** (Tallele's notifications, or its reminder channel, are off): "Reminder saved, but notifications are off, so it won't ring.", with **Turn on**, which opens the same notification settings as Settings › Reminder delivery.
+
+Reminders created through the capture flow are inserted inside the finalization transaction and armed only after it commits. When the sort sheet or Brain Dump asks for the notification permission, the outcome is read after the user answers.
+
 ## Notification actions
 
 - **Done** completes the reminder. A repeating reminder instead moves to its next occurrence and stays active.

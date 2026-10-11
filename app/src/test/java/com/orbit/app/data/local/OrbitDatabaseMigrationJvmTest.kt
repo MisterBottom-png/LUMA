@@ -67,8 +67,28 @@ class OrbitDatabaseMigrationJvmTest {
         database.close()
     }
 
+    @Test
+    fun migrate9To10KeepsEveryThoughtWithoutACalendarDay() = runBlocking {
+        val name = "jvm-migration-9-10.db"
+        SchemaDatabases.createAtVersion(name, 9) { db ->
+            db.execSQL(
+                "INSERT INTO captures (id, rawText, createdAt, updatedAt, status, suggestedType, " +
+                    "suggestedSpaceId, source, linkedItemId) VALUES " +
+                    "(4, 'Plan the weekend', 2, 3, 'Inbox', 'Task', NULL, 'Manual', NULL)",
+            )
+        }
+        val database = SchemaDatabases.openMigrated(name)
+        val capture = requireNotNull(database.captureDao().getById(4))
+        assertEquals("Plan the weekend", capture.rawText)
+        assertEquals(3L, capture.updatedAt)
+        assertNull(capture.contextDateEpochDay)
+        database.captureDao().update(capture.copy(contextDateEpochDay = 20_650))
+        assertEquals(20_650L, database.captureDao().getById(4)?.contextDateEpochDay)
+        database.close()
+    }
+
     private companion object {
-        const val CurrentVersion = 9
+        const val CurrentVersion = 10
     }
 
     @Test

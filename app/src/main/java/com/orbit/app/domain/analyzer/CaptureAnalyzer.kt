@@ -17,6 +17,8 @@ data class CaptureAnalysis(
     val suggestionChips: List<String> = emptyList(),
     val reminderPossible: Boolean,
     val suggestedReminderAt: Long? = null,
+    /** For a task: the day named in the thought, without a time. */
+    val taskDateEpochDay: Long? = null,
     val reminderPhrase: String? = null,
     val reminderTimeStatus: ReminderTimeStatus = ReminderTimeStatus.Unspecified,
     val lifeSignal: CaptureLifeSignal = CaptureLifeSignal.None,
@@ -45,6 +47,8 @@ data class BrainDumpSuggestion(
     val reason: String,
     val reminderTimeStatus: ReminderTimeStatus = ReminderTimeStatus.Unspecified,
     val suggestedReminderAt: Long? = null,
+    /** For a task: the day named in the thought, without a time. */
+    val taskDateEpochDay: Long? = null,
     val reminderPhrase: String? = null,
     /** "Someday" or "Waiting for" read from the thought's own words; never stored, always re-read. */
     val lifeSignal: CaptureLifeSignal = CaptureLifeSignal.None,
@@ -177,6 +181,7 @@ class LocalRulesCaptureAnalyzer(
                 },
                 reminderTimeStatus = lineAnalysis.reminderTimeStatus,
                 suggestedReminderAt = lineAnalysis.suggestedReminderAt,
+                taskDateEpochDay = lineAnalysis.taskDateEpochDay.takeIf { suggestedType == SuggestedItemType.Task },
                 reminderPhrase = lineAnalysis.reminderPhrase,
                 lifeSignal = lineAnalysis.lifeSignal,
             )
@@ -261,7 +266,13 @@ class LocalRulesCaptureAnalyzer(
                 locale = currentLocale,
             ),
             reminderPossible = reminderPossible,
-            suggestedReminderAt = reminderTime.epochMillis ?: taskDueDate?.epochMillis,
+            suggestedReminderAt = reminderTime.epochMillis,
+            // A task keeps the day of a parsed time ("tomorrow at 16:00" is a task for
+            // tomorrow); the time itself stays for the user who makes it a reminder.
+            taskDateEpochDay = taskDueDate?.dateEpochDay
+                ?: reminderTime.epochMillis
+                    ?.takeIf { suggestedType == SuggestedItemType.Task && reminderTime.status == ReminderTimeStatus.Resolved }
+                    ?.let { Instant.ofEpochMilli(it).atZone(currentZone).toLocalDate().toEpochDay() },
             reminderPhrase = reminderTime.phrase ?: taskDueDate?.phrase,
             reminderTimeStatus = reminderTime.status,
             lifeSignal = lifeSignalFor(normalized, rulePacks),

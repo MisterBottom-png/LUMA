@@ -114,9 +114,9 @@ class ConfirmCaptureActionUseCase(
         linkedTaskId: Long? = null,
         labelNames: List<String> = emptyList(),
     ): Long = finalizationMutex.withLock {
-        transaction.run {
+        val reminderId = transaction.run {
             val capture = requireInboxCapture(captureId)
-            val reminderId = reminderRepository.insert(
+            val reminderId = reminderRepository.insertUnscheduled(
                 ReminderEntity(
                     title = title.trim().ifBlank { capture.rawText.toNoteTitle() },
                     dueAt = dueAt,
@@ -137,6 +137,9 @@ class ConfirmCaptureActionUseCase(
             }
             reminderId
         }
+        // Armed only after the commit, so a rolled-back reminder never gets an alarm.
+        reminderRepository.scheduleStored(reminderId)
+        reminderId
     }
 
     suspend fun saveBrainDumpNote(

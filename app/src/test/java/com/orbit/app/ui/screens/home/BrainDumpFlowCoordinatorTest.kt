@@ -5,6 +5,7 @@ import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
 import com.orbit.app.domain.usecase.BrainDumpActionResult
 import com.orbit.app.domain.usecase.BrainDumpActionStatus
+import com.orbit.app.reminders.ReminderSaveOutcome
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -474,3 +475,110 @@ private fun brainDumpSuggestion(id: String) = BrainDumpSuggestion(
     tinyNextAction = "Review it",
     reason = "This reads like something to keep.",
 )
+
+class BrainDumpReminderOutcomeTest {
+    private val reminder = brainDumpSuggestion("brain:1").copy(
+        suggestedType = SuggestedItemType.Reminder,
+        suggestedReminderAt = 1_800_000_000_000L,
+    )
+
+    private fun result(outcome: ReminderSaveOutcome) = BrainDumpActionResult(
+        status = BrainDumpActionStatus.Applied,
+        reminderCreated = true,
+        reminderId = 1L,
+        reminderOutcome = outcome,
+    )
+
+    @Test
+    fun singleSaveNeverSaysReminderSetWhenItCannotRing() = runBlocking {
+        mapOf(
+            ReminderSaveOutcome.SavedNotificationsBlocked to BrainDumpStatusMessage.NotificationsBlocked,
+            ReminderSaveOutcome.SavedNotScheduled to BrainDumpStatusMessage.NotificationAttention,
+        ).forEach { (outcome, message) ->
+            val fixture = coordinatorFixture(itemCount = 2, items = listOf(reminder, brainDumpSuggestion("brain:2"))) {
+                result(outcome)
+            }
+            fixture.coordinator.commitPrimary()
+            val state = requireNotNull(fixture.coordinator.state.value)
+            assertEquals(outcome.name, message, state.status?.message)
+            assertEquals(outcome.name, message, state.warning?.message)
+            fixture.coordinator.discardRemaining()
+        }
+    }
+
+    @Test
+    fun singleSaveSaysReminderSetWhenItWillRing() = runBlocking {
+        val fixture = coordinatorFixture(itemCount = 2, items = listOf(reminder, brainDumpSuggestion("brain:2"))) {
+            result(ReminderSaveOutcome.Saved)
+        }
+        fixture.coordinator.commitPrimary()
+        assertEquals(BrainDumpStatusMessage.ReminderCreated, fixture.coordinator.state.value?.status?.message)
+        assertNull(fixture.coordinator.state.value?.warning)
+        fixture.coordinator.discardRemaining()
+    }
+
+    @Test
+    fun tickedSaveCarriesTheWarningIntoTheOverview() = runBlocking {
+        mapOf(
+            ReminderSaveOutcome.SavedNotificationsBlocked to BrainDumpStatusMessage.NotificationsBlocked,
+            ReminderSaveOutcome.SavedNotScheduled to BrainDumpStatusMessage.NotificationAttention,
+        ).forEach { (outcome, message) ->
+            val coordinator = overviewCoordinator(now = 1_000L) { result(outcome) }
+            coordinator.saveTicked()
+            assertEquals(outcome.name, message, coordinator.state.value?.warning?.message)
+            coordinator.discardRemaining()
+        }
+    }
+
+    @Test
+    fun aTickedReminderWhoseTimePassedNeedsATimeAndDidNotFail() = runBlocking {
+        var clock = 1_000L
+        val commits = mutableListOf<BrainDumpCommitRequest>()
+        val coordinator = overviewCoordinator(now = { clock }) { request ->
+            commits += request
+            BrainDumpActionResult(BrainDumpActionStatus.Applied)
+        }
+        // The time passes while the list is open.
+        clock = 1_800_000_000_001L
+        coordinator.saveTicked()
+
+        val state = requireNotNull(coordinator.state.value)
+        assertTrue(commits.none { it is BrainDumpCommitRequest.SaveReminder })
+        assertEquals(BrainDumpStatusMessage.NeedsTime, state.status?.message)
+        assertEquals(BrainDumpStatusKind.Warning, state.status?.kind)
+        val row = state.overviewRows.single { it.sourceKey == "brain:1" }
+        assertFalse(row.failed)
+        assertFalse(row.canTick)
+        coordinator.discardRemaining()
+    }
+
+    private fun CoroutineScope.overviewCoordinator(
+        now: Long,
+        commit: suspend (BrainDumpCommitRequest) -> BrainDumpActionResult,
+    ) = overviewCoordinator({ now }, commit)
+
+    private fun CoroutineScope.overviewCoordinator(
+        now: () -> Long,
+        commit: suspend (BrainDumpCommitRequest) -> BrainDumpActionResult,
+    ): BrainDumpFlowCoordinator {
+        val items = listOf(
+            reminder.copy(suggestedSpaceName = "Personal", confidence = 0.95f),
+            brainDumpSuggestion("brain:2"),
+        )
+        val coordinator = BrainDumpFlowCoordinator(
+            scope = this,
+            expiryDelay = { suspendCancellableCoroutine<Unit> { } },
+            commit = commit,
+            now = now,
+        )
+        coordinator.start(
+            captureId = 7L,
+            items = items,
+            spaces = listOf(CaptureSpaceOption(1L, "Personal"), CaptureSpaceOption(null, "Inbox")),
+            storedOutcomes = items.associate { it.id to BrainDumpItemOutcome.Pending },
+            startWithOverview = true,
+        )
+        assertEquals(true, coordinator.state.value?.overviewRows?.first()?.ticked)
+        return coordinator
+    }
+}

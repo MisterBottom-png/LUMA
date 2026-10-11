@@ -23,6 +23,10 @@ data class BrainDumpActionResult(
     val sessionCompleted: Boolean = false,
     val reminderCreated: Boolean = false,
     val notificationScheduled: Boolean? = null,
+    /** The reminder this action created, if any. */
+    val reminderId: Long? = null,
+    /** Set by the caller after the commit: whether that reminder can reach the user. */
+    val reminderOutcome: com.orbit.app.reminders.ReminderSaveOutcome? = null,
 )
 
 class BrainDumpActions(
@@ -55,8 +59,13 @@ class BrainDumpActions(
         dueAt: Long?,
         spaceId: Long?,
         status: TaskStatus = TaskStatus.Open,
+        scheduledDateEpochDay: Long? = null,
     ): BrainDumpActionResult = apply(captureId, sourceKey, BrainDumpItemOutcome.Saved) { session, item ->
-        val schedule = taskSchedule(dueAt, session.calendarDateContextEpochDay)
+        val schedule = if (scheduledDateEpochDay != null) {
+            TaskSchedule(dueAt = null, scheduledDateEpochDay = scheduledDateEpochDay)
+        } else {
+            taskSchedule(dueAt, session.calendarDateContextEpochDay)
+        }
         val cleanTitle = title.trim().ifBlank { item.suggestedTitle.ifBlank { item.rawText } }
         database.taskDao().insert(
             TaskEntity(
@@ -105,7 +114,7 @@ class BrainDumpActions(
         } else {
             false
         }
-        return result.copy(reminderCreated = true, notificationScheduled = scheduled)
+        return result.copy(reminderCreated = true, notificationScheduled = scheduled, reminderId = reminderId)
     }
 
     suspend fun saveOriginalLineForLater(

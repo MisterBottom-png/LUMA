@@ -201,4 +201,81 @@ internal class ItemTypeConversion(
         database.reminderDao().deleteById(id)
         return TypeConversionOutcome.Converted
     }
+
+    /** The item exactly as it is now, so a type change can be undone without loss. */
+    suspend fun snapshot(type: ItemDetailType, itemId: Long): TypeConversionSnapshot? = when (type) {
+        ItemDetailType.Note -> database.noteDao().getById(itemId)?.let {
+            TypeConversionSnapshot(type, note = it, labelIds = labelIdsOf(type, itemId))
+        }
+        ItemDetailType.Task -> database.taskDao().getById(itemId)?.let {
+            TypeConversionSnapshot(type, task = it, labelIds = labelIdsOf(type, itemId))
+        }
+        ItemDetailType.Reminder -> database.reminderDao().getById(itemId)?.let {
+            TypeConversionSnapshot(type, reminder = it, labelIds = labelIdsOf(type, itemId))
+        }
+        ItemDetailType.Capture -> null
+    }
+
+    /**
+     * Undo for a type change: the converted row goes and the original comes back as it
+     * was, with its labels, repeat, notification and status. False if it changed since.
+     */
+    suspend fun undo(snapshot: TypeConversionSnapshot, currentType: ItemDetailType, itemId: Long): Boolean {
+        val restored = database.withTransaction restore@{
+            when (currentType) {
+                ItemDetailType.Note -> database.noteDao().getById(itemId)?.let { database.noteDao().deleteById(itemId) }
+                ItemDetailType.Task -> database.taskDao().getById(itemId)?.let { database.taskDao().deleteById(itemId) }
+                ItemDetailType.Reminder -> database.reminderDao().getById(itemId)?.let { database.reminderDao().deleteById(itemId) }
+                ItemDetailType.Capture -> null
+            } ?: return@restore false
+            if (targetExists(snapshot.type, itemId)) return@restore false
+            snapshot.note?.let { database.noteDao().insert(it) }
+            snapshot.task?.let { database.taskDao().insert(it) }
+            snapshot.reminder?.let { database.reminderDao().insert(it.copy(notificationWorkId = null)) }
+            attachLabels(snapshot.type, itemId, snapshot.labelIds)
+            true
+        }
+        if (restored) {
+            if (currentType == ItemDetailType.Reminder) runCatching { reminderScheduler.cancel(itemId) }
+            if (snapshot.type == ItemDetailType.Reminder) {
+                database.reminderDao().getById(itemId)?.let { reminder ->
+                    val workId = runCatching { reminderScheduler.schedule(reminder) }.getOrNull()
+                    database.reminderDao().update(reminder.copy(notificationWorkId = workId))
+                }
+            }
+        }
+        return restored
+    }
+}
+
+internal data class TypeConversionSnapshot(
+    val type: ItemDetailType,
+    val note: NoteEntity? = null,
+    val task: TaskEntity? = null,
+    val reminder: ReminderEntity? = null,
+    val labelIds: List<Long> = emptyList(),
+)
+
+/** What changing an item's type would remove, so the confirmation can name it. */
+internal sealed interface TypeChangeLoss {
+    data object Repeat : TypeChangeLoss
+    data object Notification : TypeChangeLoss
+    data class Status(val status: TaskStatus) : TypeChangeLoss
+}
+
+internal fun typeChangeLosses(
+    currentType: ItemDetailType,
+    targetType: ItemDetailType,
+    repeat: com.orbit.app.reminders.ReminderRepeat?,
+    notificationEnabled: Boolean?,
+    taskStatus: TaskStatus?,
+): List<TypeChangeLoss> = buildList {
+    if (currentType == targetType) return@buildList
+    if (currentType == ItemDetailType.Reminder) {
+        if (repeat != null) add(TypeChangeLoss.Repeat)
+        if (notificationEnabled == true) add(TypeChangeLoss.Notification)
+    }
+    if (currentType == ItemDetailType.Task && (taskStatus == TaskStatus.WaitingFor || taskStatus == TaskStatus.Someday)) {
+        add(TypeChangeLoss.Status(taskStatus))
+    }
 }

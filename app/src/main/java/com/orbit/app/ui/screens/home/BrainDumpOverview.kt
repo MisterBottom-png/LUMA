@@ -71,7 +71,12 @@ internal fun BrainDumpOverview(
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = pluralStringResource(R.plurals.brain_overview_subtitle, rows.size, rows.size),
+            // "Ticked ones look clear" only when something is ticked.
+            text = pluralStringResource(
+                if (tickedCount > 0) R.plurals.brain_overview_subtitle else R.plurals.brain_overview_subtitle_none_ticked,
+                rows.size,
+                rows.size,
+            ),
             modifier = Modifier.padding(top = 4.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -296,7 +301,8 @@ private fun overviewMeta(row: BrainDumpOverviewRow, timeFormat: OrbitTimeFormat)
         ),
     )
     add(row.spaceName?.let { localizedSpaceName(it) } ?: stringResource(R.string.core_inbox))
-    row.draft.scheduledAt?.let { add(timeFormat.formatWeekdayDateTime(it)) }
+    row.draft.scheduledDateEpochDay?.let { add(timeFormat.formatDate(java.time.LocalDate.ofEpochDay(it))) }
+        ?: row.draft.scheduledAt?.let { add(timeFormat.formatWeekdayDateTime(it)) }
     when (row.lifeSignal) {
         CaptureLifeSignal.Someday -> add(stringResource(R.string.core_someday))
         CaptureLifeSignal.WaitingFor -> add(stringResource(R.string.core_waiting_for))

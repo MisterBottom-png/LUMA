@@ -1,5 +1,8 @@
 package com.orbit.app.ui.screens.home
 
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import com.orbit.app.ui.reminders.messageRes
+import com.orbit.app.reminders.ReminderSaveOutcome
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
@@ -194,16 +197,48 @@ private fun BrainDumpSuggestionCard(
     val selectedAction = if (keepInInbox) CaptureDecisionAction.KeepInbox else draft.type.sortAction()
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.core_brain_dump_progress, state.itemNumber, state.totalItems),
-            modifier = Modifier
-                .padding(bottom = 6.dp)
-                .focusRequester(progressFocusRequester)
-                .focusable()
-                .semantics { heading() },
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        // The thought's actions sit beside its heading, where they are found.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.core_brain_dump_progress, state.itemNumber, state.totalItems),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(bottom = 6.dp)
+                    .focusRequester(progressFocusRequester)
+                    .focusable()
+                    .semantics { heading() },
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Box {
+                IconButton(
+                    onClick = { showMore = true },
+                    enabled = !state.actionInProgress,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = stringResource(R.string.core_brain_dump_more),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                BrainDumpActionMenu(
+                    expanded = showMore,
+                    onDismiss = { showMore = false },
+                    onKeepInInbox = {
+                        showMore = false
+                        callbacks.onKeepInInbox()
+                    },
+                    onSkip = {
+                        showMore = false
+                        callbacks.onSkip()
+                    },
+                    onDiscardRemaining = {
+                        showMore = false
+                        showDiscardConfirmation = true
+                    },
+                )
+            }
+        }
         SortForm(
             key = item.id,
             timeFormat = timeFormat,
@@ -220,8 +255,13 @@ private fun BrainDumpSuggestionCard(
             spaces = spaces,
             selectedSpaceId = draft.spaceId,
             onSpaceSelected = { callbacks.onDraftChanged(draft.copy(spaceId = it)) },
-            taskDueAt = draft.scheduledAt,
-            onTaskDueAtChanged = { callbacks.onDraftChanged(draft.copy(scheduledAt = it)) },
+            taskDue = TaskDue(
+                dayEpochDay = draft.scheduledDateEpochDay,
+                at = draft.scheduledAt.takeIf { draft.scheduledDateEpochDay == null },
+            ),
+            onTaskDueChanged = { due ->
+                callbacks.onDraftChanged(draft.copy(scheduledAt = due.at, scheduledDateEpochDay = due.dayEpochDay))
+            },
             reminderAt = draft.scheduledAt,
             onReminderAtChanged = { callbacks.onDraftChanged(draft.copy(scheduledAt = it)) },
             initialDate = null,
@@ -238,7 +278,6 @@ private fun BrainDumpSuggestionCard(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(
@@ -251,34 +290,6 @@ private fun BrainDumpSuggestionCard(
                             if (state.openedFromOverview) R.string.brain_overview_back else R.string.core_brain_dump_finish_later,
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Box {
-                    IconButton(
-                        onClick = { showMore = true },
-                        enabled = !state.actionInProgress,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = stringResource(R.string.core_brain_dump_more),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    BrainDumpActionMenu(
-                        expanded = showMore,
-                        onDismiss = { showMore = false },
-                        onKeepInInbox = {
-                            showMore = false
-                            callbacks.onKeepInInbox()
-                        },
-                        onSkip = {
-                            showMore = false
-                            callbacks.onSkip()
-                        },
-                        onDiscardRemaining = {
-                            showMore = false
-                            showDiscardConfirmation = true
-                        },
                     )
                 }
             }
@@ -617,6 +628,7 @@ internal fun BrainDumpInlineStatus(
 ) {
     val statuses = listOfNotNull(warning, status).distinct()
     if (statuses.isEmpty()) return
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
     Column(modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
         statuses.forEach { visibleStatus ->
             Text(
@@ -633,6 +645,9 @@ internal fun BrainDumpInlineStatus(
             }
             if (visibleStatus.canRetry) {
                 TextButton(onClick = onRetry) { Text(stringResource(R.string.core_brain_dump_retry)) }
+            }
+            if (visibleStatus.message == BrainDumpStatusMessage.NotificationsBlocked) {
+                TextButton(onClick = turnOnNotifications) { Text(stringResource(R.string.settings_turn_on)) }
             }
         }
     }
@@ -711,11 +726,13 @@ private fun brainDumpSpaceName(space: CaptureSpaceOption?): String = when (space
 private fun BrainDumpStatusMessage.labelRes(): Int = when (this) {
     BrainDumpStatusMessage.NoteSaved -> R.string.core_home_message_note_saved
     BrainDumpStatusMessage.TaskCreated -> R.string.core_home_message_task_created
-    BrainDumpStatusMessage.ReminderCreated -> R.string.core_home_message_reminder_created
+    BrainDumpStatusMessage.ReminderCreated -> ReminderSaveOutcome.Saved.messageRes()
     BrainDumpStatusMessage.KeptInInbox -> R.string.core_home_message_kept_in_inbox
     BrainDumpStatusMessage.ThoughtSkipped -> R.string.core_brain_dump_status_skipped
     BrainDumpStatusMessage.SaveFailed -> R.string.core_home_message_brain_dump_item_save_failed
-    BrainDumpStatusMessage.NotificationAttention -> R.string.core_home_message_reminder_notification_attention
+    BrainDumpStatusMessage.NotificationAttention -> ReminderSaveOutcome.SavedNotScheduled.messageRes()
+    BrainDumpStatusMessage.NotificationsBlocked -> ReminderSaveOutcome.SavedNotificationsBlocked.messageRes()
+    BrainDumpStatusMessage.NeedsTime -> R.string.brain_dump_needs_time_status
 }
 
 private fun showBrainDumpDateTimePicker(

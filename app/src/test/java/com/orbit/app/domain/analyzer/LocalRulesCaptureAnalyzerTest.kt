@@ -8,6 +8,7 @@ import java.time.ZoneId
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -244,7 +245,7 @@ class LocalRulesCaptureAnalyzerTest {
     }
 
     @Test
-    fun brainDumpTaskForNextMonthGetsAnEditableDueDate() {
+    fun brainDumpTaskForNextMonthGetsADayWithoutATime() {
         val zone = ZoneId.of("Europe/Tallinn")
         val fixedAnalyzer = LocalRulesCaptureAnalyzer(
             now = { Instant.parse("2026-07-14T10:00:00Z") },
@@ -255,11 +256,10 @@ class LocalRulesCaptureAnalyzerTest {
             .analyze("first item\ntesting brain dump task for next month")
             .brainDumpItems
             .last()
-        val dueAt = Instant.ofEpochMilli(requireNotNull(item.suggestedReminderAt)).atZone(zone)
-
         assertEquals(SuggestedItemType.Task, item.suggestedType)
-        assertEquals(LocalDate.of(2026, 8, 14), dueAt.toLocalDate())
-        assertEquals(LocalTime.of(23, 59), dueAt.toLocalTime())
+        assertEquals(LocalDate.of(2026, 8, 14).toEpochDay(), item.taskDateEpochDay)
+        // A task's day is never a made-up 23:59 time.
+        assertNull(item.suggestedReminderAt)
     }
 
     @Test

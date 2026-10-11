@@ -106,7 +106,17 @@ interface LabelRepository {
 }
 interface NoteRepository : EntityRepository<NoteEntity>
 interface TaskRepository : EntityRepository<TaskEntity>
-interface ReminderRepository : EntityRepository<ReminderEntity>
+interface ReminderRepository : EntityRepository<ReminderEntity> {
+    /**
+     * Stores a reminder without arming its notification. Used inside a database
+     * transaction; call [scheduleStored] once that transaction has committed, so an
+     * alarm never exists for a reminder that was rolled back.
+     */
+    suspend fun insertUnscheduled(entity: ReminderEntity): Long = insert(entity)
+
+    /** Arms the notification of a stored reminder. Returns the scheduling token, or null. */
+    suspend fun scheduleStored(id: Long): String? = getById(id)?.notificationWorkId
+}
 interface AiSuggestionHistoryRepository : ResettableRepository<AiSuggestionHistoryEntity>
 interface AiCorrectionHistoryRepository : ResettableRepository<AiCorrectionHistoryEntity>
 interface LearnedRuleRepository : ToggleableMemoryRepository<LearnedRuleEntity>
@@ -242,14 +252,23 @@ class RoomReminderRepository(
     override suspend fun getById(id: Long) = dao.getById(id)
 
     override suspend fun insert(entity: ReminderEntity): Long {
+        val id = insertUnscheduled(entity)
+        scheduleStored(id)
+        return id
+    }
+
+    override suspend fun insertUnscheduled(entity: ReminderEntity): Long {
         val stored = entity.copy(id = 0L, notificationWorkId = null, deliveredNotificationAt = null)
             .requireValidReminder()
-        val id = dao.insert(stored)
-        if (stored.shouldScheduleNotification()) {
-            val token = runCatching { scheduler.schedule(stored.copy(id = id)) }.getOrNull()
-            dao.updateNotificationWorkId(id, token)
-        }
-        return id
+        return dao.insert(stored)
+    }
+
+    override suspend fun scheduleStored(id: Long): String? {
+        val stored = dao.getById(id) ?: return null
+        if (!stored.shouldScheduleNotification()) return null
+        val token = runCatching { scheduler.schedule(stored) }.getOrNull()
+        dao.updateNotificationWorkId(id, token)
+        return token
     }
 
     /**

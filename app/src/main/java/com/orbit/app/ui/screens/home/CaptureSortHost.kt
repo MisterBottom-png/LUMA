@@ -21,6 +21,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.orbit.app.R
 import com.orbit.app.data.local.entity.SuggestedItemType
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import com.orbit.app.ui.reminders.offerTurnOnIfBlocked
+import com.orbit.app.ui.reminders.messageRes
 import com.orbit.app.ui.time.OrbitTimeFormat
 
 /**
@@ -40,7 +43,12 @@ fun CaptureSortHost(
         onResult = viewModel::onNotificationPermissionResult,
     )
     val undoLabel = stringResource(R.string.core_brain_dump_undo)
-    val resolvedText = uiState.lastResolved?.let { stringResource(it.itemType.sortedMessageRes()) }
+    val resolvedText = uiState.lastResolved?.let { resolved ->
+        stringResource(resolved.reminderOutcome?.messageRes() ?: resolved.itemType.sortedMessageRes())
+    }
+    val turnOnPrompt = stringResource(R.string.reminder_outcome_turn_on_prompt)
+    val turnOnLabel = stringResource(R.string.settings_turn_on)
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
 
     LaunchedEffect(uiState.notificationPermissionRequestPending) {
         if (!uiState.notificationPermissionRequestPending) return@LaunchedEffect
@@ -76,7 +84,16 @@ fun CaptureSortHost(
                 actionLabel = undoLabel,
                 duration = SnackbarDuration.Long,
             )
-            if (result == SnackbarResult.ActionPerformed) viewModel.undo(handled)
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undo(handled)
+            } else {
+                snackbarHostState.offerTurnOnIfBlocked(
+                    outcome = handled.reminderOutcome,
+                    prompt = turnOnPrompt,
+                    turnOnLabel = turnOnLabel,
+                    onTurnOn = turnOnNotifications,
+                )
+            }
         } finally {
             viewModel.resolvedHandled(handled)
             viewModel.messageShown(successMessage)
@@ -151,5 +168,5 @@ fun CaptureSortHost(
 internal fun SuggestedItemType.sortedMessageRes(): Int = when (this) {
     SuggestedItemType.Note -> R.string.core_home_message_note_saved
     SuggestedItemType.Task, SuggestedItemType.MondayItem -> R.string.core_home_message_task_created
-    SuggestedItemType.Reminder -> R.string.core_home_message_reminder_created
+    SuggestedItemType.Reminder -> R.string.reminder_outcome_saved
 }

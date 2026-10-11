@@ -398,7 +398,9 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
         spaceId: Long,
         transform: (SpaceEntity) -> SpaceEntity,
     ) {
-        viewModelScope.launch {
+        // The app's scope, not this screen's: Hide or Archive on a Space's own page
+        // closes that page at once, which would otherwise cancel the write.
+        container.applicationScope.launch {
             container.spaceRepository.getById(spaceId)?.let { stored ->
                 try {
                     container.spaceRepository.update(transform(stored))

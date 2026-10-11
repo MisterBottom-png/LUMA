@@ -91,7 +91,7 @@ fun FloatingBottomNavigation(
                 OrbitDestination.bottomBar.forEach { destination ->
                     NavTab(
                         destination = destination,
-                        selected = selectedRoute == destination.route,
+                        selected = isBottomBarDestinationSelected(selectedRoute, destination),
                         onClick = { onDestinationSelected(destination) },
                         modifier = Modifier.weight(1f),
                     )
@@ -166,3 +166,8 @@ private fun NavTab(
         )
     }
 }
+
+/** A Space's own page ("spaces/…") still belongs to the Spaces tab. */
+internal fun isBottomBarDestinationSelected(selectedRoute: String?, destination: OrbitDestination): Boolean =
+    selectedRoute == destination.route ||
+        (destination == OrbitDestination.Spaces && selectedRoute?.startsWith("${OrbitDestination.Spaces.route}/") == true)
