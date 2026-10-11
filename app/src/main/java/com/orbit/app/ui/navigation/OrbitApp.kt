@@ -664,11 +664,18 @@ fun OrbitApp(
                 FloatingBottomNavigation(
                     selectedRoute = selectedRoute,
                     onDestinationSelected = { destination ->
-                        navController.navigate(destination.navigationRoute) {
-                            launchSingleTop = true
-                            restoreState = true
-                            popUpTo(OrbitDestination.Home.route) {
-                                saveState = true
+                        // Home is the root of every tab: going back to it is a plain pop. Navigating
+                        // to it with restoreState could bring back the screen just left (Calendar
+                        // opened from a day on Home), so the Home tab seemed to do nothing.
+                        val backAtHome = destination == OrbitDestination.Home &&
+                            navController.popBackStack(OrbitDestination.Home.route, inclusive = false)
+                        if (!backAtHome) {
+                            navController.navigate(destination.navigationRoute) {
+                                launchSingleTop = true
+                                restoreState = true
+                                popUpTo(OrbitDestination.Home.route) {
+                                    saveState = true
+                                }
                             }
                         }
                     },

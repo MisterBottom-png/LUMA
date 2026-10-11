@@ -3,6 +3,9 @@ package com.orbit.app.journey
 import android.content.Context
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -75,5 +78,36 @@ class TabJourneyJvmTest {
         compose.waitForIdle()
         compose.onNodeWithText("Appearance", substring = true).assertExists()
         assertEquals("the tab bar is hidden in Settings", 0, count("Calendar"))
+    }
+
+    private fun onHome() = compose.onAllNodesWithContentDescription("Open settings").fetchSemanticsNodes().isNotEmpty()
+
+    @Test
+    fun homeTabLeavesCalendarWhetherCalendarWasOpenedFromTheTabOrFromADay() {
+        // The guide shows only on a first launch in this process.
+        compose.waitUntil(10_000) { count("Skip") > 0 || onHome() }
+        if (count("Skip") > 0) compose.onNodeWithText("Skip").performClick()
+        compose.waitForIdle()
+
+        // From the Calendar tab.
+        tapTab("Calendar")
+        tapTab("Home")
+        assertTrue("Home tab from Calendar (opened from the tab)", onHome())
+
+        // From a day on Home's week strip.
+        val day = compose.onAllNodes(hasClickAction() and hasContentDescription("Today", substring = true))
+        day[0].performClick()
+        compose.waitForIdle()
+        assertTrue("a day opens Calendar", !onHome())
+        tapTab("Home")
+        assertTrue("Home tab from Calendar (opened from a day)", onHome())
+
+        // And again after visiting another tab in between.
+        day[0].performClick()
+        compose.waitForIdle()
+        tapTab("Spaces")
+        tapTab("Calendar")
+        tapTab("Home")
+        assertTrue("Home tab after Calendar, Spaces, Calendar", onHome())
     }
 }
