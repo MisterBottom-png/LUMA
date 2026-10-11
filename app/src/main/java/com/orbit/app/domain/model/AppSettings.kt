@@ -141,6 +141,28 @@ data class AppSettings(
     val hasAskedForNotifications: Boolean = false,
 )
 
+/**
+ * Gemini is chosen and this feature's switch is on. The one rule OrbitAiRouter uses for
+ * every feature; a saved API key is also needed, and the router reads it when it sends.
+ */
+fun AppSettings.geminiOnFor(featureEnabled: Boolean): Boolean =
+    aiMode == AiMode.GeminiApi && featureEnabled
+
+/**
+ * True exactly when a thought saved from Home would be sent to Gemini: Home's save runs
+ * OrbitAiRouter.analyzeCapture, which uses Gemini for capture sorting or for a Brain Dump
+ * when that switch is on and a key is saved. Without a key everything stays local.
+ */
+fun AppSettings.homeSavesUseGemini(hasGeminiKey: Boolean): Boolean =
+    hasGeminiKey && (geminiOnFor(useGeminiForCapture) || geminiOnFor(useGeminiForBrainDump))
+
+/**
+ * Only Brain Dump sorting is on: the router sends a save only when it reads as a list of
+ * thoughts, and a single thought stays on the phone.
+ */
+fun AppSettings.homeSavesUseGeminiOnlyForBrainDumps(hasGeminiKey: Boolean): Boolean =
+    homeSavesUseGemini(hasGeminiKey) && !geminiOnFor(useGeminiForCapture)
+
 val AppSettings.hasCurrentGeminiConsent: Boolean
     get() = geminiConsentVersion >= GeminiConsent.CurrentVersion
 

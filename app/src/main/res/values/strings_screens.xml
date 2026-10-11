@@ -122,9 +122,14 @@
     <string name="tutorial_private_1">Your thoughts are kept on this phone.</string>
     <string name="tutorial_private_2">Gemini helps only if you turn it on.</string>
     <string name="tutorial_private_3">Notifications are asked for with your first reminder.</string>
+    <!-- Home week strip: TalkBack action and long-press label. -->
+    <string name="home_week_back_to_today">Back to this week</string>
+    <string name="home_week_add_for_day">Add for this day</string>
     <!-- First run: Home teaches the app; the guide is for replay from Settings. -->
-    <string name="home_first_line_above">Write anything. Tallele keeps it safe and sorts what it can.</string>
-    <string name="home_first_line_below">Everything stays on this phone unless you turn on Gemini or use voice.</string>
+    <!-- Under the capture box before the first save: where a thought saved on Home goes. -->
+    <string name="home_first_line_local">Saved only on this phone.</string>
+    <string name="home_first_line_gemini">Gemini is on: what you save here is sent to Gemini to sort.</string>
+    <string name="home_first_line_gemini_brain_dump">Gemini is on for Brain Dump: a list of thoughts saved here is sent to Gemini to sort.</string>
     <string name="home_first_receipt_tip_filed">Tallele filed this for you. Tap Change if it got it wrong.</string>
     <!-- %1$s is the name of the Spaces tile that lists saved thoughts. -->
     <string name="home_first_receipt_tip_kept">Tallele kept this. You’ll find it in %1$s and in Search.</string>

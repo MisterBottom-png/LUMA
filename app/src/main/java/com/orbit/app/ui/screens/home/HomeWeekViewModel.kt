@@ -101,6 +101,14 @@ class HomeWeekViewModel internal constructor(
         persistVisibleWeekDate(_uiState.value.visibleWeekDate)
     }
 
+    /** The strip's "Today" button: back to the week that holds today. */
+    fun showToday() {
+        val state = _uiState.value
+        if (state.visibleWeekDate == state.today) return
+        _uiState.update { it.copy(visibleWeekDate = it.today) }
+        persistVisibleWeekDate(_uiState.value.visibleWeekDate)
+    }
+
     private fun persistVisibleWeekDate(date: LocalDate) {
         savedStateHandle[VisibleWeekDateKey] = date.toEpochDay()
     }
@@ -133,13 +141,21 @@ internal fun homeWeekDates(today: LocalDate, locale: Locale): List<LocalDate> {
 internal fun homeWeekdayLabel(date: LocalDate, locale: Locale): String =
     date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, locale)
 
+/**
+ * The month above the strip. A week across two months names both in short ("Sep–Oct"),
+ * so its first days do not read as the second month's.
+ */
 internal fun homeVisibleWeekMonth(dates: List<LocalDate>, locale: Locale): String {
     require(dates.size == 7)
-    val monthName = dates[dates.lastIndex / 2].month.getDisplayName(
-        java.time.format.TextStyle.FULL_STANDALONE,
-        locale,
-    )
-    return if (locale.language in setOf("et", "ru")) monthName.lowercase(locale) else monthName
+    val first = dates.first().month
+    val last = dates.last().month
+    val label = if (first != last) {
+        first.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, locale) + "–" +
+            last.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, locale)
+    } else {
+        dates[dates.lastIndex / 2].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, locale)
+    }
+    return if (locale.language in setOf("et", "ru")) label.lowercase(locale) else label
 }
 
 internal fun homeVisibleWeekNumber(dates: List<LocalDate>, locale: Locale): Int {

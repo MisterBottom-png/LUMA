@@ -29,6 +29,11 @@ import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import com.orbit.app.ui.screens.home.homeWeekDates
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.longClick
 import com.orbit.app.OrbitApplication
@@ -592,6 +597,51 @@ abstract class ScreenTour(private val theme: String) {
         back()
     }
 
+    /**
+     * Home's week strip away from today: one week ahead with the "Today" button, then the
+     * nearest week across two months ("Sep–Oct"). Each ends back on today's week.
+     */
+    private fun homeWeekScreens() {
+        val todayButton = hasText("Today") and hasClickAction()
+        fun backToToday(name: String) = step(name) {
+            if (compose.onAllNodes(todayButton).fetchSemanticsNodes().isNotEmpty()) {
+                compose.onNode(todayButton).performClick()
+                compose.waitUntil(10_000) { compose.onAllNodes(todayButton).fetchSemanticsNodes().isEmpty() }
+            }
+        }
+        tapTab("Home")
+        step("next week") {
+            weekAction("Show next week")
+            compose.waitUntil(10_000) { compose.onAllNodes(todayButton).fetchSemanticsNodes().isNotEmpty() }
+        }
+        shot("home-week-other")
+        backToToday("back from next week")
+        step("split week") {
+            val locale = compose.activity.resources.configuration.locales[0]
+            val today = LocalDate.now(ZoneId.systemDefault())
+            // A month start on the week's first day splits nothing, so look a few months ahead.
+            val weeksAhead = (0..15).first { weeks ->
+                val dates = homeWeekDates(today.plusWeeks(weeks.toLong()), locale)
+                dates.first().month != dates.last().month
+            }
+            repeat(weeksAhead) { weekAction("Show next week") }
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("–", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        }
+        shot("home-split-week")
+        backToToday("back from split week")
+    }
+
+    /** Runs one of the week strip's TalkBack actions, as a swipe would. */
+    private fun weekAction(label: String) {
+        val node = compose.onNode(
+            SemanticsMatcher("week action $label") { node ->
+                node.config.getOrNull(SemanticsActions.CustomActions)?.any { it.label == label } == true
+            },
+        ).fetchSemanticsNode()
+        compose.runOnUiThread { node.config[SemanticsActions.CustomActions].first { it.label == label }.action() }
+        compose.waitForIdle()
+    }
+
     /** A messy list written in one go opens as a calm list of thoughts to tick and save. */
     private fun brainDump(prefix: String) {
         tapTab("Home")
@@ -622,8 +672,8 @@ abstract class ScreenTour(private val theme: String) {
     @Test
     fun tour() {
         assumeTrue("set LUMA_SCREENS_DIR to render the screens", outDir != null)
-        // Step 7: a first launch opens on Home with two lines; there is no guide to skip.
-        step("first launch") { compose.waitUntil(30_000) { count(FirstRunLineAbove) > 0 } }
+        // Step 7: a first launch opens on Home with one line under the box; there is no guide to skip.
+        step("first launch") { compose.waitUntil(30_000) { count(FirstRunLineLocal) > 0 } }
         shot("00-first-launch")
         seed()
         capture("Renew passport")
@@ -631,6 +681,7 @@ abstract class ScreenTour(private val theme: String) {
         shot("00-first-receipt-tip")
         listOf("Ideas for the garden", "Buy milk and coffee").forEach(::capture)
         shot("01-home")
+        homeWeekScreens()
         needsYouScreens()
 
         mainScreens("a")
@@ -662,7 +713,7 @@ abstract class ScreenTour(private val theme: String) {
     }
 }
 
-private const val FirstRunLineAbove = "Write anything. Tallele keeps it safe and sorts what it can."
+private const val FirstRunLineLocal = "Saved only on this phone."
 private const val FirstReceiptTipKept = "Tallele kept this. You’ll find it in To sort and in Search."
 
 @Config(qualifiers = "w411dp-h891dp-notnight-xxhdpi")
