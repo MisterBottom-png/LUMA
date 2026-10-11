@@ -407,6 +407,7 @@ fun HomeScreen(
                         text = uiState.inputText,
                         imeVisible = imeVisible,
                         availableHeight = maxHeight,
+                        fontScale = fontScale,
                     ),
                     animationSpec = motionSpec,
                     label = "captureCardHeight",
@@ -1100,19 +1101,23 @@ private fun captureCardHeightFor(
     text: String,
     imeVisible: Boolean,
     availableHeight: Dp,
+    fontScale: Float,
 ): Dp {
+    val restingHeight = captureCardRestingHeightFor(fontScale)
     if (text.isBlank()) {
-        return (if (imeVisible) CaptureCardCompactHeight else CaptureCardExpandedHeight)
+        return (if (imeVisible) CaptureCardCompactHeight else restingHeight)
             .coerceAtMost(availableHeight)
     }
 
     val estimatedLines = estimatedCaptureLineCount(text)
     val desiredHeight = CaptureCardVerticalChromeHeight +
         (estimatedLines * CaptureEstimatedLineHeight).dp
+    // Closed keyboard: text grows from the resting height, so a voice transcript
+    // does not make the box jump.
     val preferredMinHeight = if (imeVisible) {
         CaptureCardTypingMinHeight
     } else {
-        CaptureCardExpandedHeight
+        restingHeight
     }
     val preferredMaxHeight = if (imeVisible) {
         CaptureCardTypingMaxHeight
@@ -1144,7 +1149,8 @@ private val HomeCaptureGap = 28.dp
 private val FirstRunLinesHeight = 104.dp
 private val CalendarCaptureContextBannerActionMinimumHeight = 48.dp
 private val CalendarCaptureContextBannerBodyLineHeight = 22.dp
-private val CaptureCardExpandedHeight = 244.dp
+/** The empty box with the keyboard closed: two placeholder lines and the 56 dp button. */
+private val CaptureCardRestingHeight = 176.dp
 private val CaptureCardCompactHeight = 132.dp
 private val CaptureCardTypingMinHeight = 156.dp
 private val CaptureCardTypingMaxHeight = 228.dp
@@ -1154,6 +1160,10 @@ private val CaptureTextActionClearance = CaptureActionButtonSize + 16.dp
 private val CaptureCardVerticalChromeHeight = 24.dp + 24.dp
 private const val CaptureEstimatedCharactersPerLine = 34
 private const val CaptureEstimatedLineHeight = 29
+
+/** Larger text needs a taller empty box, up to 1.4 times. */
+private fun captureCardRestingHeightFor(fontScale: Float): Dp =
+    CaptureCardRestingHeight * fontScale.coerceIn(1f, 1.4f)
 
 private fun homeWeekCardHeightFor(fontScale: Float): Dp =
     HomeWeekCardHeight + (HomeWeekCardScaledContentGrowth * (fontScale - 1f))
@@ -1171,7 +1181,7 @@ private fun homeMinimumContentHeightFor(
         homeWeekCardHeightFor(fontScale) +
         (if (hasCalendarCaptureContext) calendarCaptureContextBannerMinimumHeightFor(fontScale) else 0.dp) +
         (if (imeVisible) OrbitSpacing.Large else HomeCaptureGap) +
-        (if (imeVisible) CaptureCardCompactHeight else CaptureCardExpandedHeight)
+        (if (imeVisible) CaptureCardCompactHeight else captureCardRestingHeightFor(fontScale))
 
 internal fun shouldRevealHomeCapture(
     imeVisible: Boolean,
