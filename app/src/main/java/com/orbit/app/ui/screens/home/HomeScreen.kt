@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -101,6 +103,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.orbit.app.R
+import com.orbit.app.ui.localization.localizedSpaceName
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarDuration
 import com.orbit.app.capture.VoiceCapture
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
@@ -123,10 +129,13 @@ fun HomeScreen(
     calendarDateContext: LocalDate?,
     onCalendarDateContextConsumed: () -> Unit,
     onCalendarDateSelected: (LocalDate) -> Unit,
+    spaceContext: SpaceCaptureTarget? = null,
+    onSpaceContextConsumed: () -> Unit = {},
     onVisibleWeekChanged: (Int) -> Unit,
     userName: String,
     timeFormat: OrbitTimeFormat,
     onOpenSettings: () -> Unit = {},
+    onOpenSearch: () -> Unit = {},
     focusCaptureOnOpen: Boolean = false,
     focusRequest: Long = 0L,
 ) {
@@ -166,7 +175,8 @@ fun HomeScreen(
     var pendingSentText by remember { mutableStateOf("") }
     var sentGhostText by remember { mutableStateOf<String?>(null) }
     val sentGhostProgress = remember { Animatable(0f) }
-    val messageText = uiState.message?.takeIf { it != HomeMessage.Saved }?.let { stringResource(it.textRes) }
+    val pendingMessage = uiState.message?.takeIf { it != HomeMessage.Saved }
+    val messageText = pendingMessage?.let { stringResource(it.textRes) }
     val voiceAvailable = remember(context) { VoiceCapture.isAvailable(context) }
     val voicePrompt = stringResource(R.string.home_voice_prompt)
     val voiceLocale = LocalConfiguration.current.locales[0]
@@ -203,6 +213,7 @@ fun HomeScreen(
             },
         )
         if (calendarDateContext != null) onCalendarDateContextConsumed()
+        if (spaceContext != null) onSpaceContextConsumed()
         if (!reduceMotion && pendingSentText.isNotBlank()) {
             sentGhostText = pendingSentText
             launch {
@@ -221,10 +232,26 @@ fun HomeScreen(
         savedConfirmationVisible = false
     }
 
-    LaunchedEffect(messageText) {
-        messageText?.let { message ->
-            viewModel.messageShown()
-            snackbarHostState.showSnackbar(message)
+    // Cleared only after the snackbar is gone; clearing first would cancel this
+    // effect and dismiss the message almost at once.
+    val turnOnLabel = stringResource(R.string.settings_turn_on)
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
+    LaunchedEffect(pendingMessage) {
+        val shown = pendingMessage ?: return@LaunchedEffect
+        val text = messageText ?: return@LaunchedEffect
+        try {
+            if (shown == HomeMessage.ReminderNotificationsOff) {
+                val result = snackbarHostState.showSnackbar(
+                    message = text,
+                    actionLabel = turnOnLabel,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) turnOnNotifications()
+            } else {
+                snackbarHostState.showSnackbar(text)
+            }
+        } finally {
+            viewModel.messageShown(shown)
         }
     }
 
@@ -284,6 +311,7 @@ fun HomeScreen(
                 HomeHeader(
                     greeting = homeGreeting(LocalTime.now().hour, userName),
                     onOpenSettings = onOpenSettings,
+                    onOpenSearch = onOpenSearch,
                 )
 
                 Spacer(modifier = Modifier.height(OrbitSpacing.Large))
@@ -306,6 +334,12 @@ fun HomeScreen(
                     CalendarCaptureContextBanner(
                         date = date,
                         onClear = onCalendarDateContextConsumed,
+                    )
+                }
+                spaceContext?.let { space ->
+                    CaptureContextBanner(
+                        text = stringResource(R.string.core_home_adding_to_space, localizedSpaceName(space.name)),
+                        onClear = onSpaceContextConsumed,
                     )
                 }
             }
@@ -339,7 +373,7 @@ fun HomeScreen(
                     onTextChanged = viewModel::onInputChanged,
                     onAnalyze = {
                         pendingSentText = uiState.inputText
-                        viewModel.send(calendarDateContext?.toEpochDay())
+                        viewModel.send(calendarDateContext?.toEpochDay(), spaceContext?.id)
                     },
                     height = captureCardHeight,
                     imeVisible = imeVisible,
@@ -413,6 +447,20 @@ private fun CalendarCaptureContextBanner(
     val formatter = remember(locale) {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
     }
+    CaptureContextBanner(
+        text = stringResource(R.string.core_home_adding_for_date, date.format(formatter)),
+        onClear = onClear,
+    )
+}
+
+/** The Space a Space's "+" asked the next thought to go into. */
+data class SpaceCaptureTarget(val id: Long, val name: String)
+
+@Composable
+private fun CaptureContextBanner(
+    text: String,
+    onClear: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -423,10 +471,7 @@ private fun CalendarCaptureContextBanner(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(
-                R.string.core_home_adding_for_date,
-                date.format(formatter),
-            ),
+            text = text,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -538,12 +583,15 @@ internal fun WeekStrip(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 BoxWithConstraints(modifier = sharedContentBounds) {
-                    val dayCapsuleWidth = minOf(HomeDayCapsuleMaxWidth, maxWidth / dates.size)
+                    // Every day is at least a 48 dp touch target. On a narrow phone the
+                    // row reaches a little into the page margins to make room.
+                    val rowWidth = maxOf(maxWidth, minOf(HomeDayMinTouch * dates.size, maxWidth + HomeWeekMarginBleed * 2))
+                    val dayCapsuleWidth = minOf(HomeDayCapsuleMaxWidth, rowWidth / dates.size)
                     val dayCapsuleHeight = HomeDayCapsuleHeight *
                         LocalDensity.current.fontScale.coerceAtLeast(1f)
                     val dayCapsuleShape = RoundedCornerShape(22.dp)
                     Row(
-                        modifier = sharedContentBounds,
+                        modifier = Modifier.requiredWidth(rowWidth),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         dates.forEach { date ->
@@ -843,8 +891,6 @@ private fun CaptureActionButton(
     }
 }
 
-private val PlaceholderUserName = com.orbit.app.domain.model.AppSettings().userName
-
 private val CaptureHints = listOf(
     R.string.core_home_capture_placeholder,
     R.string.home_capture_hint_remind,
@@ -855,9 +901,8 @@ private val CaptureHints = listOf(
 /** "Good afternoon, Name", or just the greeting when no name is set. */
 @Composable
 private fun homeGreeting(hour: Int, userName: String): String {
-    val name = userName.trim()
-    // "user" is the stored placeholder until the person sets a name in Settings.
-    return if (name.isEmpty() || name.equals(PlaceholderUserName, ignoreCase = true)) {
+    val name = com.orbit.app.domain.model.chosenUserName(userName)
+    return if (name == null) {
         stringResource(greetingResFor(hour))
     } else {
         stringResource(namedGreetingResFor(hour), name)
@@ -868,6 +913,7 @@ private fun homeGreeting(hour: Int, userName: String): String {
 private fun HomeHeader(
     greeting: String,
     onOpenSettings: () -> Unit,
+    onOpenSearch: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -886,6 +932,16 @@ private fun HomeHeader(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        IconButton(
+            onClick = onOpenSearch,
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = stringResource(R.string.home_open_search),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         IconButton(
             onClick = onOpenSettings,
             modifier = Modifier.size(48.dp),
@@ -953,6 +1009,8 @@ private fun estimatedCaptureLineCount(text: String): Int = text
 private val HomeWeekCardHeight = 104.dp
 private val HomeDayCapsuleMaxWidth = 52.dp
 private val HomeDayCapsuleHeight = 64.dp
+private val HomeDayMinTouch = 48.dp
+private val HomeWeekMarginBleed = 16.dp
 private val HomeWeekCardScaledContentGrowth = 112.dp
 private val HomeCaptureGap = 28.dp
 private val CalendarCaptureContextBannerActionMinimumHeight = 48.dp

@@ -79,8 +79,17 @@ object GeminiConsent {
     const val CurrentVersion = 1
 }
 
+/** Stored until the person sets a name in Settings. */
+const val PlaceholderUserName = "user"
+
+/** The name the person set, or null while it is still the placeholder. */
+fun AppSettings.chosenName(): String? = chosenUserName(userName)
+
+fun chosenUserName(userName: String): String? =
+    userName.trim().takeUnless { it.isEmpty() || it.equals(PlaceholderUserName, ignoreCase = true) }
+
 data class AppSettings(
-    val userName: String = "user",
+    val userName: String = PlaceholderUserName,
     val themeMode: SettingsThemeMode = SettingsThemeMode.Auto,
     val timeFormatMode: SettingsTimeFormatMode = SettingsTimeFormatMode.Device,
     val backgroundPreset: BackgroundPreset = BackgroundPreset.InkPaper,
@@ -109,7 +118,7 @@ data class AppSettings(
     /** Opens the sorting sheet right after a capture is saved (the pre-redesign flow). */
     val sortRightAfterSaving: Boolean = false,
     /** Places the cursor in the Home capture box when Home opens. */
-    val focusCaptureOnOpen: Boolean = true,
+    val focusCaptureOnOpen: Boolean = false,
 )
 
 val AppSettings.hasCurrentGeminiConsent: Boolean
@@ -131,3 +140,10 @@ fun AppSettings.withDefaultAppearance(): AppSettings {
         textColor = defaults.textColor,
     )
 }
+
+/**
+ * Learned rules are used only in Gemini prompts: with learning on, sharing with
+ * Gemini on, and Gemini chosen. Local suggestions never read them.
+ */
+val AppSettings.learnedRulesReachGemini: Boolean
+    get() = enableLocalAiLearning && shareLocalLearningWithGemini && aiMode == AiMode.GeminiApi

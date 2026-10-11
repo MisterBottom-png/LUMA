@@ -72,6 +72,8 @@ data class CaptureEntity(
     val suggestedSpaceId: Long? = null,
     val source: CaptureSource = CaptureSource.Manual,
     val linkedItemId: Long? = null,
+    /** Day picked in Calendar when the thought was captured for that day (Room v10). */
+    val contextDateEpochDay: Long? = null,
 )
 
 @Entity(

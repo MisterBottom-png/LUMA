@@ -33,10 +33,11 @@ class RemindersGroupJvmTest {
 
         composeRule.onNodeWithText("Sort right after saving").assertIsOff().performClick()
         assertTrue(settings.sortRightAfterSaving)
-        assertTrue(settings.focusCaptureOnOpen)
-
-        composeRule.onNodeWithText("Open the keyboard on Home").assertIsOn().performClick()
+        // Off until the user asks for it: Home opens calm, without the keyboard.
         assertFalse(settings.focusCaptureOnOpen)
+
+        composeRule.onNodeWithText("Open the keyboard on Home").assertIsOff().performClick()
+        assertTrue(settings.focusCaptureOnOpen)
         assertTrue(settings.sortRightAfterSaving)
 
         composeRule.onNodeWithText("Reminder delivery").assertExists()

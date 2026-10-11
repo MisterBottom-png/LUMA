@@ -18,6 +18,8 @@ import com.orbit.app.domain.analyzer.CaptureConfidence
 import com.orbit.app.domain.analyzer.CaptureAnalyzerSource
 import com.orbit.app.domain.analyzer.ReminderTimeStatus
 import com.orbit.app.domain.analyzer.confidenceLevel
+import com.orbit.app.domain.usecase.CaptureFinalizationTransaction
+import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -59,6 +61,11 @@ class CaptureInbox(
     private val suggester: CaptureSuggester,
     private val scope: CoroutineScope,
     private val now: () -> Long = System::currentTimeMillis,
+    /**
+     * Wraps the final "is it still in To sort? then store" step, so a result that
+     * arrives after the user sorted, archived or changed the thought cannot undo that.
+     */
+    private val transaction: CaptureFinalizationTransaction = DirectTransaction,
 ) {
     private val analysisMutex = Mutex()
     private val inFlight = mutableSetOf<Long>()
@@ -75,6 +82,7 @@ class CaptureInbox(
         rawText: String,
         source: CaptureSource = CaptureSource.Manual,
         contextDateEpochDay: Long? = null,
+        spaceId: Long? = null,
         onSaved: (Long) -> Unit = {},
     ): Long {
         val text = rawText.trim()
@@ -87,18 +95,23 @@ class CaptureInbox(
                 updatedAt = timestamp,
                 status = CaptureStatus.Inbox,
                 source = source,
+                // Kept on the thought, so analysis after a restart still knows the day.
+                contextDateEpochDay = contextDateEpochDay,
+                // Chosen by the user (a Space's "+"); it wins over any suggested Space.
+                suggestedSpaceId = spaceId,
             ),
         )
         onSaved(id)
-        scope.launch { analyze(id, contextDateEpochDay) }
+        scope.launch { analyze(id) }
         return id
     }
 
     /**
      * Analyses one Inbox capture and stores the suggestion. Safe to call repeatedly:
      * a capture that already has a suggestion or Brain Dump session is left as is.
+     * The Calendar day, if any, is read from the capture row.
      */
-    suspend fun analyze(captureId: Long, contextDateEpochDay: Long? = null): CaptureAnalysis? {
+    suspend fun analyze(captureId: Long): CaptureAnalysis? {
         analysisMutex.withLock {
             if (!inFlight.add(captureId)) return null
         }
@@ -117,7 +130,9 @@ class CaptureInbox(
                 _events.tryEmit(CaptureInboxEvent.AnalysisFailed(captureId))
                 return null
             }
-            store(capture, analysis, spaces, contextDateEpochDay)
+            // The suggester can take a while (Gemini waits up to its network timeout).
+            // If the user acted on the thought meanwhile, the late result is dropped.
+            if (!store(captureId, analysis, spaces)) return null
             _events.tryEmit(CaptureInboxEvent.Analyzed(captureId, analysis))
             return analysis
         } finally {
@@ -144,39 +159,68 @@ class CaptureInbox(
         suggestionDao.setDismissed(captureId, dismissed = false, updatedAt = now())
     }
 
+    /**
+     * Stores the suggestion only if the thought is still waiting in To sort, re-read
+     * inside one transaction. Returns false when the user already sorted, archived or
+     * otherwise moved it on, or when another path stored a suggestion first.
+     *
+     * The capture row is re-read here rather than reusing the copy read before
+     * analysis: writing that older copy back would restore a stale status and
+     * linked item, and drop a Space the user picked in the meantime.
+     */
     private suspend fun store(
-        capture: CaptureEntity,
+        captureId: Long,
         analysis: CaptureAnalysis,
         spaces: List<SpaceEntity>,
-        contextDateEpochDay: Long?,
-    ) {
+    ): Boolean = transaction.run storeIfStillWaiting@{
+        val current = captureRepository.getById(captureId) ?: return@storeIfStillWaiting false
+        val contextDateEpochDay = current.contextDateEpochDay
+        if (current.status != CaptureStatus.Inbox) return@storeIfStillWaiting false
+        if (suggestionDao.getByCaptureId(captureId) != null) return@storeIfStillWaiting false
+        if (brainDumpRepository.getSession(captureId) != null) return@storeIfStillWaiting false
+
         val timestamp = now()
-        val space = spaces.firstOrNull { it.name.equals(analysis.suggestedSpaceName, ignoreCase = true) }
+        val analysedSpace = spaces.firstOrNull { it.name.equals(analysis.suggestedSpaceName, ignoreCase = true) }
             ?.takeUnless { analysis.confidenceLevel == CaptureConfidence.Low }
+        // A Space the user already chose for this thought wins over the analysis, both
+        // on the thought and in the stored suggestion that sorting reads.
+        val chosenSpace = current.suggestedSpaceId?.let { chosenId ->
+            spaces.firstOrNull { it.id == chosenId } ?: spaceRepository.getById(chosenId)
+        }
+        val space = chosenSpace ?: analysedSpace
         if (analysis.brainDumpItems.isNotEmpty()) {
             brainDumpRepository.createSession(
                 session = BrainDumpSessionEntity(
-                    captureId = capture.id,
+                    captureId = captureId,
                     analyzerSource = analysis.analyzerSource.name,
                     calendarDateContextEpochDay = contextDateEpochDay,
                     createdAt = timestamp,
                     updatedAt = timestamp,
                 ),
                 items = analysis.brainDumpItems.mapIndexed { index, item ->
-                    item.toEntity(capture.id, index + 1, timestamp)
+                    item.toEntity(captureId, index + 1, timestamp)
                 },
             )
         }
-        suggestionDao.upsert(analysis.toSuggestionEntity(capture.id, space?.name, contextDateEpochDay, timestamp))
+        suggestionDao.upsert(analysis.toSuggestionEntity(captureId, space?.name, contextDateEpochDay, timestamp))
         captureRepository.update(
-            capture.copy(suggestedType = analysis.suggestedType, suggestedSpaceId = space?.id),
+            current.copy(
+                suggestedType = analysis.suggestedType,
+                suggestedSpaceId = current.suggestedSpaceId ?: space?.id,
+            ),
         )
+        true
     }
 
     private suspend fun activeSpaces(): List<SpaceEntity> =
         spaceRepository.observeAll().first()
             .filterNot { it.hidden || it.archived }
             .sortedBy { it.sortOrder }
+}
+
+/** No database transaction; for callers (and tests) that do not need one. */
+internal object DirectTransaction : CaptureFinalizationTransaction {
+    override suspend fun <T> run(block: suspend () -> T): T = block()
 }
 
 internal fun CaptureAnalysis.toSuggestionEntity(
@@ -204,13 +248,19 @@ internal fun CaptureAnalysis.toSuggestionEntity(
         typeReason = if (fromGemini) typeReason else "",
         spaceReason = if (fromGemini) spaceReason else "",
         nextAction = if (fromGemini) suggestedNextAction else "",
-        contextDateEpochDay = contextDateEpochDay,
+        // For a task this is its day: the day named in the thought, else the Calendar day.
+        contextDateEpochDay = taskDateEpochDay.takeIf { suggestedType.isTaskLike() } ?: contextDateEpochDay,
         createdAt = timestamp,
         updatedAt = timestamp,
     )
 }
 
-internal fun BrainDumpSuggestion.toEntity(captureId: Long, ordinal: Int, timestamp: Long) = BrainDumpItemEntity(
+internal fun BrainDumpSuggestion.toEntity(
+    captureId: Long,
+    ordinal: Int,
+    timestamp: Long,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+) = BrainDumpItemEntity(
     captureId = captureId,
     sourceKey = id,
     ordinal = ordinal,
@@ -226,7 +276,10 @@ internal fun BrainDumpSuggestion.toEntity(captureId: Long, ordinal: Int, timesta
         ReminderTimeStatus.Resolved -> BrainDumpReminderStatus.Resolved
         ReminderTimeStatus.NeedsClarification -> BrainDumpReminderStatus.NeedsClarification
     },
-    suggestedReminderAt = suggestedReminderAt,
+    // Brain Dump rows have no date-only column; a task's day is kept as a placeholder
+    // and read back as a day (see TaskDatePlaceholder).
+    suggestedReminderAt = suggestedReminderAt
+        ?: taskDateEpochDay?.takeIf { suggestedType.isTaskLike() }?.let { TaskDatePlaceholder.encode(it) },
     reminderPhrase = reminderPhrase,
     createdAt = timestamp,
     updatedAt = timestamp,

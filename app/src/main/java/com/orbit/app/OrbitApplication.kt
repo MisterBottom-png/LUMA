@@ -1,5 +1,6 @@
 package com.orbit.app
 
+import com.orbit.app.domain.model.learnedRulesReachGemini
 import android.app.Application
 import com.orbit.app.data.export.LocalDataExporter
 import com.orbit.app.data.export.LocalDataRestorer
@@ -49,6 +50,9 @@ import com.orbit.app.domain.usecase.RecordAiLearningEventUseCase
 import com.orbit.app.domain.usecase.ProposeLearnedRuleUseCase
 import com.orbit.app.integrations.gemini.GeminiApiClient
 import com.orbit.app.integrations.gemini.HttpGeminiApiClient
+import com.orbit.app.reminders.NotificationAccess
+import com.orbit.app.reminders.ReminderCapabilities
+import com.orbit.app.reminders.ReminderSaveOutcomes
 import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.reminders.ReminderNotifications
 import com.orbit.app.reminders.WorkManagerReminderScheduler
@@ -168,6 +172,7 @@ class OrbitContainer(application: Application) {
             geminiApiKeyStore = geminiApiKeyStore,
             learningProfileProvider = learningProfileProvider,
             locale = { effectiveAppLocale(applicationContext) },
+            answerText = com.orbit.app.ui.localization.ResourceLocalAnswerText(applicationContext),
         )
     }
     val confirmCaptureAction: ConfirmCaptureActionUseCase by lazy {
@@ -194,6 +199,7 @@ class OrbitContainer(application: Application) {
                 ).analysis
             },
             scope = applicationScope,
+            transaction = RoomCaptureFinalizationTransaction(database),
         )
     }
     val captureResolution: CaptureResolution by lazy {
@@ -206,6 +212,33 @@ class OrbitContainer(application: Application) {
             suggestionDao = database.captureSuggestionDao(),
             confirmCaptureAction = confirmCaptureAction,
             transaction = RoomCaptureFinalizationTransaction(database),
+            reminderOutcomes = reminderSaveOutcomes,
+        )
+    }
+
+    /** A task's status from before it was archived, so restoring returns it. */
+    val archivedTaskStatusMemory: com.orbit.app.data.local.ArchivedTaskStatusMemory by lazy {
+        com.orbit.app.data.local.SharedPreferencesArchivedTaskStatusMemory(applicationContext)
+    }
+
+    /** When this phone last made an export. */
+    val lastExportMemory: com.orbit.app.data.local.LastExportMemory by lazy {
+        com.orbit.app.data.local.SharedPreferencesLastExportMemory(applicationContext)
+    }
+
+    /** Hands a type change's Undo to the screen that shows the new type. */
+    val pendingTypeChanges = com.orbit.app.ui.screens.item.PendingTypeChanges()
+
+    /** What saving a reminder achieved, read from Android's current notification settings. */
+    val reminderSaveOutcomes: ReminderSaveOutcomes by lazy {
+        ReminderSaveOutcomes(
+            reminderById = reminderRepository::getById,
+            access = {
+                NotificationAccess(
+                    notificationsAllowed = ReminderCapabilities.notificationsAllowed(applicationContext),
+                    reminderChannelEnabled = ReminderCapabilities.reminderChannelEnabled(applicationContext),
+                )
+            },
         )
     }
     val thoughtSplitter: ThoughtSplitter by lazy {
@@ -237,6 +270,7 @@ class OrbitContainer(application: Application) {
             correctionHistoryRepository = aiCorrectionHistoryRepository,
             learnedRuleRepository = learnedRuleRepository,
             isLearningEnabled = { appSettingsRepository.settings.first().enableLocalAiLearning },
+            rulesAreUsed = { appSettingsRepository.settings.first().learnedRulesReachGemini },
         )
     }
     private val localDataStore: RoomLocalDataRestoreStore by lazy {

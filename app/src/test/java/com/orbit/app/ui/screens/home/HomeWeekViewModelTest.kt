@@ -140,6 +140,39 @@ class HomeWeekViewModelTest {
         assertFalse(label.contains("null"))
     }
 
+    @Test
+    fun todayMovesOnWhenHomeComesBackAfterMidnight() {
+        var clock = today
+        val model = HomeWeekViewModel(
+            savedStateHandle = SavedStateHandle(),
+            calendarRepository = FakeCalendarRepository(),
+            zoneId = zoneId,
+            todayProvider = { clock },
+            observationDispatcher = Dispatchers.Unconfined,
+        )
+        clock = today.plusDays(1)
+        model.refreshToday()
+        assertEquals(today.plusDays(1), model.uiState.value.today)
+        assertEquals(today.plusDays(1), model.uiState.value.visibleWeekDate)
+    }
+
+    @Test
+    fun aWeekTheUserMovedToStaysWhenTodayMovesOn() {
+        var clock = today
+        val model = HomeWeekViewModel(
+            savedStateHandle = SavedStateHandle(),
+            calendarRepository = FakeCalendarRepository(),
+            zoneId = zoneId,
+            todayProvider = { clock },
+            observationDispatcher = Dispatchers.Unconfined,
+        )
+        model.moveVisibleWeek(2)
+        clock = today.plusDays(1)
+        model.refreshToday()
+        assertEquals(today.plusDays(1), model.uiState.value.today)
+        assertEquals(today.plusWeeks(2), model.uiState.value.visibleWeekDate)
+    }
+
     private fun viewModel(
         handle: SavedStateHandle,
         repository: CalendarRepository,

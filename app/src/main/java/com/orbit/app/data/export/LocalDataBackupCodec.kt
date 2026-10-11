@@ -74,7 +74,7 @@ object LocalDataBackupCodec {
     // existing backups keep restoring after the app was renamed to Tallele.
     const val Product = "LUMA"
     const val Format = "luma-local-json"
-    const val Version = 5
+    const val Version = 6
     const val MaximumInputBytes = 10 * 1024 * 1024
     const val MaximumStructureDepth = 64
 
@@ -244,6 +244,8 @@ object LocalDataBackupCodec {
         suggestedSpaceId = json.optionalPositiveId("suggestedSpaceId"),
         source = json.requiredEnum("source", CaptureSource.entries),
         linkedItemId = json.optionalPositiveId("linkedItemId"),
+        // Format 6; older files have no Calendar day on a thought.
+        contextDateEpochDay = json.optionalLong("contextDateEpochDay"),
     )
 
     private fun decodeNote(json: JSONObject) = NoteEntity(
@@ -449,6 +451,7 @@ object LocalDataBackupCodec {
         }
         snapshot.captures.forEach { capture ->
             requireReference("capture suggestedSpaceId", capture.suggestedSpaceId, spaceIds)
+            capture.contextDateEpochDay?.let(::requireValidEpochDay)
             capture.linkedItemId?.let { linkedId ->
                 if (linkedId !in noteIds && linkedId !in taskIds && linkedId !in reminderIds) {
                     invalid("A capture links to an item that is not present in the export.")
@@ -548,6 +551,7 @@ object LocalDataBackupCodec {
         .put("status", status.name).put("suggestedType", suggestedType?.name)
         .put("suggestedSpaceId", suggestedSpaceId).put("source", source.name)
         .put("linkedItemId", linkedItemId)
+        .put("contextDateEpochDay", contextDateEpochDay)
 
     private fun NoteEntity.toJson() = JSONObject()
         .put("id", id).put("title", title).put("body", body).put("spaceId", spaceId)

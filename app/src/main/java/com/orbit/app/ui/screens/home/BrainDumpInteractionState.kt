@@ -2,6 +2,7 @@ package com.orbit.app.ui.screens.home
 
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
+import com.orbit.app.domain.capture.isTaskLike
 
 internal enum class BrainDumpStage {
     Overview,
@@ -31,6 +32,8 @@ internal enum class BrainDumpStatusMessage {
     ThoughtSkipped,
     SaveFailed,
     NotificationAttention,
+    NotificationsBlocked,
+    NeedsTime,
 }
 
 internal data class BrainDumpStatus(
@@ -44,7 +47,10 @@ internal data class BrainDumpDraft(
     val title: String,
     val type: SuggestedItemType,
     val spaceId: Long?,
+    /** A reminder's time, or a time the user picked for a task. */
     val scheduledAt: Long?,
+    /** A task's day without a time. */
+    val scheduledDateEpochDay: Long? = null,
 )
 
 internal data class BrainDumpCompletionCounts(
@@ -116,7 +122,15 @@ internal fun initialBrainDumpDraft(
     spaceId = spaces.firstOrNull {
         it.name.equals(item.suggestedSpaceName, ignoreCase = true)
     }?.id,
-    scheduledAt = item.suggestedReminderAt,
+    // Tasks are date-only; a reminder keeps its time.
+    scheduledAt = item.suggestedReminderAt.takeUnless { item.suggestedType.isTaskLike() },
+    scheduledDateEpochDay = if (item.suggestedType.isTaskLike()) {
+        item.taskDateEpochDay ?: item.suggestedReminderAt?.let {
+            java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay()
+        }
+    } else {
+        null
+    },
 )
 
 internal fun brainDumpDismissalDecision(

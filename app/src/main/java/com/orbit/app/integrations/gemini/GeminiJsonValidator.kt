@@ -128,11 +128,12 @@ object GeminiJsonValidator {
                     expected.suggestedType == SuggestedItemType.Reminder &&
                         expected.reminderTimeStatus == ReminderTimeStatus.Resolved -> SuggestedItemType.Reminder
                     expected.suggestedType == SuggestedItemType.Task &&
-                        expected.suggestedReminderAt != null -> SuggestedItemType.Task
+                        (expected.suggestedReminderAt != null || expected.taskDateEpochDay != null) -> SuggestedItemType.Task
                     else -> enriched.suggestedType
                 },
                 reminderTimeStatus = expected.reminderTimeStatus,
                 suggestedReminderAt = expected.suggestedReminderAt,
+                taskDateEpochDay = expected.taskDateEpochDay,
                 reminderPhrase = expected.reminderPhrase,
                 lifeSignal = expected.lifeSignal,
             )
@@ -192,6 +193,7 @@ object GeminiJsonValidator {
                 .orEmpty(),
             reminderTimeStatus = expected?.reminderTimeStatus ?: ReminderTimeStatus.Unspecified,
             suggestedReminderAt = expected?.suggestedReminderAt,
+            taskDateEpochDay = expected?.taskDateEpochDay,
             reminderPhrase = expected?.reminderPhrase,
         )
     }

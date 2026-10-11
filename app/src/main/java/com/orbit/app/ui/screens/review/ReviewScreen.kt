@@ -58,6 +58,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import com.orbit.app.ui.reminders.offerTurnOnIfBlocked
+import com.orbit.app.ui.reminders.offersTurnOn
+import com.orbit.app.ui.reminders.messageRes
+import com.orbit.app.reminders.ReminderSaveOutcome
 import com.orbit.app.ui.screens.home.sortedMessageRes
 import com.orbit.app.domain.analyzer.ReviewLoop
 import com.orbit.app.domain.analyzer.ReviewLoopType
@@ -116,6 +121,9 @@ fun ReviewScreen(
     onKeepCarryForwardUnscheduled: (ReviewItem) -> Unit,
     onCompleteCarryForward: (ReviewItem) -> Unit,
     onWeeklyLookBackVisible: () -> Unit,
+    onCarryForwardAllTomorrow: (List<ReviewItem>) -> Unit = { items -> items.forEach(onCarryForwardTomorrow) },
+    onUndoChange: (Long) -> Unit = {},
+    onChangeUndoExpired: (Long) -> Unit = {},
     onAskLuma: (AskLumaPrompt?) -> Unit = {},
     onAcceptToSort: (ToSortItem) -> Unit = {},
     onChangeToSort: (ToSortItem) -> Unit = {},
@@ -125,7 +133,7 @@ fun ReviewScreen(
     onLetGo: (ToSortItem) -> Unit = {},
     onUndoSort: (SortUndoToken) -> Unit = {},
     onAcceptAllToSort: (List<ToSortItem>) -> Unit = {},
-    onSortFeedbackShown: () -> Unit = {},
+    onSortFeedbackShown: (SortUndoToken?, ReviewSortMessage?) -> Unit = { _, _ -> },
     sortHost: @Composable (SnackbarHostState) -> Unit = {},
 ) {
     val reviewContext by rememberReviewContext()
@@ -143,7 +151,19 @@ fun ReviewScreen(
             stringResource(token.messageRes())
         }
     }
+    val sortReminderFollowUp = sortUndo?.reminderOutcome
+        ?.takeIf { it != ReminderSaveOutcome.Saved }
+        ?.let { outcome ->
+            // A single reminder already says it in its Undo snackbar.
+            if (sortUndo is SortUndoToken.AcceptedMany || outcome.offersTurnOn) outcome else null
+        }
+    val turnOnPrompt = stringResource(R.string.reminder_outcome_turn_on_prompt)
+    val notScheduledText = stringResource(R.string.reminder_outcome_not_scheduled)
+    val turnOnLabel = stringResource(R.string.settings_turn_on)
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
     val sortMessage = uiState.sortMessage?.let { stringResource(it.messageRes()) }
+    val pendingChangeUndo = uiState.pendingChangeUndo
+    val pendingChangeMessage = pendingChangeUndo?.let { change -> reviewChangeMessage(change) }
     var showOpenLoops by rememberSaveable { mutableStateOf(false) }
     var showAllOpenLoops by rememberSaveable { mutableStateOf(false) }
     var showAllToSort by rememberSaveable { mutableStateOf(false) }
@@ -171,7 +191,7 @@ fun ReviewScreen(
         val result = snackbarHostState.showSnackbar(
             message = message,
             actionLabel = undoLabel,
-            duration = SnackbarDuration.Short,
+            duration = SnackbarDuration.Long,
         )
         if (result == SnackbarResult.ActionPerformed) {
             onUndoTaskMutation(taskUndo.operationId)
@@ -179,21 +199,58 @@ fun ReviewScreen(
             onTaskUndoExpired(taskUndo.operationId)
         }
     }
-    LaunchedEffect(sortUndo, sortMessage) {
-        when {
-            sortUndo != null && sortUndoMessage != null -> {
-                onSortFeedbackShown()
-                val result = snackbarHostState.showSnackbar(
-                    message = sortUndoMessage,
-                    actionLabel = undoLabel,
-                    duration = SnackbarDuration.Long,
-                )
-                if (result == SnackbarResult.ActionPerformed) onUndoSort(sortUndo)
+    // Keyed on the change; the token is cleared only after the snackbar is gone,
+    // and only if it is still this change.
+    LaunchedEffect(pendingChangeUndo?.operationId) {
+        val change = pendingChangeUndo ?: return@LaunchedEffect
+        val message = pendingChangeMessage ?: return@LaunchedEffect
+        var undone = false
+        try {
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = undoLabel,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                undone = true
+                onUndoChange(change.operationId)
             }
-            sortMessage != null -> {
-                onSortFeedbackShown()
-                snackbarHostState.showSnackbar(sortMessage)
+        } finally {
+            if (!undone) onChangeUndoExpired(change.operationId)
+        }
+    }
+    // Keyed on the feedback itself and cleared only after the snackbar is gone.
+    // Clearing first would change the key, cancel this effect and dismiss the
+    // snackbar (and its Undo) almost at once.
+    val sortMessageKind = uiState.sortMessage
+    LaunchedEffect(sortUndo, sortMessageKind) {
+        try {
+            when {
+                sortUndo != null && sortUndoMessage != null -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = sortUndoMessage,
+                        actionLabel = undoLabel,
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        onUndoSort(sortUndo)
+                    } else {
+                        when {
+                            sortReminderFollowUp == null -> Unit
+                            sortReminderFollowUp.offersTurnOn -> snackbarHostState.offerTurnOnIfBlocked(
+                                outcome = sortReminderFollowUp,
+                                prompt = turnOnPrompt,
+                                turnOnLabel = turnOnLabel,
+                                onTurnOn = turnOnNotifications,
+                            )
+                            else -> snackbarHostState.showSnackbar(notScheduledText)
+                        }
+                    }
+                }
+                sortMessage != null -> snackbarHostState.showSnackbar(sortMessage)
             }
+        } finally {
+            onSortFeedbackShown(sortUndo, sortMessageKind)
         }
     }
     Box(
@@ -279,6 +336,7 @@ fun ReviewScreen(
                                 onExpandedChange = { earlierExpanded = it },
                                 onOpen = onReviewItemSelected,
                                 onTomorrow = onCarryForwardTomorrow,
+                                onAllTomorrow = onCarryForwardAllTomorrow,
                                 onChooseDate = onCarryForwardToDate,
                                 onKeepUnscheduled = onKeepCarryForwardUnscheduled,
                                 onComplete = onCompleteCarryForward,
@@ -336,17 +394,6 @@ fun ReviewScreen(
                 .onSizeChanged { headerHeightPx = it.height }
                 .padding(start = 20.dp, top = statusBarTopPadding + 20.dp, end = 12.dp),
         )
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(
-                    start = 16.dp,
-                    top = 16.dp,
-                    end = 16.dp,
-                    bottom = navigationBottomPadding + OrbitBottomNavigationDefaults.ContentClearance,
-                ),
-        )
         if (sortingOneByOne) {
             SortOneByOne(
                 items = uiState.toSort,
@@ -357,12 +404,41 @@ fun ReviewScreen(
                 onClose = { sortingOneByOne = false },
             )
         }
+        // Drawn after the one-by-one view so its Undo is not hidden behind it, and
+        // lifted above that view's buttons while it is open.
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(
+                    start = 16.dp,
+                    top = 16.dp,
+                    end = 16.dp,
+                    bottom = navigationBottomPadding + OrbitBottomNavigationDefaults.ContentClearance +
+                        if (sortingOneByOne) SortOneByOneActionsClearance else 0.dp,
+                ),
+        )
         sortHost(snackbarHostState)
     }
 }
 
+@Composable
+private fun reviewChangeMessage(change: ReviewChangeToken): String = when (change.kind) {
+    ReviewChangeKind.MovedTomorrow -> if (change.count == 1) {
+        stringResource(R.string.review_change_moved_tomorrow_one)
+    } else {
+        pluralStringResource(R.plurals.review_change_moved_tomorrow_many, change.count, change.count)
+    }
+    ReviewChangeKind.MovedToDate -> stringResource(R.string.review_change_moved_date)
+    ReviewChangeKind.KeptUndated -> stringResource(R.string.review_change_kept_undated)
+    ReviewChangeKind.Completed -> stringResource(R.string.review_change_completed)
+    ReviewChangeKind.ThoughtKept -> stringResource(R.string.review_change_thought_kept)
+    ReviewChangeKind.ThoughtHandled -> stringResource(R.string.review_change_thought_handled)
+    ReviewChangeKind.ThoughtLetGo -> stringResource(R.string.review_sort_let_go)
+}
+
 private fun SortUndoToken.messageRes(): Int = when (this) {
-    is SortUndoToken.Accepted -> itemType.sortedMessageRes()
+    is SortUndoToken.Accepted -> reminderOutcome?.messageRes() ?: itemType.sortedMessageRes()
     is SortUndoToken.LetGo -> R.string.review_sort_let_go
     is SortUndoToken.Hidden -> R.string.review_sort_hidden
     is SortUndoToken.AcceptedMany -> accepted.first().itemType.sortedMessageRes()

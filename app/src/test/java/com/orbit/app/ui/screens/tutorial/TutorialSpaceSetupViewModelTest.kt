@@ -27,7 +27,7 @@ class TutorialSpaceSetupViewModelTest {
         viewModel.addCustomName("  Garden   plans ")
         viewModel.finish { completed = true }
 
-        assertEquals(listOf("Home", "Garden plans"), repository.spaces.value.map { it.name })
+        assertEquals(listOf("Household", "Garden plans"), repository.spaces.value.map { it.name })
         assertEquals(listOf("home", "folder"), repository.spaces.value.map { it.icon })
         assertEquals(listOf(0, 1), repository.spaces.value.map { it.sortOrder })
         assertTrue(completed)
@@ -88,5 +88,14 @@ class TutorialSpaceSetupViewModelTest {
         override suspend fun deleteById(id: Long) {
             spaces.value = spaces.value.filterNot { it.id == id }
         }
+    }
+}
+
+class TutorialPrimaryLabelTest {
+    @Test
+    fun replayingTheGuideEndsWithDone() {
+        org.junit.Assert.assertEquals(com.orbit.app.R.string.tutorial_done, tutorialPrimaryLabel(isLastPage = true, isReplay = true))
+        org.junit.Assert.assertEquals(com.orbit.app.R.string.tutorial_start, tutorialPrimaryLabel(isLastPage = true, isReplay = false))
+        org.junit.Assert.assertEquals(com.orbit.app.R.string.tutorial_continue, tutorialPrimaryLabel(isLastPage = false, isReplay = true))
     }
 }

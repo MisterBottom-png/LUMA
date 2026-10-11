@@ -21,6 +21,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.orbit.app.R
 import com.orbit.app.data.local.entity.SuggestedItemType
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import com.orbit.app.ui.reminders.offerTurnOnIfBlocked
+import com.orbit.app.ui.reminders.messageRes
 import com.orbit.app.ui.time.OrbitTimeFormat
 
 /**
@@ -40,7 +43,12 @@ fun CaptureSortHost(
         onResult = viewModel::onNotificationPermissionResult,
     )
     val undoLabel = stringResource(R.string.core_brain_dump_undo)
-    val resolvedText = uiState.lastResolved?.let { stringResource(it.itemType.sortedMessageRes()) }
+    val resolvedText = uiState.lastResolved?.let { resolved ->
+        stringResource(resolved.reminderOutcome?.messageRes() ?: resolved.itemType.sortedMessageRes())
+    }
+    val turnOnPrompt = stringResource(R.string.reminder_outcome_turn_on_prompt)
+    val turnOnLabel = stringResource(R.string.settings_turn_on)
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
 
     LaunchedEffect(uiState.notificationPermissionRequestPending) {
         if (!uiState.notificationPermissionRequestPending) return@LaunchedEffect
@@ -55,24 +63,52 @@ fun CaptureSortHost(
         }
     }
 
-    LaunchedEffect(uiState.message, uiState.brainDumpInteraction, uiState.lastResolved) {
-        val resolved = uiState.lastResolved
-        when {
-            resolved != null && resolvedText != null -> {
-                viewModel.resolvedHandled()
-                viewModel.messageShown()
-                val result = snackbarHostState.showSnackbar(
-                    message = resolvedText,
-                    actionLabel = undoLabel,
-                    duration = SnackbarDuration.Long,
+    // Feedback is cleared only after its snackbar is gone. Clearing first would
+    // change the effect's key, cancel it and dismiss the snackbar (and its Undo)
+    // almost at once.
+    val message = uiState.message
+    val resolved = uiState.lastResolved
+    val brainDumpOpen = uiState.brainDumpInteraction != null
+
+    // Undo for a just-sorted thought, keyed on that thought alone so a later
+    // message (for example "notifications are off") waits instead of cancelling it.
+    LaunchedEffect(resolved) {
+        val handled = resolved ?: return@LaunchedEffect
+        val text = resolvedText ?: return@LaunchedEffect
+        // The success message set together with the sorted thought; the Undo snackbar
+        // already says it.
+        val successMessage = message
+        try {
+            val result = snackbarHostState.showSnackbar(
+                message = text,
+                actionLabel = undoLabel,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undo(handled)
+            } else {
+                snackbarHostState.offerTurnOnIfBlocked(
+                    outcome = handled.reminderOutcome,
+                    prompt = turnOnPrompt,
+                    turnOnLabel = turnOnLabel,
+                    onTurnOn = turnOnNotifications,
                 )
-                if (result == SnackbarResult.ActionPerformed) viewModel.undo(resolved)
             }
-            uiState.message != null && uiState.brainDumpInteraction == null -> {
-                val message = uiState.message.orEmpty()
-                viewModel.messageShown()
-                snackbarHostState.showSnackbar(message)
-            }
+        } finally {
+            viewModel.resolvedHandled(handled)
+            viewModel.messageShown(successMessage)
+        }
+    }
+
+    // Plain messages, once no Undo is showing and no Brain Dump is open (only whether
+    // one is open matters, not each step inside it).
+    LaunchedEffect(message, brainDumpOpen, resolved == null) {
+        if (resolved != null || brainDumpOpen) return@LaunchedEffect
+        val shown = message ?: return@LaunchedEffect
+        try {
+            snackbarHostState.showSnackbar(shown)
+        } finally {
+            viewModel.messageShown(shown)
         }
     }
 
@@ -132,5 +168,5 @@ fun CaptureSortHost(
 internal fun SuggestedItemType.sortedMessageRes(): Int = when (this) {
     SuggestedItemType.Note -> R.string.core_home_message_note_saved
     SuggestedItemType.Task, SuggestedItemType.MondayItem -> R.string.core_home_message_task_created
-    SuggestedItemType.Reminder -> R.string.core_home_message_reminder_created
+    SuggestedItemType.Reminder -> R.string.reminder_outcome_saved
 }

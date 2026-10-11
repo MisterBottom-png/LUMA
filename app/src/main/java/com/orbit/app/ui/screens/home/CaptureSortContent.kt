@@ -68,19 +68,30 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 /** A task with only a day keeps the end of that day as its time, as elsewhere in the app. */
-internal fun endOfDayMillis(date: LocalDate, zone: ZoneId = ZoneId.systemDefault()): Long =
-    date.atTime(23, 59).atZone(zone).toInstant().toEpochMilli()
-
 internal fun morningMillis(date: LocalDate, zone: ZoneId = ZoneId.systemDefault()): Long =
     date.atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
 
-/** Which quick "When" choice a task's due time matches. */
+/**
+ * When a task is due: a day without a time ([dayEpochDay]), or a moment the user
+ * picked ([at]). Never both, and never a made-up end-of-day time.
+ */
+internal data class TaskDue(val dayEpochDay: Long? = null, val at: Long? = null) {
+    init {
+        require(dayEpochDay == null || at == null) { "A task is due on a day or at a time, not both" }
+    }
+
+    companion object {
+        fun day(date: LocalDate) = TaskDue(dayEpochDay = date.toEpochDay())
+    }
+}
+
+/** Which quick "When" choice a task's due day matches. */
 internal enum class TaskWhen { None, Today, Tomorrow, Other }
 
-internal fun taskWhenFor(dueAt: Long?, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): TaskWhen = when (dueAt) {
-    null -> TaskWhen.None
-    endOfDayMillis(today, zone) -> TaskWhen.Today
-    endOfDayMillis(today.plusDays(1), zone) -> TaskWhen.Tomorrow
+internal fun taskWhenFor(due: TaskDue, today: LocalDate): TaskWhen = when {
+    due.dayEpochDay == null && due.at == null -> TaskWhen.None
+    due.dayEpochDay == today.toEpochDay() -> TaskWhen.Today
+    due.dayEpochDay == today.plusDays(1).toEpochDay() -> TaskWhen.Tomorrow
     else -> TaskWhen.Other
 }
 
@@ -99,8 +110,8 @@ internal fun CaptureSortContent(
     selectedAction: CaptureDecisionAction,
     selectedSpaceId: Long?,
     selectedLabels: List<String>,
-    taskDueAt: Long?,
-    onTaskDueAtChanged: (Long?) -> Unit,
+    taskDue: TaskDue,
+    onTaskDueChanged: (TaskDue) -> Unit,
     reminderAt: Long?,
     onReminderAtChanged: (Long) -> Unit,
     initialDate: LocalDate?,
@@ -144,8 +155,8 @@ internal fun CaptureSortContent(
         onSpaceSelected = onSpaceSelected,
         selectedLabels = selectedLabels,
         onRemoveLabel = onRemoveLabel,
-        taskDueAt = taskDueAt,
-        onTaskDueAtChanged = onTaskDueAtChanged,
+        taskDue = taskDue,
+        onTaskDueChanged = onTaskDueChanged,
         reminderAt = reminderAt,
         onReminderAtChanged = onReminderAtChanged,
         initialDate = initialDate,
@@ -186,8 +197,8 @@ internal fun SortForm(
     spaces: List<CaptureSpaceOption>,
     selectedSpaceId: Long?,
     onSpaceSelected: (Long?) -> Unit,
-    taskDueAt: Long?,
-    onTaskDueAtChanged: (Long?) -> Unit,
+    taskDue: TaskDue,
+    onTaskDueChanged: (TaskDue) -> Unit,
     reminderAt: Long?,
     onReminderAtChanged: (Long) -> Unit,
     initialDate: LocalDate?,
@@ -317,7 +328,7 @@ internal fun SortForm(
         ) {
             spaces.forEach { space ->
                 SortChip(
-                    label = localizedSpaceName(space.name),
+                    label = if (space.id == null) stringResource(R.string.core_inbox) else localizedSpaceName(space.name),
                     selected = selectedSpaceId == space.id,
                     enabled = !isPerformingAction,
                     onClick = { onSpaceSelected(if (selectedSpaceId == space.id) null else space.id) },
@@ -348,31 +359,35 @@ internal fun SortForm(
     when (selectedAction) {
         CaptureDecisionAction.CreateTask -> {
             SortLabel(stringResource(R.string.sort_when))
-            val current = taskWhenFor(taskDueAt, today, zone)
+            val current = taskWhenFor(taskDue, today)
             FlowRow(
                 modifier = Modifier.selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 SortChip(stringResource(R.string.sort_no_date), current == TaskWhen.None, !isPerformingAction) {
-                    onTaskDueAtChanged(null)
+                    onTaskDueChanged(TaskDue())
                 }
                 SortChip(stringResource(R.string.core_today), current == TaskWhen.Today, !isPerformingAction) {
-                    onTaskDueAtChanged(endOfDayMillis(today, zone))
+                    onTaskDueChanged(TaskDue.day(today))
                 }
                 SortChip(stringResource(R.string.core_tomorrow), current == TaskWhen.Tomorrow, !isPerformingAction) {
-                    onTaskDueAtChanged(endOfDayMillis(today.plusDays(1), zone))
+                    onTaskDueChanged(TaskDue.day(today.plusDays(1)))
                 }
                 SortChip(
-                    label = if (current == TaskWhen.Other && taskDueAt != null) {
-                        timeFormat.formatWeekdayDateTime(taskDueAt)
-                    } else {
-                        stringResource(R.string.sort_pick_date)
+                    label = when {
+                        current != TaskWhen.Other -> stringResource(R.string.sort_pick_date)
+                        taskDue.dayEpochDay != null -> timeFormat.formatDate(LocalDate.ofEpochDay(taskDue.dayEpochDay))
+                        else -> timeFormat.formatWeekdayDateTime(requireNotNull(taskDue.at))
                     },
                     selected = current == TaskWhen.Other,
                     enabled = !isPerformingAction,
                 ) {
-                    pickDateTime(context, taskDueAt, initialDate, timeFormat) { onTaskDueAtChanged(it) }
+                    val initial = taskDue.dayEpochDay?.let(LocalDate::ofEpochDay)
+                        ?: taskDue.at?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() }
+                        ?: initialDate
+                        ?: today
+                    pickDate(context, initial) { onTaskDueChanged(TaskDue.day(it)) }
                 }
             }
         }
@@ -406,16 +421,19 @@ internal fun SortForm(
 
     aboveButton()
 
+    // The button always names the result and waits until the choice is complete.
     val needsTime = selectedAction == CaptureDecisionAction.CreateReminder && reminderAt == null
+    if (needsTime) {
+        Text(
+            text = stringResource(R.string.sort_pick_time_first),
+            modifier = Modifier.padding(top = 16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
     Button(
-        onClick = {
-            if (needsTime) {
-                pickDateTime(context, null, initialDate, timeFormat, onReminderAtChanged)
-            } else {
-                onConfirm()
-            }
-        },
-        enabled = !isPerformingAction && title.isNotBlank(),
+        onClick = onConfirm,
+        enabled = sortPrimaryEnabled(isPerformingAction, title, needsTime),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 24.dp)
@@ -425,13 +443,16 @@ internal fun SortForm(
             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
         } else {
             Text(
-                text = stringResource(if (needsTime) R.string.sort_pick_time else selectedAction.primaryLabelRes),
+                text = stringResource(selectedAction.primaryLabelRes),
                 style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp),
             )
         }
     }
     below()
 }
+
+internal fun sortPrimaryEnabled(isPerformingAction: Boolean, title: String, needsTime: Boolean): Boolean =
+    !isPerformingAction && title.isNotBlank() && !needsTime
 
 @Composable
 private fun SortLabel(text: String) {
@@ -504,7 +525,7 @@ private fun CaptureDecisionAction.tileLabelRes(): Int = when (this) {
     CaptureDecisionAction.CreateTask -> R.string.core_task
     CaptureDecisionAction.CreateReminder -> R.string.core_reminder
     CaptureDecisionAction.SaveNote -> R.string.core_note
-    CaptureDecisionAction.KeepInbox -> R.string.core_inbox
+    CaptureDecisionAction.KeepInbox -> R.string.sort_type_later
 }
 
 private fun CaptureDecisionAction.tileIcon(): ImageVector = when (this) {
@@ -523,6 +544,17 @@ internal fun suggestedActionLabel(type: com.orbit.app.data.local.entity.Suggeste
 }
 
 /** Date, then time. A reminder starts from the day the user came from, if any. */
+/** A day for a task: a date picker only, no time. */
+private fun pickDate(context: Context, initial: LocalDate, onSelected: (LocalDate) -> Unit) {
+    DatePickerDialog(
+        context,
+        { _, year, month, day -> onSelected(LocalDate.of(year, month + 1, day)) },
+        initial.year,
+        initial.monthValue - 1,
+        initial.dayOfMonth,
+    ).show()
+}
+
 private fun pickDateTime(
     context: Context,
     initialMillis: Long?,

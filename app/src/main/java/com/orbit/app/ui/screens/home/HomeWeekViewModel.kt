@@ -44,7 +44,7 @@ class HomeWeekViewModel internal constructor(
     private val savedStateHandle: SavedStateHandle,
     calendarRepository: CalendarRepository,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
-    todayProvider: () -> LocalDate = { LocalDate.now(zoneId) },
+    private val todayProvider: () -> LocalDate = { LocalDate.now(zoneId) },
     observationDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) : ViewModel() {
     private val today = todayProvider()
@@ -76,6 +76,21 @@ class HomeWeekViewModel internal constructor(
                     }
                 }
         }
+    }
+
+    /**
+     * Home may stay open past midnight; on returning to it, "today" moves on. A week
+     * that was showing the old today follows to the new one.
+     */
+    fun refreshToday() {
+        val now = todayProvider()
+        val state = _uiState.value
+        if (now == state.today) return
+        val followsToday = state.visibleWeekDate == state.today
+        _uiState.update {
+            it.copy(today = now, visibleWeekDate = if (followsToday) now else it.visibleWeekDate)
+        }
+        persistVisibleWeekDate(_uiState.value.visibleWeekDate)
     }
 
     fun moveVisibleWeek(weekOffset: Int) {

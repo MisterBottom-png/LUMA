@@ -23,7 +23,10 @@ import com.orbit.app.MainActivity
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.longClick
 import com.orbit.app.OrbitApplication
 import com.orbit.app.data.local.StarterSpaces
@@ -34,6 +37,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
@@ -49,6 +53,10 @@ import org.robolectric.annotation.GraphicsMode
  * Design review tour: renders every main screen of the real app to PNG so the look can be
  * judged without a device. Runs only when LUMA_SCREENS_DIR is set (the "Screens" workflow);
  * ordinary unit-test runs skip it.
+ *
+ * Each theme must run in its own test JVM: the app's database and settings store are
+ * process-wide singletons, so a second tour in the same JVM starts with the first tour's
+ * data (no first-run guide, duplicate Spaces). The Screens workflow runs them one by one.
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -145,7 +153,7 @@ abstract class ScreenTour(private val theme: String) {
     private fun capture(text: String) = step("capture $text") {
         compose.onNodeWithContentDescription("Capture text").performTextInput(text)
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Save and analyze capture").performClick()
+        compose.onNodeWithContentDescription("Save thought").performClick()
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(2_500)
         compose.waitForIdle()
@@ -221,7 +229,7 @@ abstract class ScreenTour(private val theme: String) {
         step("text color") { compose.onNodeWithText("Text color").performScrollTo().performClick(); compose.waitForIdle() }
         shot("$prefix-settings-colors")
         back()
-        step("transparency") { compose.onNodeWithText("Transparency").performScrollTo().performClick(); compose.waitForIdle() }
+        step("transparency") { compose.onNodeWithText("Glass").performScrollTo().performClick(); compose.waitForIdle() }
         shot("$prefix-settings-transparency")
         back()
         back()
@@ -265,7 +273,13 @@ abstract class ScreenTour(private val theme: String) {
             compose.mainClock.advanceTimeBy(1_000)
             compose.waitForIdle()
         }
-        step("one by one") { compose.onNodeWithText("Sort one by one").performClick(); compose.waitForIdle() }
+        step("one by one") {
+            // Review orders its sections by time of day; after midday "To sort" comes
+            // first and its header may have scrolled out of the list.
+            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Sort one by one"))
+            compose.onNodeWithText("Sort one by one").performClick()
+            compose.waitForIdle()
+        }
         shot("$prefix-review-one-by-one")
         back()
         tapTab("Home")
@@ -331,6 +345,11 @@ abstract class ScreenTour(private val theme: String) {
         outDir?.let { dir ->
             File(dir, "$theme-problems.txt").writeText(problems.joinToString("\n").ifEmpty { "none" })
         }
+        // A step that failed means some renders show the wrong state; the run must say so.
+        assertTrue(
+            "Screen tour steps failed ($theme):\n" + problems.joinToString("\n"),
+            problems.isEmpty(),
+        )
     }
 }
 

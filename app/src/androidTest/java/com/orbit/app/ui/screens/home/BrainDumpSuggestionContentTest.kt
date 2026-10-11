@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.home
 
+import com.orbit.app.R
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
@@ -50,12 +51,12 @@ class BrainDumpSuggestionContentTest {
         composeRule.onNodeWithText("Tallele suggests a task").assertIsDisplayed()
         composeRule.onNodeWithText("Task").assertIsSelected()
         composeRule.onNodeWithText("Personal").assertIsSelected()
-        composeRule.onNodeWithText("Create task").assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.core_capture_action_create_task)).assertIsDisplayed()
         composeRule.onNodeWithText("Finish later").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Keep this thought in Inbox").assertCountEquals(0)
+        composeRule.onAllNodesWithText(string(R.string.core_brain_dump_keep_thought)).assertCountEquals(0)
 
         composeRule.onNodeWithContentDescription("More Brain Dump actions").performClick()
-        composeRule.onNodeWithText("Keep this thought in Inbox").assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.core_brain_dump_keep_thought)).assertIsDisplayed()
         composeRule.onNodeWithText("Skip this thought").assertIsDisplayed()
         composeRule.onNodeWithText("Discard remaining suggestions").assertIsDisplayed()
     }
@@ -105,7 +106,7 @@ class BrainDumpSuggestionContentTest {
         }
 
         composeRule.onNodeWithText("Choose a reminder date and time first.").assertIsDisplayed()
-        composeRule.onNodeWithText("Create reminder").assertIsNotEnabled()
+        composeRule.onNodeWithText(string(R.string.core_capture_create_reminder)).assertIsNotEnabled()
     }
 
     @Test
@@ -152,10 +153,34 @@ class BrainDumpSuggestionContentTest {
             }
         }
 
-        composeRule.onNodeWithText("Reminder saved, but notification scheduling needs attention.")
-            .assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.reminder_outcome_not_scheduled)).assertIsDisplayed()
         composeRule.onNodeWithText("Skipped this thought").assertIsDisplayed()
     }
+
+    @Test
+    fun blockedNotificationsWarningOffersTurnOn() {
+        composeRule.setContent {
+            OrbitTheme(settings = AppSettings()) {
+                BrainDumpSuggestionContent(
+                    suggestion = suggestion(type = SuggestedItemType.Note, spaceName = "Personal"),
+                    state = interactionState(itemNumber = 1, totalItems = 1).copy(
+                        warning = BrainDumpStatus(
+                            kind = BrainDumpStatusKind.Warning,
+                            message = BrainDumpStatusMessage.NotificationsBlocked,
+                        ),
+                    ),
+                    timeFormat = OrbitTimeFormat(uses24HourClock = true),
+                    callbacks = recordingCallbacks(),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(string(R.string.reminder_outcome_notifications_off)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.settings_turn_on)).assertIsDisplayed()
+    }
+
+    private fun string(id: Int): String =
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
     @Test
     fun taskSetupSurfacesAndInvokesRetryForSaveFailure() {
@@ -178,7 +203,7 @@ class BrainDumpSuggestionContentTest {
             }
         }
 
-        composeRule.onNodeWithText("That item did not save. The original dump is still in Inbox.")
+        composeRule.onNodeWithText(string(R.string.core_home_message_brain_dump_item_save_failed))
             .assertIsDisplayed()
         composeRule.onNodeWithText("Retry").performClick()
 

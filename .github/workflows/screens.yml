@@ -39,8 +39,21 @@ jobs:
         run: |
           chmod +x ./gradlew
           mkdir -p "$LUMA_SCREENS_DIR"
-          ./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.orbit.app.screens.*' 2>&1 | tee "$LUMA_SCREENS_DIR/gradle.log"
-          exit "${PIPESTATUS[0]}"
+          # One Gradle run (one test JVM) per theme: the app keeps its database and
+          # settings in process-wide singletons, so a shared JVM leaks the first tour's
+          # data into the second. Test results are copied after each run because the
+          # next run replaces them.
+          # The step shell stops at the first failing command; keep going so both
+          # themes render and both results are collected, then fail at the end.
+          set +e
+          status=0
+          for theme in Dark Light; do
+            ./gradlew --no-daemon :app:testDebugUnitTest --tests "com.orbit.app.screens.ScreenTour${theme}Test" 2>&1 | tee -a "$LUMA_SCREENS_DIR/gradle.log"
+            code="${PIPESTATUS[0]}"
+            cp app/build/test-results/testDebugUnitTest/TEST-com.orbit.app.screens.*.xml "$LUMA_SCREENS_DIR/" 2>/dev/null || true
+            if [ "$code" -ne 0 ]; then status="$code"; fi
+          done
+          exit "$status"
 
       - name: Publish screens to a branch
         if: always()

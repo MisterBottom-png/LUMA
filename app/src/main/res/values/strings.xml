@@ -8,8 +8,6 @@
     <string name="navigation_settings">Settings</string>
 
     <string name="settings_title">Settings</string>
-    <string name="settings_back">Back to Settings</string>
-    <string name="settings_back_to_menu">Back to %1$s menu</string>
     <string name="settings_appearance_title">Appearance</string>
 
     <string name="settings_time_title">Time</string>
@@ -38,8 +36,6 @@
     <string name="settings_colors_subtitle">Text color and a second color</string>
     <string name="settings_background_title">Background</string>
     <string name="settings_background_subtitle">Preset or custom image</string>
-    <string name="settings_transparency_title">Transparency</string>
-    <string name="settings_transparency_subtitle">Background effects and surface opacity</string>
     <string name="settings_status_gemini_ready">Gemini API ready</string>
     <string name="settings_status_key_saved">saved</string>
     <string name="settings_status_key_not_saved">not saved</string>
