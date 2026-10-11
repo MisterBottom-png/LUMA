@@ -38,6 +38,9 @@ interface CaptureDao {
     @Query("SELECT * FROM captures WHERE id = :id")
     suspend fun getById(id: Long): CaptureEntity?
 
+    @Query("SELECT * FROM captures WHERE id = :id")
+    fun observeById(id: Long): Flow<CaptureEntity?>
+
     @Insert
     suspend fun insert(entity: CaptureEntity): Long
 

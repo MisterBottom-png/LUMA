@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.orbit.app.domain.model.AppAccentColor
@@ -99,6 +100,9 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             preferences[Keys.SORT_RIGHT_AFTER_SAVING] = settings.sortRightAfterSaving
             preferences[Keys.FOCUS_CAPTURE_ON_OPEN] = settings.focusCaptureOnOpen
             preferences[Keys.HAS_SEEN_VOICE_CLOUD_NOTICE] = settings.hasSeenVoiceCloudNotice
+            settings.lastReceiptCaptureId?.let { preferences[Keys.LAST_RECEIPT_CAPTURE_ID] = it }
+                ?: preferences.remove(Keys.LAST_RECEIPT_CAPTURE_ID)
+            preferences[Keys.LAST_RECEIPT_DISMISSED] = settings.lastReceiptDismissed
         }
     }
 
@@ -187,6 +191,9 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 ?: defaults.focusCaptureOnOpen,
             hasSeenVoiceCloudNotice = preferences[Keys.HAS_SEEN_VOICE_CLOUD_NOTICE]
                 ?: defaults.hasSeenVoiceCloudNotice,
+            lastReceiptCaptureId = preferences[Keys.LAST_RECEIPT_CAPTURE_ID]?.takeIf { it > 0L },
+            lastReceiptDismissed = preferences[Keys.LAST_RECEIPT_DISMISSED]
+                ?: defaults.lastReceiptDismissed,
         )
     }
 
@@ -247,5 +254,7 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
         val SORT_RIGHT_AFTER_SAVING = booleanPreferencesKey("sort_right_after_saving")
         val FOCUS_CAPTURE_ON_OPEN = booleanPreferencesKey("focus_capture_on_open")
         val HAS_SEEN_VOICE_CLOUD_NOTICE = booleanPreferencesKey("has_seen_voice_cloud_notice")
+        val LAST_RECEIPT_CAPTURE_ID = longPreferencesKey("last_receipt_capture_id")
+        val LAST_RECEIPT_DISMISSED = booleanPreferencesKey("last_receipt_dismissed")
     }
 }
