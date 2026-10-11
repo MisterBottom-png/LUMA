@@ -104,7 +104,10 @@ internal fun rememberReminderCapabilityStatus(): ReminderCapabilityStatus {
 
 @StringRes
 internal fun ReminderCapabilityState.messageRes(): Int = when (this) {
-    ReminderCapabilityState.Ready -> R.string.settings_reminder_delivery_ready
+    // The battery hint gets its own row text with the reminder health row; until then
+    // it reads as before, since nothing in Android blocks or delays reminders.
+    ReminderCapabilityState.Ready, ReminderCapabilityState.MayBeStopped ->
+        R.string.settings_reminder_delivery_ready
     ReminderCapabilityState.MayBeLate -> R.string.settings_reminder_delivery_may_be_late
     ReminderCapabilityState.Blocked -> R.string.settings_reminder_delivery_blocked
 }

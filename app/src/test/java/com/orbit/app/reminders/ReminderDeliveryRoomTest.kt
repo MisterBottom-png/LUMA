@@ -1,6 +1,13 @@
 package com.orbit.app.reminders
 
+import android.app.AlarmManager
+import android.content.Context
+import android.content.Intent
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.work.WorkManager
+import androidx.work.testing.WorkManagerTestInitHelper
 import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.repository.RoomReminderRepository
@@ -15,6 +22,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(AndroidJUnit4::class)
 class ReminderDeliveryRoomTest {
@@ -33,7 +42,11 @@ class ReminderDeliveryRoomTest {
     }
 
     @After
-    fun tearDown() = database.close()
+    fun tearDown() {
+        database.close()
+        ShadowAlarmManager.reset()
+        context.deleteDatabase(RecoveryDatabaseName)
+    }
 
     @Test
     fun alarmAndWorkerCannotBothDeliverTheSameReminder() = runBlocking {
@@ -213,6 +226,148 @@ class ReminderDeliveryRoomTest {
         )
 
         assertEquals(ids.toSet(), summary.map { it.first }.toSet())
+    }
+
+    // Recovery. A database write and an Android alarm are never one transaction, and the
+    // three ways the app can stop lose different things, so each has its own test.
+
+    @Test
+    fun processDeathKeepsTheAlarmsAndTheNextStartDuplicatesNothing() = runBlocking {
+        useRealAlarms()
+        val first = openRecoveryDatabase()
+        val firstRepository = RoomReminderRepository(first.reminderDao(), WorkManagerReminderScheduler(context) { now })
+        val soon = firstRepository.insert(reminder(dueAt = now + 30 * minute))
+        val tomorrow = firstRepository.insert(reminder(dueAt = now + day))
+        val armed = armedAlarms()
+        assertEquals(listOf(soon to now + 30 * minute, tomorrow to now + day), armed)
+
+        // The process dies: Room goes away, AlarmManager keeps the alarms.
+        first.close()
+        val second = openRecoveryDatabase()
+        val secondScheduler = WorkManagerReminderScheduler(context) { now }
+        RoomReminderRepository(second.reminderDao(), secondScheduler)
+        assertEquals(armed, armedAlarms())
+
+        // The next app start reconciles: each alarm is replaced in place, never doubled,
+        // and nothing rings early.
+        val result = reconcileReminders(
+            dao = second.reminderDao(),
+            scheduler = secondScheduler,
+            now = now,
+            deliver = { _, _, _ -> error("nothing is due yet") },
+            deliverSummary = { error("nothing was missed") },
+        )
+        assertEquals(armed, armedAlarms())
+        assertEquals(0, result.delivered)
+        assertEquals(0, result.failures)
+        second.close()
+    }
+
+    @Test
+    fun rebootClearsTheAlarmsAndBootCompletedReArmsExactlyOnePerFutureReminder() = runBlocking {
+        useRealAlarms()
+        val alarmScheduler = WorkManagerReminderScheduler(context) { now }
+        val realRepository = RoomReminderRepository(database.reminderDao(), alarmScheduler)
+        val dao = database.reminderDao()
+        val soon = realRepository.insert(reminder(dueAt = now + 30 * minute))
+        val tomorrow = realRepository.insert(reminder(dueAt = now + day))
+        val completed = realRepository.insert(reminder(dueAt = now + 2 * day))
+        realRepository.update(requireNotNull(realRepository.getById(completed)).copy(completedAt = now))
+        val alreadyRang = dao.insert(
+            reminder(dueAt = now - 2 * minute).copy(
+                notificationWorkId = "w",
+                deliveredNotificationAt = now - 2 * minute,
+            ),
+        )
+        assertEquals(2, armedAlarms().size)
+
+        // Reboot: Android drops every alarm.
+        clearAllAlarms()
+        assertTrue(armedAlarms().isEmpty())
+        ReminderBootReceiver().onReceive(context, Intent(Intent.ACTION_BOOT_COMPLETED))
+        assertEquals(1, WorkManager.getInstance(context).getWorkInfosForUniqueWork(RescheduleWorkName).get().size)
+
+        // What the queued reconciliation runs.
+        reconcileReminders(
+            dao = dao,
+            scheduler = alarmScheduler,
+            now = now,
+            deliver = { id, _, _ -> error("reminder $id is not due") },
+            deliverSummary = { error("nothing was missed") },
+        )
+
+        assertEquals(listOf(soon to now + 30 * minute, tomorrow to now + day), armedAlarms())
+        assertNull(dao.getById(completed)?.notificationWorkId)
+        assertEquals(now - 2 * minute, dao.getById(alreadyRang)?.deliveredNotificationAt)
+    }
+
+    @Test
+    fun forceStopRecoversOnTheNextLaunchWithAtMostOneMissedNotificationPerReminder() = runBlocking {
+        useRealAlarms()
+        val alarmScheduler = WorkManagerReminderScheduler(context) { now }
+        val realRepository = RoomReminderRepository(database.reminderDao(), alarmScheduler)
+        val dao = database.reminderDao()
+        val soon = realRepository.insert(reminder(dueAt = now + 30 * minute))
+        val tomorrow = realRepository.insert(reminder(dueAt = now + day))
+        val tomorrowAt = now + day
+
+        // Force-stop: alarms and pending work are cancelled, and no receiver runs
+        // until the user opens the app again. Meanwhile the first reminder's time passes.
+        clearAllAlarms()
+        WorkManager.getInstance(context).cancelAllWork().result.get()
+        now += 2 * 60 * minute
+
+        // MainActivity.onCreate queues the reconciliation; it may run more than once.
+        val shown = mutableListOf<Triple<Long, Long, Boolean>>()
+        val deliver: suspend (Long, Long, Boolean) -> ReminderDeliveryOutcome = { id, time, missed ->
+            if (dao.claimDelivery(id, time) == 1) {
+                shown += Triple(id, time, missed)
+                ReminderDeliveryOutcome.Shown
+            } else {
+                ReminderDeliveryOutcome.AlreadyHandled
+            }
+        }
+        repeat(2) {
+            reconcileReminders(dao, alarmScheduler, now, deliver, { error("one miss is not a summary") })
+        }
+
+        assertEquals(listOf(Triple(soon, now - 90 * minute, true)), shown)
+        assertEquals(listOf(tomorrow to tomorrowAt), armedAlarms())
+    }
+
+    private fun useRealAlarms() {
+        WorkManagerTestInitHelper.initializeTestWorkManager(context)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+    }
+
+    private fun openRecoveryDatabase(): OrbitDatabase =
+        Room.databaseBuilder(context, OrbitDatabase::class.java, RecoveryDatabaseName)
+            .allowMainThreadQueries()
+            .build()
+
+    /** Armed exact alarms as (reminder id, trigger time), sorted by time. */
+    private fun armedAlarms(): List<Pair<Long, Long>> =
+        shadowOf(alarmManager).scheduledAlarms
+            .map { alarm ->
+                assertEquals(AlarmManager.RTC_WAKEUP, alarm.type)
+                assertEquals(ShadowAlarmManager.WINDOW_EXACT, alarm.windowLengthMs)
+                val intent = shadowOf(requireNotNull(alarm.operation)).savedIntent
+                intent.getLongExtra(ReminderNotificationWorker.KEY_REMINDER_ID, -1L) to alarm.triggerAtMs
+            }
+            .sortedBy { it.second }
+
+    private fun clearAllAlarms() {
+        shadowOf(alarmManager).scheduledAlarms.toList().forEach { alarm ->
+            alarm.operation?.let(alarmManager::cancel)
+        }
+    }
+
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
+    private val alarmManager: AlarmManager get() = context.getSystemService(AlarmManager::class.java)
+
+    private companion object {
+        const val RecoveryDatabaseName = "reminder-recovery-test.db"
+        const val RescheduleWorkName = "luma_reschedule_reminders"
     }
 
     private fun reminder(dueAt: Long) = ReminderEntity(
