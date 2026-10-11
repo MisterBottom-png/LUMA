@@ -81,7 +81,7 @@ internal fun rememberVoiceInput(
     val session = remember { arrayOfNulls<OnDeviceVoiceSession>(1) }
     DisposableEffect(Unit) {
         onDispose {
-            session[0]?.destroy()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) session[0]?.destroy()
             session[0] = null
         }
     }

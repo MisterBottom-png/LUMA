@@ -183,7 +183,7 @@ fun HomeScreen(
     // After a spoken thought, a second mic tap adds the next one on its own line, so a
     // spoken dump splits into thoughts with no guessing.
     var spokeLast by rememberSaveable { mutableStateOf(false) }
-    val voiceScope = rememberCoroutineScope()
+    var voiceProblem by remember { mutableStateOf<Int?>(null) }
     val voice = rememberVoiceInput(
         locale = voiceLocale,
         prompt = voicePrompt,
@@ -193,10 +193,15 @@ fun HomeScreen(
             viewModel.receiveSharedText(transcript)
             spokeLast = true
         },
-        onProblem = { textRes ->
-            voiceScope.launch { snackbarHostState.showSnackbar(context.getString(textRes)) }
-        },
+        onProblem = { textRes -> voiceProblem = textRes },
     )
+    voiceProblem?.let { textRes ->
+        val problemText = stringResource(textRes)
+        LaunchedEffect(textRes, problemText) {
+            snackbarHostState.showSnackbar(problemText)
+            voiceProblem = null
+        }
+    }
     LaunchedEffect(uiState.inputText.isBlank()) {
         if (uiState.inputText.isBlank()) spokeLast = false
     }
