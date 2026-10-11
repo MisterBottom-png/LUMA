@@ -88,6 +88,9 @@
     <string name="brain_overview_back">Назад к списку</string>
     <string name="spaces_preview_placeholder">Ваше новое пространство</string>
     <string name="spaces_colour">Цвет</string>
+    <string name="spaces_color_and_icon">Цвет и значок</string>
+    <string name="expand_state_open">Развёрнуто</string>
+    <string name="expand_state_closed">Свёрнуто</string>
     <string name="spaces_icon_travel">Путешествия</string>
     <string name="search_filter_all">Все</string>
     <string name="search_group_to_sort">Ещё не разобрано</string>

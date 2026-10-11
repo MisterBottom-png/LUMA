@@ -88,6 +88,9 @@
     <string name="brain_overview_back">Tagasi loendisse</string>
     <string name="spaces_preview_placeholder">Sinu uus ruum</string>
     <string name="spaces_colour">Värv</string>
+    <string name="spaces_color_and_icon">Värv ja ikoon</string>
+    <string name="expand_state_open">Laiendatud</string>
+    <string name="expand_state_closed">Ahendatud</string>
     <string name="spaces_icon_travel">Reisimine</string>
     <string name="search_filter_all">Kõik</string>
     <string name="search_group_to_sort">Veel sorteerimata</string>

@@ -88,6 +88,9 @@
     <string name="brain_overview_back">Back to the list</string>
     <string name="spaces_preview_placeholder">Your new Space</string>
     <string name="spaces_colour">Color</string>
+    <string name="spaces_color_and_icon">Color and icon</string>
+    <string name="expand_state_open">Expanded</string>
+    <string name="expand_state_closed">Collapsed</string>
     <string name="spaces_icon_travel">Travel</string>
     <string name="search_filter_all">All</string>
     <string name="search_group_to_sort">Still to sort</string>
