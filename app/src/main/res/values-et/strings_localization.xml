@@ -191,8 +191,6 @@
     <string name="core_home_fallback_space_reason">„Sorteerida“ hoiab mõtte alles, kuni otsustad.</string>
     <string name="core_brain_dump_progress">Soovitus %1$d / %2$d</string>
     <string name="core_brain_dump_more">Rohkem mõtete korrastamise toiminguid</string>
-    <string name="core_brain_dump_why_this">Miks see?</string>
-    <string name="core_brain_dump_hide_why">Peida selgitus</string>
     <string name="core_brain_dump_keep_thought">Hoia see mõte jaotises „Sorteerida“</string>
     <string name="core_brain_dump_skip_thought">Jäta see mõte vahele</string>
     <string name="core_brain_dump_finish_later">Lõpeta hiljem</string>
@@ -207,5 +205,4 @@
     <string name="core_brain_dump_retry">Proovi uuesti</string>
     <string name="core_brain_dump_status_skipped">Mõte jäeti vahele</string>
     <string name="core_brain_dump_space_value">Koht: %1$s</string>
-    <string name="core_brain_dump_type_value">Tüüp: %1$s</string>
 </resources>

@@ -18,14 +18,10 @@
     <string name="calendar_show_day">Показать день</string>
     <string name="calendar_show_month">Показать месяц</string>
     <string name="calendar_today_prefix">Сегодня · %1$s</string>
-    <string name="calendar_free_until">Ничего не запланировано до %1$s</string>
     <string name="calendar_now">Сейчас, %1$s</string>
     <string name="calendar_nothing_planned">Ничего не запланировано</string>
-    <string name="calendar_free_day">Ничего не запланировано. Добавьте что-нибудь, только если хотите.</string>
     <string name="calendar_free_day_short">Ничего не запланировано.</string>
     <string name="calendar_add_to_day">Добавить на этот день</string>
-    <string name="review_ask_button">Спросить</string>
-    <string name="review_summary_to_sort">Разобрать: %1$d</string>
     <string name="review_summary_today">Сегодня: %1$d</string>
     <string name="review_summary_earlier">Ранее: %1$d</string>
     <string name="review_summary_nothing">Ничего не ждёт</string>

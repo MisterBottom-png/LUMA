@@ -11,7 +11,6 @@
     <string name="navigation_settings">Sätted</string>
 
     <string name="settings_title">Sätted</string>
-    <string name="settings_appearance_title">Välimus</string>
 
     <string name="settings_time_title">Kellaaeg</string>
     <string name="settings_time_subtitle">Seadme vaikeseade, 12-tunnine või 24-tunnine</string>
@@ -40,7 +39,6 @@
     <string name="settings_status_key_saved">salvestatud</string>
     <string name="settings_status_key_not_saved">pole salvestatud</string>
     <string name="settings_status_last_export">Viimane eksport on valmis</string>
-    <string name="settings_export_json">Ekspordi JSON</string>
     <string name="settings_create_backup">Loo varukoopia</string>
     <string name="settings_create_backup_note">Salvestub ühe .json-failina sinu valitud kohta.</string>
     <string name="settings_restore_backup">Taasta varukoopiast</string>
@@ -85,11 +83,8 @@
     <string name="settings_restoring">Taastamine…</string>
     <string name="settings_replace_local_data">Asenda kohalikud andmed</string>
     <string name="settings_cancel">Tühista</string>
-    <string name="settings_export_explanation">Loo selles seadmes talletatav JSON-eksport.</string>
     <string name="settings_exporting">Eksportimine…</string>
-    <string name="settings_restore_explanation">Tallele kontrollib eksporti enne andmete täieliku asendamise pakkumist. Olemasolevad andmed ei muutu enne sinu kinnitust.</string>
     <string name="settings_validating">Kontrollimine…</string>
-    <string name="settings_choose_export">Vali taastatav eksport</string>
     <string name="settings_export_failed">Eksporti ei saanud luua.</string>
     <string name="settings_restore_file_invalid">Valitud eksporti ei saa taastada. Olemasolevad andmed jäid alles.</string>
     <string name="settings_restore_failed">Taastamist ei saanud lõpule viia. Olemasolevad andmed jäid alles.</string>

@@ -20,13 +20,7 @@
     <string name="core_sort_already_sorted">This thought has already been sorted.</string>
     <string name="core_sort_undone">Undone. The thought is back in To sort.</string>
     <string name="core_sort_undo_failed">That could not be undone. Nothing was lost; you can change the item in its Space.</string>
-    <string name="core_home_quick_reminder_question">Remind you %1$s?</string>
-    <string name="core_home_quick_reminder_when">When should Tallele remind you?</string>
-    <string name="core_home_quick_reminder_set">Remind me</string>
     <string name="core_home_quick_reminder_pick">Pick a time</string>
-    <string name="core_home_quick_reminder_change">Other time</string>
-    <string name="core_home_quick_reminder_not_now">Not now</string>
-    <string name="review_ask_subtitle">Calm answers from your own items.</string>
     <string name="review_ask_now">What should I do now?</string>
     <string name="review_ask_can_wait">What can wait?</string>
     <string name="review_ask_depends">What depends on someone else?</string>
@@ -54,7 +48,6 @@
     <string name="review_to_sort_hide">Hide suggestion</string>
     <string name="review_to_sort_let_go">Let it go (archive)</string>
     <string name="review_show_fewer">Show fewer</string>
-    <string name="review_today_title">Today</string>
     <string name="review_today_empty">Nothing is due today.</string>
     <string name="review_show_more">Show more (%1$d)</string>
     <string name="review_weekly_button">Look back at your week</string>
@@ -62,7 +55,6 @@
     <string name="review_weekly_close">Close the look back</string>
     <string name="review_breathe_start">Take one calm breath</string>
     <string name="review_all_sorted_title">All sorted</string>
-    <string name="review_all_sorted_body">Nothing is waiting for you right now.</string>
     <string name="review_sort_failed">That did not finish. The thought is still safe in To sort.</string>
     <string name="review_sort_needs_choice">This one needs a choice first. Tap Change.</string>
     <string name="review_sort_hidden">Suggestion hidden. The thought stays here.</string>
@@ -101,10 +93,6 @@
     <string name="spaces_name_taken">You already have a Space called “%1$s”.</string>
     <string name="spaces_name_taken_archived">“%1$s” is archived. Restore it instead of making a second one?</string>
     <string name="spaces_name_taken_hidden">“%1$s” is hidden. Show it again instead of making a second one?</string>
-    <plurals name="spaces_to_sort_waiting">
-        <item quantity="one">%1$d thought is waiting to be sorted</item>
-        <item quantity="other">%1$d thoughts are waiting to be sorted</item>
-    </plurals>
     <string name="shortcut_new_thought_short">New thought</string>
     <string name="shortcut_new_thought_long">Write a new thought</string>
     <string name="tile_new_thought">New thought</string>
@@ -179,7 +167,6 @@
     <string name="spaces_hide_hint">Off the list for now. Items stay where they are.</string>
     <string name="spaces_archive_hint">For a Space you are done with. Items stay.</string>
     <string name="spaces_add_thought">Add a thought to %1$s</string>
-    <string name="core_home_adding_to_space">Adding to %1$s</string>
     <string name="search_to_sort_note">Thoughts you have not sorted yet.</string>
     <string name="home_open_search">Search</string>
     <string name="calendar_toggle_day">Day</string>

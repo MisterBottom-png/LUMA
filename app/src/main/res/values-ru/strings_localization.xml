@@ -195,8 +195,6 @@
     <string name="core_home_fallback_space_reason">«Разобрать» сохраняет мысль, пока вы не решите.</string>
     <string name="core_brain_dump_progress">Предложение %1$d из %2$d</string>
     <string name="core_brain_dump_more">Другие действия с мыслями</string>
-    <string name="core_brain_dump_why_this">Почему так?</string>
-    <string name="core_brain_dump_hide_why">Скрыть объяснение</string>
     <string name="core_brain_dump_keep_thought">Оставить эту мысль в «Разобрать»</string>
     <string name="core_brain_dump_skip_thought">Пропустить эту мысль</string>
     <string name="core_brain_dump_finish_later">Продолжить позже</string>
@@ -211,5 +209,4 @@
     <string name="core_brain_dump_retry">Повторить</string>
     <string name="core_brain_dump_status_skipped">Мысль пропущена</string>
     <string name="core_brain_dump_space_value">Место: %1$s</string>
-    <string name="core_brain_dump_type_value">Тип: %1$s</string>
 </resources>

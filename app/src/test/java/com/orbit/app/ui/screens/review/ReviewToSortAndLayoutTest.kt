@@ -15,20 +15,6 @@ class ReviewToSortAndLayoutTest {
     private val now = 1_800_000_000_000L
 
     @Test
-    fun everyReviewSectionIsAvailableAtEveryTimeOfDay() {
-        ReviewPeriod.entries.forEach { period ->
-            assertEquals(ReviewSection.entries.toSet(), reviewSectionOrder(period).toSet())
-        }
-    }
-
-    @Test
-    fun timeOfDayOnlyChangesTheOrder() {
-        assertEquals(ReviewSection.Today, reviewSectionOrder(ReviewPeriod.Morning)[1])
-        assertEquals(ReviewSection.ToSort, reviewSectionOrder(ReviewPeriod.Midday)[1])
-        assertEquals(ReviewSection.CarryForward, reviewSectionOrder(ReviewPeriod.Evening)[1])
-    }
-
-    @Test
     fun weeklyLookBackIsSuggestedOnlyAtTheWeekend() {
         assertTrue(isWeeklyLookBackSuggested(LocalDateTime.of(2026, 10, 10, 10, 0)))
         assertFalse(isWeeklyLookBackSuggested(LocalDateTime.of(2026, 10, 7, 10, 0)))

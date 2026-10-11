@@ -60,7 +60,6 @@ import com.orbit.app.ui.screens.home.CaptureReceiptReader
 import com.orbit.app.ui.screens.home.ReceiptItemType
 import com.orbit.app.ui.screens.home.rearmReceiptReminder
 import com.orbit.app.ui.screens.home.HomeScreen
-import com.orbit.app.ui.screens.home.SpaceCaptureTarget
 import com.orbit.app.ui.screens.home.HomeWeekViewModel
 import com.orbit.app.ui.screens.item.ItemDetailScreen
 import com.orbit.app.ui.screens.item.ItemDetailViewModel
@@ -296,14 +295,6 @@ fun OrbitApp(
                     val calendarCaptureEpochDay by entry.savedStateHandle
                         .getStateFlow<Long?>(CalendarCaptureContext.EpochDayKey, null)
                         .collectAsStateWithLifecycle()
-                    val spaceCaptureId by entry.savedStateHandle
-                        .getStateFlow<Long?>(SpaceCaptureContext.SpaceIdKey, null)
-                        .collectAsStateWithLifecycle()
-                    val homeSpaces by remember { container.spaceRepository.observeAll() }
-                        .collectAsStateWithLifecycle(initialValue = emptyList())
-                    val spaceCaptureTarget = spaceCaptureId?.let { id ->
-                        homeSpaces.firstOrNull { it.id == id && !it.archived }?.let { SpaceCaptureTarget(it.id, it.name) }
-                    }
                     val brainDumpResumeCaptureId by entry.savedStateHandle
                         .getStateFlow<Long?>(BrainDumpResumeContext.CaptureIdKey, null)
                         .collectAsStateWithLifecycle()
@@ -332,10 +323,6 @@ fun OrbitApp(
                         calendarDateContext = CalendarCaptureContext.date(calendarCaptureEpochDay),
                         onCalendarDateContextConsumed = {
                             entry.savedStateHandle[CalendarCaptureContext.EpochDayKey] = null
-                        },
-                        spaceContext = spaceCaptureTarget,
-                        onSpaceContextConsumed = {
-                            entry.savedStateHandle[SpaceCaptureContext.SpaceIdKey] = null
                         },
                         onCalendarDateSelected = { date ->
                             navController.navigateToCalendar(date)

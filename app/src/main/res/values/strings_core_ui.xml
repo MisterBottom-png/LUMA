@@ -56,9 +56,6 @@
     <string name="core_search_title">Search</string>
     <string name="core_search_local_data">Search everything you saved</string>
     <string name="core_search_start_typing">Type a word from a note, task or reminder.</string>
-    <string name="core_search_minimum_query">Type at least two characters.</string>
-    <string name="core_search_empty">Nothing found here yet.</string>
-    <string name="core_search_empty_recovery">Try a different word or clear the search.</string>
     <string name="core_search_clear_query">Clear search</string>
     <string name="core_source_row_accessibility">%1$s: %2$s. Open</string>
     <string name="core_source_row_accessibility_with_date">%1$s: %2$s, %3$s. Open</string>

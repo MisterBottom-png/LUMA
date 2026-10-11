@@ -189,8 +189,6 @@
     <string name="core_home_fallback_space_reason">To sort keeps the thought safe until you choose.</string>
     <string name="core_brain_dump_progress">Suggestion %1$d of %2$d</string>
     <string name="core_brain_dump_more">More Brain Dump actions</string>
-    <string name="core_brain_dump_why_this">Why this?</string>
-    <string name="core_brain_dump_hide_why">Hide explanation</string>
     <string name="core_brain_dump_keep_thought">Keep this thought in To sort</string>
     <string name="core_brain_dump_skip_thought">Skip this thought</string>
     <string name="core_brain_dump_finish_later">Finish later</string>
@@ -205,5 +203,4 @@
     <string name="core_brain_dump_retry">Retry</string>
     <string name="core_brain_dump_status_skipped">Skipped this thought</string>
     <string name="core_brain_dump_space_value">Space: %1$s</string>
-    <string name="core_brain_dump_type_value">Type: %1$s</string>
 </resources>

@@ -20,13 +20,7 @@
     <string name="core_sort_already_sorted">See mõte on juba sorteeritud.</string>
     <string name="core_sort_undone">Tagasi võetud. Mõte ootab jälle sorteerimist.</string>
     <string name="core_sort_undo_failed">Seda ei saanud tagasi võtta. Midagi ei läinud kaotsi; kirjet saab muuta selle alas.</string>
-    <string name="core_home_quick_reminder_question">Kas tuletan meelde %1$s?</string>
-    <string name="core_home_quick_reminder_when">Millal Tallele peaks meelde tuletama?</string>
-    <string name="core_home_quick_reminder_set">Tuleta meelde</string>
     <string name="core_home_quick_reminder_pick">Vali aeg</string>
-    <string name="core_home_quick_reminder_change">Muu aeg</string>
-    <string name="core_home_quick_reminder_not_now">Mitte praegu</string>
-    <string name="review_ask_subtitle">Rahulikud vastused sinu enda kirjete põhjal.</string>
     <string name="review_ask_now">Mida peaksin praegu tegema?</string>
     <string name="review_ask_can_wait">Mis võib oodata?</string>
     <string name="review_ask_depends">Mis sõltub kellestki teisest?</string>
@@ -54,7 +48,6 @@
     <string name="review_to_sort_hide">Peida soovitus</string>
     <string name="review_to_sort_let_go">Lase lahti (arhiivi)</string>
     <string name="review_show_fewer">Näita vähem</string>
-    <string name="review_today_title">Täna</string>
     <string name="review_today_empty">Täna pole midagi kavas.</string>
     <string name="review_show_more">Näita rohkem (%1$d)</string>
     <string name="review_weekly_button">Vaata oma nädalale tagasi</string>
@@ -62,7 +55,6 @@
     <string name="review_weekly_close">Sulge tagasivaade</string>
     <string name="review_breathe_start">Võta üks rahulik hingetõmme</string>
     <string name="review_all_sorted_title">Kõik sorteeritud</string>
-    <string name="review_all_sorted_body">Praegu ei oota sind midagi.</string>
     <string name="review_sort_failed">See ei lõppenud. Mõte on endiselt turvaliselt sorteerimise ootel.</string>
     <string name="review_sort_needs_choice">Siin on vaja enne valikut teha. Puuduta „Muuda“.</string>
     <string name="review_sort_hidden">Soovitus peidetud. Mõte jääb siia.</string>
@@ -101,10 +93,6 @@
     <string name="spaces_name_taken">Sul on juba ruum nimega „%1$s”.</string>
     <string name="spaces_name_taken_archived">„%1$s” on arhiveeritud. Kas taastad selle, selle asemel et teise teha?</string>
     <string name="spaces_name_taken_hidden">„%1$s” on peidetud. Kas näitad seda uuesti, selle asemel et teise teha?</string>
-    <plurals name="spaces_to_sort_waiting">
-        <item quantity="one">%1$d mõte ootab sorteerimist</item>
-        <item quantity="other">%1$d mõtet ootab sorteerimist</item>
-    </plurals>
     <string name="shortcut_new_thought_short">Uus mõte</string>
     <string name="shortcut_new_thought_long">Kirjuta uus mõte</string>
     <string name="tile_new_thought">Uus mõte</string>
@@ -179,7 +167,6 @@
     <string name="spaces_hide_hint">Praegu nimekirjast väljas. Asjad jäävad alles.</string>
     <string name="spaces_archive_hint">Ruumile, mida enam ei vaja. Asjad jäävad alles.</string>
     <string name="spaces_add_thought">Lisa mõte ruumi %1$s</string>
-    <string name="core_home_adding_to_space">Lisatakse ruumi %1$s</string>
     <string name="search_to_sort_note">Mõtted, mida sa pole veel sorteerinud.</string>
     <string name="home_open_search">Otsi</string>
     <string name="calendar_toggle_day">Päev</string>

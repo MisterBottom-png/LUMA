@@ -8,7 +8,6 @@
     <string name="navigation_settings">Settings</string>
 
     <string name="settings_title">Settings</string>
-    <string name="settings_appearance_title">Appearance</string>
 
     <string name="settings_time_title">Time</string>
     <string name="settings_time_subtitle">Device default, 12-hour, or 24-hour</string>
@@ -40,7 +39,6 @@
     <string name="settings_status_key_saved">saved</string>
     <string name="settings_status_key_not_saved">not saved</string>
     <string name="settings_status_last_export">Last export ready</string>
-    <string name="settings_export_json">Export JSON</string>
     <string name="settings_create_backup">Create backup</string>
     <string name="settings_create_backup_note">Saved as one .json file, wherever you choose.</string>
     <string name="settings_restore_backup">Restore backup</string>
@@ -90,11 +88,8 @@
     <string name="settings_restoring">Restoring…</string>
     <string name="settings_replace_local_data">Replace local data</string>
     <string name="settings_cancel">Cancel</string>
-    <string name="settings_export_explanation">Create a JSON export stored on this device.</string>
     <string name="settings_exporting">Exporting…</string>
-    <string name="settings_restore_explanation">Tallele validates an export before offering full replacement. Existing data is not changed until you confirm.</string>
     <string name="settings_validating">Validating…</string>
-    <string name="settings_choose_export">Choose export to restore</string>
     <string name="settings_export_failed">Export could not be created.</string>
     <string name="settings_restore_file_invalid">The selected export cannot be restored. Existing data was kept.</string>
     <string name="settings_restore_failed">Restore could not be completed. Existing data was kept.</string>

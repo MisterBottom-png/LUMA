@@ -218,7 +218,7 @@ class HomeCaptureViewModel(
     }
 
     /** Saves the thought. Returns false when there is nothing to save. */
-    fun send(calendarDateContextEpochDay: Long? = null, spaceId: Long? = null): Boolean {
+    fun send(calendarDateContextEpochDay: Long? = null): Boolean {
         val rawText = _uiState.value.inputText.trim()
         if (rawText.isBlank() || _uiState.value.isProcessing) return false
         val safeContext = calendarDateContextEpochDay
@@ -230,7 +230,7 @@ class HomeCaptureViewModel(
         viewModelScope.launch {
             val id = try {
                 // Registered before analysis starts, so a fast result is not missed.
-                captureInbox.save(rawText, contextDateEpochDay = safeContext, spaceId = spaceId) { id ->
+                captureInbox.save(rawText, contextDateEpochDay = safeContext) { id ->
                     awaitingAnalysisFor = id
                     awaitingForCalendarDay = safeContext != null
                 }
