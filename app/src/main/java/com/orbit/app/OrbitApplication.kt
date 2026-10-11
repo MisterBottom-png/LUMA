@@ -59,6 +59,7 @@ import com.orbit.app.reminders.WorkManagerReminderScheduler
 import com.orbit.app.security.AndroidKeystoreGeminiApiKeyStore
 import com.orbit.app.security.GeminiApiKeyStore
 import com.orbit.app.ui.localization.effectiveAppLocale
+import com.orbit.app.domain.capture.AutoFiler
 import com.orbit.app.domain.capture.CaptureInbox
 import com.orbit.app.domain.capture.ThoughtSplitter
 import com.orbit.app.domain.capture.CaptureResolution
@@ -200,6 +201,25 @@ class OrbitContainer(application: Application) {
             },
             scope = applicationScope,
             transaction = RoomCaptureFinalizationTransaction(database),
+        ).also { inbox ->
+            // Whenever thoughts can be saved, clear ones are filed as their analysis lands.
+            autoFiler.listen(applicationScope, inbox.events)
+        }
+    }
+
+    /**
+     * Act / ask / keep for analysed thoughts. Listens to the inbox from the moment it
+     * exists; `applyPending()` on app start finishes decisions a stop interrupted.
+     */
+    val autoFiler: AutoFiler by lazy {
+        AutoFiler(
+            captureRepository = captureRepository,
+            suggestionDao = database.captureSuggestionDao(),
+            brainDumpRepository = brainDumpRepository,
+            captureResolution = captureResolution,
+            transaction = RoomCaptureFinalizationTransaction(database),
+            // "Sort right after saving" on: the sheet opens and the user sorts every thought.
+            paused = { appSettingsRepository.settings.first().sortRightAfterSaving },
         )
     }
     val captureResolution: CaptureResolution by lazy {

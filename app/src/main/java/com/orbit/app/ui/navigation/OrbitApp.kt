@@ -229,7 +229,6 @@ fun OrbitApp(
                         factory = HomeCaptureViewModel.Factory(
                             captureInbox = container.captureInbox,
                             appSettingsRepository = container.appSettingsRepository,
-                            quickReminder = container.captureResolution::createQuickReminder,
                             savedStateHandle = entry.savedStateHandle,
                             receipts = CaptureReceiptReader(
                                 captureRepository = container.captureRepository,
@@ -247,6 +246,7 @@ fun OrbitApp(
                                     reminderId = reminderId,
                                 )
                             },
+                            keepThought = container.captureResolution::keep,
                         ),
                     )
                     val homeSortViewModel: CaptureSortViewModel = viewModel(

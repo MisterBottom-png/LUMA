@@ -142,6 +142,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val receipt by viewModel.receipt.collectAsStateWithLifecycle()
+    val question by viewModel.question.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val navigationBottomPadding = with(LocalDensity.current) {
@@ -419,7 +420,6 @@ fun HomeScreen(
             }
 
             // Home's one question sits in place of the receipt, never next to it.
-            val question = uiState.quickReminder
             SaveReceipt(
                 receipt = receipt.takeIf { question == null },
                 timeFormat = timeFormat,
@@ -431,11 +431,11 @@ fun HomeScreen(
             question?.let {
                 QuickReminderCard(
                     question = it,
-                    timeFormat = timeFormat,
                     isWorking = uiState.isSettingReminder,
-                    onConfirm = viewModel::confirmQuickReminder,
-                    onChangeTime = viewModel::changeQuickReminderTime,
-                    onNotNow = viewModel::dismissQuickReminder,
+                    // The same as the receipt's "Choose time": the sort sheet for a saved
+                    // thought, the reminder's own screen when one exists.
+                    onPickTime = { receipt?.let { current -> onReceiptAction(current, ReceiptAction.ChooseTime) } },
+                    onKeep = viewModel::keepQuestionThought,
                 )
             }
         }

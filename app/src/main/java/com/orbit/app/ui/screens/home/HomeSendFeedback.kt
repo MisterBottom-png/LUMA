@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.ui.components.GlassSurfaceStyle
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.localization.localizedSpaceName
@@ -158,18 +159,17 @@ internal fun receiptText(line: ReceiptLine, timeFormat: OrbitTimeFormat): String
 }
 
 /**
- * The single question Home may ask: only for a thought that clearly needs a
- * reminder, so it is not missed. "Not now" leaves it in To sort.
+ * The single question Home may ask, in place of the receipt: the thought is clearly a
+ * reminder, but its time is missing or already past. "Just keep it" keeps the thought
+ * saved, in Later and in Search, and nothing rings for it.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun QuickReminderCard(
     question: QuickReminderQuestion,
-    timeFormat: OrbitTimeFormat,
     isWorking: Boolean,
-    onConfirm: () -> Unit,
-    onChangeTime: () -> Unit,
-    onNotNow: () -> Unit,
+    onPickTime: () -> Unit,
+    onKeep: () -> Unit,
 ) {
     SoftGlassSurface(
         modifier = Modifier
@@ -184,9 +184,13 @@ internal fun QuickReminderCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = question.reminderAt?.let {
-                    stringResource(R.string.core_home_quick_reminder_question, timeFormat.formatWeekdayDateTime(it))
-                } ?: stringResource(R.string.core_home_quick_reminder_when),
+                text = stringResource(
+                    if (question.reason == CaptureOutcomeReason.TimePassed) {
+                        R.string.receipt_time_passed
+                    } else {
+                        R.string.receipt_needs_time
+                    },
+                ),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -197,21 +201,11 @@ internal fun QuickReminderCard(
                 maxLines = 2,
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onConfirm, enabled = !isWorking) {
-                    Text(
-                        stringResource(
-                            if (question.reminderAt != null) R.string.core_home_quick_reminder_set
-                            else R.string.core_home_quick_reminder_pick,
-                        ),
-                    )
+                Button(onClick = onPickTime, enabled = !isWorking) {
+                    Text(stringResource(R.string.core_home_quick_reminder_pick))
                 }
-                if (question.reminderAt != null) {
-                    TextButton(onClick = onChangeTime, enabled = !isWorking) {
-                        Text(stringResource(R.string.core_home_quick_reminder_change))
-                    }
-                }
-                TextButton(onClick = onNotNow, enabled = !isWorking) {
-                    Text(stringResource(R.string.core_home_quick_reminder_not_now))
+                TextButton(onClick = onKeep, enabled = !isWorking) {
+                    Text(stringResource(R.string.receipt_action_keep))
                 }
             }
         }

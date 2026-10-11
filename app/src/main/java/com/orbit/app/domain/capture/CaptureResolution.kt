@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.first
 /**
  * Outcomes for a capture in To sort, and their Undo. Each runs after a user tap,
  * except [acceptSuggestion], which the automatic filing of a clear thought also uses.
+ * "Change" never comes here: it opens the item itself, so nothing is deleted before
+ * the user confirms an edit.
  */
 class CaptureResolution(
     private val captureRepository: CaptureRepository,
@@ -145,6 +147,34 @@ class CaptureResolution(
                     ),
                 )
             }
+        }
+    }
+
+    /**
+     * "Just keep it": the thought stays a saved thought, in Later and in Search, and
+     * nothing can ring for it. A reminder made from it (one that cannot ring, or whose
+     * time passed) is removed first through [undo], which cancels its alarm and backup
+     * work. A thought filed as a note or task is left as it is.
+     */
+    suspend fun keep(captureId: Long) {
+        val capture = captureRepository.getById(captureId) ?: return
+        val linkedId = capture.linkedItemId
+        if (capture.status == CaptureStatus.Processed && linkedId != null) {
+            val reminder = reminderRepository.getById(linkedId) ?: return
+            if (capture.isSortedInto(reminder)) undo(captureId, SuggestedItemType.Reminder, linkedId)
+            return
+        }
+        transaction.run {
+            val current = captureRepository.getById(captureId)?.takeIf { it.status == CaptureStatus.Inbox } ?: return@run
+            val timestamp = now()
+            captureRepository.update(
+                current.copy(
+                    outcome = CaptureOutcome.Saved,
+                    outcomeReason = CaptureOutcomeReason.None,
+                    outcomeAt = timestamp,
+                    decidedAt = timestamp,
+                ),
+            )
         }
     }
 

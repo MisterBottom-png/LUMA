@@ -98,7 +98,7 @@
     <string name="home_capture_hint_dump">Запишите всё как есть — Tallele разберёт позже</string>
     <string name="home_capture_hint_small">Даже полмысли стоит сохранить</string>
     <string name="settings_sort_right_after_saving">Разбирать сразу после сохранения</string>
-    <string name="settings_sort_right_after_saving_body">Сразу показывать предложение Tallele. Если выключено, мысли спокойно ждут в разделе «Обзор» → «Разобрать».</string>
+    <string name="settings_sort_right_after_saving_body">Открывать сортировку после каждой мысли. Пока это включено, Tallele ничего не раскладывает сама.</string>
     <string name="settings_focus_capture">Открывать клавиатуру на главном экране</string>
     <string name="settings_focus_capture_body">Начинайте печатать сразу, как откроется главный экран.</string>
     <string name="settings_glass_effect">Эффект стекла</string>

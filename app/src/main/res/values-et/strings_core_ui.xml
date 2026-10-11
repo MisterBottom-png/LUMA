@@ -161,4 +161,5 @@
     <string name="receipt_action_choose_time">Vali aeg</string>
     <string name="receipt_action_turn_on">Lülita sisse</string>
     <string name="receipt_action_try_again">Proovi uuesti</string>
+    <string name="receipt_action_keep">Jäta lihtsalt alles</string>
 </resources>

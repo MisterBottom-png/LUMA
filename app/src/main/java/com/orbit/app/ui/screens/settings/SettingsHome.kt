@@ -296,7 +296,7 @@ internal fun SettingsHome(
     }
 }
 
-/** Reminder status with a direct fix, plus the two capture switches. */
+/** Reminder status with a direct fix, the keyboard switch, and Advanced. */
 @Composable
 internal fun RemindersGroup(
     settings: AppSettings,
@@ -307,21 +307,18 @@ internal fun RemindersGroup(
         GroupDivider(startInset = 64.dp)
         Box(modifier = Modifier.padding(start = 64.dp, end = 16.dp)) {
             SettingsSwitchRow(
-                title = stringResource(R.string.settings_sort_right_after_saving),
-                body = stringResource(R.string.settings_sort_right_after_saving_body),
-                checked = settings.sortRightAfterSaving,
-                onCheckedChange = { onSettingsChanged(settings.copy(sortRightAfterSaving = it)) },
-            )
-        }
-        GroupDivider(startInset = 64.dp)
-        Box(modifier = Modifier.padding(start = 64.dp, end = 16.dp)) {
-            SettingsSwitchRow(
                 title = stringResource(R.string.settings_focus_capture),
                 body = stringResource(R.string.settings_focus_capture_body),
                 checked = settings.focusCaptureOnOpen,
                 onCheckedChange = { onSettingsChanged(settings.copy(focusCaptureOnOpen = it)) },
             )
         }
+        GroupDivider(startInset = 64.dp)
+        ReminderAdvancedSettings(
+            settings = settings,
+            onSettingsChanged = onSettingsChanged,
+            modifier = Modifier.padding(start = 64.dp, end = 16.dp),
+        )
     }
 }
 
