@@ -10,7 +10,12 @@ import com.orbit.app.data.repository.BrainDumpRepository
 import com.orbit.app.data.repository.CaptureRepository
 import com.orbit.app.domain.usecase.CaptureFinalizationTransaction
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * Applies [decide] to analysed thoughts. A pending decision is a row, not a coroutine:
@@ -24,6 +29,8 @@ import kotlinx.coroutines.flow.first
  *   user action (which stamp `decidedAt`) always win over a late run.
  * - No learning event is recorded: an automatic filing is not the user agreeing.
  * - Nothing here retries; the next app start is the retry.
+ * - It stands aside while [paused] says so ("Sort right after saving" is on), and for a
+ *   thought added from a Calendar day: the sort sheet opens for those and the user sorts.
  */
 class AutoFiler(
     private val captureRepository: CaptureRepository,
@@ -32,9 +39,32 @@ class AutoFiler(
     private val captureResolution: CaptureResolution,
     private val transaction: CaptureFinalizationTransaction,
     private val now: () -> Long = System::currentTimeMillis,
+    /** True while the user sorts every thought in the sheet themselves. */
+    private val paused: suspend () -> Boolean = { false },
 ) {
+    /**
+     * Decides each thought as soon as its analysis is stored. Subscribes before this
+     * returns, so a result that lands right after cannot be missed; one failure never
+     * stops the listener. A failed analysis is left alone: `analyzePending()` retries it
+     * on the next start.
+     */
+    fun listen(scope: CoroutineScope, events: Flow<CaptureInboxEvent>): Job =
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            events.collect { event ->
+                if (event !is CaptureInboxEvent.Analyzed) return@collect
+                try {
+                    apply(event.captureId)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Exception) {
+                    // Still pending; the next app start decides it.
+                }
+            }
+        }
+
     /** Decides every analysed thought still waiting for a decision. Returns how many were decided. */
     suspend fun applyPending(): Int {
+        if (paused()) return 0
         val pending = captureRepository.observeAll().first().filter { it.isPending() }
         return pending.count { apply(it.id) }
     }
@@ -42,6 +72,8 @@ class AutoFiler(
     /** Decides one thought if it is still pending. Returns true when this call decided it. */
     suspend fun apply(captureId: Long): Boolean {
         val capture = captureRepository.getById(captureId)?.takeIf { it.isPending() } ?: return false
+        // Added from a Calendar day: the sort sheet opens with that day, so the user sorts it.
+        if (capture.contextDateEpochDay != null || paused()) return false
         val suggestion = suggestionDao.getByCaptureId(captureId)?.takeUnless { it.dismissed } ?: return false
         val decision = if (brainDumpRepository.getSession(captureId) != null) {
             CaptureDecision.Keep

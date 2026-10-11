@@ -28,11 +28,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.orbit.app.R
+import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.reminders.ReminderCapabilities
 import com.orbit.app.reminders.ReminderCapabilityStatus
 import com.orbit.app.reminders.ReminderHealth
@@ -143,6 +145,34 @@ internal fun ReminderHealthFix.labelRes(): Int = when (this) {
     ReminderHealthFix.TurnOn -> R.string.settings_turn_on
     ReminderHealthFix.Allow -> R.string.settings_allow
     ReminderHealthFix.Check -> R.string.reminder_health_action_check
+}
+
+/**
+ * Settings › Reminders › Advanced. "Sort right after saving" lives here: while it is on,
+ * Tallele files nothing by itself and the sort sheet opens after every thought.
+ */
+@Composable
+internal fun ReminderAdvancedSettings(
+    settings: AppSettings,
+    onSettingsChanged: (AppSettings) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = stringResource(R.string.settings_reminders_advanced),
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .semantics { heading() },
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.settings_sort_right_after_saving),
+            body = stringResource(R.string.settings_sort_right_after_saving_body),
+            checked = settings.sortRightAfterSaving,
+            onCheckedChange = { onSettingsChanged(settings.copy(sortRightAfterSaving = it)) },
+        )
+    }
 }
 
 /** A whole-row switch: the label and the switch are one target for touch and TalkBack. */

@@ -140,4 +140,5 @@
     <plurals name="brain_overview_save"><item quantity="one">Save %1$d</item><item quantity="other">Save %1$d</item></plurals>
     <plurals name="split_offer"><item quantity="one">Looks like %1$d thought</item><item quantity="other">Looks like %1$d thoughts</item></plurals>
     <plurals name="search_result_count"><item quantity="one">%1$d result</item><item quantity="other">%1$d results</item></plurals>
+    <string name="settings_reminders_advanced">Advanced</string>
 </resources>

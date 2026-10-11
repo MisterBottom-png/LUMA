@@ -391,46 +391,48 @@ abstract class ScreenTour(private val theme: String) {
     }
 
     /**
-     * Step 4: the save receipt under the capture box. Filed is driven the way automatic
-     * filing files a clear thought (it is not wired into the app yet); the reminder lines
-     * come from Home's one question, first with notifications off, then allowed.
+     * Steps 4 and 5: the save receipt under the capture box. Clear thoughts are filed by
+     * Tallele itself (act); a reminder with no time asks one question in place of the
+     * receipt (ask), and "Just keep it" ends it (keep). The reminder lines are shown first
+     * with notifications off, then allowed.
      */
     private fun receiptScreens() {
         val app = compose.activity.application as OrbitApplication
-        val container = app.container
         tapTab("Home")
         capture("Buy milk tomorrow")
-        step("file it") {
-            runBlocking {
-                val id = requireNotNull(container.appSettingsRepository.settings.first().lastReceiptCaptureId)
-                withTimeout(10_000) {
-                    while (container.database.captureSuggestionDao().getByCaptureId(id) == null) delay(50)
-                }
-                container.captureResolution.acceptSuggestion(id)
-            }
-            compose.waitUntil(10_000) { count("Task for tomorrow.") > 0 }
-        }
+        step("filed by itself") { compose.waitUntil(10_000) { count("Task for tomorrow.") > 0 } }
         shot("home-receipt-filed")
         step("notifications off") {
             shadowOf(app).denyPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
         }
         capture("Remind me tomorrow at 10:00 to water the roses")
-        step("remind me, notifications off") {
-            compose.waitUntil(10_000) { count("Remind me") > 0 }
-            compose.onNodeWithText("Remind me").performClick()
-            compose.waitUntil(10_000) { count("Turn on") > 0 }
-        }
+        step("reminder, notifications off") { compose.waitUntil(10_000) { count("Turn on") > 0 } }
         shot("home-receipt-needs-you")
         step("notifications on") {
             shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
         }
         capture("Remind me tomorrow at 9:00 to call the bank")
-        step("remind me") {
-            compose.waitUntil(10_000) { count("Remind me") > 0 }
-            compose.onNodeWithText("Remind me").performClick()
+        step("reminder set by itself") {
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Reminder set for", substring = true).fetchSemanticsNodes().isNotEmpty() }
         }
         shot("home-receipt-reminder")
+        capture("remind me about the car")
+        step("one question") { compose.waitUntil(10_000) { count("Just keep it") > 0 } }
+        shot("home-question-time")
+        step("just keep it") {
+            compose.onNodeWithText("Just keep it").performClick()
+            compose.waitUntil(10_000) { count("Saved as a note.") > 0 }
+        }
+        shot("home-question-kept")
+    }
+
+    /** Step 5: "Sort right after saving" sits under Settings › Reminders › Advanced. */
+    private fun reminderAdvancedScreens() {
+        tapTab("Home")
+        step("settings") { compose.onNodeWithContentDescription("Open settings").performClick(); compose.waitForIdle() }
+        step("advanced") { compose.onNodeWithText("Sort right after saving").performScrollTo(); compose.waitForIdle() }
+        shot("settings-reminders-advanced")
+        back()
     }
 
     /**
@@ -504,6 +506,7 @@ abstract class ScreenTour(private val theme: String) {
         extraScreens("x")
         smallFixScreens("s9")
         reminderHealthScreens()
+        reminderAdvancedScreens()
 
         // The same screens in the violet look (accent + background).
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick() }

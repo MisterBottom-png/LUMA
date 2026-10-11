@@ -19,13 +19,9 @@ class HomeCaptureProcessingStateTest {
 
     @Test
     fun savingClearsEarlierFeedbackAndNeverWaitsForAnalysis() {
-        val saving = HomeCaptureUiState(
-            message = HomeMessage.SaveFailed,
-            quickReminder = QuickReminderQuestion(captureId = 1, title = "x", reminderAt = null, phrase = null),
-        ).beginCaptureSaving()
+        val saving = HomeCaptureUiState(message = HomeMessage.SaveFailed).beginCaptureSaving()
 
         assertEquals(CaptureProcessingState.Saving, saving.processingState)
         assertEquals(null, saving.message)
-        assertEquals(null, saving.quickReminder)
     }
 }

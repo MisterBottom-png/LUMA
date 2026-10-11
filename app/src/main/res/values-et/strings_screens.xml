@@ -140,4 +140,5 @@
     <plurals name="brain_overview_save"><item quantity="one">Salvesta %1$d</item><item quantity="other">Salvesta %1$d</item></plurals>
     <plurals name="split_offer"><item quantity="one">Paistab olevat %1$d mõte</item><item quantity="other">Paistab olevat %1$d mõtet</item></plurals>
     <plurals name="search_result_count"><item quantity="one">%1$d tulemus</item><item quantity="other">%1$d tulemust</item></plurals>
+    <string name="settings_reminders_advanced">Täpsemalt</string>
 </resources>

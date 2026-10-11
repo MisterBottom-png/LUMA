@@ -11,6 +11,7 @@ import com.orbit.app.OrbitContainer
 import com.orbit.app.R
 import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
@@ -31,7 +32,6 @@ import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
 import com.orbit.app.domain.usecase.RoomCaptureFinalizationTransaction
 import com.orbit.app.reminders.NotificationAccess
-import com.orbit.app.reminders.ReminderSaveOutcome
 import com.orbit.app.reminders.ReminderSaveOutcomes
 import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.testing.inMemoryOrbitDatabase
@@ -129,6 +129,34 @@ class HomeCaptureViewModelTest {
     }
 
     @Test
+    fun aReminderWithoutATimeAsksOneQuestionInPlaceOfTheReceiptAndJustKeepItEndsIt() {
+        val app = TestApp(scheduler = TokenScheduler(armed = true))
+        val viewModel = app.viewModel()
+        viewModel.onInputChanged("remind me about the car")
+        assertTrue(viewModel.send())
+        awaitUntil { viewModel.receipt.value != null }
+        val captureId = requireNotNull(viewModel.receipt.value).captureId
+        awaitUntil { runBlocking { app.database.captureSuggestionDao().getByCaptureId(captureId) } != null }
+        assertTrue(runBlocking { app.autoFiler.apply(captureId) })
+
+        // The question is read from the stored outcome, not from a one-off event.
+        awaitUntil { viewModel.question.value != null }
+        val question = requireNotNull(viewModel.question.value)
+        assertEquals(captureId, question.captureId)
+        assertEquals(CaptureOutcomeReason.TimeUnclear, question.reason)
+        assertNull(runBlocking { app.database.reminderDao().observeAll().first() }.firstOrNull())
+
+        viewModel.keepQuestionThought()
+        awaitUntil { viewModel.question.value == null && viewModel.receipt.value?.outcome == CaptureOutcome.Saved }
+        val kept = requireNotNull(runBlocking { app.database.captureDao().getById(captureId) })
+        assertEquals(CaptureOutcome.Saved, kept.outcome)
+        assertEquals(CaptureOutcomeReason.None, kept.outcomeReason)
+        assertNotNull(kept.decidedAt)
+        assertEquals(R.string.receipt_saved_note, requireNotNull(viewModel.receipt.value).line().textRes)
+        assertTrue(runBlocking { app.database.reminderDao().observeAll().first() }.isEmpty())
+    }
+
+    @Test
     fun theNextSaveReplacesTheReceiptAndDismissingHidesItUntilThen() {
         val app = TestApp(scheduler = TokenScheduler(armed = true))
         val viewModel = app.viewModel()
@@ -157,8 +185,7 @@ class HomeCaptureViewModelTest {
         assertTrue(before.send())
         awaitUntil { before.receipt.value != null }
         val captureId = requireNotNull(before.receipt.value).captureId
-        awaitUntil { runBlocking { first.database.captureSuggestionDao().getByCaptureId(captureId) } != null }
-        assertNotNull(runBlocking { first.captureResolution.acceptSuggestion(captureId) })
+        // The container files the clear thought itself as soon as its analysis lands.
         awaitUntil { before.receipt.value?.outcome == CaptureOutcome.Filed }
         val shown = requireNotNull(before.receipt.value)
         assertEquals(ReceiptItemType.Task, shown.itemType)
@@ -179,7 +206,6 @@ class HomeCaptureViewModelTest {
         val factory = HomeCaptureViewModel.Factory(
             captureInbox = container.captureInbox,
             appSettingsRepository = container.appSettingsRepository,
-            quickReminder = container.captureResolution::createQuickReminder,
             savedStateHandle = SavedStateHandle(),
             receipts = CaptureReceiptReader(
                 captureRepository = container.captureRepository,
@@ -293,12 +319,12 @@ class HomeCaptureViewModelTest {
             val factory = HomeCaptureViewModel.Factory(
                 captureInbox = inbox,
                 appSettingsRepository = MemorySettings(settings),
-                quickReminder = { _, _, _ -> ReminderSaveOutcome.Saved },
                 savedStateHandle = SavedStateHandle(),
                 receipts = CaptureReceiptReader(captures, notes, tasks, reminders, spaceRepository)::observe,
                 retryReminder = { captureId, reminderId ->
                     rearmReceiptReminder(reminders, outcomes, resolution, captureId, reminderId)
                 },
+                keepThought = resolution::keep,
             )
             return ViewModelProvider.create(store, factory)[HomeCaptureViewModel::class.java]
         }

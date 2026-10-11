@@ -140,4 +140,5 @@
     <plurals name="brain_overview_save"><item quantity="one">Сохранить %1$d</item><item quantity="few">Сохранить %1$d</item><item quantity="many">Сохранить %1$d</item><item quantity="other">Сохранить %1$d</item></plurals>
     <plurals name="split_offer"><item quantity="one">Похоже на %1$d мысль</item><item quantity="few">Похоже на %1$d мысли</item><item quantity="many">Похоже на %1$d мыслей</item><item quantity="other">Похоже на %1$d мысли</item></plurals>
     <plurals name="search_result_count"><item quantity="one">%1$d результат</item><item quantity="few">%1$d результата</item><item quantity="many">%1$d результатов</item><item quantity="other">%1$d результата</item></plurals>
+    <string name="settings_reminders_advanced">Дополнительно</string>
 </resources>
