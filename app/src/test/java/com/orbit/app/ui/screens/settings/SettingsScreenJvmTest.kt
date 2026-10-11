@@ -62,6 +62,9 @@ class SettingsScreenJvmTest {
             }
         }
 
+        // Theme, colour, background and glass live under one "Look" row.
+        composeRule.onNodeWithText("Look").performScrollTo().performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("Dark").performScrollTo().performClick()
         assertEquals(SettingsThemeMode.Dark, settings.themeMode)
 
@@ -73,6 +76,10 @@ class SettingsScreenJvmTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Solid").performScrollTo().performClick()
         assertEquals(GlassEffect.Off, settings.glassEffect)
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.waitForIdle()
+        // Back from Glass returns to Look, and back again to the overview.
+        composeRule.onNodeWithText("Dark").assertExists()
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.waitForIdle()
 

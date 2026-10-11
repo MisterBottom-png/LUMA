@@ -90,6 +90,7 @@ internal fun AppearanceSettingsSection(
     settings: AppSettings,
     onSettingsChanged: (AppSettings) -> Unit,
     selectedMenuSection: AppearanceMenuSection,
+    onOpenSection: (AppearanceMenuSection) -> Unit = {},
 ) {
     val context = LocalContext.current
     val customBackgroundPicker = rememberLauncherForActivityResult(
@@ -110,6 +111,12 @@ internal fun AppearanceSettingsSection(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         when (selectedMenuSection) {
+            AppearanceMenuSection.Look -> AppearanceLookSection(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged,
+                onOpen = onOpenSection,
+            )
+
             AppearanceMenuSection.Profile -> AppearanceProfileSection(
                 settings = settings,
                 onSettingsChanged = onSettingsChanged,
@@ -141,6 +148,7 @@ internal enum class AppearanceMenuSection(
     @param:StringRes val subtitleRes: Int,
     val icon: ImageVector,
 ) {
+    Look(R.string.settings_look_title, R.string.settings_look_subtitle, Icons.Filled.Palette),
     Profile(R.string.settings_profile_title, R.string.settings_profile_subtitle, Icons.Filled.Person),
     Colors(R.string.settings_colors_title, R.string.settings_colors_subtitle, Icons.Filled.Palette),
     Background(

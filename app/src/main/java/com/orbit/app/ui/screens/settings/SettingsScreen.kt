@@ -112,8 +112,18 @@ fun SettingsScreen(
         if (activeScrollState !== homeScrollState) activeScrollState.scrollTo(0)
     }
 
+    // A page opened from Look goes back to Look; everything else goes back to the overview.
+    var appearanceFromLook by rememberSaveable { mutableStateOf(false) }
+    val closeAppearance: () -> Unit = {
+        appearanceSubsection = if (appearanceFromLook && appearanceSubsection != AppearanceMenuSection.Look) {
+            AppearanceMenuSection.Look
+        } else {
+            null
+        }
+        if (appearanceSubsection != AppearanceMenuSection.Look) appearanceFromLook = false
+    }
     BackHandler(enabled = appearanceSubsection != null) {
-        appearanceSubsection = null
+        closeAppearance()
     }
     BackHandler(enabled = aiSubsection != null) {
         aiSubsection = null
@@ -188,6 +198,10 @@ fun SettingsScreen(
                         settings = settings,
                         onSettingsChanged = onSettingsChanged,
                         selectedMenuSection = appearance,
+                        onOpenSection = { section ->
+                            appearanceFromLook = true
+                            appearanceSubsection = section
+                        },
                     )
 
                     system == null -> SettingsHome(
@@ -271,7 +285,7 @@ fun SettingsScreen(
                 appearance != null -> SettingsSubsectionHeader(
                     title = stringResource(appearance.titleRes),
                     subtitle = stringResource(appearance.subtitleRes),
-                    onBack = { appearanceSubsection = null },
+                    onBack = closeAppearance,
                 )
 
                 ai != null -> SettingsSubsectionHeader(

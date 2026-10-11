@@ -32,6 +32,9 @@ class RemindersGroupJvmTest {
             }
         }
 
+        // Both behaviour switches are folded under Advanced.
+        composeRule.onNodeWithText("Sort right after saving").assertDoesNotExist()
+        composeRule.onNodeWithText("Advanced").performClick()
         composeRule.onNodeWithText("Sort right after saving").assertIsOff().performClick()
         assertTrue(settings.sortRightAfterSaving)
         // Off until the user asks for it: Home opens calm, without the keyboard.

@@ -167,4 +167,6 @@
         <item quantity="one">%1$d otsustada</item>
         <item quantity="other">%1$d otsustada</item>
     </plurals>
+    <string name="settings_look_title">Välimus</string>
+    <string name="settings_look_subtitle">Teema, värv, taust ja klaas</string>
 </resources>

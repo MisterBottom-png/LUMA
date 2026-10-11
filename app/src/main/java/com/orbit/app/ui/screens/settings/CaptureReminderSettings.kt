@@ -15,6 +15,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -148,8 +154,8 @@ internal fun ReminderHealthFix.labelRes(): Int = when (this) {
 }
 
 /**
- * Settings › Reminders › Advanced. "Sort right after saving" lives here: while it is on,
- * Tallele files nothing by itself and the sort sheet opens after every thought.
+ * Reminders › Advanced: the two behaviour switches, folded away. "Sort right after saving"
+ * turns off automatic filing; "Open the keyboard on Home" only changes how Home opens.
  */
 @Composable
 internal fun ReminderAdvancedSettings(
@@ -157,21 +163,43 @@ internal fun ReminderAdvancedSettings(
     onSettingsChanged: (AppSettings) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
     Column(modifier = modifier) {
-        Text(
-            text = stringResource(R.string.settings_reminders_advanced),
+        Row(
             modifier = Modifier
-                .padding(top = 12.dp)
-                .semantics { heading() },
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        SettingsSwitchRow(
-            title = stringResource(R.string.settings_sort_right_after_saving),
-            body = stringResource(R.string.settings_sort_right_after_saving_body),
-            checked = settings.sortRightAfterSaving,
-            onCheckedChange = { onSettingsChanged(settings.copy(sortRightAfterSaving = it)) },
-        )
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clickable(role = Role.Button) { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.settings_reminders_advanced),
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() },
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (expanded) {
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_sort_right_after_saving),
+                body = stringResource(R.string.settings_sort_right_after_saving_body),
+                checked = settings.sortRightAfterSaving,
+                onCheckedChange = { onSettingsChanged(settings.copy(sortRightAfterSaving = it)) },
+            )
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_focus_capture),
+                body = stringResource(R.string.settings_focus_capture_body),
+                checked = settings.focusCaptureOnOpen,
+                onCheckedChange = { onSettingsChanged(settings.copy(focusCaptureOnOpen = it)) },
+            )
+        }
     }
 }
 

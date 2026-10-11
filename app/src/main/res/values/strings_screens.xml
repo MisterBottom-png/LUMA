@@ -169,4 +169,6 @@
         <item quantity="one">%1$d to decide</item>
         <item quantity="other">%1$d to decide</item>
     </plurals>
+    <string name="settings_look_title">Look</string>
+    <string name="settings_look_subtitle">Theme, color, background and glass</string>
 </resources>

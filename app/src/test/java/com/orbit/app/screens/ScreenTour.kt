@@ -308,6 +308,8 @@ abstract class ScreenTour(private val theme: String) {
         shot("$prefix-settings-scrolled")
         scrollDown("settings 2")
         shot("$prefix-settings-scrolled2")
+        step("look") { compose.onNodeWithText("Look").performScrollTo().performClick(); compose.waitForIdle() }
+        shot("$prefix-settings-look")
         step("background") { compose.onNodeWithText("Background").performScrollTo().performClick(); compose.waitForIdle() }
         shot("$prefix-settings-background")
         back()
@@ -316,6 +318,7 @@ abstract class ScreenTour(private val theme: String) {
         back()
         step("transparency") { compose.onNodeWithText("Glass").performScrollTo().performClick(); compose.waitForIdle() }
         shot("$prefix-settings-transparency")
+        back()
         back()
         back()
     }
@@ -512,7 +515,12 @@ abstract class ScreenTour(private val theme: String) {
     private fun reminderAdvancedScreens() {
         tapTab("Home")
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick(); compose.waitForIdle() }
-        step("advanced") { compose.onNodeWithText("Sort right after saving").performScrollTo(); compose.waitForIdle() }
+        step("advanced") {
+            compose.onNodeWithText("Advanced").performScrollTo().performClick()
+            compose.waitForIdle()
+            compose.onNodeWithText("Open the keyboard on Home").performScrollTo()
+            compose.waitForIdle()
+        }
         shot("settings-reminders-advanced")
         back()
     }
@@ -600,9 +608,11 @@ abstract class ScreenTour(private val theme: String) {
 
         // The same screens in the violet look (accent + background).
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick() }
+        step("look") { compose.onNodeWithText("Look").performScrollTo().performClick(); compose.waitForIdle() }
         step("violet accent") { compose.onNodeWithContentDescription("Tallele violet").performScrollTo().performClick() }
         step("background") { compose.onNodeWithText("Background").performScrollTo().performClick(); compose.waitForIdle() }
         step("violet mist") { compose.onAllNodesWithText("Violet Mist", substring = true)[0].performClick() }
+        back()
         back()
         back()
         mainScreens("v")
