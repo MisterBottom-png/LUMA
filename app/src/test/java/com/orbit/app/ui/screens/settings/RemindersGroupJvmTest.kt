@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import com.orbit.app.testing.JvmComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -40,6 +41,13 @@ class RemindersGroupJvmTest {
         assertTrue(settings.focusCaptureOnOpen)
         assertTrue(settings.sortRightAfterSaving)
 
-        composeRule.onNodeWithText("Reminder delivery").assertExists()
+        // The reminder health row: one line saying what, if anything, blocks reminders.
+        val healthLines = listOf(
+            "Nothing is blocking reminders.",
+            "Notifications are off, so reminders can’t ring.",
+            "The Reminders sound is off.",
+            "Reminders may be a few minutes late.",
+        )
+        assertTrue(healthLines.any { composeRule.onAllNodesWithText(it).fetchSemanticsNodes().isNotEmpty() })
     }
 }
