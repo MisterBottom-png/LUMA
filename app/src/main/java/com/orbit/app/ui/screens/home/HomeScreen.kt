@@ -109,6 +109,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarDuration
 import com.orbit.app.capture.VoiceCapture
 import com.orbit.app.ui.components.SoftGlassSurface
+import com.orbit.app.ui.components.LiveGlassSurface
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.components.orbitPressFeedback
 import com.orbit.app.ui.time.OrbitTimeFormat
@@ -717,7 +718,7 @@ private fun CaptureCard(
         if (focusRequest != 0L) runCatching { focusRequester.requestFocus() }
     }
     val processingStatusRes = processingState.statusLabelRes()
-    SoftGlassSurface(
+    LiveGlassSurface(
         modifier = modifier
             .height(height),
         shape = RoundedCornerShape(32.dp),

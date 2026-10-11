@@ -56,8 +56,9 @@ object OrbitBottomNavigationDefaults {
 }
 
 /**
- * Home · Spaces · Calendar · Review, each with a visible label. The bar is a
- * near-solid surface so content scrolling behind it never mixes with the icons.
+ * Home · Spaces · Calendar · Review, each with a visible label. The bar is live glass:
+ * blurred where Android and the Glass setting allow it, near-solid otherwise, so content
+ * scrolling behind it never mixes with the icons.
  */
 @Composable
 fun FloatingBottomNavigation(
@@ -73,7 +74,7 @@ fun FloatingBottomNavigation(
             .padding(bottom = OrbitBottomNavigationDefaults.BottomPadding),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        SoftGlassSurface(
+        LiveGlassSurface(
             modifier = Modifier
                 .widthIn(max = OrbitBottomNavigationDefaults.MaxBarWidth)
                 .fillMaxWidth()

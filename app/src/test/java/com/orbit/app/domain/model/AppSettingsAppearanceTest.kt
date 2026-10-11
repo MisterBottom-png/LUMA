@@ -38,4 +38,9 @@ class AppSettingsAppearanceTest {
         assertEquals(customized.staleLoopDays, reset.staleLoopDays)
         assertEquals(customized.aiMode, reset.aiMode)
     }
+
+    @Test
+    fun newInstallsStartOnVioletMistBecauseGlassNeedsColourBehindIt() {
+        assertEquals(BackgroundPreset.VioletMist, AppSettings().backgroundPreset)
+    }
 }
