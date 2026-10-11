@@ -3,7 +3,6 @@ package com.orbit.app.domain.capture
 import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureOutcomeReason.TimePassed
 import com.orbit.app.data.local.entity.CaptureOutcomeReason.TimeUnclear
-import com.orbit.app.data.local.entity.CaptureOutcomeReason.TypeUnclear
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
 import com.orbit.app.domain.analyzer.CaptureAnalysis
@@ -58,7 +57,8 @@ class CaptureDecisionTest {
         Row("en", "remind me today at 8:00 to stretch", ask(TimeUnclear)),
         Row("en", "reminder: pay the car tax next week", ask(TimeUnclear)),
         Row("en", "pay rent tomorrow", ask(TimeUnclear)),
-        Row("en", "dentist tomorrow", ask(TimeUnclear)),
+        // A weak reminder guess (Medium) is kept quietly.
+        Row("en", "dentist tomorrow", keep),
         Row("en", "call the bank tomorrow", task),
         Row("en", "buy dog food", task),
         Row("en", "send the invoice", keep),
@@ -73,17 +73,19 @@ class CaptureDecisionTest {
         Row("en", "buy milk\ncall the dentist\nremind me tomorrow at 16:00 to pay rent", keep),
         // Estonian
         Row("et", "osta homme piima", task),
-        Row("et", "tuleta mulle homme meelde", ask(TimeUnclear)),
+        // Known analyzer gap, not a decision: the local rules score this explicit reminder Medium.
+        Row("et", "tuleta mulle homme meelde", keep),
         Row("et", "tuleta meelde auto kohta", ask(TimeUnclear)),
-        // A clear time at Medium confidence is confirmed by the user, never set alone.
-        Row("et", "tuleta mulle meelde homme kell 9 lilli kasta", ask(TimeUnclear)),
-        Row("et", "tuleta mulle 1 minuti pärast meelde", ask(TimeUnclear)),
-        Row("et", "tuleta mulle 1 minuti pärast meelde", ask(TimePassed), decidedMinutesLater = 5),
-        Row("et", "tuleta mulle 2 tunni pärast meelde pesu välja võtta", ask(TimeUnclear)),
-        Row("et", "tuleta mulle meelde eile kell 9 lilli kasta", ask(TimeUnclear)),
+        // Known analyzer gap, not a decision: the local rules score these explicit reminders Medium.
+        Row("et", "tuleta mulle meelde homme kell 9 lilli kasta", keep),
+        Row("et", "tuleta mulle 1 minuti pärast meelde", keep),
+        Row("et", "tuleta mulle 1 minuti pärast meelde", keep, decidedMinutesLater = 5),
+        Row("et", "tuleta mulle 2 tunni pärast meelde pesu välja võtta", keep),
+        Row("et", "tuleta mulle meelde eile kell 9 lilli kasta", keep),
         Row("et", "meeldetuletus: auto kindlustus järgmisel nädalal", ask(TimeUnclear)),
         Row("et", "maksa üür homme", ask(TimeUnclear)),
-        Row("et", "hambaarst homme", ask(TimeUnclear)),
+        // A weak reminder guess (Medium) is kept quietly.
+        Row("et", "hambaarst homme", keep),
         Row("et", "helista emale teisipäeval kell 9", task),
         Row("et", "helista pangale homme", task),
         Row("et", "osta koerale toitu", task),
@@ -102,9 +104,11 @@ class CaptureDecisionTest {
         Row("ru", "напомни мне завтра в 9:00 полить цветы", reminder),
         Row("ru", "напомни мне завтра в 9:00 полить цветы", ask(TimePassed), decidedMinutesLater = 2 * 24 * 60),
         Row("ru", "напомни через 2 часа вынуть бельё", reminder),
-        Row("ru", "напоминание: страховка машины на следующей неделе", ask(TimeUnclear)),
+        // Known analyzer gap, not a decision: the local rules score this explicit reminder Medium.
+        Row("ru", "напоминание: страховка машины на следующей неделе", keep),
         Row("ru", "оплатить аренду завтра", ask(TimeUnclear)),
-        Row("ru", "стоматолог завтра", ask(TimeUnclear)),
+        // A weak reminder guess (Medium) is kept quietly.
+        Row("ru", "стоматолог завтра", keep),
         Row("ru", "позвонить маме во вторник в 9:00", task),
         Row("ru", "позвонить в банк завтра", task),
         Row("ru", "купить корм собаке", task),
@@ -132,6 +136,15 @@ class CaptureDecisionTest {
         val low = thoughts.filter { analyse(it).confidenceLevel == CaptureConfidence.Low }
         assertTrue("the table has low-confidence rows", low.size >= 6)
         low.forEach { row ->
+            assertEquals(row.text, keep, decide(analyse(row), hasSpace = true, now = decisionTime(row)))
+        }
+    }
+
+    @Test
+    fun onlyHighConfidenceActsOrAsks() {
+        val notHigh = thoughts.filter { analyse(it).confidenceLevel != CaptureConfidence.High }
+        assertTrue("the table has rows below High", notHigh.size >= 20)
+        notHigh.forEach { row ->
             assertEquals(row.text, keep, decide(analyse(row), hasSpace = true, now = decisionTime(row)))
         }
     }
@@ -196,16 +209,16 @@ class CaptureDecisionTest {
         RuleRow("high reminder, time unclear", analysis(SuggestedItemType.Reminder, high, unclear), false, ask(TimeUnclear)),
         RuleRow("high reminder, no time at all", analysis(SuggestedItemType.Reminder, high, reminderPossible = true), false, ask(TimeUnclear)),
         RuleRow("unclear status ignores a stray time", analysis(SuggestedItemType.Reminder, high, unclear, nowMillis + 60_000), false, ask(TimeUnclear)),
-        RuleRow("medium reminder, clear future time", analysis(SuggestedItemType.Reminder, medium, resolved, nowMillis + 60_000), false, ask(TimeUnclear)),
-        RuleRow("medium reminder, past time", analysis(SuggestedItemType.Reminder, medium, resolved, nowMillis - 60_000), false, ask(TimePassed)),
-        RuleRow("medium reminder, no time", analysis(SuggestedItemType.Reminder, medium, reminderPossible = true), false, ask(TimeUnclear)),
+        RuleRow("medium reminder, clear future time", analysis(SuggestedItemType.Reminder, medium, resolved, nowMillis + 60_000), false, keep),
+        RuleRow("medium reminder, past time", analysis(SuggestedItemType.Reminder, medium, resolved, nowMillis - 60_000), false, keep),
+        RuleRow("medium reminder, no time", analysis(SuggestedItemType.Reminder, medium, reminderPossible = true), false, keep),
         RuleRow("low reminder, clear future time", analysis(SuggestedItemType.Reminder, low, resolved, nowMillis + 60_000), false, keep),
         RuleRow("low reminder, time unclear", analysis(SuggestedItemType.Reminder, low, unclear), false, keep),
         RuleRow("low reminder, past time", analysis(SuggestedItemType.Reminder, low, resolved, nowMillis - 60_000), false, keep),
         RuleRow("high task", analysis(SuggestedItemType.Task, high), false, task),
         RuleRow("high task with a reminder cue", analysis(SuggestedItemType.Task, high, unclear), false, task),
         RuleRow("medium task", analysis(SuggestedItemType.Task, medium), false, keep),
-        RuleRow("medium task with a reminder cue", analysis(SuggestedItemType.Task, medium, unclear), false, ask(TypeUnclear)),
+        RuleRow("medium task with a reminder cue", analysis(SuggestedItemType.Task, medium, unclear), false, keep),
         RuleRow("low task with a reminder cue", analysis(SuggestedItemType.Task, low, unclear), false, keep),
         RuleRow("high note in a Space", analysis(SuggestedItemType.Note, high), true, CaptureDecision.Act(SuggestedItemType.Note)),
         RuleRow("high note without a Space", analysis(SuggestedItemType.Note, high), false, keep),

@@ -80,6 +80,15 @@ class AutoFilerRecoveryTest {
             reminderTimeStatus = ReminderTimeStatus.Resolved,
             confidence = 0.9f,
         ),
+        "Sometime remind me about the gutters" to CaptureAnalysis(
+            rawText = "Sometime remind me about the gutters",
+            suggestedType = SuggestedItemType.Reminder,
+            suggestedSpaceName = "Home",
+            suggestedNextAction = "",
+            relatedTopics = listOf("Home"),
+            reminderPossible = true,
+            confidence = 0.67f,
+        ),
     )
 
     @Before
@@ -182,6 +191,23 @@ class AutoFilerRecoveryTest {
         val capture = requireNotNull(second.database.captureDao().getById(id))
         assertEquals(CaptureOutcome.NeedsYou, capture.outcome)
         assertEquals(CaptureOutcomeReason.TimePassed, capture.outcomeReason)
+        assertTrue(second.database.reminderDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun aReminderGuessBelowHighConfidenceIsKeptWithoutAQuestion() = runBlocking {
+        val first = startProcess()
+        val id = first.inbox.save("Sometime remind me about the gutters")
+        first.inbox.analyze(id)
+        first.stop()
+
+        val second = startProcess()
+        assertEquals(1, second.autoFiler.applyPending())
+        val capture = requireNotNull(second.database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, capture.status)
+        assertEquals(CaptureOutcome.Saved, capture.outcome)
+        assertEquals(CaptureOutcomeReason.None, capture.outcomeReason)
+        assertEquals(now, capture.decidedAt)
         assertTrue(second.database.reminderDao().observeAll().first().isEmpty())
     }
 
