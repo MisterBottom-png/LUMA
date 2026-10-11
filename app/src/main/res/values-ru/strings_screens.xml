@@ -115,10 +115,10 @@
     <string name="search_recent">Недавно сохранённые</string>
     <string name="search_no_matches">Совпадений для «%1$s» нет.</string>
     <string name="search_include_archived">Искать и в архиве</string>
-    <string name="tutorial_write_title">Запишите. Разберёте потом.</string>
+    <string name="tutorial_write_title">Запишите. Остальное Tallele возьмёт на себя.</string>
     <string name="tutorial_write_body">Записывайте любую мысль как есть. Тип, дату или место заранее выбирать не нужно.</string>
-    <string name="tutorial_suggest_title">Tallele предлагает. Решаете вы.</string>
-    <string name="tutorial_suggest_body">Она предлагает тип, время и пространство. Ничто не станет задачей или напоминанием, пока вы не согласитесь.</string>
+    <string name="tutorial_suggest_title">Tallele сама раскладывает понятное и спрашивает, только когда нужно.</string>
+    <string name="tutorial_suggest_body">Понятная мысль становится заметкой, задачей или напоминанием, и это всегда можно изменить. Если время или тип неясны, она сначала спросит вас.</string>
     <string name="tutorial_spaces_pick_title">Выберите пространства</string>
     <string name="tutorial_spaces_pick_body">Пространство объединяет одну часть жизни. Выберите несколько сейчас — изменить их можно в любое время.</string>
     <string name="tutorial_private_title">Приватно по умолчанию</string>
@@ -126,6 +126,12 @@
     <string name="tutorial_private_1">Ваши мысли хранятся на этом телефоне.</string>
     <string name="tutorial_private_2">Gemini помогает, только если вы его включите.</string>
     <string name="tutorial_private_3">Разрешение на уведомления запрашивается при первом напоминании.</string>
+    <string name="home_first_line_above">Пишите что угодно. Tallele надёжно сохранит это и разложит, что сможет.</string>
+    <string name="home_first_line_below">Всё остаётся на этом телефоне, если вы не включите Gemini и не будете пользоваться голосовым вводом.</string>
+    <string name="home_first_receipt_tip_filed">Tallele разложила это за вас. Если что-то не так, нажмите «Изменить».</string>
+    <string name="home_first_receipt_tip_kept">Tallele сохранила это. Найти можно в разделе «%1$s» и в поиске.</string>
+    <string name="home_first_receipt_tip_reminder">Напоминание установлено. Чтобы перенести его, нажмите «Изменить».</string>
+    <string name="notification_priming">Чтобы это напоминание сработало в %1$s, Tallele нужно разрешение на уведомления.</string>
     <string name="tutorial_continue">Продолжить</string>
     <string name="tutorial_demo_thought">позвонить стоматологу завтра в 9</string>
     <string name="tutorial_demo_other_1">идеи для сада</string>

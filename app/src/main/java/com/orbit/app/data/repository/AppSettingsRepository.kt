@@ -103,6 +103,8 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             settings.lastReceiptCaptureId?.let { preferences[Keys.LAST_RECEIPT_CAPTURE_ID] = it }
                 ?: preferences.remove(Keys.LAST_RECEIPT_CAPTURE_ID)
             preferences[Keys.LAST_RECEIPT_DISMISSED] = settings.lastReceiptDismissed
+            preferences[Keys.HAS_SEEN_FIRST_RECEIPT_TIP] = settings.hasSeenFirstReceiptTip
+            preferences[Keys.HAS_ASKED_FOR_NOTIFICATIONS] = settings.hasAskedForNotifications
         }
     }
 
@@ -194,6 +196,12 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             lastReceiptCaptureId = preferences[Keys.LAST_RECEIPT_CAPTURE_ID]?.takeIf { it > 0L },
             lastReceiptDismissed = preferences[Keys.LAST_RECEIPT_DISMISSED]
                 ?: defaults.lastReceiptDismissed,
+            // Someone who already used the app before this tip existed does not get it now.
+            hasSeenFirstReceiptTip = preferences[Keys.HAS_SEEN_FIRST_RECEIPT_TIP]
+                ?: preferences[Keys.HAS_COMPLETED_FIRST_TIME_TUTORIAL]
+                ?: defaults.hasSeenFirstReceiptTip,
+            hasAskedForNotifications = preferences[Keys.HAS_ASKED_FOR_NOTIFICATIONS]
+                ?: defaults.hasAskedForNotifications,
         )
     }
 
@@ -256,5 +264,7 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
         val HAS_SEEN_VOICE_CLOUD_NOTICE = booleanPreferencesKey("has_seen_voice_cloud_notice")
         val LAST_RECEIPT_CAPTURE_ID = longPreferencesKey("last_receipt_capture_id")
         val LAST_RECEIPT_DISMISSED = booleanPreferencesKey("last_receipt_dismissed")
+        val HAS_SEEN_FIRST_RECEIPT_TIP = booleanPreferencesKey("has_seen_first_receipt_tip")
+        val HAS_ASKED_FOR_NOTIFICATIONS = booleanPreferencesKey("has_asked_for_notifications")
     }
 }

@@ -115,10 +115,10 @@
     <string name="search_recent">Recently saved</string>
     <string name="search_no_matches">No matches for “%1$s”.</string>
     <string name="search_include_archived">Search archived too</string>
-    <string name="tutorial_write_title">Write it down. Sort it later.</string>
+    <string name="tutorial_write_title">Write it down. Tallele takes it from here.</string>
     <string name="tutorial_write_body">Put any thought in, the way it comes. You don’t need to pick a type, a date or a place first.</string>
-    <string name="tutorial_suggest_title">Tallele suggests. You decide.</string>
-    <string name="tutorial_suggest_body">It offers a type, a time and a Space. Nothing becomes a task or reminder until you say yes.</string>
+    <string name="tutorial_suggest_title">Tallele files what’s clear and asks only when it must.</string>
+    <string name="tutorial_suggest_body">It turns a clear thought into a note, task or reminder, and you can change it any time. When the time or type is unclear, it asks you first.</string>
     <string name="tutorial_spaces_pick_title">Pick your Spaces</string>
     <string name="tutorial_spaces_pick_body">A Space keeps one part of life together. Choose a few now; you can change them any time.</string>
     <string name="tutorial_private_title">Private by default</string>
@@ -126,6 +126,14 @@
     <string name="tutorial_private_1">Your thoughts are kept on this phone.</string>
     <string name="tutorial_private_2">Gemini helps only if you turn it on.</string>
     <string name="tutorial_private_3">Notifications are asked for with your first reminder.</string>
+    <!-- First run: Home teaches the app; the guide is for replay from Settings. -->
+    <string name="home_first_line_above">Write anything. Tallele keeps it safe and sorts what it can.</string>
+    <string name="home_first_line_below">Everything stays on this phone unless you turn on Gemini or use voice.</string>
+    <string name="home_first_receipt_tip_filed">Tallele filed this for you. Tap Change if it got it wrong.</string>
+    <!-- %1$s is the name of the Spaces tile that lists saved thoughts. -->
+    <string name="home_first_receipt_tip_kept">Tallele kept this. You’ll find it in %1$s and in Search.</string>
+    <string name="home_first_receipt_tip_reminder">The reminder is set. Tap Change to move it.</string>
+    <string name="notification_priming">So this reminder can ring at %1$s, Tallele needs to show notifications.</string>
     <string name="tutorial_continue">Continue</string>
     <string name="tutorial_demo_thought">call the dentist tomorrow at 9</string>
     <string name="tutorial_demo_other_1">ideas for the garden</string>

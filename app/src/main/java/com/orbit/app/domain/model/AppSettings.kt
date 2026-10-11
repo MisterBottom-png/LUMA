@@ -132,6 +132,13 @@ data class AppSettings(
     val lastReceiptCaptureId: Long? = null,
     /** True once the user swiped the receipt away or opened its item; the next save shows a new one. */
     val lastReceiptDismissed: Boolean = false,
+    /**
+     * The one-time tip under the first receipt has been read (the next save or closing that
+     * receipt counts). Installs that finished the old guide count as having seen it.
+     */
+    val hasSeenFirstReceiptTip: Boolean = false,
+    /** Home already asked Android once to show notifications, so a reminder from Home can ring. */
+    val hasAskedForNotifications: Boolean = false,
 )
 
 val AppSettings.hasCurrentGeminiConsent: Boolean
