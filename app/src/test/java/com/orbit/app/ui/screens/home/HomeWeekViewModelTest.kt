@@ -37,14 +37,24 @@ class HomeWeekViewModelTest {
     }
 
     @Test
-    fun visibleWeekMonth_usesMiddleDayForSplitMonthWeeks() {
+    fun visibleWeekMonth_namesBothMonthsForSplitMonthWeeks() {
         val augustToSeptember = homeWeekDates(LocalDate.of(2026, 9, 1), Locale.GERMANY)
         val marchToApril = homeWeekDates(LocalDate.of(2026, 3, 30), Locale.GERMANY)
+        val septemberToOctober = homeWeekDates(LocalDate.of(2026, 9, 28), Locale.GERMANY)
 
-        assertEquals("September", homeVisibleWeekMonth(augustToSeptember, Locale.ENGLISH))
-        assertEquals("April", homeVisibleWeekMonth(marchToApril, Locale.ENGLISH))
-        assertEquals("июль", homeVisibleWeekMonth(List(7) { LocalDate.of(2026, 7, 20).plusDays(it.toLong()) }, Locale("ru")))
-        assertEquals("juuli", homeVisibleWeekMonth(List(7) { LocalDate.of(2026, 7, 20).plusDays(it.toLong()) }, Locale("et")))
+        assertEquals("Aug–Sep", homeVisibleWeekMonth(augustToSeptember, Locale.ENGLISH))
+        assertEquals("Mar–Apr", homeVisibleWeekMonth(marchToApril, Locale.ENGLISH))
+        assertEquals("Sep–Oct", homeVisibleWeekMonth(septemberToOctober, Locale.ENGLISH))
+        assertEquals("sept–okt", homeVisibleWeekMonth(septemberToOctober, Locale("et")))
+    }
+
+    @Test
+    fun visibleWeekMonth_keepsTheFullNameForOneMonthWeeks() {
+        val julyWeek = List(7) { LocalDate.of(2026, 7, 20).plusDays(it.toLong()) }
+
+        assertEquals("July", homeVisibleWeekMonth(julyWeek, Locale.ENGLISH))
+        assertEquals("июль", homeVisibleWeekMonth(julyWeek, Locale("ru")))
+        assertEquals("juuli", homeVisibleWeekMonth(julyWeek, Locale("et")))
     }
 
     @Test

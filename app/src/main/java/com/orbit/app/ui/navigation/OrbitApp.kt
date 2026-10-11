@@ -328,6 +328,12 @@ fun OrbitApp(
                             navController.navigateToCalendar(date)
                         },
                         onVisibleWeekChanged = homeWeekViewModel::moveVisibleWeek,
+                        onShowToday = homeWeekViewModel::showToday,
+                        // The same "Adding for …" banner as Calendar's "+", with the keyboard open.
+                        onAddForDate = { date ->
+                            entry.savedStateHandle[CalendarCaptureContext.EpochDayKey] = date.toEpochDay()
+                            entry.savedStateHandle[SharedTextContext.FocusCaptureKey] = System.nanoTime()
+                        },
                         userName = settings.userName,
                         timeFormat = timeFormat,
                         onOpenSettings = {

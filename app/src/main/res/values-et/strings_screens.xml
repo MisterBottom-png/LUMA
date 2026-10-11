@@ -122,6 +122,9 @@
     <string name="tutorial_private_1">Sinu mõtted hoitakse selles telefonis.</string>
     <string name="tutorial_private_2">Gemini aitab ainult siis, kui selle sisse lülitad.</string>
     <string name="tutorial_private_3">Teavitusi küsitakse esimese meeldetuletuse juures.</string>
+    <!-- Home week strip: TalkBack action and long-press label. -->
+    <string name="home_week_back_to_today">Tagasi selle nädala juurde</string>
+    <string name="home_week_add_for_day">Lisa sellele päevale</string>
     <string name="home_first_line_above">Kirjuta mida iganes. Tallele hoiab selle alles ja sorteerib, mida oskab.</string>
     <string name="home_first_line_below">Kõik jääb sellesse telefoni, kui sa just ei lülita sisse Geminit ega kasuta häält.</string>
     <string name="home_first_receipt_tip_filed">Tallele sorteeris selle sinu eest. Kui midagi läks valesti, puuduta „Muuda“.</string>

@@ -20,7 +20,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,6 +48,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -133,6 +136,9 @@ fun HomeScreen(
     onCalendarDateContextConsumed: () -> Unit,
     onCalendarDateSelected: (LocalDate) -> Unit,
     onVisibleWeekChanged: (Int) -> Unit,
+    onShowToday: () -> Unit = {},
+    /** Long-pressing a day: write a thought for that day, here on Home. */
+    onAddForDate: (LocalDate) -> Unit = {},
     userName: String,
     timeFormat: OrbitTimeFormat,
     onOpenSettings: () -> Unit = {},
@@ -366,6 +372,8 @@ fun HomeScreen(
                         uiState = weekUiState,
                         onDateSelected = onCalendarDateSelected,
                         onVisibleWeekChanged = onVisibleWeekChanged,
+                        onShowToday = onShowToday,
+                        onAddForDate = onAddForDate,
                     )
                 }
 
@@ -553,11 +561,14 @@ private fun CaptureContextBanner(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun WeekStrip(
     uiState: HomeWeekUiState,
     onDateSelected: (LocalDate) -> Unit,
     onVisibleWeekChanged: (Int) -> Unit,
+    onShowToday: () -> Unit = {},
+    onAddForDate: (LocalDate) -> Unit = {},
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val swipeThreshold = with(LocalDensity.current) { 48.dp.toPx() }
@@ -565,6 +576,11 @@ internal fun WeekStrip(
     var horizontalDrag by remember { mutableFloatStateOf(0f) }
     val showPreviousWeek = stringResource(R.string.core_home_show_previous_week)
     val showNextWeek = stringResource(R.string.core_home_show_next_week)
+    val backToThisWeek = stringResource(R.string.home_week_back_to_today)
+    val addForDay = stringResource(R.string.home_week_add_for_day)
+    val showingThisWeek = uiState.today in remember(uiState.visibleWeekDate, locale) {
+        homeWeekDates(uiState.visibleWeekDate, locale)
+    }
     val dateAccessibilityLabels = HomeDateAccessibilityLabels(
         today = stringResource(R.string.core_today),
         selected = stringResource(R.string.core_selected),
@@ -596,7 +612,16 @@ internal fun WeekStrip(
                         onVisibleWeekChanged(1)
                         true
                     },
-                )
+                ) + if (showingThisWeek) {
+                    emptyList()
+                } else {
+                    listOf(
+                        CustomAccessibilityAction(backToThisWeek) {
+                            onShowToday()
+                            true
+                        },
+                    )
+                }
             },
     ) {
         AnimatedContent(
@@ -625,6 +650,8 @@ internal fun WeekStrip(
             }
             val month = remember(dates, locale) { homeVisibleWeekMonth(dates, locale) }
             val weekNumber = remember(dates, locale) { homeVisibleWeekNumber(dates, locale) }
+            val isThisWeek = uiState.today in dates
+            val headerLineHeight = with(LocalDensity.current) { HomeTypography.calendarWeek.lineHeight.toDp() }
 
             Column(modifier = sharedContentBounds) {
                 Row(
@@ -649,6 +676,26 @@ internal fun WeekStrip(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                     )
+                    // Away from today's week, one tap brings it back; the slide picks its
+                    // direction from the dates, so no extra motion code is needed. The
+                    // button keeps its 48 dp touch target but takes only the height of the
+                    // "Week N" line, so the strip does not grow or shift when it appears.
+                    if (!isThisWeek) {
+                        TextButton(
+                            onClick = onShowToday,
+                            modifier = Modifier
+                                .alignByBaseline()
+                                .padding(start = 4.dp)
+                                .height(headerLineHeight)
+                                .wrapContentHeight(unbounded = true),
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.core_today),
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -667,6 +714,7 @@ internal fun WeekStrip(
                     ) {
                         dates.forEach { date ->
                         val isToday = date == uiState.today
+                        val isPast = date < uiState.today
                         val interactionSource = remember(date) { MutableInteractionSource() }
                         val isPressed by interactionSource.collectIsPressedAsState()
                         val hasItems = date in uiState.datesWithItems
@@ -687,10 +735,13 @@ internal fun WeekStrip(
                                         interactionSource = interactionSource,
                                         clipShape = dayCapsuleShape,
                                     )
-                                    .clickable(
+                                    .combinedClickable(
                                         interactionSource = interactionSource,
                                         indication = LocalIndication.current,
-                                    ) { onDateSelected(date) }
+                                        onLongClickLabel = addForDay,
+                                        onLongClick = { onAddForDate(date) },
+                                        onClick = { onDateSelected(date) },
+                                    )
                                     .semantics(mergeDescendants = true) {
                                         role = Role.Button
                                         selected = false
@@ -730,9 +781,12 @@ internal fun WeekStrip(
                                     } else {
                                         HomeTypography.calendarDate
                                     },
+                                    // Days already gone read quieter, by colour only, so the
+                                    // eye goes to today and the days ahead.
                                     color = when {
                                         isPressed -> MaterialTheme.colorScheme.onPrimary
                                         isToday -> MaterialTheme.colorScheme.onPrimaryContainer
+                                        isPast -> MaterialTheme.colorScheme.onSurfaceVariant
                                         else -> MaterialTheme.colorScheme.onSurface
                                     },
                                 )
