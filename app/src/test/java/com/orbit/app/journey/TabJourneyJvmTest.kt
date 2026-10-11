@@ -110,4 +110,21 @@ class TabJourneyJvmTest {
         tapTab("Home")
         assertTrue("Home tab after Calendar, Spaces, Calendar", onHome())
     }
+
+    @Test
+    fun aTabKeepsItsPlaceWhenLeftThroughTheHomeTab() {
+        compose.waitUntil(10_000) { count("Skip") > 0 || onHome() }
+        if (count("Skip") > 0) compose.onNodeWithText("Skip").performClick()
+        compose.waitForIdle()
+
+        tapTab("Calendar")
+        compose.onNodeWithContentDescription("Show the month").performClick()
+        compose.waitForIdle()
+        tapTab("Home")
+        assertTrue("Home tab from Calendar", onHome())
+
+        tapTab("Calendar")
+        // Still the month view: its switch offers the day view.
+        compose.onNodeWithContentDescription("Show the day").assertExists()
+    }
 }
