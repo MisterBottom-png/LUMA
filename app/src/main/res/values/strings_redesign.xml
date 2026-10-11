@@ -144,6 +144,7 @@
         <item quantity="other">Nothing new today; %d from earlier when you’re ready.</item>
     </plurals>
     <string name="item_discard_title">Discard changes?</string>
+    <string name="item_detail_more">More</string>
     <string name="item_discard_body">Your edits to the title and notes will be lost.</string>
     <string name="item_discard_confirm">Discard</string>
     <string name="item_keep_editing">Keep editing</string>
