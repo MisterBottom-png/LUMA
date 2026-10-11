@@ -136,11 +136,7 @@ internal fun LocalDataSettingsSection(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.settings_export_explanation),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Plain words on the buttons; the file type and the replace rule sit under them.
             Button(
                 onClick = { showExportWarning = true },
                 enabled = !localDataTools.isExporting,
@@ -151,11 +147,12 @@ internal fun LocalDataSettingsSection(
                         if (localDataTools.isExporting) {
                             R.string.settings_exporting
                         } else {
-                            R.string.settings_export_json
+                            R.string.settings_create_backup
                         },
                     ),
                 )
             }
+            BackupNote(stringResource(R.string.settings_create_backup_note))
             if (localDataTools.exportCompleted) {
                 Text(
                     text = stringResource(R.string.settings_export_complete),
@@ -171,11 +168,6 @@ internal fun LocalDataSettingsSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             LocalDataMessages(localDataTools, LocalDataArea.Export)
-            Text(
-                text = stringResource(R.string.settings_restore_explanation),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             OutlinedButton(
                 onClick = { restorePicker.launch(arrayOf("application/json", "text/json")) },
                 enabled = !localDataTools.isPreparingRestore && !localDataTools.isRestoring,
@@ -186,11 +178,12 @@ internal fun LocalDataSettingsSection(
                         if (localDataTools.isPreparingRestore) {
                             R.string.settings_validating
                         } else {
-                            R.string.settings_choose_export
+                            R.string.settings_restore_backup
                         },
                     ),
                 )
             }
+            BackupNote(stringResource(R.string.settings_restore_backup_note))
             LocalDataMessages(localDataTools, LocalDataArea.Restore)
             if (localDataTools.canRetryReminderSetup) {
                 OutlinedButton(
@@ -255,6 +248,17 @@ internal fun LocalDataSettingsSection(
 }
 
 internal const val ExportFileName = "tallele-export.json"
+
+/** Small text under a backup button. */
+@Composable
+private fun BackupNote(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(top = 2.dp),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
 
 /** The messages that belong next to one button: errors in the error colour, results calmly. */
 @Composable
