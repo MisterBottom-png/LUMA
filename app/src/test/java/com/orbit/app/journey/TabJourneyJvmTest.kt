@@ -76,7 +76,7 @@ class TabJourneyJvmTest {
 
         compose.onNodeWithContentDescription("Open settings").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Appearance", substring = true).assertExists()
+        compose.onNodeWithText("Look").assertExists()
         assertEquals("the tab bar is hidden in Settings", 0, count("Calendar"))
     }
 
