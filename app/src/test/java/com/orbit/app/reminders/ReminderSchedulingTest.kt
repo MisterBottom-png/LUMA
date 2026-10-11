@@ -533,6 +533,8 @@ private class FakeReminderDao : ReminderDao {
         publish()
     }
 
+    override suspend fun nextUndeliveredNotificationAt(now: Long): Long? = null
+
     override suspend fun deleteById(id: Long) {
         reminders.remove(id)
         publish()

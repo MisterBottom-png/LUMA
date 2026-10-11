@@ -95,10 +95,6 @@
     <string name="settings_sort_right_after_saving_body">Open Tallele’s suggestion straight away. When off, thoughts wait calmly in Review → To sort.</string>
     <string name="settings_focus_capture">Open the keyboard on Home</string>
     <string name="settings_focus_capture_body">Start typing as soon as Home opens.</string>
-    <string name="settings_reminder_delivery_title">Reminder delivery</string>
-    <string name="settings_reminder_delivery_ready">Reminders will arrive on time.</string>
-    <string name="settings_reminder_delivery_may_be_late">Reminders may arrive a few minutes late. Allow “Alarms &amp; reminders” for exact timing.</string>
-    <string name="settings_reminder_delivery_blocked">Notifications are off, so reminders can’t reach you. Your reminders are still saved.</string>
     <string name="settings_glass_effect">Glass effect</string>
     <string name="settings_glass_effect_strong">Strong</string>
     <string name="settings_glass_effect_soft">Soft</string>

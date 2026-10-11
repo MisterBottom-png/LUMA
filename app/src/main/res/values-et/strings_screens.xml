@@ -48,6 +48,13 @@
     <string name="settings_section_about">Rakendusest</string>
     <string name="settings_turn_on">Lülita sisse</string>
     <string name="settings_allow">Luba</string>
+    <string name="reminder_health_ok">Miski ei takista meeldetuletusi.</string>
+    <string name="reminder_health_notifications_off">Märguanded on välja lülitatud, seega meeldetuletused ei saa heliseda.</string>
+    <string name="reminder_health_channel_off">Meeldetuletuste heli on välja lülitatud.</string>
+    <string name="reminder_health_battery">See telefon peatab mõnikord taustal töötavaid rakendusi. Kui mõni meeldetuletus jääb kunagi tulemata, kontrolli kõigepealt seda.</string>
+    <string name="reminder_health_late">Meeldetuletused võivad mõne minuti hilineda.</string>
+    <string name="reminder_health_samsung_steps">Aku › Taustakasutuse piirangud › Rakendused, mis ei lähe kunagi unerežiimi › lisa Tallele</string>
+    <string name="reminder_health_action_check">Kontrolli</string>
     <string name="settings_add_name">Lisa oma nimi</string>
     <string name="settings_backup_title">Varundus ja taastamine</string>
     <string name="settings_data_footer">Sinu kirjed on selles telefonis. Varukoopia fail hoiab koopiat ka mujal.</string>

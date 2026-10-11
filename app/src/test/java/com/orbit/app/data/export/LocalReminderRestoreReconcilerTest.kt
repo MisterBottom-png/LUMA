@@ -144,4 +144,6 @@ private class RestoreReminderDao : ReminderDao {
             notificationWorkId = null,
         )
     }
+
+    override suspend fun nextUndeliveredNotificationAt(now: Long): Long? = null
 }

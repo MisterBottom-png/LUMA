@@ -101,10 +101,6 @@
     <string name="settings_sort_right_after_saving_body">Сразу показывать предложение Tallele. Если выключено, мысли спокойно ждут в разделе «Обзор» → «Разобрать».</string>
     <string name="settings_focus_capture">Открывать клавиатуру на главном экране</string>
     <string name="settings_focus_capture_body">Начинайте печатать сразу, как откроется главный экран.</string>
-    <string name="settings_reminder_delivery_title">Доставка напоминаний</string>
-    <string name="settings_reminder_delivery_ready">Напоминания придут вовремя.</string>
-    <string name="settings_reminder_delivery_may_be_late">Напоминания могут приходить с опозданием на несколько минут. Для точного времени разрешите «Будильники и напоминания».</string>
-    <string name="settings_reminder_delivery_blocked">Уведомления выключены, поэтому напоминания не смогут до вас дойти. Ваши напоминания по-прежнему сохранены.</string>
     <string name="settings_glass_effect">Эффект стекла</string>
     <string name="settings_glass_effect_strong">Сильный</string>
     <string name="settings_glass_effect_soft">Мягкий</string>

@@ -48,6 +48,13 @@
     <string name="settings_section_about">About</string>
     <string name="settings_turn_on">Turn on</string>
     <string name="settings_allow">Allow</string>
+    <string name="reminder_health_ok">Nothing is blocking reminders.</string>
+    <string name="reminder_health_notifications_off">Notifications are off, so reminders can’t ring.</string>
+    <string name="reminder_health_channel_off">The Reminders sound is off.</string>
+    <string name="reminder_health_battery">This phone sometimes stops apps in the background. If a reminder is ever missed, this is the first thing to check.</string>
+    <string name="reminder_health_late">Reminders may be a few minutes late.</string>
+    <string name="reminder_health_samsung_steps">Battery › Background usage limits › Never sleeping apps › add Tallele</string>
+    <string name="reminder_health_action_check">Check</string>
     <string name="settings_add_name">Add your name</string>
     <string name="settings_backup_title">Backup and restore</string>
     <string name="settings_data_footer">Your items are kept on this phone. A backup file keeps a copy somewhere else.</string>

@@ -48,6 +48,13 @@
     <string name="settings_section_about">О приложении</string>
     <string name="settings_turn_on">Включить</string>
     <string name="settings_allow">Разрешить</string>
+    <string name="reminder_health_ok">Напоминаниям ничего не мешает.</string>
+    <string name="reminder_health_notifications_off">Уведомления выключены, поэтому напоминания не смогут сработать.</string>
+    <string name="reminder_health_channel_off">Звук напоминаний выключен.</string>
+    <string name="reminder_health_battery">Этот телефон иногда останавливает приложения в фоне. Если напоминание когда-нибудь не придёт, сначала проверьте это.</string>
+    <string name="reminder_health_late">Напоминания могут приходить с опозданием на несколько минут.</string>
+    <string name="reminder_health_samsung_steps">Батарея › Ограничения фонового использования › Приложения без спящего режима › добавьте Tallele</string>
+    <string name="reminder_health_action_check">Проверить</string>
     <string name="settings_add_name">Добавьте своё имя</string>
     <string name="settings_backup_title">Резервная копия</string>
     <string name="settings_data_footer">Ваши записи хранятся на этом телефоне. Файл резервной копии хранит копию в другом месте.</string>

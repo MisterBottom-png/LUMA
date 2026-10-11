@@ -45,6 +45,51 @@ data class ReminderCapabilityStatus(
  */
 enum class ReminderCapabilityState { Ready, MayBeLate, MayBeStopped, Blocked }
 
+/** What the Settings health row says. Blocked splits in two: each has its own fix screen. */
+enum class ReminderHealthIssue { None, NotificationsOff, ChannelOff, MayBeLate, MayBeStopped }
+
+/** The one button the health row offers, if any. */
+enum class ReminderHealthFix { TurnOn, Allow, Check }
+
+/**
+ * One line of text, at most one fix, and whether the text is red. Red only when reminders
+ * cannot ring at all and one is due within [ReminderHealthUrgentWindowMillis]; the late
+ * and battery hints are never red.
+ */
+data class ReminderHealth(
+    val issue: ReminderHealthIssue,
+    val fix: ReminderHealthFix?,
+    val urgent: Boolean,
+)
+
+const val ReminderHealthUrgentWindowMillis: Long = 24L * 60 * 60 * 1000
+
+/**
+ * Maps what Android allows to the health row. [nextNotificationAt] is the next reminder
+ * that has not rung yet (see ReminderDao.nextUndeliveredNotificationAt), or null.
+ */
+fun ReminderCapabilityStatus.health(nextNotificationAt: Long?, now: Long): ReminderHealth {
+    val issue = when (state) {
+        ReminderCapabilityState.Blocked ->
+            if (!notificationsAllowed) ReminderHealthIssue.NotificationsOff else ReminderHealthIssue.ChannelOff
+        ReminderCapabilityState.MayBeLate -> ReminderHealthIssue.MayBeLate
+        ReminderCapabilityState.MayBeStopped -> ReminderHealthIssue.MayBeStopped
+        ReminderCapabilityState.Ready -> ReminderHealthIssue.None
+    }
+    val fix = when (issue) {
+        ReminderHealthIssue.NotificationsOff, ReminderHealthIssue.ChannelOff -> ReminderHealthFix.TurnOn
+        // Below Android 12 there is no "Alarms & reminders" screen to send the user to.
+        ReminderHealthIssue.MayBeLate -> ReminderHealthFix.Allow.takeIf { exactAlarmsAdjustable }
+        ReminderHealthIssue.MayBeStopped -> ReminderHealthFix.Check
+        ReminderHealthIssue.None -> null
+    }
+    val urgent = state == ReminderCapabilityState.Blocked &&
+        nextNotificationAt != null &&
+        nextNotificationAt > now &&
+        nextNotificationAt - now <= ReminderHealthUrgentWindowMillis
+    return ReminderHealth(issue = issue, fix = fix, urgent = urgent)
+}
+
 object ReminderCapabilities {
     private const val PreferencesName = "luma_reminder_delivery"
     private const val KeyLastBlocked = "last_blocked_delivery_at"
@@ -153,6 +198,30 @@ object ReminderCapabilities {
             if (appContext.packageManager.resolveActivity(samsung, 0) != null) return samsung
         }
         return batteryOptimizationIntent(appContext)
+    }
+
+    /**
+     * On a Samsung phone whose "Never sleeping apps" list cannot be opened directly, the
+     * health row spells out the path instead.
+     */
+    fun needsSamsungSteps(context: Context, manufacturer: String? = Build.MANUFACTURER): Boolean =
+        manufacturer?.trim()?.lowercase() == "samsung" &&
+            context.applicationContext.packageManager.resolveActivity(samsungNeverSleepingIntent(), 0) == null
+
+    /** Opens the system screen for the Reminders channel, where its sound can be turned back on. */
+    fun channelSettingsIntent(context: Context): Intent =
+        Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            .putExtra(Settings.EXTRA_CHANNEL_ID, ReminderNotifications.CHANNEL_ID)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /** The screen that fixes [issue], or null when there is nothing to fix or nowhere to go. */
+    fun fixIntent(context: Context, issue: ReminderHealthIssue): Intent? = when (issue) {
+        ReminderHealthIssue.NotificationsOff -> notificationSettingsIntent(context)
+        ReminderHealthIssue.ChannelOff -> channelSettingsIntent(context)
+        ReminderHealthIssue.MayBeLate -> exactAlarmSettingsIntent(context)
+        ReminderHealthIssue.MayBeStopped -> batteryFixIntent(context)
+        ReminderHealthIssue.None -> null
     }
 
     private const val SamsungNeverSleepingAction = "com.samsung.android.sm.ACTION_OPEN_CHECKABLE_LISTACTIVITY"
