@@ -2,6 +2,8 @@ package com.orbit.app.domain.capture
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.orbit.app.data.local.OrbitDatabase
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
@@ -15,6 +17,8 @@ import com.orbit.app.data.repository.RoomLabelRepository
 import com.orbit.app.domain.analyzer.LocalRulesCaptureAnalyzer
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
 import com.orbit.app.domain.usecase.RoomCaptureFinalizationTransaction
+import com.orbit.app.reminders.NotificationAccess
+import com.orbit.app.reminders.ReminderSaveOutcomes
 import com.orbit.app.testing.PolicyRecordingScheduler
 import com.orbit.app.testing.inMemoryOrbitDatabase
 import java.time.Instant
@@ -23,6 +27,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -55,20 +60,45 @@ class CaptureInboxRoomTest {
     @After
     fun tearDown() = database.close()
 
-    private fun inbox(scope: CoroutineScope = this.scope, onAnalysis: () -> Unit = {}): CaptureInbox = CaptureInbox(
+    private fun inbox(
+        scope: CoroutineScope = this.scope,
+        beforeResult: suspend () -> Unit = {},
+        onAnalysis: () -> Unit = {},
+    ): CaptureInbox = CaptureInbox(
         captureRepository = RoomCaptureRepository(database.captureDao()),
         suggestionDao = database.captureSuggestionDao(),
         brainDumpRepository = RoomBrainDumpRepository(database.brainDumpDao()),
         spaceRepository = RoomSpaceRepository(database.spaceDao()),
         suggester = { text, _ ->
             onAnalysis()
+            beforeResult()
             if (suggesterFails) error("analysis unavailable")
             LocalRulesCaptureAnalyzer(now = { Instant.ofEpochMilli(now) }, zoneId = { ZoneId.of("Europe/Tallinn") })
                 .analyze(text)
         },
         scope = scope,
         now = { now },
+        transaction = RoomCaptureFinalizationTransaction(database),
     )
+
+    private fun confirm() = ConfirmCaptureActionUseCase(
+        captureRepository = RoomCaptureRepository(database.captureDao()),
+        noteRepository = RoomNoteRepository(database.noteDao()),
+        taskRepository = RoomTaskRepository(database.taskDao()),
+        reminderRepository = RoomReminderRepository(database.reminderDao(), PolicyRecordingScheduler { now }),
+        transaction = RoomCaptureFinalizationTransaction(database),
+        labelRepository = RoomLabelRepository(database.labelDao()),
+    )
+
+    /** Holds the suggester until [release] completes, so a test can act on the thought meanwhile. */
+    private class SlowAnalysis {
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val hook: suspend () -> Unit = {
+            started.complete(Unit)
+            release.await()
+        }
+    }
 
     private fun resolution() = CaptureResolution(
         captureRepository = RoomCaptureRepository(database.captureDao()),
@@ -86,8 +116,26 @@ class CaptureInboxRoomTest {
             labelRepository = RoomLabelRepository(database.labelDao()),
         ),
         transaction = RoomCaptureFinalizationTransaction(database),
+        reminderOutcomes = ReminderSaveOutcomes(database.reminderDao()::getById) {
+            NotificationAccess(notificationsAllowed = true, reminderChannelEnabled = true)
+        },
         now = { now },
     )
+
+    @Test
+    fun theCalendarDayIsKeptWithTheThoughtAndSurvivesARestartBeforeAnalysis() = runBlocking {
+        val day = java.time.LocalDate.of(2026, 7, 20).toEpochDay()
+        // The test scope is cancelled, so no analysis runs: the app "stops" right after saving.
+        val note = inbox().save("Ideas for the garden", contextDateEpochDay = day)
+        val dump = inbox().save("Ideas for the garden\nCall the plumber", contextDateEpochDay = day)
+        assertEquals(day, database.captureDao().getById(note)?.contextDateEpochDay)
+
+        // After the restart a new inbox picks the pending thoughts up.
+        inbox().analyzePending()
+
+        assertEquals(day, database.captureSuggestionDao().getByCaptureId(note)?.contextDateEpochDay)
+        assertEquals(day, database.brainDumpDao().getSession(dump)?.calendarDateContextEpochDay)
+    }
 
     @Test
     fun aThoughtIsSafeInTheInboxBeforeAnyAnalysis() = runBlocking {
@@ -104,10 +152,10 @@ class CaptureInboxRoomTest {
         var awaited: Long? = null
         var awaitedWhenAnalysed: Long? = null
         val analysed = CompletableDeferred<Unit>()
-        val inbox = inbox(liveScope) {
+        val inbox = inbox(liveScope, onAnalysis = {
             awaitedWhenAnalysed = awaited
             analysed.complete(Unit)
-        }
+        })
 
         val id = inbox.save("call the bank tomorrow") { awaited = it }
         withTimeout(5_000) { analysed.await() }
@@ -224,5 +272,207 @@ class CaptureInboxRoomTest {
         val reminder = database.reminderDao().observeAll().first().single()
         assertEquals(at, reminder.dueAt)
         assertEquals(CaptureStatus.Processed, database.captureDao().getById(id)?.status)
+    }
+
+    @Test
+    fun lettingGoWhileAnalysisRunsIsNotUndoneByTheLateResult() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        resolution().archive(id)
+        slow.release.complete(Unit)
+
+        assertNull(withTimeout(5_000) { result.await() })
+        assertEquals(CaptureStatus.Archived, database.captureDao().getById(id)?.status)
+        assertNull(database.captureSuggestionDao().getByCaptureId(id))
+    }
+
+    @Test
+    fun sortingWhileAnalysisRunsKeepsTheItemLinkAndCreatesNoDuplicate() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        val noteId = confirm().saveNote(captureId = id, spaceId = null, title = "Quarterly report")
+        slow.release.complete(Unit)
+
+        assertNull(withTimeout(5_000) { result.await() })
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Processed, capture.status)
+        assertEquals(noteId, capture.linkedItemId)
+        assertNull(database.captureSuggestionDao().getByCaptureId(id))
+        assertEquals(1, database.noteDao().observeAll().first().size)
+        assertTrue(database.taskDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun aBrainDumpSortedWhileAnalysisRunsGetsNoSession() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("buy milk\ncall the dentist\nremind me tomorrow at 1600 to pay rent")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        confirm().saveNote(captureId = id, spaceId = null, title = "Errands")
+        slow.release.complete(Unit)
+
+        assertNull(withTimeout(5_000) { result.await() })
+        assertNull(RoomBrainDumpRepository(database.brainDumpDao()).getSession(id))
+        assertEquals(CaptureStatus.Processed, database.captureDao().getById(id)?.status)
+    }
+
+    @Test
+    fun aSpaceChosenWhileAnalysisRunsIsKept() = runBlocking {
+        val home = database.spaceDao().insert(
+            SpaceEntity(name = "Home", icon = "home", colorAccent = "#000000", sortOrder = 0),
+        )
+        database.spaceDao().insert(SpaceEntity(name = "Work", icon = "work", colorAccent = "#000000", sortOrder = 1))
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        val capture = requireNotNull(database.captureDao().getById(id))
+        database.captureDao().update(capture.copy(suggestedSpaceId = home))
+        slow.release.complete(Unit)
+
+        assertNotNull(withTimeout(5_000) { result.await() })
+        val stored = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, stored.status)
+        assertEquals(home, stored.suggestedSpaceId)
+        // Sorting reads the suggestion's Space, so it must name the chosen one too.
+        assertEquals("Home", database.captureSuggestionDao().getByCaptureId(id)?.suggestedSpaceName)
+    }
+
+    @Test
+    fun aThoughtAddedFromASpaceGoesIntoThatSpace() = runBlocking {
+        val household = database.spaceDao().insert(
+            SpaceEntity(name = "Household", icon = "home", colorAccent = "#000000", sortOrder = 0),
+        )
+        database.spaceDao().insert(SpaceEntity(name = "Work", icon = "work", colorAccent = "#000000", sortOrder = 1))
+        val inbox = inbox()
+        val id = inbox.save("Send the quarterly report to the team", spaceId = household)
+        inbox.analyze(id)
+
+        assertEquals(household, database.captureDao().getById(id)?.suggestedSpaceId)
+        val accepted = requireNotNull(resolution().acceptSuggestion(id))
+        val spaceOfItem = when (accepted.itemType) {
+            SuggestedItemType.Note -> database.noteDao().getById(accepted.itemId)?.spaceId
+            SuggestedItemType.Reminder -> database.reminderDao().getById(accepted.itemId)?.spaceId
+            else -> database.taskDao().getById(accepted.itemId)?.spaceId
+        }
+        assertEquals(household, spaceOfItem)
+    }
+
+    @Test
+    fun aSavedThoughtStartsAsSavedAndUndecided() = runBlocking {
+        val id = inbox().save("an idea for the garden")
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureOutcome.Saved, capture.outcome)
+        assertEquals(CaptureOutcomeReason.None, capture.outcomeReason)
+        assertNull(capture.outcomeAt)
+        assertNull(capture.decidedAt)
+
+        // Analysis alone decides nothing.
+        inbox().analyze(id)
+        assertEquals(CaptureOutcome.Saved, database.captureDao().getById(id)?.outcome)
+        assertNull(database.captureDao().getById(id)?.decidedAt)
+    }
+
+    @Test
+    fun acceptingAsATaskStoresFiledAndUndoStoresSavedAgain() = runBlocking {
+        val inbox = inbox()
+        val id = inbox.save("Send the quarterly report to the team")
+        inbox.analyze(id)
+        val resolution = resolution()
+
+        val accepted = requireNotNull(resolution.acceptSuggestion(id))
+        val filed = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureOutcome.Filed, filed.outcome)
+        assertEquals(CaptureOutcomeReason.None, filed.outcomeReason)
+        assertNotNull(filed.outcomeAt)
+        assertNotNull(filed.decidedAt)
+
+        resolution.undo(id, accepted.itemType, accepted.itemId)
+        val undone = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, undone.status)
+        assertEquals(CaptureOutcome.Saved, undone.outcome)
+        assertEquals(CaptureOutcomeReason.None, undone.outcomeReason)
+        assertEquals(now, undone.outcomeAt)
+        assertEquals("Undo is a decision, so nothing files it again", now, undone.decidedAt)
+    }
+
+    @Test
+    fun acceptingAReminderThatCanRingStoresReminderSet() = runBlocking {
+        val inbox = inbox()
+        val id = inbox.save("remind me tomorrow at 9:00 to water plants")
+        inbox.analyze(id)
+        val resolution = resolution()
+
+        val accepted = requireNotNull(resolution.acceptSuggestion(id))
+        assertEquals(SuggestedItemType.Reminder, accepted.itemType)
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureOutcome.ReminderSet, capture.outcome)
+        assertEquals(CaptureOutcomeReason.None, capture.outcomeReason)
+        assertNotNull(database.reminderDao().getById(accepted.itemId)?.notificationWorkId)
+
+        resolution.undo(id, accepted.itemType, accepted.itemId)
+        assertEquals(CaptureOutcome.Saved, database.captureDao().getById(id)?.outcome)
+        assertNull(database.reminderDao().getById(accepted.itemId))
+    }
+
+    @Test
+    fun aLateAnalysisAfterUndoLeavesTheThoughtSaved() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        // The user sorts it by hand, then takes it back, while analysis is still running.
+        val noteId = confirm().saveNote(captureId = id, spaceId = null, title = "Quarterly report")
+        assertEquals(CaptureOutcome.Filed, database.captureDao().getById(id)?.outcome)
+        resolution().undo(id, SuggestedItemType.Note, noteId)
+        slow.release.complete(Unit)
+        withTimeout(5_000) { result.await() }
+
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, capture.status)
+        assertEquals(CaptureOutcome.Saved, capture.outcome)
+        assertEquals(CaptureOutcomeReason.None, capture.outcomeReason)
+        assertEquals(now, capture.decidedAt)
+        assertTrue(database.noteDao().observeAll().first().isEmpty())
+        assertTrue(database.taskDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun aLateAnalysisNeverMovesAFiledThoughtBackToSaved() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        confirm().saveNote(captureId = id, spaceId = null, title = "Quarterly report")
+        slow.release.complete(Unit)
+
+        assertNull(withTimeout(5_000) { result.await() })
+        assertEquals(CaptureOutcome.Filed, database.captureDao().getById(id)?.outcome)
+    }
+
+    @Test
+    fun archivingStampsTheDecisionAndKeepsTheOutcome() = runBlocking {
+        val id = inbox().save("old thought")
+        resolution().archive(id)
+        val archived = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Archived, archived.status)
+        assertEquals(CaptureOutcome.Saved, archived.outcome)
+        assertEquals(now, archived.decidedAt)
     }
 }

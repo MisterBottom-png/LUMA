@@ -1,5 +1,6 @@
 package com.orbit.app.domain.ai
 
+import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.analyzer.CaptureAnalyzer
 import com.orbit.app.domain.analyzer.LocalReviewAnalyzer
@@ -17,6 +18,8 @@ import com.orbit.app.integrations.gemini.SourceLinkedPromptBuilders
 import com.orbit.app.integrations.gemini.geminiError
 import com.orbit.app.integrations.gemini.GeminiApiErrorKind
 import com.orbit.app.security.GeminiApiKeyStore
+import java.time.Instant
+import java.time.ZoneId
 import java.util.Locale
 
 enum class AiRouteSource {
@@ -48,6 +51,9 @@ class OrbitAiRouter(
     private val geminiApiKeyStore: GeminiApiKeyStore,
     private val learningProfileProvider: LearningProfileProvider = EmptyLearningProfileProvider,
     private val locale: () -> Locale = { Locale.ENGLISH },
+    private val zoneId: () -> ZoneId = { ZoneId.systemDefault() },
+    private val answerText: LocalAnswerText = EnglishLocalAnswerText,
+    private val retriever: LocalAiRetriever = LocalAiRetriever(),
 ) {
     suspend fun analyzeCapture(
         rawText: String,
@@ -128,57 +134,93 @@ class OrbitAiRouter(
             reminderTimeStatus = ReminderTimeStatus.NeedsClarification,
         )
 
-        ReminderTimeStatus.Unspecified -> this
+        // A task gets a day, never a clock time: the day the local rules found, else
+        // the day Gemini named.
+        ReminderTimeStatus.Unspecified -> if (suggestedType == SuggestedItemType.Task || suggestedType == SuggestedItemType.MondayItem) {
+            copy(
+                suggestedReminderAt = null,
+                taskDateEpochDay = localAnalysis.taskDateEpochDay
+                    ?: suggestedReminderAt?.let { Instant.ofEpochMilli(it).atZone(zoneId()).toLocalDate().toEpochDay() },
+            )
+        } else {
+            this
+        }
     }
 
+    /**
+     * Gemini suggests title, type and Space per fragment, in groups of
+     * [GeminiBrainDumpGroupSize] so a long dump is never cut short. Any group that
+     * comes back wrong means the whole dump keeps the local suggestions.
+     */
     private suspend fun analyzeBrainDump(
         rawText: String,
         localAnalysis: CaptureAnalysis,
         settings: AppSettings,
         apiKey: String,
         allowedSpaces: List<String>,
-    ): RoutedCaptureAnalysis =
-        when (
+    ): RoutedCaptureAnalysis {
+        val learningProfile = learningProfileProvider.profileFor(rawText)
+        val enriched = mutableListOf<com.orbit.app.domain.analyzer.BrainDumpSuggestion>()
+        var modelId: String? = null
+        for (group in localAnalysis.brainDumpItems.chunked(GeminiBrainDumpGroupSize)) {
             val result = geminiApiClient.generateJson(
                 apiKey = apiKey,
                 modelId = settings.geminiReasoningModelId,
                 prompt = GeminiPromptBuilders.brainDump(
                     rawText = rawText,
-                    sourceFragments = localAnalysis.brainDumpItems,
+                    sourceFragments = group,
                     allowedSpaces = allowedSpaces,
-                    learningProfile = learningProfileProvider.profileFor(rawText),
+                    learningProfile = learningProfile,
                 ),
-                maxOutputTokens = 1024,
+                maxOutputTokens = brainDumpOutputTokens(group.size),
             )
-        ) {
-            is GeminiApiResult.Success -> {
-                val items = GeminiJsonValidator.brainDumpSuggestions(
-                    text = result.text,
-                    allowedSpaces = allowedSpaces,
-                    expectedItems = localAnalysis.brainDumpItems,
-                )
-                if (items != null) {
-                    RoutedCaptureAnalysis(
-                        // Title, summary and chips stay the local analysis's wording, which
-                        // follows the language of the thought; only the split comes from Gemini.
-                        analysis = localAnalysis.copy(
-                            relatedTopics = items.map { it.suggestedSpaceName }.distinct(),
-                            brainDumpItems = items,
-                            analyzerSource = com.orbit.app.domain.analyzer.CaptureAnalyzerSource.Gemini,
-                        ),
-                        metadata = AiRouteMetadata(
-                            source = AiRouteSource.Gemini,
-                            cloudUsed = true,
-                            modelId = result.modelId,
-                        ),
-                    )
-                } else {
-                    fallback(rawText, geminiError(GeminiApiErrorKind.InvalidResponse))
+            when (result) {
+                is GeminiApiResult.Success -> {
+                    val items = GeminiJsonValidator.brainDumpSuggestions(
+                        text = result.text,
+                        allowedSpaces = allowedSpaces,
+                        expectedItems = group,
+                    ) ?: return fallback(rawText, geminiError(GeminiApiErrorKind.InvalidResponse))
+                    enriched += items
+                    modelId = result.modelId
                 }
+                is GeminiApiResult.Failure -> return fallback(rawText, result.error)
             }
-
-            is GeminiApiResult.Failure -> fallback(rawText, result.error)
         }
+        return RoutedCaptureAnalysis(
+            // Title, summary and chips stay the local analysis's wording, which
+            // follows the language of the thought; only the per-thought suggestions
+            // come from Gemini.
+            analysis = localAnalysis.copy(
+                relatedTopics = enriched.map { it.suggestedSpaceName }.distinct(),
+                brainDumpItems = enriched,
+                analyzerSource = com.orbit.app.domain.analyzer.CaptureAnalyzerSource.Gemini,
+            ),
+            metadata = AiRouteMetadata(
+                source = AiRouteSource.Gemini,
+                cloudUsed = true,
+                modelId = modelId,
+            ),
+        )
+    }
+
+    /**
+     * Where a one-line thought should be cut, when the user asked to split it. Null
+     * when Gemini is off or its answer is not an exact copy of the user's words.
+     */
+    suspend fun thoughtParts(rawText: String, settings: AppSettings): List<String>? {
+        if (!settings.canUseGemini(settings.useGeminiForBrainDump)) return null
+        val apiKey = geminiApiKeyStore.getKey() ?: return null
+        val result = geminiApiClient.generateJson(
+            apiKey = apiKey,
+            modelId = settings.geminiReasoningModelId,
+            prompt = GeminiPromptBuilders.thoughtParts(rawText),
+            maxOutputTokens = (rawText.length / 2 + 128).coerceIn(256, 2048),
+        )
+        return (result as? GeminiApiResult.Success)?.let { GeminiJsonValidator.thoughtParts(it.text, rawText) }
+    }
+
+    fun canSplitWithGemini(settings: AppSettings): Boolean = settings.canUseGemini(settings.useGeminiForBrainDump)
 
     suspend fun makeSmaller(text: String, settings: AppSettings): RoutedTinyAction {
         val localAction = { error: GeminiApiError? ->
@@ -228,7 +270,15 @@ class OrbitAiRouter(
         question: String,
         sources: List<AiSourceItem>,
     ): SourceLinkedAnswer {
-        if (sources.isEmpty()) return noDataAnswer()
+        if (sources.isEmpty()) {
+            return SourceLinkedAnswer(
+                answer = answerText.text(localGuidanceLocale(question, locale()), LocalAnswerKind.NoMatch, ""),
+                sourceItemIds = emptyList(),
+                sourceItems = emptyList(),
+                fromGemini = false,
+                searchQuery = question.trim(),
+            )
+        }
         // V1 keeps factual answers deterministic. Gemini is not allowed to add facts or state;
         // source-backed wording can be reintroduced only behind a validator that proves this.
         return localAnswer(question, sources)
@@ -354,7 +404,11 @@ class OrbitAiRouter(
         aiMode == AiMode.GeminiApi && featureEnabled
 
     private companion object {
-        const val MaxGeminiBrainDumpItems = 20
+        const val MaxGeminiBrainDumpItems = 60
+        const val GeminiBrainDumpGroupSize = 10
+
+        /** About 100 tokens of JSON per thought, within the client's 2048 cap. */
+        fun brainDumpOutputTokens(items: Int): Int = (items * 110 + 160).coerceIn(384, 2048)
     }
 
     private fun CaptureAnalysis.routedLocal(): RoutedCaptureAnalysis =
@@ -365,29 +419,20 @@ class OrbitAiRouter(
 
     private fun noDataAnswer(): SourceLinkedAnswer =
         SourceLinkedAnswer(
-            answer = noDataMessage(locale()),
+            answer = answerText.text(locale(), LocalAnswerKind.NoData, ""),
             sourceItemIds = emptyList(),
             sourceItems = emptyList(),
             fromGemini = false,
         )
 
+    /** Cites the first three sources; the wording comes from string resources. */
     private fun localAnswer(question: String, sources: List<AiSourceItem>): SourceLinkedAnswer {
         val top = sources.take(3)
+        val locale = localGuidanceLocale(question, locale())
         val answer = if (top.isEmpty()) {
-            noDataMessage(localGuidanceLocale(question, locale()))
+            answerText.text(locale, LocalAnswerKind.NoData, "")
         } else {
-            val lower = question.lowercase()
-            val englishPrefix = when {
-                "overdue" in lower || "late" in lower -> "These matching local items are overdue: "
-                listOf("stuck", "blocked", "waiting").any(lower::contains) -> "These local items are marked Waiting For: "
-                listOf("completed", "complete", "done", "finished").any(lower::contains) -> "These matching local items are completed: "
-                listOf("due", "upcoming", "today", "soon").any(lower::contains) -> "These local items have upcoming dates: "
-                listOf("recent", "recently", "latest", "new", "captured").any(lower::contains) -> "These local items were updated recently: "
-                else -> "These local items match your question: "
-            }
-            val prefix = localizedLocalAnswerPrefix(question)
-                ?: englishPrefix
-            prefix + top.joinToString { it.title } + "."
+            answerText.text(locale, retriever.answerKind(question), top.joinToString { it.title })
         }
         return SourceLinkedAnswer(
             answer = answer,
@@ -400,18 +445,18 @@ class OrbitAiRouter(
     private fun List<AiSourceItem>.toProfileQuery(prefix: String): String =
         (listOf(prefix) + take(8).flatMap { item -> listOf(item.title, item.snippet, item.spaceName.orEmpty()) })
             .joinToString(" ")
+}
 
-    private fun noDataMessage(locale: Locale): String = when (locale.language) {
-        "et" -> "Andmeid ei leitud."
-        "ru" -> "Данные не найдены."
-        else -> "No data found."
-    }
-
-    private fun localizedLocalAnswerPrefix(question: String): String? = when (
-        localGuidanceLocale(question, locale()).language
-    ) {
-        "et" -> "Need kohalikud üksused vastavad teie küsimusele: "
-        "ru" -> "Эти локальные элементы соответствуют вашему вопросу: "
-        else -> null
+/** English wording, for tests and as a fallback; the app passes string resources. */
+object EnglishLocalAnswerText : LocalAnswerText {
+    override fun text(locale: Locale, kind: LocalAnswerKind, titles: String): String = when (kind) {
+        LocalAnswerKind.NoMatch -> "Nothing in Tallele mentions that."
+        LocalAnswerKind.NoData -> "Nothing found."
+        LocalAnswerKind.Matches -> "These mention it: $titles."
+        LocalAnswerKind.Overdue -> "These are overdue: $titles."
+        LocalAnswerKind.Waiting -> "These are waiting on something: $titles."
+        LocalAnswerKind.Completed -> "These are done: $titles."
+        LocalAnswerKind.Upcoming -> "These have dates coming up: $titles."
+        LocalAnswerKind.Recent -> "These changed recently: $titles."
     }
 }

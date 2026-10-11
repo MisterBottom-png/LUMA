@@ -64,7 +64,7 @@ object GeminiPromptBuilders {
             "${fragment.id}: ${fragment.rawText}"
         }.ifBlank { rawText.trim() }
         return """
-        You are Tallele's optional cloud analyzer. Split a messy brain dump into reviewable suggestions.
+        You are Tallele's optional cloud analyzer. The brain dump below is already split into source fragments; suggest a title, type and Space for each one.
         $UserFacingLanguageInstruction
         For mixed-language dumps, apply that rule to each source fragment independently.
         Use only these Spaces when possible: ${allowedSpaces.joinToString().ifBlank { "Work, Personal, Car, Dog, Money, Ideas, Home, Health, Learning, Inbox" }}.
@@ -77,6 +77,18 @@ object GeminiPromptBuilders {
         $fragments
     """.trimIndent()
     }
+
+    /** Asks only where one thought should be cut; the words themselves must not change. */
+    fun thoughtParts(rawText: String): String = """
+        You are Tallele's optional cloud analyzer. The text below may hold several separate thoughts.
+        Cut it into parts, one per thought. Copy each part word for word from the text, in order.
+        Do not rewrite, translate, merge, add or drop words; leave out only joining words such as "and" and the punctuation between parts.
+        If it is one thought, return a single part.
+        Suggest only; never create records. Return JSON only:
+        {"parts":["first thought","second thought"]}
+        Text:
+        ${rawText.trim()}
+    """.trimIndent()
 
     fun situationSummary(context: String): String = """
         You are Tallele's optional cloud Situation AI. Summarize local context without inventing data.

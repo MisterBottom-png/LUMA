@@ -7,13 +7,26 @@
     <!-- Exact reminder alarms. Android may deny this; LUMA then falls back to
          inexact alarms and says so in Settings > Notifications. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Android 13+: granted at install and cannot be revoked, so a reminder saved on a
+         fresh install rings at its exact minute. Private build only: it must come out
+         before any Play release unless the app qualifies as an alarm or calendar app.
+         Keep SCHEDULE_EXACT_ALARM above unchanged: it covers Android 12 and 12L, and it
+         is the line that stays if USE_EXACT_ALARM ever has to come out. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- Lets the reminder health row open the battery screen for this app. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- On-device dictation only (Android 12+): the phone's own recogniser listens and
+         Tallele keeps the words, never the audio. Asked for on the first mic tap. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Lets LUMA see whether the phone has a speech recognition screen to open. -->
     <queries>
         <intent>
             <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
         </intent>
+        <!-- Lets the reminder health row check for Samsung's "Never sleeping apps" screen. -->
+        <package android:name="com.samsung.android.lool" />
     </queries>
 
     <application
@@ -74,6 +87,10 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+                <!-- One-off reminders are instants and do not move; repeating ones are
+                     re-anchored to their chosen local time. -->
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
             </intent-filter>
         </receiver>
         <receiver

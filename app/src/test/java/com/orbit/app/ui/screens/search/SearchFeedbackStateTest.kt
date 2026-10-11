@@ -14,9 +14,13 @@ class SearchFeedbackStateTest {
     }
 
     @Test
-    fun shortAndUnmatchedQueriesRemainDistinctFromTypingGuidance() {
-        assertEquals(SearchFeedbackState.MinimumQuery, SearchUiState(query = "a").feedbackState())
+    fun oneLetterAndUnmatchedQueriesRemainDistinctFromTypingGuidance() {
+        // One letter is a real search now, not a "type more" hint.
+        assertEquals(SearchFeedbackState.EmptyResults, SearchUiState(query = "a").feedbackState())
+        assertEquals(SearchFeedbackState.Searching, SearchUiState(query = "a", searching = true).feedbackState())
         assertEquals(SearchFeedbackState.EmptyResults, SearchUiState(query = "absent").feedbackState())
+        // While the newest words are still being looked up, "nothing found" is not shown yet.
+        assertEquals(SearchFeedbackState.Searching, SearchUiState(query = "absent", searching = true).feedbackState())
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.orbit.app.ui.screens.review
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
@@ -12,20 +13,6 @@ import org.junit.Test
 
 class ReviewToSortAndLayoutTest {
     private val now = 1_800_000_000_000L
-
-    @Test
-    fun everyReviewSectionIsAvailableAtEveryTimeOfDay() {
-        ReviewPeriod.entries.forEach { period ->
-            assertEquals(ReviewSection.entries.toSet(), reviewSectionOrder(period).toSet())
-        }
-    }
-
-    @Test
-    fun timeOfDayOnlyChangesTheOrder() {
-        assertEquals(ReviewSection.Today, reviewSectionOrder(ReviewPeriod.Morning)[1])
-        assertEquals(ReviewSection.ToSort, reviewSectionOrder(ReviewPeriod.Midday)[1])
-        assertEquals(ReviewSection.CarryForward, reviewSectionOrder(ReviewPeriod.Evening)[1])
-    }
 
     @Test
     fun weeklyLookBackIsSuggestedOnlyAtTheWeekend() {
@@ -71,9 +58,14 @@ class ReviewToSortAndLayoutTest {
     }
 
     @Test
-    fun allSortedIsOnlyClaimedWhenNothingWaits() {
+    fun nothingWaitsWhenNoQuestionIsOpenAndNothingIsDueToday() {
         assertTrue(ReviewUiState().nothingWaiting)
-        assertFalse(ReviewUiState(toSort = listOf(ToSortItem(1, "x", 0, ToSortState.Analyzing))).nothingWaiting)
+        // A saved thought is not a question: it never makes Needs you look busy.
+        assertTrue(ReviewUiState(toSort = listOf(ToSortItem(1, "x", 0, ToSortState.Analyzing))).nothingWaiting)
+        val question = NeedsYouItem(captureId = 2, text = "remind me", reason = CaptureOutcomeReason.TimeUnclear, createdAt = 0)
+        assertFalse(ReviewUiState(needsYou = listOf(question)).nothingWaiting)
+        assertFalse(ReviewUiState(needsYou = listOf(question)).somethingFailed)
+        assertTrue(ReviewUiState(needsYou = listOf(question.copy(reason = CaptureOutcomeReason.NotificationsOff))).somethingFailed)
     }
 
     private fun capture(id: Long, createdAt: Long, status: CaptureStatus = CaptureStatus.Inbox) =

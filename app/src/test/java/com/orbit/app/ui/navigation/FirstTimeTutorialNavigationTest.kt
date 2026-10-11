@@ -1,25 +1,15 @@
 package com.orbit.app.ui.navigation
 
-import com.orbit.app.domain.model.AppSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class FirstTimeTutorialNavigationTest {
     @Test
-    fun incompleteSettingsStartAtTutorial() {
-        assertEquals(
-            FirstTimeTutorialDestination.route(isReplay = false),
-            initialOrbitRoute(AppSettings()),
-        )
-    }
-
-    @Test
-    fun completedSettingsStartAtHome() {
-        assertEquals(
-            OrbitDestination.Home.route,
-            initialOrbitRoute(AppSettings(hasCompletedFirstTimeTutorial = true)),
-        )
+    fun everyLaunchStartsAtHomeAndTheGuideIsOnlyAReplay() {
+        // A new user learns the app from Home and the first receipt, not from the guide.
+        assertEquals(OrbitDestination.Home.route, initialOrbitRoute())
+        assertEquals("tutorial?replay=true", FirstTimeTutorialDestination.route(isReplay = true))
     }
 
     @Test

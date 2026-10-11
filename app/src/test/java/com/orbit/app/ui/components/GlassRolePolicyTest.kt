@@ -5,8 +5,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.orbit.app.domain.model.BackgroundBlur
 import com.orbit.app.domain.model.BackgroundDimmingMode
+import com.orbit.app.domain.model.GlassPreference
 
 class GlassRolePolicyTest {
     @Test
@@ -16,6 +18,7 @@ class GlassRolePolicyTest {
                 policy = GlassRenderingPolicy.LiveAllowed,
                 platformApi = 35,
                 hasHazeSource = true,
+                animationsRemoved = false,
             ),
         )
         assertFalse(
@@ -23,6 +26,7 @@ class GlassRolePolicyTest {
                 policy = GlassRenderingPolicy.SoftOnly,
                 platformApi = 35,
                 hasHazeSource = true,
+                animationsRemoved = false,
             ),
         )
         assertFalse(
@@ -30,6 +34,7 @@ class GlassRolePolicyTest {
                 policy = GlassRenderingPolicy.LiveAllowed,
                 platformApi = 30,
                 hasHazeSource = true,
+                animationsRemoved = false,
             ),
         )
         assertFalse(
@@ -37,8 +42,103 @@ class GlassRolePolicyTest {
                 policy = GlassRenderingPolicy.LiveAllowed,
                 platformApi = 35,
                 hasHazeSource = false,
+                animationsRemoved = false,
             ),
         )
+    }
+
+    @Test
+    fun liveGlassNeedsAndroid13BecauseOnlyTheShaderPathIsWorthItsCost() {
+        listOf(31, 32).forEach { api ->
+            assertFalse(
+                "api=$api",
+                shouldRenderLiveGlass(
+                    policy = GlassRenderingPolicy.LiveAllowed,
+                    platformApi = api,
+                    hasHazeSource = true,
+                    animationsRemoved = false,
+                ),
+            )
+        }
+        assertTrue(
+            shouldRenderLiveGlass(
+                policy = GlassRenderingPolicy.LiveAllowed,
+                platformApi = 33,
+                hasHazeSource = true,
+                animationsRemoved = false,
+            ),
+        )
+    }
+
+    @Test
+    fun liveGlassStaysSoftWhenAnimationsAreRemoved() {
+        assertFalse(
+            shouldRenderLiveGlass(
+                policy = GlassRenderingPolicy.LiveAllowed,
+                platformApi = 35,
+                hasHazeSource = true,
+                animationsRemoved = true,
+            ),
+        )
+    }
+
+    @Test
+    fun onlyTheFloatingLayerMayDrawLiveBlur() {
+        assertEquals(
+            setOf(
+                GlassSurfaceStyle.Prominent,
+                GlassSurfaceStyle.HomeCapture,
+                GlassSurfaceStyle.NavigationBar,
+                GlassSurfaceStyle.Sheet,
+            ),
+            LiveGlassStyles,
+        )
+        // Cards, list rows and their small actions never blur what is behind them.
+        listOf(
+            GlassSurfaceStyle.Standard,
+            GlassSurfaceStyle.Subtle,
+            GlassSurfaceStyle.HomeNavigation,
+            GlassSurfaceStyle.NavigationAction,
+        ).forEach { style -> assertFalse("$style", style in LiveGlassStyles) }
+    }
+
+    @Test
+    fun liveSheetsKeepAnOpaqueUnderlaySoTheListBehindNeverReadsThrough() {
+        assertTrue(liveGlassNeedsOpaqueUnderlay(GlassSurfaceStyle.Sheet))
+        listOf(GlassSurfaceStyle.HomeCapture, GlassSurfaceStyle.NavigationBar, GlassSurfaceStyle.Prominent)
+            .forEach { style -> assertFalse("$style", liveGlassNeedsOpaqueUnderlay(style)) }
+    }
+
+    @Test
+    fun navigationBarBlursEnoughThatTextBehindItReadsAsColour() {
+        listOf(false, true).forEach { isDark ->
+            assertEquals(20.dp, glassBlurRadius(GlassSurfaceStyle.NavigationBar, isDark))
+            listOf(false, true).forEach { custom ->
+                (GlassPreference.entries.map { it.legacyStrength } + listOf(0f, 1f)).forEach { strength ->
+                    val alpha = glassTintAlpha(
+                        style = GlassSurfaceStyle.NavigationBar,
+                        isDark = isDark,
+                        glassStrength = strength,
+                        hasCustomBackground = custom,
+                    )
+                    assertTrue("alpha=$alpha", alpha >= 0.55f)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun floatingLiveGlassHasAQuietTopEdge() {
+        listOf(
+            GlassSurfaceStyle.HomeCapture,
+            GlassSurfaceStyle.NavigationBar,
+            GlassSurfaceStyle.Sheet,
+        ).forEach { style ->
+            assertEquals(0.24f, liveGlassTopEdgeAlpha(style, isDark = false))
+            assertEquals(0.14f, liveGlassTopEdgeAlpha(style, isDark = true))
+        }
+        assertEquals(null, liveGlassTopEdgeAlpha(GlassSurfaceStyle.Prominent, isDark = false))
+        assertEquals(null, liveGlassTopEdgeAlpha(GlassSurfaceStyle.Standard, isDark = true))
     }
 
     @Test
@@ -106,25 +206,18 @@ class GlassRolePolicyTest {
     }
 
     @Test
-    fun modalSurfaceKeepsAReadableTranslucentFloorAtBothStrengthExtremes() {
+    fun sheetsAndDialogsStaySolidSoTheListBehindNeverReadsThrough() {
         listOf(false, true).forEach { isDark ->
             listOf(false, true).forEach { hasCustomBackground ->
-                val lowest = softGlassContainerAlpha(
-                    style = GlassSurfaceStyle.Sheet,
-                    isDark = isDark,
-                    glassStrength = 0f,
-                    hasCustomBackground = hasCustomBackground,
-                )
-                val highest = softGlassContainerAlpha(
-                    style = GlassSurfaceStyle.Sheet,
-                    isDark = isDark,
-                    glassStrength = 1f,
-                    hasCustomBackground = hasCustomBackground,
-                )
-
-                assertTrue(lowest >= 0.70f)
-                assertTrue(highest <= 0.94f)
-                assertTrue(highest - lowest >= 0.17f)
+                listOf(0f, 0.5f, 1f).forEach { strength ->
+                    val alpha = softGlassContainerAlpha(
+                        style = GlassSurfaceStyle.Sheet,
+                        isDark = isDark,
+                        glassStrength = strength,
+                        hasCustomBackground = hasCustomBackground,
+                    )
+                    assertEquals(1f, alpha)
+                }
             }
         }
     }

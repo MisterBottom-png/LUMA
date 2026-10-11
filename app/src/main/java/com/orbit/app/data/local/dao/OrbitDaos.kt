@@ -38,6 +38,9 @@ interface CaptureDao {
     @Query("SELECT * FROM captures WHERE id = :id")
     suspend fun getById(id: Long): CaptureEntity?
 
+    @Query("SELECT * FROM captures WHERE id = :id")
+    fun observeById(id: Long): Flow<CaptureEntity?>
+
     @Insert
     suspend fun insert(entity: CaptureEntity): Long
 
@@ -132,6 +135,14 @@ interface BrainDumpDao {
 
     @Query("DELETE FROM brain_dump_sessions WHERE captureId = :captureId")
     suspend fun deleteSession(captureId: Long)
+
+    /** Removes one still-pending piece; used only when it is replaced by its own parts. */
+    @Query("DELETE FROM brain_dump_items WHERE id = :itemId AND outcome = 'Pending'")
+    suspend fun deletePendingItem(itemId: Long): Int
+
+    /** Makes room after [afterOrdinal] so new parts keep the dump's order. */
+    @Query("UPDATE brain_dump_items SET ordinal = ordinal + :by WHERE captureId = :captureId AND ordinal > :afterOrdinal")
+    suspend fun shiftOrdinals(captureId: Long, afterOrdinal: Int, by: Int)
 
     @Query("DELETE FROM brain_dump_items")
     suspend fun deleteAllItems()
@@ -471,6 +482,24 @@ interface ReminderDao {
             "WHERE id = :id",
     )
     suspend fun markHandled(id: Long, notificationTime: Long)
+
+    /**
+     * The earliest notification time after [now] that has not been shown yet, or null.
+     * Settings uses it to decide whether "reminders can't ring" is urgent (red) or not.
+     */
+    @Query(
+        """
+        SELECT MIN(COALESCE(snoozedUntil, dueAt - (notificationOffsetMinutes * 60000))) FROM reminders
+        WHERE completedAt IS NULL
+          AND notificationEnabled = 1
+          AND COALESCE(snoozedUntil, dueAt - (notificationOffsetMinutes * 60000)) > :now
+          AND (
+            deliveredNotificationAt IS NULL OR
+            deliveredNotificationAt != COALESCE(snoozedUntil, dueAt - (notificationOffsetMinutes * 60000))
+          )
+        """,
+    )
+    suspend fun nextUndeliveredNotificationAt(now: Long): Long?
 }
 
 @Dao

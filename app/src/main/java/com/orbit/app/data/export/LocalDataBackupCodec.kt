@@ -1,6 +1,8 @@
 package com.orbit.app.data.export
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.LearnedRuleCategory
 import com.orbit.app.data.local.entity.LearnedRuleEntity
@@ -74,7 +76,7 @@ object LocalDataBackupCodec {
     // existing backups keep restoring after the app was renamed to Tallele.
     const val Product = "LUMA"
     const val Format = "luma-local-json"
-    const val Version = 5
+    const val Version = 7
     const val MaximumInputBytes = 10 * 1024 * 1024
     const val MaximumStructureDepth = 64
 
@@ -87,7 +89,12 @@ object LocalDataBackupCodec {
         }
         val exportableCaptures = snapshot.captures.map { capture ->
             if (capture.linkedItemId != null && capture.linkedItemId !in itemIds) {
-                capture.copy(linkedItemId = null)
+                // Without its item the thought is a plain saved thought again.
+                capture.copy(
+                    linkedItemId = null,
+                    outcome = CaptureOutcome.Saved,
+                    outcomeReason = CaptureOutcomeReason.None,
+                )
             } else {
                 capture
             }
@@ -189,7 +196,9 @@ object LocalDataBackupCodec {
             },
         )
         validateRelationships(snapshot)
-        return snapshot
+        // Formats 1–6 carry no outcome: give each thought the answer the 10→11 database
+        // migration would, from what really exists, so filed thoughts stay filed.
+        return if (version < 7L) snapshot.copy(captures = withLegacyOutcomes(snapshot.captures, snapshot.reminders)) else snapshot
     }
 
     private fun validateInputBounds(json: String) {
@@ -244,6 +253,13 @@ object LocalDataBackupCodec {
         suggestedSpaceId = json.optionalPositiveId("suggestedSpaceId"),
         source = json.requiredEnum("source", CaptureSource.entries),
         linkedItemId = json.optionalPositiveId("linkedItemId"),
+        // Format 6; older files have no Calendar day on a thought.
+        contextDateEpochDay = json.optionalLong("contextDateEpochDay"),
+        // Format 7; older files get theirs from withLegacyOutcomes() after decoding.
+        outcome = json.optionalEnum("outcome", CaptureOutcome.entries) ?: CaptureOutcome.Saved,
+        outcomeReason = json.optionalEnum("outcomeReason", CaptureOutcomeReason.entries) ?: CaptureOutcomeReason.None,
+        outcomeAt = json.optionalNonNegativeLong("outcomeAt"),
+        decidedAt = json.optionalNonNegativeLong("decidedAt"),
     )
 
     private fun decodeNote(json: JSONObject) = NoteEntity(
@@ -449,6 +465,7 @@ object LocalDataBackupCodec {
         }
         snapshot.captures.forEach { capture ->
             requireReference("capture suggestedSpaceId", capture.suggestedSpaceId, spaceIds)
+            capture.contextDateEpochDay?.let(::requireValidEpochDay)
             capture.linkedItemId?.let { linkedId ->
                 if (linkedId !in noteIds && linkedId !in taskIds && linkedId !in reminderIds) {
                     invalid("A capture links to an item that is not present in the export.")
@@ -548,6 +565,9 @@ object LocalDataBackupCodec {
         .put("status", status.name).put("suggestedType", suggestedType?.name)
         .put("suggestedSpaceId", suggestedSpaceId).put("source", source.name)
         .put("linkedItemId", linkedItemId)
+        .put("contextDateEpochDay", contextDateEpochDay)
+        .put("outcome", outcome.name).put("outcomeReason", outcomeReason.name)
+        .put("outcomeAt", outcomeAt).put("decidedAt", decidedAt)
 
     private fun NoteEntity.toJson() = JSONObject()
         .put("id", id).put("title", title).put("body", body).put("spaceId", spaceId)
@@ -751,4 +771,31 @@ object LocalDataBackupCodec {
 
     private const val MaxEntriesPerType = 100_000
     private const val MaxRepeatRuleLength = 32
+}
+
+/**
+ * The outcome a thought from a format 1–6 backup gets, mirroring `Migration10To11`: an
+ * open reminder made from it means ReminderSet, any other linked item means Filed, and
+ * everything else stays Saved (never NeedsYou).
+ */
+internal fun withLegacyOutcomes(captures: List<CaptureEntity>, reminders: List<ReminderEntity>): List<CaptureEntity> {
+    val openReminderCaptures = reminders
+        .filter { it.linkedCaptureId != null && it.completedAt == null }
+        .mapTo(hashSetOf()) { it.linkedCaptureId }
+    return captures.map { capture ->
+        when {
+            capture.status != CaptureStatus.Processed -> capture
+            capture.id in openReminderCaptures -> capture.copy(
+                outcome = CaptureOutcome.ReminderSet,
+                outcomeAt = capture.updatedAt,
+                decidedAt = capture.updatedAt,
+            )
+            capture.linkedItemId != null -> capture.copy(
+                outcome = CaptureOutcome.Filed,
+                outcomeAt = capture.updatedAt,
+                decidedAt = capture.updatedAt,
+            )
+            else -> capture
+        }
+    }
 }

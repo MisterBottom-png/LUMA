@@ -229,6 +229,8 @@ class GeminiJsonValidatorTest {
         val task = checkNotNull(result).last()
         assertEquals(SuggestedItemType.Task, task.suggestedType)
         assertEquals(expectedTask.suggestedReminderAt, task.suggestedReminderAt)
+        assertEquals(expectedTask.taskDateEpochDay, task.taskDateEpochDay)
+        assertNotNull(task.taskDateEpochDay)
     }
 
     @Test
@@ -266,5 +268,17 @@ class GeminiJsonValidatorTest {
         )
         assertEquals("Hoia \"see\" alles", result?.suggestedNextAction)
         assertEquals("Купить «молоко»", result?.suggestedTitle)
+    }
+
+    @Test
+    fun thoughtPartsAreAcceptedOnlyAsExactCopies() {
+        val source = "buy dog food, call the garage and book the dentist"
+
+        assertEquals(
+            listOf("buy dog food", "call the garage", "book the dentist"),
+            GeminiJsonValidator.thoughtParts("""{"parts":["buy dog food","call the garage","book the dentist"]}""", source),
+        )
+        assertEquals(null, GeminiJsonValidator.thoughtParts("""{"parts":["Buy dog food","Call the garage"]}""", source))
+        assertEquals(null, GeminiJsonValidator.thoughtParts("""{"parts":["$source"]}""", source))
     }
 }

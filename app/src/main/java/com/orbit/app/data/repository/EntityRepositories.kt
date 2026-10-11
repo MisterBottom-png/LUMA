@@ -36,6 +36,8 @@ import com.orbit.app.reminders.ReminderDeliveryPolicy
 import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.reminders.shouldScheduleNotification
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import java.util.Locale
 
 interface EntityRepository<T> {
@@ -55,7 +57,11 @@ interface ToggleableMemoryRepository<T> : ResettableRepository<T> {
     fun observeEnabled(): Flow<List<T>>
 }
 
-interface CaptureRepository : EntityRepository<CaptureEntity>
+interface CaptureRepository : EntityRepository<CaptureEntity> {
+    /** One thought, or null once it is gone. Emits again whenever the row changes. */
+    fun observeById(id: Long): Flow<CaptureEntity?> =
+        observeAll().map { captures -> captures.firstOrNull { it.id == id } }.distinctUntilChanged()
+}
 data class BrainDumpSessionData(
     val session: BrainDumpSessionEntity,
     val items: List<BrainDumpItemEntity>,
@@ -106,7 +112,17 @@ interface LabelRepository {
 }
 interface NoteRepository : EntityRepository<NoteEntity>
 interface TaskRepository : EntityRepository<TaskEntity>
-interface ReminderRepository : EntityRepository<ReminderEntity>
+interface ReminderRepository : EntityRepository<ReminderEntity> {
+    /**
+     * Stores a reminder without arming its notification. Used inside a database
+     * transaction; call [scheduleStored] once that transaction has committed, so an
+     * alarm never exists for a reminder that was rolled back.
+     */
+    suspend fun insertUnscheduled(entity: ReminderEntity): Long = insert(entity)
+
+    /** Arms the notification of a stored reminder. Returns the scheduling token, or null. */
+    suspend fun scheduleStored(id: Long): String? = getById(id)?.notificationWorkId
+}
 interface AiSuggestionHistoryRepository : ResettableRepository<AiSuggestionHistoryEntity>
 interface AiCorrectionHistoryRepository : ResettableRepository<AiCorrectionHistoryEntity>
 interface LearnedRuleRepository : ToggleableMemoryRepository<LearnedRuleEntity>
@@ -116,6 +132,7 @@ interface SpaceAliasMemoryRepository : ToggleableMemoryRepository<SpaceAliasMemo
 
 class RoomCaptureRepository(private val dao: CaptureDao) : CaptureRepository {
     override fun observeAll() = dao.observeAll()
+    override fun observeById(id: Long): Flow<CaptureEntity?> = dao.observeById(id).distinctUntilChanged()
     override suspend fun getById(id: Long) = dao.getById(id)
     override suspend fun insert(entity: CaptureEntity): Long {
         require(entity.rawText.isNotBlank()) { "A capture cannot be blank" }
@@ -242,14 +259,23 @@ class RoomReminderRepository(
     override suspend fun getById(id: Long) = dao.getById(id)
 
     override suspend fun insert(entity: ReminderEntity): Long {
+        val id = insertUnscheduled(entity)
+        scheduleStored(id)
+        return id
+    }
+
+    override suspend fun insertUnscheduled(entity: ReminderEntity): Long {
         val stored = entity.copy(id = 0L, notificationWorkId = null, deliveredNotificationAt = null)
             .requireValidReminder()
-        val id = dao.insert(stored)
-        if (stored.shouldScheduleNotification()) {
-            val token = runCatching { scheduler.schedule(stored.copy(id = id)) }.getOrNull()
-            dao.updateNotificationWorkId(id, token)
-        }
-        return id
+        return dao.insert(stored)
+    }
+
+    override suspend fun scheduleStored(id: Long): String? {
+        val stored = dao.getById(id) ?: return null
+        if (!stored.shouldScheduleNotification()) return null
+        val token = runCatching { scheduler.schedule(stored) }.getOrNull()
+        dao.updateNotificationWorkId(id, token)
+        return token
     }
 
     /**

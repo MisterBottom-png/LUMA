@@ -1,14 +1,16 @@
 package com.orbit.app.ui.screens.home
 
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import com.orbit.app.ui.reminders.messageRes
+import com.orbit.app.reminders.ReminderSaveOutcome
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,15 +19,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import com.orbit.app.ui.components.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -59,6 +57,12 @@ import com.orbit.app.ui.time.OrbitTimeFormat
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import com.orbit.app.ui.components.LumaMenu
+import com.orbit.app.ui.components.LumaMenuItem
+import com.orbit.app.ui.components.LumaMenuGap
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.DeleteSweep
 
 internal data class BrainDumpCallbacks(
     val onPrimaryAction: () -> Unit,
@@ -73,6 +77,11 @@ internal data class BrainDumpCallbacks(
     val onFinishLater: () -> Unit,
     val onDiscardRemaining: () -> Unit,
     val onCloseCompletion: () -> Unit,
+    val onToggleRow: (String) -> Unit = {},
+    val onOpenRow: (String) -> Unit = {},
+    val onSaveTicked: () -> Unit = {},
+    val onKeepAsOneNote: () -> Unit = {},
+    val onSplitRow: (String) -> Unit = {},
 )
 
 @Composable
@@ -93,6 +102,13 @@ internal fun BrainDumpSuggestionContent(
         suggestion.analysis.brainDumpItems.firstOrNull { it.id == itemId }
     }
     when (state.stage) {
+        BrainDumpStage.Overview -> BrainDumpOverview(
+            state = state,
+            timeFormat = timeFormat,
+            callbacks = callbacks,
+            modifier = modifier,
+        )
+
         BrainDumpStage.Suggestion -> BrainDumpSuggestionCard(
             item = requireNotNull(item),
             state = state,
@@ -159,6 +175,11 @@ internal fun BrainDumpSuggestionContent(
     }
 }
 
+/**
+ * One thought from a Brain Dump, sorted with the same sheet as a single thought: the
+ * thought as the title, type tiles, Space and When chips, and one clear button. Only
+ * that button saves; "Back to the list" (or "Finish later") leaves it waiting.
+ */
 @Composable
 private fun BrainDumpSuggestionCard(
     item: BrainDumpSuggestion,
@@ -170,133 +191,108 @@ private fun BrainDumpSuggestionCard(
     modifier: Modifier,
 ) {
     val draft = requireNotNull(state.draft)
-    var showWhy by rememberSaveable(item.id) { mutableStateOf(false) }
+    var keepInInbox by rememberSaveable(item.id) { mutableStateOf(false) }
     var showMore by rememberSaveable(item.id) { mutableStateOf(false) }
     var showDiscardConfirmation by rememberSaveable(item.id) { mutableStateOf(false) }
+    val selectedAction = if (keepInInbox) CaptureDecisionAction.KeepInbox else draft.type.sortAction()
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.core_capture_brain_dump_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = stringResource(R.string.core_brain_dump_progress, state.itemNumber, state.totalItems),
-            modifier = Modifier
-                .padding(top = 8.dp)
-                .focusRequester(progressFocusRequester)
-                .focusable()
-                .semantics { heading() },
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = draft.title,
-            modifier = Modifier.padding(top = 10.dp),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
-        BrainDumpMetadataSummary(
-            draft = draft,
-            spaces = spaces,
+        // The thought's actions sit beside its heading, where they are found.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.core_brain_dump_progress, state.itemNumber, state.totalItems),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(bottom = 6.dp)
+                    .focusRequester(progressFocusRequester)
+                    .focusable()
+                    .semantics { heading() },
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Box {
+                IconButton(
+                    onClick = { showMore = true },
+                    enabled = !state.actionInProgress,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = stringResource(R.string.core_brain_dump_more),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                BrainDumpActionMenu(
+                    expanded = showMore,
+                    onDismiss = { showMore = false },
+                    onKeepInInbox = {
+                        showMore = false
+                        callbacks.onKeepInInbox()
+                    },
+                    onSkip = {
+                        showMore = false
+                        callbacks.onSkip()
+                    },
+                    onDiscardRemaining = {
+                        showMore = false
+                        showDiscardConfirmation = true
+                    },
+                )
+            }
+        }
+        SortForm(
+            key = item.id,
             timeFormat = timeFormat,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        TextButton(
-            onClick = { showWhy = !showWhy },
-            enabled = !state.actionInProgress,
-            modifier = Modifier.padding(top = 4.dp),
-        ) {
-            Text(stringResource(if (showWhy) R.string.core_brain_dump_hide_why else R.string.core_brain_dump_why_this))
-        }
-        if (showWhy) {
-            Text(
-                text = item.rawText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = item.reason,
-                modifier = Modifier.padding(top = 4.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (item.tinyNextAction.isNotBlank()) {
-                Text(
-                    text = item.tinyNextAction,
-                    modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            isPerformingAction = state.actionInProgress,
+            title = draft.title,
+            onTitleChanged = { callbacks.onDraftChanged(draft.copy(title = it)) },
+            suggestionLine = stringResource(R.string.sort_suggests, stringResource(suggestedActionLabel(item.suggestedType))),
+            why = listOf(item.reason, item.tinyNextAction).filter { it.isNotBlank() }.joinToString(" "),
+            selectedAction = selectedAction,
+            onActionSelected = { action ->
+                keepInInbox = action == CaptureDecisionAction.KeepInbox
+                action.itemType()?.let { type -> callbacks.onDraftChanged(draft.copy(type = type)) }
+            },
+            spaces = spaces,
+            selectedSpaceId = draft.spaceId,
+            onSpaceSelected = { callbacks.onDraftChanged(draft.copy(spaceId = it)) },
+            taskDue = TaskDue(
+                dayEpochDay = draft.scheduledDateEpochDay,
+                at = draft.scheduledAt.takeIf { draft.scheduledDateEpochDay == null },
+            ),
+            onTaskDueChanged = { due ->
+                callbacks.onDraftChanged(draft.copy(scheduledAt = due.at, scheduledDateEpochDay = due.dayEpochDay))
+            },
+            reminderAt = draft.scheduledAt,
+            onReminderAtChanged = { callbacks.onDraftChanged(draft.copy(scheduledAt = it)) },
+            initialDate = null,
+            onConfirm = if (keepInInbox) callbacks.onKeepInInbox else callbacks.onPrimaryAction,
+            aboveButton = {
+                BrainDumpInlineStatus(
+                    status = state.status,
+                    warning = state.warning,
+                    onUndo = callbacks.onUndoSkip,
+                    onRetry = callbacks.onRetry,
+                    modifier = Modifier.padding(top = 12.dp),
                 )
-            }
-        }
-
-        BrainDumpInlineStatus(
-            status = state.status,
-            warning = state.warning,
-            onUndo = callbacks.onUndoSkip,
-            onRetry = callbacks.onRetry,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-
-        Button(
-            onClick = callbacks.onPrimaryAction,
-            enabled = draft.title.isNotBlank() && !state.actionInProgress,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 18.dp),
+            },
         ) {
-            if (state.actionInProgress) {
-                CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
-            } else {
-                Text(stringResource(draft.type.primaryActionLabelRes()))
-            }
-        }
-        OutlinedButton(
-            onClick = callbacks.onEdit,
-            enabled = !state.actionInProgress,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-        ) {
-            Text(stringResource(R.string.core_capture_edit_details))
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(
-                onClick = callbacks.onFinishLater,
-                enabled = !state.actionInProgress,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(R.string.core_brain_dump_finish_later))
+                TextButton(
+                    onClick = if (state.openedFromOverview) callbacks.onStepBack else callbacks.onFinishLater,
+                    enabled = !state.actionInProgress,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(
+                        text = stringResource(
+                            if (state.openedFromOverview) R.string.brain_overview_back else R.string.core_brain_dump_finish_later,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-            IconButton(
-                onClick = { showMore = true },
-                enabled = !state.actionInProgress,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.MoreVert,
-                    contentDescription = stringResource(R.string.core_brain_dump_more),
-                )
-            }
-            BrainDumpActionMenu(
-                expanded = showMore,
-                onDismiss = { showMore = false },
-                onKeepInInbox = {
-                    showMore = false
-                    callbacks.onKeepInInbox()
-                },
-                onSkip = {
-                    showMore = false
-                    callbacks.onSkip()
-                },
-                onDiscardRemaining = {
-                    showMore = false
-                    showDiscardConfirmation = true
-                },
-            )
         }
     }
 
@@ -327,33 +323,17 @@ private fun BrainDumpSuggestionCard(
     }
 }
 
-@Composable
-internal fun BrainDumpMetadataSummary(
-    draft: BrainDumpDraft,
-    spaces: List<CaptureSpaceOption>,
-    timeFormat: OrbitTimeFormat,
-    modifier: Modifier = Modifier,
-) {
-    val spaceName = brainDumpSpaceName(spaces.firstOrNull { it.id == draft.spaceId })
-    Column(modifier = modifier) {
-        Text(
-            text = stringResource(R.string.core_brain_dump_type_value, stringResource(draft.type.labelRes())),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = stringResource(R.string.core_brain_dump_space_value, spaceName),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        draft.scheduledAt?.let { scheduledAt ->
-            Text(
-                text = timeFormat.formatWeekdayDateTime(scheduledAt),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+private fun SuggestedItemType.sortAction(): CaptureDecisionAction = when (this) {
+    SuggestedItemType.Note -> CaptureDecisionAction.SaveNote
+    SuggestedItemType.Task, SuggestedItemType.MondayItem -> CaptureDecisionAction.CreateTask
+    SuggestedItemType.Reminder -> CaptureDecisionAction.CreateReminder
+}
+
+private fun CaptureDecisionAction.itemType(): SuggestedItemType? = when (this) {
+    CaptureDecisionAction.SaveNote -> SuggestedItemType.Note
+    CaptureDecisionAction.CreateTask -> SuggestedItemType.Task
+    CaptureDecisionAction.CreateReminder -> SuggestedItemType.Reminder
+    CaptureDecisionAction.KeepInbox -> null
 }
 
 @Composable
@@ -364,25 +344,27 @@ internal fun BrainDumpActionMenu(
     onSkip: () -> Unit,
     onDiscardRemaining: () -> Unit,
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(
+    LumaMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        LumaMenuItem(
             text = { Text(stringResource(R.string.core_brain_dump_keep_thought)) },
+            leadingIcon = { Icon(Icons.Rounded.Inbox, contentDescription = null) },
             onClick = onKeepInInbox,
         )
-        DropdownMenuItem(
+        LumaMenuItem(
             text = { Text(stringResource(R.string.core_brain_dump_skip_thought)) },
+            leadingIcon = { Icon(Icons.Rounded.SkipNext, contentDescription = null) },
             onClick = onSkip,
         )
-        HorizontalDivider()
-        DropdownMenuItem(
+        LumaMenuGap()
+        LumaMenuItem(
             text = {
                 Text(
                     text = stringResource(R.string.core_capture_discard_remaining),
                     color = MaterialTheme.colorScheme.error,
                 )
             },
+            leadingIcon = { Icon(Icons.Rounded.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             onClick = onDiscardRemaining,
-            colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error),
         )
     }
 }
@@ -646,6 +628,7 @@ internal fun BrainDumpInlineStatus(
 ) {
     val statuses = listOfNotNull(warning, status).distinct()
     if (statuses.isEmpty()) return
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
     Column(modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
         statuses.forEach { visibleStatus ->
             Text(
@@ -662,6 +645,9 @@ internal fun BrainDumpInlineStatus(
             }
             if (visibleStatus.canRetry) {
                 TextButton(onClick = onRetry) { Text(stringResource(R.string.core_brain_dump_retry)) }
+            }
+            if (visibleStatus.message == BrainDumpStatusMessage.NotificationsBlocked) {
+                TextButton(onClick = turnOnNotifications) { Text(stringResource(R.string.settings_turn_on)) }
             }
         }
     }
@@ -740,11 +726,13 @@ private fun brainDumpSpaceName(space: CaptureSpaceOption?): String = when (space
 private fun BrainDumpStatusMessage.labelRes(): Int = when (this) {
     BrainDumpStatusMessage.NoteSaved -> R.string.core_home_message_note_saved
     BrainDumpStatusMessage.TaskCreated -> R.string.core_home_message_task_created
-    BrainDumpStatusMessage.ReminderCreated -> R.string.core_home_message_reminder_created
+    BrainDumpStatusMessage.ReminderCreated -> ReminderSaveOutcome.Saved.messageRes()
     BrainDumpStatusMessage.KeptInInbox -> R.string.core_home_message_kept_in_inbox
     BrainDumpStatusMessage.ThoughtSkipped -> R.string.core_brain_dump_status_skipped
     BrainDumpStatusMessage.SaveFailed -> R.string.core_home_message_brain_dump_item_save_failed
-    BrainDumpStatusMessage.NotificationAttention -> R.string.core_home_message_reminder_notification_attention
+    BrainDumpStatusMessage.NotificationAttention -> ReminderSaveOutcome.SavedNotScheduled.messageRes()
+    BrainDumpStatusMessage.NotificationsBlocked -> ReminderSaveOutcome.SavedNotificationsBlocked.messageRes()
+    BrainDumpStatusMessage.NeedsTime -> R.string.brain_dump_needs_time_status
 }
 
 private fun showBrainDumpDateTimePicker(

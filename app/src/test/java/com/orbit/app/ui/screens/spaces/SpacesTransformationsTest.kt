@@ -60,70 +60,71 @@ class SpacesTransformationsTest {
     }
 
     @Test
-    fun preparesStableFinalizedFeedOrderAndLabels() {
+    fun agendaSplitsByDay_untimedTodayFirst_doneFoldedAway() {
+        val zone = java.time.ZoneOffset.UTC
+        val today = java.time.LocalDate.of(2026, 10, 10)
+        val now = today.atTime(12, 0).toInstant(zone).toEpochMilli()
+        fun at(day: java.time.LocalDate, hour: Int) = day.atTime(hour, 0).toInstant(zone).toEpochMilli()
         val contents = SpaceContents(
-            notes = listOf(NoteEntity(id = 1, title = "", body = "", updatedAt = 100)),
+            notes = listOf(NoteEntity(id = 9, title = "Ideas", body = "")),
             tasks = listOf(
-                TaskEntity(id = 2, title = "Done task", status = TaskStatus.Done, updatedAt = 300),
+                TaskEntity(id = 1, title = "Report", dueAt = at(today, 11)),
+                TaskEntity(id = 2, title = "Stretch", scheduledDateEpochDay = today.toEpochDay()),
+                TaskEntity(id = 3, title = "Car service", dueAt = at(today.minusDays(2), 10)),
+                TaskEntity(id = 4, title = "Slides", dueAt = at(today.plusDays(3), 9)),
+                TaskEntity(id = 5, title = "Tap", updatedAt = 5),
+                TaskEntity(id = 6, title = "Finished", status = TaskStatus.Done, completedAt = 7, dueAt = at(today, 9)),
+            ),
+            reminders = listOf(ReminderEntity(id = 7, title = "Stand-up", dueAt = at(today, 14))),
+        )
+
+        val agenda = contents.agenda(now, zone)
+
+        assertEquals(listOf("Stretch", "Report", "Stand-up"), agenda.today.map { it.title })
+        assertEquals(listOf("Car service"), agenda.earlier.map { it.title })
+        assertEquals(listOf("Slides"), agenda.upcoming.map { it.title })
+        assertEquals(listOf("Tap"), agenda.noDate.map { it.title })
+        assertEquals(listOf("Finished"), agenda.done.map { it.title })
+        assertEquals(listOf(9L), agenda.notes.map { it.id })
+        assertFalse(agenda.today.first().hasTime)
+    }
+
+    @Test
+    fun agendaKeepsAnItemTickedOnThisVisitInItsDay() {
+        val zone = java.time.ZoneOffset.UTC
+        val today = java.time.LocalDate.of(2026, 10, 10)
+        val now = today.atTime(12, 0).toInstant(zone).toEpochMilli()
+        val done = TaskEntity(
+            id = 1,
+            title = "Report",
+            status = TaskStatus.Done,
+            completedAt = now,
+            dueAt = today.atTime(11, 0).toInstant(zone).toEpochMilli(),
+        )
+
+        val agenda = SpaceContents(tasks = listOf(done))
+            .agenda(now, zone, keepInPlace = setOf(SpaceItemReference(SpaceItemType.Task, 1)))
+
+        assertEquals(listOf("Report"), agenda.today.map { it.title })
+        assertTrue(agenda.today.single().isDone)
+        assertTrue(agenda.done.isEmpty())
+    }
+
+    @Test
+    fun openCountsLeaveOutNotesDoneAndHandledItems() {
+        val counts = calculateSpaceOpenCounts(
+            spaces = listOf(com.orbit.app.data.local.entity.SpaceEntity(id = 4, name = "Work", icon = "work", colorAccent = "#6D7CFF", sortOrder = 0)),
+            tasks = listOf(
+                TaskEntity(id = 1, title = "Open", spaceId = 4),
+                TaskEntity(id = 2, title = "Done", spaceId = 4, status = TaskStatus.Done),
             ),
             reminders = listOf(
-                ReminderEntity(id = 3, title = "Reminder", dueAt = 200),
+                ReminderEntity(id = 3, title = "Ahead", spaceId = 4, dueAt = 10),
+                ReminderEntity(id = 4, title = "Handled", spaceId = 4, dueAt = 10, completedAt = 11),
             ),
         )
 
-        val feed = contents.asFeedItems(OrbitTimeFormat(uses24HourClock = true))
-
-        assertEquals(
-            listOf(
-                SpaceItemReference(SpaceItemType.Task, 2),
-                SpaceItemReference(SpaceItemType.Reminder, 3),
-                SpaceItemReference(SpaceItemType.Note, 1),
-            ),
-            feed.map { it.reference },
-        )
-        assertEquals("Task · Done", feed[0].subtitle)
-        assertEquals("Untitled note", feed[2].title)
-    }
-
-    @Test
-    fun sectionsTreatTodayAsAttentionAndKeepFutureTargetsUpcoming() {
-        val now = 1_000_000L
-        val today = java.time.Instant.ofEpochMilli(now)
-            .atZone(java.time.ZoneId.systemDefault())
-            .toLocalDate()
-            .toEpochDay()
-        val contents = SpaceContents(
-            tasks = listOf(
-                TaskEntity(id = 1, title = "Today", scheduledDateEpochDay = today),
-                TaskEntity(id = 2, title = "Tomorrow", scheduledDateEpochDay = today + 1),
-            ),
-        )
-
-        val sections = contents.sectioned(now)
-
-        assertEquals(listOf(1L), sections.needsAttention.tasks.map { it.id })
-        assertEquals(listOf(2L), sections.upcoming.tasks.map { it.id })
-    }
-
-    @Test
-    fun upcomingFeedUsesTargetTimeSoonestFirst() {
-        val contents = SpaceContents(
-            tasks = listOf(TaskEntity(id = 1, title = "Later", dueAt = 300, updatedAt = 900)),
-            reminders = listOf(ReminderEntity(id = 2, title = "Sooner", dueAt = 200)),
-        )
-
-        val feed = contents.asFeedItems(
-            timeFormat = OrbitTimeFormat(uses24HourClock = true),
-            order = SpaceFeedOrder.TargetSoonest,
-        )
-
-        assertEquals(
-            listOf(
-                SpaceItemReference(SpaceItemType.Reminder, 2),
-                SpaceItemReference(SpaceItemType.Task, 1),
-            ),
-            feed.map { it.reference },
-        )
+        assertEquals(2, counts[4L])
     }
 
     @Test

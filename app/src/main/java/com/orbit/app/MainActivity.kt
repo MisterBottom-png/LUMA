@@ -48,6 +48,8 @@ class MainActivity : AppCompatActivity() {
             val container = (application as OrbitApplication).container
             container.applicationScope.launch {
                 runCatching { container.captureInbox.analyzePending() }
+                // Act / ask / keep for analysed thoughts whose decision a stop interrupted.
+                runCatching { container.autoFiler.applyPending() }
                 // Old AI history holds snippets of past thoughts; keep only recent history.
                 runCatching { AiHistoryRetention.prune(container.database) }
             }

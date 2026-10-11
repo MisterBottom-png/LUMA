@@ -38,7 +38,7 @@ class FloatingBottomNavigationTest {
             .assertWidthIsAtLeast(48.dp)
             .assertHeightIsAtLeast(48.dp)
 
-        listOf("Spaces", "Calendar", "Review").forEach { label ->
+        listOf("Spaces", "Calendar", "Needs you").forEach { label ->
             composeRule.onNodeWithText(label)
                 .assertIsNotSelected()
                 .assertHasTabRole()

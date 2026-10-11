@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -57,7 +59,11 @@ class CalendarScreenAccessibilityTest {
         composeRule.onNode(
             SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Calendar"),
         ).assertExists()
-        composeRule.onNode(isHeading()).assertExists()
+        // The month name is the page heading and the selected day starts its own
+        // section, so a screen reader can jump between exactly these two.
+        composeRule.onAllNodes(isHeading()).assertCountEquals(2)
+        composeRule.onNode(isHeading() and hasText("July")).assertExists()
+        composeRule.onNode(isHeading() and hasText("Today", substring = true)).assertExists()
         composeRule.onNodeWithContentDescription("Add for this day").assertExists()
     }
 }

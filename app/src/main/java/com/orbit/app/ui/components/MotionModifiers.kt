@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
 import com.orbit.app.ui.theme.OrbitMotion
 
@@ -51,6 +52,13 @@ fun Modifier.orbitPressFeedback(
 fun Modifier.orbitScrollEdgeFade(
     top: Dp = 0.dp,
     bottom: Dp = 0.dp,
+    /** How much of [top] fades in; the rest is fully hidden. Unset keeps the last fifth. */
+    topFadeLength: Dp = Dp.Unspecified,
+    /**
+     * How much of [bottom] fades out; below that, content is fully hidden. Unset fades
+     * across all of [bottom].
+     */
+    bottomFadeLength: Dp = Dp.Unspecified,
 ): Modifier {
     if (top <= 0.dp && bottom <= 0.dp) return this
 
@@ -61,11 +69,16 @@ fun Modifier.orbitScrollEdgeFade(
 
         val topPx = top.toPx().coerceAtMost(size.height)
         if (topPx > 0f) {
+            val hiddenUntil = if (topFadeLength.isSpecified) {
+                (1f - topFadeLength.toPx() / topPx).coerceIn(0f, 1f)
+            } else {
+                0.8f
+            }
             drawRect(
                 brush = Brush.verticalGradient(
                     colorStops = arrayOf(
                         0f to Color.Transparent,
-                        0.68f to Color.Transparent,
+                        hiddenUntil to Color.Transparent,
                         1f to Color.Black,
                     ),
                     startY = 0f,
@@ -78,14 +91,57 @@ fun Modifier.orbitScrollEdgeFade(
 
         val bottomPx = bottom.toPx().coerceAtMost(size.height)
         if (bottomPx > 0f) {
+            val visibleUntil = if (bottomFadeLength.isSpecified) {
+                (bottomFadeLength.toPx() / bottomPx).coerceIn(0f, 1f)
+            } else {
+                1f
+            }
             drawRect(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color.Black, Color.Transparent),
+                    colorStops = arrayOf(
+                        0f to Color.Black,
+                        visibleUntil to Color.Transparent,
+                        1f to Color.Transparent,
+                    ),
                     startY = size.height - bottomPx,
                     endY = size.height,
                 ),
                 topLeft = Offset(0f, size.height - bottomPx),
                 size = Size(size.width, bottomPx),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+    }
+}
+
+/** Fades the left and/or right edge of a horizontally scrolling row over [length]. */
+fun Modifier.horizontalEdgeFade(
+    fadeStart: Boolean,
+    fadeEnd: Boolean,
+    length: Dp = 28.dp,
+): Modifier {
+    if (!fadeStart && !fadeEnd) return this
+    return graphicsLayer {
+        compositingStrategy = CompositingStrategy.Offscreen
+    }.drawWithContent {
+        drawContent()
+        val fadePx = length.toPx().coerceAtMost(size.width / 2f)
+        if (fadeStart) {
+            drawRect(
+                brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = fadePx),
+                size = Size(fadePx, size.height),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+        if (fadeEnd) {
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    listOf(Color.Black, Color.Transparent),
+                    startX = size.width - fadePx,
+                    endX = size.width,
+                ),
+                topLeft = Offset(size.width - fadePx, 0f),
+                size = Size(fadePx, size.height),
                 blendMode = BlendMode.DstIn,
             )
         }

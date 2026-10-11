@@ -35,4 +35,20 @@ class OrbitTimeFormatTest {
 
         assertTrue(label.contains("июл"))
     }
+
+    @Test
+    fun datesFollowEachLanguagesOwnOrder() {
+        val day = java.time.LocalDate.of(2026, 10, 15)
+        val at = day.atTime(14, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val english = OrbitTimeFormat(uses24HourClock = true, locale = Locale.ENGLISH)
+        val estonian = OrbitTimeFormat(uses24HourClock = true, locale = Locale.forLanguageTag("et"))
+        val russian = OrbitTimeFormat(uses24HourClock = true, locale = Locale.forLanguageTag("ru"))
+
+        assertEquals("Thu, Oct 15", english.formatDate(day))
+        assertTrue(estonian.formatDate(day), estonian.formatDate(day).endsWith("15. oktoober"))
+        assertTrue(russian.formatDate(day), russian.formatDate(day).endsWith("15 октября"))
+        assertEquals("15. oktoober 2026", estonian.formatDateWithYear(at))
+        assertTrue(estonian.formatWeekdayDateTime(at), estonian.formatWeekdayDateTime(at).endsWith("15. oktoober, 14:00"))
+        assertEquals("Thu, Oct 15, 14:00", english.formatWeekdayDateTime(at))
+    }
 }

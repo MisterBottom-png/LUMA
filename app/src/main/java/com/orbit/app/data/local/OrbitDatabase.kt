@@ -61,7 +61,7 @@ import com.orbit.app.data.local.entity.TaskLabelCrossRef
         ReminderLabelCrossRef::class,
         CaptureSuggestionEntity::class,
     ],
-    version = 9,
+    version = 11,
     exportSchema = true,
 )
 @TypeConverters(OrbitTypeConverters::class)
@@ -459,6 +459,43 @@ abstract class OrbitDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * The Calendar day a thought was captured for is kept on the thought itself, so
+         * it survives a restart before analysis. Existing thoughts have no such day.
+         */
+        val Migration9To10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `captures` ADD COLUMN `contextDateEpochDay` INTEGER")
+            }
+        }
+
+        /**
+         * One stored outcome per thought. The backfill reads what really exists: an open
+         * reminder that points back at the thought means ReminderSet, any other sorted
+         * thought with a linked item means Filed. Everything else stays Saved, and thoughts
+         * still in the Inbox keep decidedAt NULL so they are looked at once on the next
+         * start. An old thought never becomes NeedsYou here.
+         */
+        val Migration10To11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `captures` ADD COLUMN `outcome` TEXT NOT NULL DEFAULT 'Saved'")
+                db.execSQL("ALTER TABLE `captures` ADD COLUMN `outcomeReason` TEXT NOT NULL DEFAULT 'None'")
+                db.execSQL("ALTER TABLE `captures` ADD COLUMN `outcomeAt` INTEGER")
+                db.execSQL("ALTER TABLE `captures` ADD COLUMN `decidedAt` INTEGER")
+                db.execSQL(
+                    "UPDATE `captures` SET `outcome` = 'ReminderSet', `outcomeAt` = `updatedAt`, " +
+                        "`decidedAt` = `updatedAt` " +
+                        "WHERE `status` = 'Processed' AND `id` IN (SELECT `linkedCaptureId` FROM `reminders` " +
+                        "WHERE `linkedCaptureId` IS NOT NULL AND `completedAt` IS NULL)",
+                )
+                db.execSQL(
+                    "UPDATE `captures` SET `outcome` = 'Filed', `outcomeAt` = `updatedAt`, " +
+                        "`decidedAt` = `updatedAt` " +
+                        "WHERE `status` = 'Processed' AND `linkedItemId` IS NOT NULL AND `outcome` = 'Saved'",
+                )
+            }
+        }
+
         val AllMigrations: Array<Migration> = arrayOf(
             Migration1To2,
             Migration2To3,
@@ -468,6 +505,8 @@ abstract class OrbitDatabase : RoomDatabase() {
             Migration6To7,
             Migration7To8,
             Migration8To9,
+            Migration9To10,
+            Migration10To11,
         )
 
         @Volatile

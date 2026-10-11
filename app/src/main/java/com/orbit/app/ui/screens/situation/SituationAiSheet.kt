@@ -1,7 +1,6 @@
 package com.orbit.app.ui.screens.situation
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,11 +8,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -29,19 +30,24 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
 import com.orbit.app.domain.ai.AiSourceItem
@@ -61,9 +67,17 @@ fun SituationAiSheet(
     onSourceSelected: (AiSourceItem) -> Unit,
     onAskQueryChanged: (String) -> Unit,
     onAskLuma: () -> Unit,
+    onSearch: (String) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val sheetPaneTitle = stringResource(R.string.core_situation_title)
+    val listState = rememberLazyListState()
+    val answer = uiState.askAnswer
+    // A new answer sits right under the question; bring the two back into view together.
+    LaunchedEffect(answer) {
+        if (answer != null) listState.animateScrollToItem(0)
+    }
+    val overviewReady = !uiState.isLoading && uiState.analysis != null
     LumaModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -76,7 +90,8 @@ fun SituationAiSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .imePadding(),
         ) {
             SheetHeader(
                 onDismiss = onDismiss,
@@ -87,6 +102,7 @@ fun SituationAiSheet(
                 ),
             )
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
@@ -98,48 +114,62 @@ fun SituationAiSheet(
                 ),
                 verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Medium),
             ) {
-                if (uiState.isLoading || uiState.analysis == null) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 48.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                } else {
-                    val analysis = uiState.analysis
-                    item {
-                        BriefingSurface(
-                            whereYouAre = analysis.whereYouAre,
-                            whatMatters = analysis.whatMatters,
-                            whatIsStuck = analysis.whatIsStuck,
-                        )
-                    }
-                    uiState.askAnswer?.let { answer ->
-                        item {
-                            AskLumaAnswer(
-                                answer = answer,
-                                onSourceSelected = onSourceSelected,
+                // Opened from Ask: the question box and its answer come first, the overview below.
+                situationSheetSections(overviewReady = overviewReady, hasAnswer = answer != null).forEach { section ->
+                    when (section) {
+                        SituationSheetSection.Question -> item(key = "question") {
+                            AskLumaSection(
+                                query = uiState.askQuery,
+                                isAsking = uiState.isAsking,
+                                onQueryChanged = onAskQueryChanged,
+                                onAsk = onAskLuma,
+                                modifier = Modifier.fillMaxWidth(),
                             )
+                        }
+                        SituationSheetSection.Answer -> answer?.let { shown ->
+                            item(key = "answer") {
+                                AskLumaAnswer(
+                                    answer = shown,
+                                    onSourceSelected = onSourceSelected,
+                                    onSearch = onSearch,
+                                )
+                            }
+                        }
+                        SituationSheetSection.Overview -> uiState.analysis?.let { analysis ->
+                            item(key = "overview") {
+                                BriefingSurface(
+                                    whereYouAre = analysis.whereYouAre,
+                                    whatMatters = analysis.whatMatters,
+                                    whatIsStuck = analysis.whatIsStuck,
+                                )
+                            }
+                        }
+                        SituationSheetSection.Loading -> item(key = "loading") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 48.dp),
+                                horizontalArrangement = Arrangement.Center,
+                            ) {
+                                CircularProgressIndicator()
+                            }
                         }
                     }
                 }
             }
-            if (!uiState.isLoading && uiState.analysis != null) {
-                AskLumaSection(
-                    query = uiState.askQuery,
-                    isAsking = uiState.isAsking,
-                    onQueryChanged = onAskQueryChanged,
-                    onAsk = onAskLuma,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
         }
     }
 }
+
+internal enum class SituationSheetSection { Question, Answer, Overview, Loading }
+
+/** The sheet top to bottom: the question box, its answer when there is one, then the overview. */
+internal fun situationSheetSections(overviewReady: Boolean, hasAnswer: Boolean): List<SituationSheetSection> =
+    buildList {
+        add(SituationSheetSection.Question)
+        if (hasAnswer) add(SituationSheetSection.Answer)
+        add(if (overviewReady) SituationSheetSection.Overview else SituationSheetSection.Loading)
+    }
 
 @Composable
 private fun AskLumaSection(
@@ -150,17 +180,9 @@ private fun AskLumaSection(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f))
-            .padding(
-                horizontal = OrbitSpacing.ExtraLarge,
-                vertical = OrbitSpacing.Large,
-            ),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Small),
     ) {
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f),
-        )
         Text(
             text = stringResource(R.string.core_situation_ask_luma),
             modifier = Modifier.semantics { heading() },
@@ -184,6 +206,17 @@ private fun AskLumaSection(
             },
             minLines = 1,
             maxLines = 3,
+            supportingText = {
+                Text(
+                    text = stringResource(
+                        R.string.ask_characters_used,
+                        query.length,
+                        SituationAiViewModel.MaxAskQueryLength,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.End,
+                )
+            },
             shape = OrbitShapes.Standard,
             colors = TextFieldDefaults.colors(
                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -232,8 +265,11 @@ private fun AskLumaSection(
 private fun AskLumaAnswer(
     answer: SourceLinkedAnswer,
     onSourceSelected: (AiSourceItem) -> Unit,
+    onSearch: (String) -> Unit,
 ) {
     Surface(
+        // TalkBack reads a new answer without the user having to find it.
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         shape = OrbitShapes.Standard,
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
@@ -264,6 +300,11 @@ private fun AskLumaAnswer(
                     sources = answer.sourceItems,
                     onSourceSelected = onSourceSelected,
                 )
+            }
+            answer.searchQuery?.takeIf { it.isNotBlank() }?.let { query ->
+                TextButton(onClick = { onSearch(query) }) {
+                    Text(stringResource(R.string.ask_search_for, query))
+                }
             }
         }
     }

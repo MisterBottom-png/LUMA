@@ -2,7 +2,6 @@
 <resources>
     <!-- Shared core UI language -->
     <string name="core_back">Back</string>
-    <string name="core_add">Add</string>
     <string name="core_clear">Clear</string>
     <string name="core_today">Today</string>
     <string name="core_tomorrow">Tomorrow</string>
@@ -24,10 +23,9 @@
     <string name="core_untitled_task">Untitled task</string>
     <string name="core_untitled_reminder">Untitled reminder</string>
     <string name="core_sources">Sources</string>
-    <string name="core_accessibility_separator" translatable="false">, </string>
-    <string name="core_metadata_separator" translatable="false"> · </string>
-    <string name="core_metadata_dot_separator" translatable="false"> · </string>
-    <string name="core_metadata_pipe_separator" translatable="false"> | </string>
+    <string name="core_accessibility_separator" translatable="false">", "</string>
+    <string name="core_metadata_separator" translatable="false">" · "</string>
+    <string name="core_metadata_dot_separator" translatable="false">" · "</string>
 
     <!-- Home -->
     <string name="core_home_good_morning">Good morning</string>
@@ -37,7 +35,7 @@
     <string name="core_home_show_previous_week">Show previous week</string>
     <string name="core_home_show_next_week">Show next week</string>
     <string name="core_home_week_number">Week %1$d</string>
-    <string name="core_home_save_and_analyze">Save and analyze capture</string>
+    <string name="core_home_save_and_analyze">Save thought</string>
     <string name="core_home_saving_capture">Saving privately</string>
     <string name="core_home_analyzing_capture">Preparing a suggestion</string>
     <string name="core_home_capture_input">Capture text</string>
@@ -45,46 +43,26 @@
 
     <!-- Calendar -->
     <string name="core_calendar_title">Calendar</string>
-    <string name="core_calendar_previous_month">Previous month</string>
-    <string name="core_calendar_next_month">Next month</string>
-    <string name="core_calendar_previous_day">Previous day</string>
-    <string name="core_calendar_next_day">Next day</string>
     <string name="core_calendar_show_previous_month">Show previous month</string>
     <string name="core_calendar_show_next_month">Show next month</string>
     <string name="core_calendar_show_previous_day">Show previous day</string>
     <string name="core_calendar_show_next_day">Show next day</string>
-    <string name="core_calendar_day">Day</string>
-    <string name="core_calendar_month">Month</string>
     <string name="core_calendar_add_for_day">Add for this day</string>
     <string name="core_calendar_outside_current_month">outside current month</string>
     <string name="core_calendar_any_time">Any time</string>
-    <string name="core_calendar_timeline">Timeline</string>
-    <string name="core_calendar_nothing_scheduled">Nothing is scheduled for this day.</string>
-    <string name="core_calendar_loading_day">Bringing this day into view…</string>
-    <string name="core_calendar_no_timed_items_today">No items are set for a specific time today.</string>
     <string name="core_calendar_notifications_off">Notifications off</string>
-    <string name="core_calendar_notification_timing_unavailable">Notification timing unavailable</string>
-    <string name="core_calendar_notification_at_target">Notification around target time</string>
-    <plurals name="core_calendar_notification_minutes_before">
-        <item quantity="one">Notification about %1$d minute before</item>
-        <item quantity="other">Notification about %1$d minutes before</item>
-    </plurals>
 
     <!-- Search and source rows -->
     <string name="core_search_title">Search</string>
-    <string name="core_search_local_data">Search local data</string>
-    <string name="core_search_include_archived">Include archived</string>
-    <string name="core_search_start_typing">Type to search your local items.</string>
-    <string name="core_search_minimum_query">Type at least two characters.</string>
-    <string name="core_search_empty">Nothing found here yet.</string>
-    <string name="core_search_empty_recovery">Try a different word or clear the search.</string>
+    <string name="core_search_local_data">Search everything you saved</string>
+    <string name="core_search_start_typing">Type a word from a note, task or reminder.</string>
     <string name="core_search_clear_query">Clear search</string>
     <string name="core_source_row_accessibility">%1$s: %2$s. Open</string>
     <string name="core_source_row_accessibility_with_date">%1$s: %2$s, %3$s. Open</string>
     <string name="core_open_item_type">Open %1$s</string>
 
     <!-- Situation AI -->
-    <string name="core_situation_title">Situation AI</string>
+    <string name="core_situation_title">Your overview</string>
     <string name="core_situation_subtitle">A local view of what needs your attention</string>
     <string name="core_situation_close">Close Situation AI</string>
     <string name="core_situation_ask_luma">Ask Tallele</string>
@@ -98,7 +76,7 @@
     <string name="core_situation_what_is_stuck">What is stuck?</string>
 
     <!-- Review -->
-    <string name="core_review_title">Review</string>
+    <string name="core_review_title">Needs you</string>
     <string name="core_review_breathe_in">Breathe in</string>
     <string name="core_review_breathe_out">Breathe out</string>
     <string name="core_review_weekly_title">Weekly review</string>
@@ -112,7 +90,7 @@
     <string name="core_review_page_position">%1$s · %2$d of %3$d</string>
     <string name="core_review_weekly_fallback">This week can be noticed without being measured.</string>
     <string name="core_review_local_sources_considered">Local sources considered</string>
-    <string name="core_review_open_loops">Open loops</string>
+    <string name="core_review_open_loops">Still open</string>
     <string name="core_review_quiet_for_a_while">Quiet for a while</string>
     <string name="core_review_waiting">Waiting</string>
     <string name="core_review_loose_ends_message">You can leave these here and return when it feels useful.</string>
@@ -122,15 +100,15 @@
     <string name="core_review_choose_day_or_smaller">Choose a new day, or make the next step smaller.</string>
     <string name="core_review_reschedule_if_relevant">Reschedule when this still matters.</string>
     <string name="core_review_keep_unscheduled">Keep unscheduled</string>
-    <string name="core_review_open_loops_subtitle">Give each pending item a kind, deliberate decision</string>
-    <string name="core_review_no_open_loops">No open loops need a decision.</string>
-    <string name="core_review_stale_loops">Stale loops</string>
+    <string name="core_review_open_loops_subtitle">Decide calmly what each one needs</string>
+    <string name="core_review_no_open_loops">Nothing open needs a decision.</string>
+    <string name="core_review_stale_loops">Quiet for a while</string>
     <string name="core_review_waiting_for_subtitle">Deferred tasks waiting on an external response</string>
     <string name="core_review_someday_subtitle">Quiet ideas, not urgent tasks</string>
-    <string name="core_review_close_open_loops">Close open loops</string>
-    <string name="core_review_sort_open_loops">Sort open loops</string>
-    <string name="core_review_show_all_open_loops">Show all open loops</string>
-    <string name="core_review_show_fewer_open_loops">Show fewer open loops</string>
+    <string name="core_review_close_open_loops">Hide what is still open</string>
+    <string name="core_review_sort_open_loops">Decide what is still open</string>
+    <string name="core_review_show_all_open_loops">Show all</string>
+    <string name="core_review_show_fewer_open_loops">Show fewer</string>
     <string name="core_review_clear">Review clear</string>
     <string name="core_review_reason_open_task">Needs review because this task is still open.</string>
     <string name="core_review_reason_brain_dump">This Brain Dump has suggestions waiting for a decision.</string>
@@ -142,10 +120,10 @@
     <string name="core_review_mark_task_done">Mark task done</string>
     <string name="core_review_defer_to_someday">Defer to Someday</string>
     <string name="core_review_resume_brain_dump">Resume Brain Dump</string>
-    <string name="core_review_confirm_as_someday">Confirm as Someday task</string>
-    <string name="core_review_dismiss_capture">Dismiss capture</string>
+    <string name="core_review_confirm_as_someday">Keep for Someday</string>
+    <string name="core_review_dismiss_capture">Mark as handled</string>
     <string name="core_review_archive_task">Archive task</string>
-    <string name="core_review_archive_source">Archive source</string>
+    <string name="core_review_archive_source">Let this thought go</string>
     <string name="core_review_make_smaller">Make smaller</string>
     <string name="core_review_more_actions">More actions</string>
     <string name="core_review_task_completed">Task completed</string>
@@ -171,4 +149,23 @@
     <string name="core_learning_save_body">You made this correction more than once: %1$s</string>
     <string name="core_learning_save_confirm">Save preference</string>
     <string name="core_learning_not_now">Not now</string>
+    <!-- The save receipt under the capture box on Home. -->
+    <string name="receipt_saved">Saved.</string>
+    <string name="receipt_saved_note">Saved as a note.</string>
+    <string name="receipt_saved_task">Saved as a task.</string>
+    <string name="receipt_filed_note">Filed in %1$s as a note.</string>
+    <string name="receipt_filed_task">Task for %1$s.</string>
+    <string name="receipt_filed_task_in_space">Filed in %1$s as a task.</string>
+    <string name="receipt_reminder_set">Reminder set for %1$s.</string>
+    <string name="receipt_reminder_not_armed">Saved, but the reminder isn’t set yet.</string>
+    <string name="receipt_needs_time">Saved. What time should it remind you?</string>
+    <string name="receipt_time_passed">That time has already passed. Pick a new one?</string>
+    <string name="receipt_notifications_off">Saved, but reminders can’t ring. Notifications are off.</string>
+    <string name="receipt_not_scheduled">Saved, but Tallele couldn’t set the reminder.</string>
+    <string name="receipt_action_view">View</string>
+    <string name="receipt_action_change">Change</string>
+    <string name="receipt_action_choose_time">Choose time</string>
+    <string name="receipt_action_turn_on">Turn on</string>
+    <string name="receipt_action_try_again">Try again</string>
+    <string name="receipt_action_keep">Just keep it</string>
 </resources>

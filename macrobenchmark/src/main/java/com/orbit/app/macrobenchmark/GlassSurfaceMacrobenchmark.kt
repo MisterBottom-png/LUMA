@@ -35,7 +35,7 @@ class GlassSurfaceMacrobenchmark {
     fun scrollSpaces() = measureRoute("Spaces") { scrollContent() }
 
     @Test
-    fun scrollReview() = measureRoute("Review") { scrollContent() }
+    fun scrollReview() = measureRoute("Needs you") { scrollContent() }
 
     @Test
     fun scrollSettings() = measureSettings { scrollContent() }
@@ -52,8 +52,8 @@ class GlassSurfaceMacrobenchmark {
 
     @Test
     fun renderAppearanceGlassPreview() = measureSettings {
-        device.findObject(By.textStartsWith("Appearance")).click()
-        device.wait(Until.hasObject(By.textStartsWith("Transparency")), UiTimeoutMillis)
+        device.findObject(By.text("Transparency")).click()
+        device.wait(Until.hasObject(By.textStartsWith("Surface preview")), UiTimeoutMillis)
     }
 
     private fun measureRoute(routeLabel: String, measuredBlock: MacrobenchmarkScope.() -> Unit) {

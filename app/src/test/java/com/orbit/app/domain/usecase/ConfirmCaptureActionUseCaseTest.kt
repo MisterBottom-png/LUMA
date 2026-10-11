@@ -58,6 +58,23 @@ class ConfirmCaptureActionUseCaseTest {
     }
 
     @Test
+    fun filingStoresWhatTheThoughtBecame_soANoteIdIsNeverReadAsATask() = runBlocking {
+        val captureRepository = FakeCaptureRepository(CaptureStore())
+        val noteRepository = FakeNoteRepository(NoteStore())
+        // Tallele suggested a task; the user saved it as a note instead.
+        val captureId = captureRepository.insert(
+            CaptureEntity(rawText = "Book club list", suggestedType = com.orbit.app.data.local.entity.SuggestedItemType.Task),
+        )
+
+        useCase(captureRepository, noteRepository).saveNote(captureId = captureId, spaceId = null, title = "Book club list")
+
+        assertEquals(
+            com.orbit.app.data.local.entity.SuggestedItemType.Note,
+            captureRepository.getById(captureId)?.suggestedType,
+        )
+    }
+
+    @Test
     fun calendarContextFinalizesOneDateOnlyTaskOnOriginalCapture() = runBlocking {
         val captureStore = CaptureStore()
         val taskStore = TaskStore()

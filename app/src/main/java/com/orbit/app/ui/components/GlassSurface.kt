@@ -22,6 +22,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.model.GlassEffect
@@ -52,7 +56,10 @@ enum class GlassSurfaceStyle {
     HomeNavigation,
     NavigationAction,
 
-    /** The bottom bar: near-solid so scrolling content never mixes with its labels. */
+    /**
+     * The bottom bar: live blur where allowed, near-solid otherwise, so scrolling content
+     * never mixes with its labels.
+     */
     NavigationBar,
 }
 
@@ -66,10 +73,11 @@ fun LiveGlassSurface(
 ) {
     val visuals = orbitGlassVisuals(style)
     val hazeState = LocalOrbitHazeState.current
-    val liveGlassEnabled = style == GlassSurfaceStyle.Prominent && shouldRenderLiveGlass(
+    val liveGlassEnabled = style in LiveGlassStyles && shouldRenderLiveGlass(
         policy = LocalGlassRenderingPolicy.current,
         platformApi = Build.VERSION.SDK_INT,
         hasHazeSource = hazeState != null,
+        animationsRemoved = rememberReducedMotion(),
     )
 
     if (!liveGlassEnabled) {
@@ -87,7 +95,17 @@ fun LiveGlassSurface(
         Box(
             modifier = modifier
                 .orbitSoftShadow(visuals.shadowElevation, shape, visuals.shadowColor)
+                // Same as the soft path's Surface: a tap on the glass never reaches what is behind it.
+                .semantics(mergeDescendants = false) { isTraversalGroup = true }
+                .pointerInput(Unit) {}
                 .clip(shape)
+                .then(
+                    if (liveGlassNeedsOpaqueUnderlay(style)) {
+                        Modifier.background(MaterialTheme.colorScheme.background)
+                    } else {
+                        Modifier
+                    },
+                )
                 .then(
                     if (hazeState != null) {
                         Modifier.hazeEffect(
@@ -184,19 +202,25 @@ internal fun orbitGlassEdgeBrush(strength: Float = 1f): Brush {
     return glassEdgeBrush(isDark = isDark, ink = colors.onSurface, strength = strength)
 }
 
-internal fun glassEdgeBrush(isDark: Boolean, ink: Color, strength: Float = 1f): Brush {
+internal fun glassEdgeBrush(
+    isDark: Boolean,
+    ink: Color,
+    strength: Float = 1f,
+    topAlpha: Float? = null,
+): Brush {
     val k = strength.coerceIn(0f, 1f)
+    val top = topAlpha ?: ((if (isDark) 0.16f else 0.95f) * k)
     return Brush.verticalGradient(
         colors = if (isDark) {
             listOf(
-                Color.White.copy(alpha = 0.16f * k),
-                Color.White.copy(alpha = 0.06f * k),
+                Color.White.copy(alpha = top),
+                Color.White.copy(alpha = (0.06f * k).coerceAtMost(top)),
                 Color.White.copy(alpha = 0.03f * k),
             )
         } else {
             listOf(
-                Color.White.copy(alpha = 0.95f * k),
-                Color.White.copy(alpha = 0.55f * k),
+                Color.White.copy(alpha = top),
+                Color.White.copy(alpha = (0.55f * k).coerceAtMost(top)),
                 ink.copy(alpha = 0.07f * k),
             )
         },
@@ -209,11 +233,11 @@ fun ModalSurface(
     shape: Shape = OrbitModalDefaults.Shape,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    SoftGlassSurface(
+    // Live blur where the route and the Glass setting allow it; otherwise the solid Sheet fallback.
+    LiveGlassSurface(
         modifier = modifier,
         shape = shape,
         style = GlassSurfaceStyle.Sheet,
-        shadowElevation = OrbitModalDefaults.Elevation,
         content = content,
     )
 }
@@ -234,13 +258,38 @@ internal fun orbitModalScrimColor(): Color {
 
 internal fun modalScrimAlpha(isDark: Boolean): Float = if (isDark) 0.44f else 0.32f
 
+/**
+ * The only styles that may draw live blur: the small floating layer (capture box, bottom bar,
+ * sheets) plus the bounded preview role. Cards and list rows stay on SoftGlass.
+ */
+internal val LiveGlassStyles: Set<GlassSurfaceStyle> = setOf(
+    GlassSurfaceStyle.Prominent,
+    GlassSurfaceStyle.HomeCapture,
+    GlassSurfaceStyle.NavigationBar,
+    GlassSurfaceStyle.Sheet,
+)
+
+/**
+ * Sheets and dialogs sit in their own window. Where Haze cannot draw the app background into
+ * that window, the tint alone would let the list behind read through the sheet's text, so a
+ * live sheet keeps an opaque underlay. When the blur does draw, the opaque background covers it.
+ */
+internal fun liveGlassNeedsOpaqueUnderlay(style: GlassSurfaceStyle): Boolean =
+    style == GlassSurfaceStyle.Sheet
+
+/**
+ * Live blur only on Android 13+, where Haze uses a runtime shader; below that it costs more than
+ * it shows. With "Remove animations" on, the person asked for less rendering, so glass stays soft.
+ */
 internal fun shouldRenderLiveGlass(
     policy: GlassRenderingPolicy,
     platformApi: Int,
     hasHazeSource: Boolean,
+    animationsRemoved: Boolean,
 ): Boolean = policy == GlassRenderingPolicy.LiveAllowed &&
-    platformApi >= Build.VERSION_CODES.S &&
-    hasHazeSource
+    platformApi >= Build.VERSION_CODES.TIRAMISU &&
+    hasHazeSource &&
+    !animationsRemoved
 
 internal data class GlassVisuals(
     val hazeStyle: HazeStyle,
@@ -287,11 +336,7 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
         glassStrength = glassStrength,
         hasCustomBackground = hasCustomBackground,
     )
-    val tint = if (isDark) {
-        Color(0xFF14101D).copy(alpha = tintAlpha)
-    } else {
-        Color.White.copy(alpha = tintAlpha)
-    }
+    val tint = glassFallbackTint(isDark = isDark, tintAlpha = tintAlpha)
     val accentTintAlpha = glassAccentTintAlpha(style = style, isDark = isDark)
     val accentTint = Brush.linearGradient(
         colors = listOf(
@@ -301,16 +346,7 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
         start = Offset.Zero,
         end = Offset.Infinite,
     )
-    val blurRadius = when (style) {
-        GlassSurfaceStyle.Prominent -> if (isDark) 22.dp else 18.dp
-        GlassSurfaceStyle.Sheet -> if (isDark) 24.dp else 20.dp
-        GlassSurfaceStyle.Subtle -> if (isDark) 14.dp else 12.dp
-        GlassSurfaceStyle.Standard -> if (isDark) 20.dp else 16.dp
-        GlassSurfaceStyle.HomeCapture -> if (isDark) 22.dp else 18.dp
-        GlassSurfaceStyle.HomeNavigation -> if (isDark) 14.dp else 12.dp
-        GlassSurfaceStyle.NavigationAction -> if (isDark) 18.dp else 14.dp
-        GlassSurfaceStyle.NavigationBar -> if (isDark) 12.dp else 10.dp
-    }
+    val blurRadius = glassBlurRadius(style, isDark)
     val noiseFactor = when (style) {
         GlassSurfaceStyle.Sheet -> if (isDark) 0.040f else 0.030f
         GlassSurfaceStyle.Prominent -> if (isDark) 0.036f else 0.028f
@@ -326,6 +362,7 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
         isDark = isDark,
         ink = colors.onSurface,
         strength = 0.70f + (glassStrength * 0.30f),
+        topAlpha = liveGlassTopEdgeAlpha(style, isDark),
     )
 
     return GlassVisuals(
@@ -345,6 +382,41 @@ internal fun orbitGlassVisuals(style: GlassSurfaceStyle = GlassSurfaceStyle.Stan
         fallbackColor = tint,
     )
 }
+
+/** Blur behind each live style. The bar is blurred enough that text behind it reads as colour. */
+internal fun glassBlurRadius(style: GlassSurfaceStyle, isDark: Boolean): Dp = when (style) {
+    GlassSurfaceStyle.Prominent -> if (isDark) 22.dp else 18.dp
+    GlassSurfaceStyle.Sheet -> if (isDark) 24.dp else 20.dp
+    GlassSurfaceStyle.Subtle -> if (isDark) 14.dp else 12.dp
+    GlassSurfaceStyle.Standard -> if (isDark) 20.dp else 16.dp
+    GlassSurfaceStyle.HomeCapture -> if (isDark) 22.dp else 18.dp
+    GlassSurfaceStyle.HomeNavigation -> if (isDark) 14.dp else 12.dp
+    GlassSurfaceStyle.NavigationAction -> if (isDark) 18.dp else 14.dp
+    GlassSurfaceStyle.NavigationBar -> 20.dp
+}
+
+/** The tint laid over the blur, and the whole fill when Haze has to fall back to a scrim. */
+internal fun glassFallbackTint(isDark: Boolean, tintAlpha: Float): Color = if (isDark) {
+    Color(0xFF14101D).copy(alpha = tintAlpha)
+} else {
+    Color.White.copy(alpha = tintAlpha)
+}
+
+/**
+ * Top-edge light for the three floating live styles: a quiet line, so the blur reads as glass and
+ * not as a white frame. Null keeps the shared edge for every other style.
+ */
+internal fun liveGlassTopEdgeAlpha(style: GlassSurfaceStyle, isDark: Boolean): Float? = when (style) {
+    GlassSurfaceStyle.HomeCapture,
+    GlassSurfaceStyle.NavigationBar,
+    GlassSurfaceStyle.Sheet,
+    -> if (isDark) 0.14f else 0.24f
+
+    else -> null
+}
+
+/** Below this the bar's tint lets text scrolling behind it show as words, not colour. */
+internal const val NavigationBarMinimumTintAlpha = 0.55f
 
 internal fun glassAccentTintAlpha(style: GlassSurfaceStyle, isDark: Boolean): Float = when (style) {
     GlassSurfaceStyle.Subtle -> if (isDark) 0.045f else 0.035f
@@ -375,13 +447,14 @@ internal fun glassTintAlpha(
     }
     val themeAdjustment = if (isDark) 0.02f else 0f
     val customBackgroundBoost = if (hasCustomBackground) 0.05f else 0f
-    return (
+    val alpha = (
         0.04f +
             (glassStrength.coerceIn(0f, 1f) * 0.62f) +
             roleAdjustment +
             themeAdjustment +
             customBackgroundBoost
         ).coerceIn(0.04f, 0.82f)
+    return if (style == GlassSurfaceStyle.NavigationBar) maxOf(alpha, NavigationBarMinimumTintAlpha) else alpha
 }
 
 @Composable
@@ -460,13 +533,9 @@ internal fun softGlassContainerAlpha(
     }
 
     if (style == GlassSurfaceStyle.Sheet) {
-        val themeFloor = if (isDark) 0.74f else 0.70f
-        val customBackgroundBoost = if (hasCustomBackground) 0.02f else 0f
-        return (
-            themeFloor +
-                (glassStrength.coerceIn(0f, 1f) * 0.18f) +
-                customBackgroundBoost
-            ).coerceIn(0.70f, 0.94f)
+        // Sheets and dialogs are drawn without blur, so anything lighter lets the list
+        // behind read through the sheet's own text. They are fully opaque.
+        return 1f
     }
 
     if (style == GlassSurfaceStyle.HomeNavigation) {

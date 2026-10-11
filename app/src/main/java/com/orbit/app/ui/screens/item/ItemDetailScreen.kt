@@ -2,6 +2,12 @@
 
 package com.orbit.app.ui.screens.item
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.foundation.selection.toggleable
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
@@ -20,7 +26,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +36,9 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Spa
@@ -39,8 +47,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -93,13 +99,64 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import com.orbit.app.ui.components.LumaMenu
+import com.orbit.app.ui.components.LumaMenuItem
+import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material.icons.rounded.DeleteOutline
 
 private enum class DetailSheet { Type, Schedule, LifeState, Space, Notification, Repeat }
 
-internal enum class ItemDetailBackAction { CancelEditing, NavigateUp }
+internal enum class ItemDetailBackAction { CancelEditing, ConfirmDiscard, NavigateUp }
 
-internal fun itemDetailBackAction(isEditing: Boolean): ItemDetailBackAction =
-    if (isEditing) ItemDetailBackAction.CancelEditing else ItemDetailBackAction.NavigateUp
+internal enum class ItemDetailField { Type, Schedule, Notification, Repeat, LifeState, Space }
+
+/** The detail rows an item shows at once, and the ones folded under "More". */
+internal data class ItemDetailFields(
+    val shown: List<ItemDetailField>,
+    val underMore: List<ItemDetailField> = emptyList(),
+)
+
+/**
+ * Only what fits the kind of item: a note has no status or reminder, and shows its date
+ * only when it already has one (so it can still be moved or cleared); a task keeps its
+ * date and status one tap away under "More"; a reminder shows its time and alert.
+ */
+internal fun itemDetailFields(
+    type: ItemDetailType,
+    hasNotificationSettings: Boolean,
+    noteIsScheduled: Boolean = false,
+): ItemDetailFields = when (type) {
+    ItemDetailType.Note -> ItemDetailFields(
+        shown = if (noteIsScheduled) {
+            listOf(ItemDetailField.Type, ItemDetailField.Schedule, ItemDetailField.Space)
+        } else {
+            listOf(ItemDetailField.Type, ItemDetailField.Space)
+        },
+    )
+    ItemDetailType.Task -> ItemDetailFields(
+        shown = listOf(ItemDetailField.Type, ItemDetailField.Space),
+        underMore = listOf(ItemDetailField.Schedule, ItemDetailField.LifeState),
+    )
+    ItemDetailType.Reminder -> ItemDetailFields(
+        shown = buildList {
+            add(ItemDetailField.Type)
+            add(ItemDetailField.Schedule)
+            if (hasNotificationSettings) {
+                add(ItemDetailField.Notification)
+                add(ItemDetailField.Repeat)
+            }
+            add(ItemDetailField.Space)
+        },
+    )
+    ItemDetailType.Capture -> ItemDetailFields(shown = emptyList())
+}
+
+/** Back while editing: leave quietly when nothing changed, ask first when it did. */
+internal fun itemDetailBackAction(isEditing: Boolean, hasChanges: Boolean = false): ItemDetailBackAction = when {
+    !isEditing -> ItemDetailBackAction.NavigateUp
+    hasChanges -> ItemDetailBackAction.ConfirmDiscard
+    else -> ItemDetailBackAction.CancelEditing
+}
 
 @Composable
 fun ItemDetailScreen(
@@ -118,19 +175,30 @@ fun ItemDetailScreen(
     LaunchedEffect(state.convertedToType) {
         state.convertedToType?.let { onTypeChanged(it, state.itemId) }
     }
-    LaunchedEffect(state.message, state.archiveUndoOperationId, state.scheduleUndoOperationId) {
+    LaunchedEffect(
+        state.message,
+        state.archiveUndoOperationId,
+        state.scheduleUndoOperationId,
+        state.typeUndoOperationId,
+        state.reminderTimeUndoOperationId,
+    ) {
         state.message?.let { message ->
             val archiveId = state.archiveUndoOperationId
             val scheduleId = state.scheduleUndoOperationId
+            val typeId = state.typeUndoOperationId
+            val reminderTimeId = state.reminderTimeUndoOperationId
+            val undoable = archiveId != null || scheduleId != null || typeId != null || reminderTimeId != null
             val result = snackbarHostState.showSnackbar(
                 message,
-                actionLabel = if (archiveId != null || scheduleId != null) undoLabel else null,
-                duration = SnackbarDuration.Short,
+                actionLabel = if (undoable) undoLabel else null,
+                duration = if (undoable) SnackbarDuration.Long else SnackbarDuration.Short,
             )
             when {
                 result == SnackbarResult.ActionPerformed && archiveId != null -> viewModel.undoArchive(archiveId)
                 result == SnackbarResult.ActionPerformed && scheduleId != null -> viewModel.undoSchedule(scheduleId)
-                else -> viewModel.messageShown(archiveId, scheduleId)
+                result == SnackbarResult.ActionPerformed && typeId != null -> viewModel.undoTypeChange(typeId)
+                result == SnackbarResult.ActionPerformed && reminderTimeId != null -> viewModel.undoReminderTime(reminderTimeId)
+                else -> viewModel.messageShown(archiveId, scheduleId, typeId, reminderTimeId)
             }
         }
     }
@@ -161,11 +229,21 @@ fun ItemDetailScreen(
             AlertDialog(
                 onDismissRequest = { confirmDelete = false },
                 modifier = Modifier.calmPressHaptics(),
-                title = { Text(stringResource(R.string.core_item_detail_delete_item_title)) },
-                text = { Text(stringResource(R.string.core_item_detail_delete_item_message)) },
+                title = { Text(stringResource(state.type.deleteTitleRes())) },
+                text = {
+                    Text(
+                        stringResource(
+                            if (state.type == ItemDetailType.Reminder) {
+                                R.string.item_delete_reminder_body
+                            } else {
+                                R.string.item_delete_archivable_body
+                            },
+                        ),
+                    )
+                },
                 confirmButton = {
                     TextButton(onClick = { confirmDelete = false; viewModel.deleteProtected() }) {
-                        Text(stringResource(R.string.core_action_delete))
+                        Text(stringResource(R.string.core_action_delete), color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.core_action_cancel)) } },
@@ -206,6 +284,10 @@ private fun ItemDetailContent(
     var openSheet by rememberSaveable { mutableStateOf<DetailSheet?>(null) }
     var pendingReminderConversion by rememberSaveable { mutableStateOf(false) }
     var overflowOpen by remember { mutableStateOf(false) }
+    var confirmDiscard by rememberSaveable { mutableStateOf(false) }
+    var pendingTypeChange by rememberSaveable { mutableStateOf<ItemDetailType?>(null) }
+    var moreDetailsOpen by rememberSaveable(state.itemId) { mutableStateOf(false) }
+    val hasChanges = isEditing && (title != state.title || body != state.body)
 
     LaunchedEffect(state.saveCompletedAt) {
         if (state.saveCompletedAt != null) isEditing = false
@@ -219,14 +301,53 @@ private fun ItemDetailContent(
         isEditing = false
     }
     val navigateBack = {
-        when (itemDetailBackAction(isEditing)) {
+        when (itemDetailBackAction(isEditing, hasChanges)) {
             ItemDetailBackAction.CancelEditing -> cancelEditing()
+            ItemDetailBackAction.ConfirmDiscard -> confirmDiscard = true
             ItemDetailBackAction.NavigateUp -> onBack()
         }
     }
 
-    BackHandler(enabled = itemDetailBackAction(isEditing) == ItemDetailBackAction.CancelEditing) {
-        cancelEditing()
+    BackHandler(enabled = isEditing) { navigateBack() }
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text(stringResource(R.string.item_discard_title)) },
+            text = { Text(stringResource(R.string.item_discard_body)) },
+            confirmButton = {
+                TextButton(onClick = { confirmDiscard = false; cancelEditing() }) {
+                    Text(stringResource(R.string.item_discard_confirm), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.item_keep_editing)) }
+            },
+        )
+    }
+    // Changing the type names what it would remove before anything happens.
+    val startTypeChange: (ItemDetailType) -> Unit = { target ->
+        if (target == ItemDetailType.Reminder && state.scheduledAt == null) {
+            pendingReminderConversion = true
+            openSheet = DetailSheet.Schedule
+        } else {
+            onChangeType(target, state.scheduledAt)
+        }
+    }
+    pendingTypeChange?.let { target ->
+        val losses = typeChangeLosses(state.type, target, state.repeat, state.notificationEnabled, state.taskStatus)
+        AlertDialog(
+            onDismissRequest = { pendingTypeChange = null },
+            title = { Text(stringResource(R.string.item_type_change_title)) },
+            text = { Text(stringResource(R.string.item_type_change_loses, typeChangeLossText(losses))) },
+            confirmButton = {
+                TextButton(onClick = { pendingTypeChange = null; startTypeChange(target) }) {
+                    Text(stringResource(R.string.item_type_change_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingTypeChange = null }) { Text(stringResource(R.string.core_action_cancel)) }
+            },
+        )
     }
 
     val statusBarTopPadding = with(LocalDensity.current) {
@@ -280,37 +401,56 @@ private fun ItemDetailContent(
                     Text(stringResource(R.string.core_item_detail_details), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     SoftGlassSurface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                         Column {
-                            DetailRow(stringResource(R.string.core_item_detail_type), state.type.userLabel(), !isEditing) { openSheet = DetailSheet.Type }
-                            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                            DetailRow(stringResource(R.string.core_item_detail_schedule), scheduleLabel(state, timeFormat), !isEditing) { openSheet = DetailSheet.Schedule }
-                            if (state.type == ItemDetailType.Reminder && state.notificationEnabled != null) {
-                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                                DetailRow(
-                                    stringResource(R.string.core_reminder_detail_notification),
-                                    stringResource(
-                                        if (state.notificationEnabled == true) {
-                                            R.string.core_enabled
-                                        } else {
-                                            R.string.core_disabled
-                                        },
-                                    ) + " · " + reminderOffsetLabel(state.notificationOffsetMinutes ?: 0L),
-                                    !isEditing,
-                                ) { openSheet = DetailSheet.Notification }
-                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                                DetailRow(
-                                    stringResource(R.string.reminder_repeat_title),
-                                    stringResource(state.repeat.labelRes()),
-                                    !isEditing,
-                                ) { openSheet = DetailSheet.Repeat }
+                            val fields = itemDetailFields(
+                                type = state.type,
+                                hasNotificationSettings = state.notificationEnabled != null,
+                                noteIsScheduled = state.scheduledDateEpochDay != null || state.scheduledAt != null,
+                            )
+                            val detailRow: @Composable (ItemDetailField) -> Unit = { field ->
+                                when (field) {
+                                    ItemDetailField.Type ->
+                                        DetailRow(stringResource(R.string.core_item_detail_type), state.type.userLabel(), !isEditing) { openSheet = DetailSheet.Type }
+                                    ItemDetailField.Schedule ->
+                                        DetailRow(stringResource(R.string.core_item_detail_schedule), scheduleLabel(state, timeFormat), !isEditing) { openSheet = DetailSheet.Schedule }
+                                    ItemDetailField.Notification -> DetailRow(
+                                        stringResource(R.string.core_reminder_detail_notification),
+                                        stringResource(
+                                            if (state.notificationEnabled == true) {
+                                                R.string.core_enabled
+                                            } else {
+                                                R.string.core_disabled
+                                            },
+                                        ) + " · " + reminderOffsetLabel(state.notificationOffsetMinutes ?: 0L),
+                                        !isEditing,
+                                    ) { openSheet = DetailSheet.Notification }
+                                    ItemDetailField.Repeat -> DetailRow(
+                                        stringResource(R.string.reminder_repeat_title),
+                                        stringResource(state.repeat.labelRes()),
+                                        !isEditing,
+                                    ) { openSheet = DetailSheet.Repeat }
+                                    ItemDetailField.LifeState -> DetailRow(
+                                        stringResource(R.string.core_item_detail_life_state),
+                                        state.taskStatus?.lifeStateLabel() ?: stringResource(R.string.core_item_detail_not_applicable),
+                                        !isEditing && state.type == ItemDetailType.Task,
+                                    ) { openSheet = DetailSheet.LifeState }
+                                    ItemDetailField.Space ->
+                                        DetailRow(stringResource(R.string.core_item_detail_space), state.spaceName(), !isEditing) { openSheet = DetailSheet.Space }
+                                }
                             }
-                            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                            DetailRow(
-                                stringResource(R.string.core_item_detail_life_state),
-                                state.taskStatus?.lifeStateLabel() ?: stringResource(R.string.core_item_detail_not_applicable),
-                                !isEditing && state.type == ItemDetailType.Task,
-                            ) { openSheet = DetailSheet.LifeState }
-                            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                            DetailRow(stringResource(R.string.core_item_detail_space), state.spaceName(), !isEditing) { openSheet = DetailSheet.Space }
+                            fields.shown.forEachIndexed { index, field ->
+                                if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                                detailRow(field)
+                            }
+                            if (fields.underMore.isNotEmpty()) {
+                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                                MoreDetailsRow(expanded = moreDetailsOpen, onToggle = { moreDetailsOpen = !moreDetailsOpen })
+                                if (moreDetailsOpen) {
+                                    fields.underMore.forEach { field ->
+                                        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                                        detailRow(field)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -355,8 +495,9 @@ private fun ItemDetailContent(
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.core_back))
             }
             Text(
-                stringResource(R.string.core_item_detail_title),
-                Modifier.weight(1f).padding(start = 4.dp),
+                // The header names what this is: "Task", "Note", "Reminder" or "Thought".
+                if (state.isLoading || state.isMissing) stringResource(R.string.core_item_detail_title) else state.type.userLabel(),
+                Modifier.weight(1f).padding(start = 4.dp).semantics { heading() },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -374,15 +515,17 @@ private fun ItemDetailContent(
             }
             if (!isEditing) Box {
                 IconButton(onClick = { overflowOpen = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.core_item_detail_more_actions)) }
-                DropdownMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
+                LumaMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
                     if (state.canArchive) {
-                        DropdownMenuItem(
+                        LumaMenuItem(
                             text = { Text(stringResource(R.string.core_action_archive)) },
+                            leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
                             onClick = { overflowOpen = false; onArchive() },
                         )
                     }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.core_action_delete)) },
+                    LumaMenuItem(
+                        text = { Text(stringResource(R.string.core_action_delete), color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                         onClick = { overflowOpen = false; onDelete() },
                     )
                 }
@@ -393,10 +536,9 @@ private fun ItemDetailContent(
     when (openSheet) {
         DetailSheet.Type -> TypeSheet(state.type, onDismiss = { openSheet = null }) { target ->
             openSheet = null
-            if (target == ItemDetailType.Reminder && state.scheduledAt == null) {
-                pendingReminderConversion = true
-                openSheet = DetailSheet.Schedule
-            } else onChangeType(target, state.scheduledAt)
+            if (target == state.type) return@TypeSheet
+            val losses = typeChangeLosses(state.type, target, state.repeat, state.notificationEnabled, state.taskStatus)
+            if (losses.isEmpty()) startTypeChange(target) else pendingTypeChange = target
         }
         DetailSheet.Schedule -> ScheduleSheet(
             state = state,
@@ -445,6 +587,33 @@ private fun ItemDetailContent(
             onDismiss = { openSheet = null },
         ) { openSheet = null; onUpdateSpace(it) }
         null -> Unit
+    }
+}
+
+/** Folds a task's date and status away until asked for. */
+@Composable
+private fun MoreDetailsRow(expanded: Boolean, onToggle: () -> Unit) {
+    val stateText = stringResource(if (expanded) R.string.expand_state_open else R.string.expand_state_closed)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(role = Role.Button, onClick = onToggle)
+            .semantics { stateDescription = stateText }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(R.string.item_detail_more),
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Icon(
+            if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -503,8 +672,10 @@ private fun ChoiceSheet(
 private fun SelectionRow(label: String, selected: Boolean, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(label) },
-        trailingContent = { if (selected) Icon(Icons.Rounded.Check, stringResource(R.string.core_selected)) else RadioButton(false, onClick = null) },
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onClick),
+        trailingContent = { if (selected) Icon(Icons.Rounded.Check, contentDescription = null) else RadioButton(false, onClick = null) },
+        // One choice of several: TalkBack hears "selected" and the radio role.
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick),
     )
 }
 
@@ -599,21 +770,15 @@ private fun NotificationSheet(
     LumaModalBottomSheet(onDismissRequest = onDismiss) {
         SheetTitle(stringResource(R.string.core_reminder_detail_notification))
         ListItem(
-            headlineContent = {
-                Text(
-                    stringResource(
-                        if (notificationEnabled) {
-                            R.string.core_reminder_detail_disable_notification
-                        } else {
-                            R.string.core_reminder_detail_enable_notification
-                        },
-                    ),
-                )
-            },
+            headlineContent = { Text(stringResource(R.string.item_notify_me)) },
             trailingContent = {
-                Switch(checked = notificationEnabled, onCheckedChange = onEnabledChanged)
+                // The row carries the toggle; the switch itself is not a second target.
+                Switch(checked = notificationEnabled, onCheckedChange = null)
             },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .toggleable(value = notificationEnabled, role = Role.Switch, onValueChange = onEnabledChanged),
         )
         Text(
             stringResource(R.string.core_reminder_detail_delivery),
@@ -632,8 +797,18 @@ private fun NotificationSheet(
                     selected = selected,
                     onClick = { onOffsetSelected(option.minutes) },
                     label = { Text(option.label) },
+                    // With notifications off there is nothing to time.
+                    enabled = notificationEnabled,
                 )
             }
+        }
+        if (!notificationEnabled) {
+            Text(
+                stringResource(R.string.item_offsets_need_notifications),
+                Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Spacer(Modifier.navigationBarsPadding())
     }
@@ -654,13 +829,26 @@ private fun TinyActionCard(
             }
             state.tinyActionSuggestion?.let { suggestion ->
                 Text(suggestion.action, style = MaterialTheme.typography.bodyLarge)
+                // Says who answered: Gemini, the local rules, or local rules after Gemini failed.
+                Text(suggestion.sourceLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row {
                     TextButton(onClick = onCreateTinyTask, enabled = !state.isCreatingTinyTask) { Text(stringResource(R.string.core_item_detail_create_task)) }
                     TextButton(onClick = onDismissTinyAction, enabled = !state.isCreatingTinyTask) { Text(stringResource(R.string.core_action_cancel)) }
                 }
             } ?: run {
                 Text(stringResource(R.string.core_item_detail_make_smaller_explanation), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = onMakeSmaller) { Text(stringResource(R.string.core_review_make_smaller)) }
+                if (state.isMakingSmaller) {
+                    Row(
+                        Modifier.heightIn(min = 48.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.item_making_smaller), style = MaterialTheme.typography.bodyMedium)
+                    }
+                } else {
+                    TextButton(onClick = onMakeSmaller) { Text(stringResource(R.string.core_review_make_smaller)) }
+                }
             }
         }
     }
@@ -718,3 +906,19 @@ private fun showDateTimePicker(context: Context, initialValue: Long, timeFormat:
 private fun showDateOnlyPicker(context: Context, initial: LocalDate, onSelected: (LocalDate) -> Unit) {
     DatePickerDialog(context, { _, year, month, day -> onSelected(LocalDate.of(year, month + 1, day)) }, initial.year, initial.monthValue - 1, initial.dayOfMonth).show()
 }
+
+private fun ItemDetailType.deleteTitleRes(): Int = when (this) {
+    ItemDetailType.Note -> R.string.item_delete_note_title
+    ItemDetailType.Task -> R.string.item_delete_task_title
+    ItemDetailType.Reminder -> R.string.item_delete_reminder_title
+    ItemDetailType.Capture -> R.string.item_delete_capture_title
+}
+
+@Composable
+private fun typeChangeLossText(losses: List<TypeChangeLoss>): String = losses.map { loss ->
+    when (loss) {
+        TypeChangeLoss.Repeat -> stringResource(R.string.item_loss_repeat)
+        TypeChangeLoss.Notification -> stringResource(R.string.item_loss_notification)
+        is TypeChangeLoss.Status -> stringResource(R.string.item_loss_status, loss.status.lifeStateLabel())
+    }
+}.joinToString(stringResource(R.string.core_list_and_separator))

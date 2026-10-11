@@ -29,6 +29,7 @@ internal fun starterSpaceNameRes(storedName: String): Int? = when (storedName) {
     "Money" -> R.string.core_starter_space_money
     "Ideas" -> R.string.core_starter_space_ideas
     "Home" -> R.string.core_starter_space_home
+    "Household" -> R.string.core_starter_space_household
     "Health" -> R.string.core_starter_space_health
     "Learning" -> R.string.core_starter_space_learning
     else -> null

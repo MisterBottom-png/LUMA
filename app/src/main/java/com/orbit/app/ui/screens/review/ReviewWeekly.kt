@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.rounded.Spa
 import com.orbit.app.ui.components.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
@@ -102,7 +104,7 @@ internal fun WeeklyReviewPager(
     onLookBackVisible: () -> Unit,
 ) {
     val pages = WeeklyReviewPage.entries
-    val pagerState = rememberPagerState(initialPage = 1, pageCount = { pages.size })
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { pages.size })
     LaunchedEffect(pagerState.currentPage) {
         if (pages[pagerState.currentPage] == WeeklyReviewPage.LookBack) onLookBackVisible()
     }
@@ -112,12 +114,12 @@ internal fun WeeklyReviewPager(
             stringResource(R.string.core_review_weekly_title),
             stringResource(R.string.core_review_weekly_subtitle),
         )
+        // No fixed height: a long look back or large text grows the card instead of being cut off.
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(340.dp),
+            modifier = Modifier.fillMaxWidth(),
             pageSpacing = 12.dp,
+            verticalAlignment = Alignment.Top,
         ) { page ->
             WeeklyReviewPageCard(page = pages[page], uiState = uiState)
         }
@@ -159,14 +161,15 @@ internal fun WeeklyReviewPager(
 @Composable
 private fun WeeklyReviewPageCard(page: WeeklyReviewPage, uiState: ReviewUiState) {
     SoftGlassSurface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = WeeklyCardMinHeight),
         shape = MaterialTheme.shapes.extraLarge,
         style = GlassSurfaceStyle.Prominent,
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .fillMaxWidth()
                 .padding(22.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -181,13 +184,33 @@ private fun WeeklyReviewPageCard(page: WeeklyReviewPage, uiState: ReviewUiState)
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             when (page) {
-                WeeklyReviewPage.LookBack -> {
+                WeeklyReviewPage.LookBack -> if (uiState.weeklySummaryLoading) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text(
+                            text = stringResource(R.string.review_weekly_loading),
+                            modifier = Modifier.padding(start = 12.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                } else {
+                    uiState.weeklySummary?.let { summary ->
+                        Text(
+                            text = stringResource(
+                                if (summary.fromGemini) {
+                                    R.string.core_situation_answered_by_gemini
+                                } else {
+                                    R.string.core_situation_local_answer
+                                },
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(
                         text = uiState.weeklySummary?.answer
                             ?: stringResource(R.string.core_review_weekly_fallback),
                         style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 6,
-                        overflow = TextOverflow.Ellipsis,
                     )
                     WeeklyMetric(
                         label = stringResource(R.string.core_review_local_sources_considered),
@@ -248,6 +271,8 @@ private fun WeeklyMetric(label: String, count: Int) {
     }
 }
 
+
+private val WeeklyCardMinHeight = 300.dp
 
 @StringRes
 private fun WeeklyReviewPage.titleRes(): Int = when (this) {

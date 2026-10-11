@@ -6,18 +6,27 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.orbit.app.R
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.repository.AppSettingsRepository
-import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.capture.CaptureInbox
 import com.orbit.app.domain.capture.CaptureInboxEvent
-import com.orbit.app.domain.capture.needsImmediateTimeQuestion
-import java.time.Instant
+import com.orbit.app.domain.model.AppSettings
 import java.time.LocalDate
-import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -37,23 +46,45 @@ internal fun CaptureProcessingState.statusLabelRes(): Int? = when (this) {
     CaptureProcessingState.Analyzing -> R.string.core_home_analyzing_capture
 }
 
-/** A single quick question after saving a clearly time-sensitive thought. */
+/**
+ * Home's one question: the last thought is clearly a reminder, but its time is missing,
+ * unclear or already past. It is read from the stored outcome, so it is still there
+ * after the app is reopened.
+ */
 internal data class QuickReminderQuestion(
     val captureId: Long,
     val title: String,
-    /** Null when LUMA could not tell the time and the user should pick one. */
-    val reminderAt: Long?,
-    val phrase: String?,
+    /** [CaptureOutcomeReason.TimeUnclear] or [CaptureOutcomeReason.TimePassed]. */
+    val reason: CaptureOutcomeReason,
 )
 
-/** Messages Home can show; the text is resolved on screen so it follows the language. */
+/** The question this receipt asks instead of its line, or null when it only reports. */
+internal fun CaptureReceipt.quickQuestion(): QuickReminderQuestion? {
+    if (outcome != CaptureOutcome.NeedsYou) return null
+    if (reason != CaptureOutcomeReason.TimeUnclear && reason != CaptureOutcomeReason.TimePassed) return null
+    return QuickReminderQuestion(captureId = captureId, title = title, reason = reason)
+}
+
+/**
+ * Short flashes Home can still show; the text is resolved on screen so it follows the
+ * language. Everything that went right is told by the save receipt, which is state;
+ * these are only for something that went wrong.
+ */
 internal enum class HomeMessage(@param:StringRes val textRes: Int) {
-    Saved(R.string.core_home_saved_let_go),
     SaveFailed(R.string.core_home_message_capture_save_failed),
-    ReminderSet(R.string.core_home_message_reminder_created),
-    ReminderSetNeedsAttention(R.string.core_home_message_reminder_notification_attention),
     ReminderFailed(R.string.core_home_message_capture_action_failed),
-    KeptForLater(R.string.core_home_message_kept_in_inbox),
+}
+
+/** Which stored receipt Home may show right now. */
+private sealed interface ReceiptGate {
+    /** Whatever receipt is stored (for example after the app was reopened). */
+    data object Open : ReceiptGate
+
+    /** A new thought is being saved: the previous receipt is gone. */
+    data object Saving : ReceiptGate
+
+    /** Only the receipt of the thought just saved. */
+    data class Expect(val captureId: Long) : ReceiptGate
 }
 
 internal data class HomeCaptureUiState(
@@ -62,7 +93,7 @@ internal data class HomeCaptureUiState(
     /** Increments on every successful save; drives the send animation and haptic. */
     val savedPulse: Int = 0,
     val message: HomeMessage? = null,
-    val quickReminder: QuickReminderQuestion? = null,
+    /** A reminder is being armed again, or the question is being answered. */
     val isSettingReminder: Boolean = false,
     /** A capture the sorting sheet should open (sort-right-after-saving or "Pick a time"). */
     val sortRequest: SortRequest? = null,
@@ -75,22 +106,31 @@ internal data class HomeCaptureUiState(
 internal fun HomeCaptureUiState.beginCaptureSaving(): HomeCaptureUiState = copy(
     processingState = CaptureProcessingState.Saving,
     message = null,
-    quickReminder = null,
 )
 
 internal data class SortRequest(val captureId: Long, val startWithReminderSetup: Boolean)
 
 /**
  * Home only saves: type, send, saved. The thought is persisted before anything
- * else happens; LUMA analyses it afterwards and keeps the suggestion for Review.
- * Home asks one quick question only when a thought clearly needs a reminder.
+ * else happens; Tallele analyses it afterwards and files it when it is clear (see
+ * AutoFiler). Home asks one quick question only when the stored outcome says a
+ * reminder needs a time.
+ *
+ * Under the capture box a save receipt says what became of the last thought. Its
+ * thought's id is kept in the settings store and the text is read from the database,
+ * so the receipt is the same after the app is killed and reopened.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class HomeCaptureViewModel(
     private val captureInbox: CaptureInbox,
     private val appSettingsRepository: AppSettingsRepository,
-    private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> Boolean,
     private val savedStateHandle: SavedStateHandle,
-    private val now: () -> Long = System::currentTimeMillis,
+    /** The receipt of one thought, from the database (see [CaptureReceiptReader]). */
+    private val receipts: (captureId: Long) -> Flow<CaptureReceipt?> = { flowOf(null) },
+    /** Arms a saved reminder's alarm again and stores what that achieved ("Try again"). */
+    private val retryReminder: suspend (captureId: Long, reminderId: Long) -> Unit = { _, _ -> },
+    /** "Just keep it": the thought stays saved and nothing rings for it (see CaptureResolution.keep). */
+    private val keepThought: suspend (captureId: Long) -> Unit = {},
 ) : ViewModel() {
     // The draft lives in the saved state so a half-typed thought survives Android
     // reclaiming LUMA in the background.
@@ -98,16 +138,67 @@ class HomeCaptureViewModel(
         HomeCaptureUiState(inputText = savedStateHandle.get<String>(DraftTextKey).orEmpty()),
     )
     internal val uiState: StateFlow<HomeCaptureUiState> = _uiState.asStateFlow()
-    private var awaitingAnalysisFor: Long? = null
+    /**
+     * Thoughts saved here whose analysis has not landed yet, each with whether it was
+     * added for a Calendar day. A second save before the first result keeps both.
+     */
+    private val awaitingAnalysis = java.util.concurrent.ConcurrentHashMap<Long, Boolean>()
+    private val receiptGate = MutableStateFlow<ReceiptGate>(ReceiptGate.Open)
+
+    /** The save receipt under the capture box, or null when there is none to show. */
+    val receipt: StateFlow<CaptureReceipt?> = combine(
+        appSettingsRepository.settings
+            .map { settings -> settings.lastReceiptCaptureId?.takeUnless { settings.lastReceiptDismissed } }
+            .distinctUntilChanged()
+            .flatMapLatest { id -> id?.let(receipts) ?: flowOf(null) },
+        receiptGate,
+    ) { stored, gate ->
+        when (gate) {
+            ReceiptGate.Open -> stored
+            ReceiptGate.Saving -> null
+            is ReceiptGate.Expect -> stored?.takeIf { it.captureId == gate.captureId }
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Home's one question, shown in place of the receipt; null when there is nothing to ask. */
+    internal val question: StateFlow<QuickReminderQuestion?> = receipt
+        .map { it?.quickQuestion() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
+     * The one-time tip under the first receipt, matching what really happened to the
+     * thought; null once it has been read or when the receipt is itself a question.
+     */
+    internal val firstReceiptTip: StateFlow<FirstReceiptTip?> = combine(
+        receipt,
+        appSettingsRepository.settings.map { it.hasSeenFirstReceiptTip }.distinctUntilChanged(),
+    ) { current, seen ->
+        current?.takeUnless { seen }?.let(::firstReceiptTipFor)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
+     * A reminder from a thought saved just now that cannot ring until Android shows
+     * notifications: Home says why in one line, then asks Android once. Never for a
+     * receipt that was only restored on opening the app.
+     */
+    val notificationPriming: StateFlow<CaptureReceipt?> = combine(
+        receipt,
+        receiptGate,
+        appSettingsRepository.settings.map { it.hasAskedForNotifications }.distinctUntilChanged(),
+    ) { current, gate, asked ->
+        current?.takeIf { !asked && gate is ReceiptGate.Expect && it.wantsNotifications() }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
         viewModelScope.launch {
             captureInbox.events.collect { event ->
-                if (event.captureId != awaitingAnalysisFor) return@collect
-                awaitingAnalysisFor = null
+                val forCalendarDay = awaitingAnalysis.remove(event.captureId) ?: return@collect
                 when (event) {
-                    is CaptureInboxEvent.Analyzed -> onAnalyzed(event.captureId, event.analysis)
-                    is CaptureInboxEvent.AnalysisFailed -> Unit
+                    is CaptureInboxEvent.Analyzed -> onAnalyzed(event.captureId, forCalendarDay)
+                    // Added for a Calendar day: still open the sheet, so the day can be used.
+                    is CaptureInboxEvent.AnalysisFailed -> if (forCalendarDay) {
+                        _uiState.update { it.copy(sortRequest = SortRequest(event.captureId, startWithReminderSetup = false)) }
+                    }
                 }
             }
         }
@@ -130,89 +221,136 @@ class HomeCaptureViewModel(
         if (rawText.isBlank() || _uiState.value.isProcessing) return false
         val safeContext = calendarDateContextEpochDay
             ?.let { runCatching { LocalDate.ofEpochDay(it).toEpochDay() }.getOrNull() }
+        // A tip that was on screen has been read once the next thought is sent.
+        val tipWasShown = firstReceiptTip.value != null
         _uiState.update(HomeCaptureUiState::beginCaptureSaving)
+        receiptGate.value = ReceiptGate.Saving
         viewModelScope.launch {
-            try {
+            val id = try {
                 // Registered before analysis starts, so a fast result is not missed.
-                captureInbox.save(rawText, contextDateEpochDay = safeContext) { id -> awaitingAnalysisFor = id }
+                captureInbox.save(rawText, contextDateEpochDay = safeContext) { id ->
+                    awaitingAnalysis[id] = safeContext != null
+                }
             } catch (_: Exception) {
                 // Nothing was saved: keep the text in the box so it is not lost.
+                receiptGate.value = ReceiptGate.Open
                 _uiState.update {
                     it.copy(processingState = CaptureProcessingState.Idle, message = HomeMessage.SaveFailed)
                 }
                 return@launch
             }
+            receiptGate.value = ReceiptGate.Expect(id)
             savedStateHandle[DraftTextKey] = ""
             _uiState.update {
                 it.copy(
                     inputText = "",
                     processingState = CaptureProcessingState.Idle,
                     savedPulse = it.savedPulse + 1,
-                    message = HomeMessage.Saved,
                 )
+            }
+            // The thought is safe; now remember which one the receipt is about.
+            storeReceipt {
+                it.copy(lastReceiptCaptureId = id, lastReceiptDismissed = false)
+                    .afterFirstSave(tipWasShown)
             }
         }
         return true
     }
 
-    private suspend fun onAnalyzed(captureId: Long, analysis: CaptureAnalysis) {
-        val settings = appSettingsRepository.settings.first()
-        when {
-            settings.sortRightAfterSaving ->
-                _uiState.update { it.copy(sortRequest = SortRequest(captureId, startWithReminderSetup = false)) }
-            analysis.needsImmediateTimeQuestion(now()) -> _uiState.update {
-                it.copy(
-                    quickReminder = QuickReminderQuestion(
-                        captureId = captureId,
-                        title = analysis.suggestedTitle.ifBlank { analysis.rawText },
-                        reminderAt = analysis.suggestedReminderAt?.takeIf { at -> at > now() },
-                        phrase = analysis.reminderPhrase,
-                    ),
-                )
+    /** Swiped away, or its item opened: the receipt stays hidden until the next save. */
+    fun dismissReceipt() {
+        val captureId = receipt.value?.captureId ?: return
+        val tipWasShown = firstReceiptTip.value != null
+        viewModelScope.launch {
+            storeReceipt { settings ->
+                val dismissed = if (settings.lastReceiptCaptureId == captureId) {
+                    settings.copy(lastReceiptDismissed = true)
+                } else {
+                    settings
+                }
+                if (tipWasShown) dismissed.copy(hasSeenFirstReceiptTip = true) else dismissed
             }
         }
     }
 
-    /** "Remind me" on the quick question: the user's tap is the confirmation. */
-    fun confirmQuickReminder() {
-        val question = _uiState.value.quickReminder ?: return
-        val at = question.reminderAt
-        if (at == null) {
-            _uiState.update {
-                it.copy(quickReminder = null, sortRequest = SortRequest(question.captureId, startWithReminderSetup = true))
-            }
-            return
+    /**
+     * Android answered the notification request. Asked once, whatever the answer; when
+     * allowed, a reminder that could not ring is armed again so the receipt turns into
+     * "Reminder set".
+     */
+    fun notificationPermissionAnswered(granted: Boolean) {
+        val primed = notificationPriming.value
+        viewModelScope.launch {
+            storeReceipt { it.copy(hasAskedForNotifications = true) }
         }
+        if (granted && primed != null && primed.outcome == CaptureOutcome.NeedsYou) retryReceiptReminder()
+    }
+
+    /** "Choose time" for a thought that is still saved: the sort sheet opens on the reminder setup. */
+    fun chooseReceiptTime() {
+        val captureId = receipt.value?.captureId ?: return
+        _uiState.update { it.copy(sortRequest = SortRequest(captureId, startWithReminderSetup = true)) }
+    }
+
+    /** "Try again" for a reminder whose alarm could not be set. */
+    fun retryReceiptReminder() {
+        val current = receipt.value ?: return
+        val reminderId = current.reminderId ?: return
         if (_uiState.value.isSettingReminder) return
         _uiState.update { it.copy(isSettingReminder = true) }
         viewModelScope.launch {
-            val outcome = runCatching { quickReminder(question.captureId, question.title, at) }
-            _uiState.update {
-                it.copy(
-                    isSettingReminder = false,
-                    quickReminder = null,
-                    message = when {
-                        outcome.isFailure -> HomeMessage.ReminderFailed
-                        outcome.getOrDefault(false) -> HomeMessage.ReminderSetNeedsAttention
-                        else -> HomeMessage.ReminderSet
-                    },
-                )
+            try {
+                retryReminder(current.captureId, reminderId)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                _uiState.update { it.copy(message = HomeMessage.ReminderFailed) }
+            } finally {
+                _uiState.update { it.copy(isSettingReminder = false) }
             }
         }
     }
 
-    /** Opens the full reminder setup to pick another time. */
-    fun changeQuickReminderTime() {
-        val question = _uiState.value.quickReminder ?: return
-        _uiState.update {
-            it.copy(quickReminder = null, sortRequest = SortRequest(question.captureId, startWithReminderSetup = true))
+    private suspend fun storeReceipt(change: (AppSettings) -> AppSettings) {
+        try {
+            appSettingsRepository.edit(change)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            // The thought itself is saved; only the receipt is lost.
         }
     }
 
-    /** "Not now": the thought stays in To sort. */
-    fun dismissQuickReminder() {
-        if (_uiState.value.quickReminder == null) return
-        _uiState.update { it.copy(quickReminder = null, message = HomeMessage.KeptForLater) }
+    private suspend fun onAnalyzed(captureId: Long, forCalendarDay: Boolean) {
+        val settings = appSettingsRepository.settings.first()
+        // Whether to file, ask or keep is decided and stored by AutoFiler; the receipt
+        // and the question follow the stored outcome.
+        when (afterSaving(settings.sortRightAfterSaving, forCalendarDay)) {
+            AfterSaving.OpenSortSheet ->
+                _uiState.update { it.copy(sortRequest = SortRequest(captureId, startWithReminderSetup = false)) }
+            AfterSaving.Nothing -> Unit
+        }
+    }
+
+    /**
+     * "Just keep it" on the question: the thought stays saved, in Later and in Search,
+     * and nothing can ring for it. The receipt then says it is saved.
+     */
+    fun keepQuestionThought() {
+        val current = question.value ?: return
+        if (_uiState.value.isSettingReminder) return
+        _uiState.update { it.copy(isSettingReminder = true) }
+        viewModelScope.launch {
+            try {
+                keepThought(current.captureId)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                _uiState.update { it.copy(message = HomeMessage.ReminderFailed) }
+            } finally {
+                _uiState.update { it.copy(isSettingReminder = false) }
+            }
+        }
     }
 
     fun sortRequestHandled() {
@@ -223,11 +361,18 @@ class HomeCaptureViewModel(
         _uiState.update { it.copy(message = null) }
     }
 
+    /** Clears [shown] only if it is still the current message, so a newer one is kept. */
+    internal fun messageShown(shown: HomeMessage) {
+        _uiState.update { if (it.message == shown) it.copy(message = null) else it }
+    }
+
     class Factory(
         private val captureInbox: CaptureInbox,
         private val appSettingsRepository: AppSettingsRepository,
-        private val quickReminder: suspend (captureId: Long, title: String, reminderAt: Long) -> Boolean,
         private val savedStateHandle: SavedStateHandle,
+        private val receipts: (captureId: Long) -> Flow<CaptureReceipt?> = { flowOf(null) },
+        private val retryReminder: suspend (captureId: Long, reminderId: Long) -> Unit = { _, _ -> },
+        private val keepThought: suspend (captureId: Long) -> Unit = {},
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -235,8 +380,10 @@ class HomeCaptureViewModel(
             return HomeCaptureViewModel(
                 captureInbox = captureInbox,
                 appSettingsRepository = appSettingsRepository,
-                quickReminder = quickReminder,
                 savedStateHandle = savedStateHandle,
+                receipts = receipts,
+                retryReminder = retryReminder,
+                keepThought = keepThought,
             ) as T
         }
     }
@@ -246,22 +393,24 @@ class HomeCaptureViewModel(
     }
 }
 
-internal data class CalendarTaskSchedule(
-    val dueAt: Long?,
-    val scheduledDateEpochDay: Long?,
+/**
+ * After a thought is saved: Home's first-run lines are done, and a first-receipt tip
+ * that was on screen counts as read.
+ */
+internal fun AppSettings.afterFirstSave(tipWasShown: Boolean): AppSettings = copy(
+    hasCompletedFirstTimeTutorial = true,
+    hasSeenFirstReceiptTip = hasSeenFirstReceiptTip || tipWasShown,
 )
 
-internal fun calendarTaskSchedule(
-    dueAt: Long?,
-    calendarDateContextEpochDay: Long?,
-    zoneId: ZoneId = ZoneId.systemDefault(),
-): CalendarTaskSchedule {
-    val contextDate = calendarDateContextEpochDay
-        ?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
-    val dueDate = dueAt?.let { Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate() }
-    val usesContext = contextDate != null && dueDate == contextDate
-    return CalendarTaskSchedule(
-        dueAt = dueAt.takeUnless { usesContext },
-        scheduledDateEpochDay = contextDate?.toEpochDay().takeIf { usesContext },
-    )
-}
+internal enum class AfterSaving { OpenSortSheet, Nothing }
+
+/**
+ * What Home does once a saved thought is analysed. A thought added from a Calendar
+ * day opens the sort sheet with that day preset, as if "Sort right after saving" were on;
+ * AutoFiler stands aside for both. Anything else is decided by AutoFiler, and Home's one
+ * question comes from the stored outcome ([quickQuestion]), not from here.
+ */
+internal fun afterSaving(
+    sortRightAfterSaving: Boolean,
+    addedForCalendarDay: Boolean,
+): AfterSaving = if (sortRightAfterSaving || addedForCalendarDay) AfterSaving.OpenSortSheet else AfterSaving.Nothing

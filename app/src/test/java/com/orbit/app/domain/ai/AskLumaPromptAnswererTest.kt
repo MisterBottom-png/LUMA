@@ -62,4 +62,71 @@ class AskLumaPromptAnswererTest {
         val answer = AskLumaPromptAnswerer.answer(AskLumaQuestion.AnythingUrgent, corpus, now, zone)
         assertEquals(listOf("Soon"), answer.items.map { it.title })
     }
+
+    private val dayMillis = 86_400_000L
+
+    @Test
+    fun anEmptyDatabaseNeedsNothing() {
+        assertEquals(AskLumaAnswerKind.NothingNeeded, AskLumaPromptAnswerer.answer(AskLumaQuestion.WhatNow, empty, now, zone).kind)
+        assertEquals(AskLumaAnswerKind.NothingCanWait, AskLumaPromptAnswerer.answer(AskLumaQuestion.WhatCanWait, empty, now, zone).kind)
+        assertEquals(AskLumaAnswerKind.NothingWaiting, AskLumaPromptAnswerer.answer(AskLumaQuestion.DependsOnOthers, empty, now, zone).kind)
+    }
+
+    @Test
+    fun anOverdueTaskIsMentionedInsteadOfSayingNothingNeedsYou() {
+        val corpus = empty.copy(tasks = listOf(TaskEntity(id = 1, title = "Pay the bill", dueAt = now - 2 * dayMillis)))
+        val answer = AskLumaPromptAnswerer.answer(AskLumaQuestion.WhatNow, corpus, now, zone)
+        assertEquals(AskLumaAnswerKind.FromEarlier, answer.kind)
+        assertEquals(1, answer.count)
+        assertEquals(listOf("Pay the bill"), answer.items.map { it.title })
+    }
+
+    @Test
+    fun aTaskForAnEarlierDayAndAnOldReminderAreFromEarlierToo() {
+        val yesterday = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().minusDays(1).toEpochDay()
+        val corpus = empty.copy(
+            tasks = listOf(TaskEntity(id = 1, title = "Water plants", scheduledDateEpochDay = yesterday)),
+            reminders = listOf(ReminderEntity(id = 2, title = "Call back", dueAt = now - 3 * dayMillis)),
+        )
+        val answer = AskLumaPromptAnswerer.answer(AskLumaQuestion.WhatNow, corpus, now, zone)
+        assertEquals(AskLumaAnswerKind.FromEarlier, answer.kind)
+        assertEquals(2, answer.count)
+    }
+
+    @Test
+    fun undatedTasksAreListedSeparatelyUnderNoDateSet() {
+        val corpus = empty.copy(
+            tasks = listOf(
+                TaskEntity(id = 1, title = "Sort photos"),
+                TaskEntity(id = 2, title = "Book flights", dueAt = now + 5 * dayMillis),
+            ),
+        )
+        val answer = AskLumaPromptAnswerer.answer(AskLumaQuestion.WhatCanWait, corpus, now, zone)
+        assertEquals(AskLumaAnswerKind.CanWait, answer.kind)
+        assertEquals(listOf("Book flights"), answer.items.map { it.title })
+        assertEquals(listOf("Sort photos"), answer.undated.map { it.title })
+        assertEquals(listOf("Book flights", "Sort photos"), answer.sources.map { it.title })
+    }
+
+    @Test
+    fun aWaitingItemIsNamedAndIsNotCountedAsEarlier() {
+        val corpus = empty.copy(tasks = listOf(TaskEntity(id = 1, title = "Reply from landlord", status = TaskStatus.WaitingFor)))
+        assertEquals(
+            listOf("Reply from landlord"),
+            AskLumaPromptAnswerer.answer(AskLumaQuestion.DependsOnOthers, corpus, now, zone).items.map { it.title },
+        )
+        assertEquals(AskLumaAnswerKind.NothingNeeded, AskLumaPromptAnswerer.answer(AskLumaQuestion.WhatNow, corpus, now, zone).kind)
+    }
+
+    @Test
+    fun urgentUsesTheSameWindowForTasksAndReminders() {
+        val anHourAgo = now - 3_600_000L
+        val corpus = empty.copy(
+            tasks = listOf(TaskEntity(id = 1, title = "Send form", dueAt = anHourAgo)),
+            reminders = listOf(ReminderEntity(id = 2, title = "Take medicine", dueAt = anHourAgo)),
+        )
+        val answer = AskLumaPromptAnswerer.answer(AskLumaQuestion.AnythingUrgent, corpus, now, zone)
+        assertEquals(AskLumaAnswerKind.Urgent, answer.kind)
+        assertEquals(setOf("Send form", "Take medicine"), answer.items.map { it.title }.toSet())
+    }
 }

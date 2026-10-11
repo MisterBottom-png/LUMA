@@ -10,14 +10,14 @@ Exports are user-chosen JSON files. The UI states that exports are plaintext and
 
 | Store | Current | Accepted on restore / upgrade |
 |---|---|---|
-| Room database | version 9 | migrations 1→2 … 8→9, all explicit; no destructive fallback |
-| Export (backup) format | version 5 | versions 1–5 |
+| Room database | version 11 | migrations 1→2 … 10→11, all explicit; no destructive fallback |
+| Export (backup) format | version 7 | versions 1–7 |
 
-Schema history relevant to this branch: v7 adds device-local delivery state on reminders (`deliveredNotificationAt`, `snoozedUntil`; the migration marks past reminders as delivered so an upgrade never rings old reminders), v8 adds `capture_suggestions` (LUMA's stored suggestion for an unsorted thought), v9 adds `reminders.repeatRule`. Every migration has a JVM test (Robolectric) and an instrumented test that open the real schema files from `app/schemas/`.
+Schema history relevant to this branch: v7 adds device-local delivery state on reminders (`deliveredNotificationAt`, `snoozedUntil`; the migration marks past reminders as delivered so an upgrade never rings old reminders), v8 adds `capture_suggestions` (LUMA's stored suggestion for an unsorted thought; for a task suggestion `contextDateEpochDay` is the task's day, named in the thought or picked in Calendar, and tasks are never given a 23:59 time), v9 adds `reminders.repeatRule`, v10 adds `captures.contextDateEpochDay` (the day picked in Calendar when the thought was captured for that day, so it survives a restart before analysis; older thoughts have none), v11 adds each thought's outcome (`captures.outcome`, `outcomeReason`, `outcomeAt`, `decidedAt`; the migration marks a thought sorted into an open reminder as `ReminderSet`, one sorted into another item as `Filed`, and everything else as `Saved`). Every migration has a JVM test (Robolectric) and an instrumented test that open the real schema files from `app/schemas/`.
 
-## What a backup contains (format 5)
+## What a backup contains (format 7)
 
-Included: Spaces, source captures, notes, tasks, reminders (with repeat rule), Brain Dump sessions that are still in progress and their items, labels and label links, capture suggestions for unsorted thoughts, and learned rules (optional array; links to AI history are dropped).
+Included: Spaces, source captures (with the Calendar day they were captured for, format 6, and their outcome, format 7; older backups get outcomes the way the v11 migration backfills them), notes, tasks, reminders (with repeat rule), Brain Dump sessions that are still in progress and their items, labels and label links, capture suggestions for unsorted thoughts, and learned rules (optional array; links to AI history are dropped).
 
 Not included: app settings and appearance, the Gemini key, AI suggestion/correction history, person and project memory, Space aliases, device-local reminder delivery state and alarm tokens.
 

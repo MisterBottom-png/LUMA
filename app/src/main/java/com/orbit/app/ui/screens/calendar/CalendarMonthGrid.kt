@@ -82,15 +82,6 @@ fun calendarMonthCellContentDescription(
     if (cell.hasItems) add(labels.hasScheduledItems)
 }.joinToString(labels.separator)
 
-enum class CalendarDatePillState { None, Today, Pressed, TodayPressed }
-
-fun resolveCalendarDatePillState(isToday: Boolean, isPressed: Boolean): CalendarDatePillState = when {
-    isToday && isPressed -> CalendarDatePillState.TodayPressed
-    isToday -> CalendarDatePillState.Today
-    isPressed -> CalendarDatePillState.Pressed
-    else -> CalendarDatePillState.None
-}
-
 private fun daysFrom(first: DayOfWeek, target: DayOfWeek): Int =
     (DaysPerWeek + target.value - first.value) % DaysPerWeek
 

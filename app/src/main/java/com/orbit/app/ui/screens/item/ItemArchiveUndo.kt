@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.item
 
+import com.orbit.app.data.local.ArchivedTaskStatusMemory
 import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.NoteEntity
@@ -38,6 +39,7 @@ internal class ItemArchiveUndo(
     private val noteRepository: NoteRepository,
     private val taskRepository: TaskRepository,
     private val captureRepository: CaptureRepository,
+    private val archivedTaskStatus: ArchivedTaskStatusMemory = ArchivedTaskStatusMemory.None,
     private val currentTimeMillis: () -> Long = System::currentTimeMillis,
 ) {
     private var nextOperationId = 1L
@@ -62,6 +64,7 @@ internal class ItemArchiveUndo(
                 ItemDetailType.Task -> {
                     val item = taskRepository.getById(itemId) ?: return ArchiveOutcome.Missing
                     if (item.status == TaskStatus.Archived) return ArchiveOutcome.Ignored
+                    archivedTaskStatus.remember(item.id, item.status)
                     taskRepository.update(item.copy(status = TaskStatus.Archived, updatedAt = now))
                     ArchivedSnapshot.Task(item)
                 }
@@ -95,7 +98,10 @@ internal class ItemArchiveUndo(
         return try {
             when (val snapshot = pending.snapshot) {
                 is ArchivedSnapshot.Note -> noteRepository.update(snapshot.item)
-                is ArchivedSnapshot.Task -> taskRepository.update(snapshot.item)
+                is ArchivedSnapshot.Task -> {
+                    taskRepository.update(snapshot.item)
+                    archivedTaskStatus.forget(snapshot.item.id)
+                }
                 is ArchivedSnapshot.Capture -> captureRepository.update(snapshot.item)
             }
             pendingArchive = null

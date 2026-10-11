@@ -22,6 +22,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.orbit.app.R
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,17 +57,26 @@ object OrbitBottomNavigationDefaults {
     internal val BottomPadding: Dp = 10.dp
     internal val MinimumTouchTargetSize: Dp = 48.dp
     internal val MaxBarWidth: Dp = 560.dp
+
+    /** Scrolled content fades out over this much just above the bar, so no words show through it. */
+    val ScrollFadeLength: Dp = 24.dp
+
+    /** From the screen's bottom edge (above the system bar) to where the fade above the bar starts. */
+    val ScrollFadeHeight: Dp = BarMinHeight + BottomPadding + ScrollFadeLength
 }
 
 /**
- * Home · Spaces · Calendar · Review, each with a visible label. The bar is a
- * near-solid surface so content scrolling behind it never mixes with the icons.
+ * Home · Spaces · Calendar · Review, each with a visible label. The bar is live glass:
+ * blurred where Android and the Glass setting allow it, near-solid otherwise, so content
+ * scrolling behind it never mixes with the icons.
  */
 @Composable
 fun FloatingBottomNavigation(
     selectedRoute: String?,
     onDestinationSelected: (OrbitDestination) -> Unit,
     modifier: Modifier = Modifier,
+    /** Tabs that show a small dot: only when something failed there, never as a count. */
+    alertDestinations: Set<OrbitDestination> = emptySet(),
 ) {
     Box(
         modifier = modifier
@@ -73,7 +86,7 @@ fun FloatingBottomNavigation(
             .padding(bottom = OrbitBottomNavigationDefaults.BottomPadding),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        SoftGlassSurface(
+        LiveGlassSurface(
             modifier = Modifier
                 .widthIn(max = OrbitBottomNavigationDefaults.MaxBarWidth)
                 .fillMaxWidth()
@@ -91,7 +104,8 @@ fun FloatingBottomNavigation(
                 OrbitDestination.bottomBar.forEach { destination ->
                     NavTab(
                         destination = destination,
-                        selected = selectedRoute == destination.route,
+                        selected = isBottomBarDestinationSelected(selectedRoute, destination),
+                        alert = destination in alertDestinations,
                         onClick = { onDestinationSelected(destination) },
                         modifier = Modifier.weight(1f),
                     )
@@ -107,6 +121,7 @@ private fun NavTab(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    alert: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val contentColor by animateColorAsState(
@@ -124,8 +139,10 @@ private fun NavTab(
         label = "Bottom navigation pill",
     )
     val label = stringResource(destination.contentDescriptionRes)
+    val alertDescription = stringResource(R.string.needs_you_attention)
     Column(
         modifier = modifier
+            .semantics { if (alert) stateDescription = alertDescription }
             .heightIn(min = 56.dp)
             .clip(RoundedCornerShape(20.dp))
             .selectable(
@@ -153,6 +170,15 @@ private fun NavTab(
                 tint = contentColor,
                 modifier = Modifier.size(22.dp),
             )
+            if (alert) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 3.dp, end = 10.dp)
+                        .size(8.dp)
+                        .background(MaterialTheme.colorScheme.error, CircleShape),
+                )
+            }
         }
         Text(
             text = label,
@@ -166,3 +192,8 @@ private fun NavTab(
         )
     }
 }
+
+/** A Space's own page ("spaces/…") still belongs to the Spaces tab. */
+internal fun isBottomBarDestinationSelected(selectedRoute: String?, destination: OrbitDestination): Boolean =
+    selectedRoute == destination.route ||
+        (destination == OrbitDestination.Spaces && selectedRoute?.startsWith("${OrbitDestination.Spaces.route}/") == true)

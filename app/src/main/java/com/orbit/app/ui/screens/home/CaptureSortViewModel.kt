@@ -1,5 +1,15 @@
 package com.orbit.app.ui.screens.home
 
+import com.orbit.app.domain.capture.isTaskLike
+import com.orbit.app.domain.capture.taskDateEpochDay
+import com.orbit.app.domain.capture.reminderTime
+import com.orbit.app.ui.reminders.messageRes
+import com.orbit.app.reminders.ReminderSaveOutcomes
+import com.orbit.app.reminders.ReminderSaveOutcome
+import androidx.core.content.ContextCompat
+import android.os.Build
+import android.content.pm.PackageManager
+import android.Manifest
 import android.content.Context
 import android.content.res.Configuration
 import androidx.annotation.StringRes
@@ -13,8 +23,6 @@ import com.orbit.app.data.local.entity.AiSuggestionSurface
 import com.orbit.app.data.local.entity.BrainDumpItemEntity
 import com.orbit.app.data.local.entity.BrainDumpItemOutcome
 import com.orbit.app.data.local.entity.BrainDumpReminderStatus
-import com.orbit.app.data.local.entity.BrainDumpSessionEntity
-import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.repository.AppSettingsRepository
@@ -24,10 +32,8 @@ import com.orbit.app.data.repository.ReminderRepository
 import com.orbit.app.data.repository.SpaceRepository
 import com.orbit.app.domain.analyzer.BrainDumpSuggestion
 import com.orbit.app.domain.analyzer.CaptureAnalysis
-import com.orbit.app.domain.analyzer.CaptureConfidence
 import com.orbit.app.domain.analyzer.CaptureAnalyzerSource
 import com.orbit.app.domain.analyzer.ReminderTimeStatus
-import com.orbit.app.domain.analyzer.confidenceLevel
 import com.orbit.app.data.local.dao.CaptureSuggestionDao
 import com.orbit.app.domain.capture.CaptureInbox
 import com.orbit.app.domain.capture.CaptureResolution
@@ -42,7 +48,6 @@ import com.orbit.app.domain.usecase.RecordAiLearningEventUseCase
 import com.orbit.app.domain.usecase.LearnedRuleProposal
 import com.orbit.app.domain.usecase.ProposeLearnedRuleUseCase
 import com.orbit.app.ui.localization.effectiveAppLocale
-import com.orbit.app.reminders.shouldScheduleNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,9 +55,13 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
+import com.orbit.app.domain.analyzer.CaptureAnalyzer
+import com.orbit.app.domain.analyzer.CaptureLifeSignal
+import com.orbit.app.domain.analyzer.captureLifeSignalOf
+import com.orbit.app.domain.analyzer.BrainDumpSplitter
+import com.orbit.app.domain.capture.ThoughtSplitter
+import com.orbit.app.domain.capture.toEntity
+import com.orbit.app.data.local.entity.TaskStatus
 
 data class CaptureSuggestion(
     val captureId: Long,
@@ -62,6 +71,8 @@ data class CaptureSuggestion(
     val calendarDateContextEpochDay: Long? = null,
     /** Open straight into reminder setup (a time-sensitive thought that needs a time). */
     val startWithReminderSetup: Boolean = false,
+    /** "Looks like N thoughts": offered only, never split without the user. */
+    val possibleThoughts: Int = 0,
 )
 
 data class CaptureSpaceOption(
@@ -71,7 +82,6 @@ data class CaptureSpaceOption(
 
 private data class ConfirmedActionResult(
     val decision: CaptureSuggestionLearningDecision,
-    val notificationSchedulingNeedsAttention: Boolean = false,
     val resolved: ResolvedCapture? = null,
 )
 
@@ -89,7 +99,13 @@ internal data class CaptureSortUiState(
 )
 
 /** What the user just turned a capture into; used for Undo in To sort. */
-data class ResolvedCapture(val captureId: Long, val itemType: SuggestedItemType, val itemId: Long)
+data class ResolvedCapture(
+    val captureId: Long,
+    val itemType: SuggestedItemType,
+    val itemId: Long,
+    /** For a reminder: whether it can actually reach the user. */
+    val reminderOutcome: ReminderSaveOutcome? = null,
+)
 
 /**
  * Sorting one saved capture: shows LUMA's stored suggestion and lets the user
@@ -111,6 +127,9 @@ class CaptureSortViewModel(
     private val captureResolution: CaptureResolution,
     private val savedStateHandle: SavedStateHandle,
     private val applicationContext: Context,
+    private val captureAnalyzer: CaptureAnalyzer,
+    private val thoughtSplitter: ThoughtSplitter,
+    private val reminderSaveOutcomes: ReminderSaveOutcomes,
 ) : ViewModel() {
     // Resolved on every use so messages follow a language change made while open.
     private val localizedContext: Context
@@ -121,6 +140,15 @@ class CaptureSortViewModel(
         )
     private val _uiState = MutableStateFlow(CaptureSortUiState())
     internal val uiState: StateFlow<CaptureSortUiState> = _uiState.asStateFlow()
+    private val reminderOutcomeReporter = ReminderOutcomeReporter(
+        outcomes = reminderSaveOutcomes,
+        permissionGranted = {
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        },
+        requestPermission = { _uiState.update { it.copy(notificationPermissionRequestPending = true) } },
+    )
     private val brainDumpFlowCoordinator = BrainDumpFlowCoordinator(
         scope = viewModelScope,
         commit = ::commitBrainDumpRequest,
@@ -170,9 +198,11 @@ class CaptureSortViewModel(
                 val spaceOptions = loadSpaceOptions()
                 val stored = suggestionDao.getByCaptureId(captureId)
                 val analysis = stored?.toAnalysis(capture.rawText) ?: manualFallbackAnalysis(capture.rawText)
-                val space = spaceOptions.firstOrNull {
-                    stored?.suggestedSpaceName != null && it.name.equals(stored.suggestedSpaceName, ignoreCase = true)
-                }
+                // A Space the user picked when saving wins over the suggested one.
+                val space = spaceOptions.firstOrNull { capture.suggestedSpaceId != null && it.id == capture.suggestedSpaceId }
+                    ?: spaceOptions.firstOrNull {
+                        stored?.suggestedSpaceName != null && it.name.equals(stored.suggestedSpaceName, ignoreCase = true)
+                    }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -182,8 +212,12 @@ class CaptureSortViewModel(
                             suggestedSpaceId = space?.id,
                             analysis = analysis,
                             spaceOptions = spaceOptions,
-                            calendarDateContextEpochDay = stored?.contextDateEpochDay,
+                            // The thought's own Calendar day. Thoughts saved before it was
+                            // kept on the thought have it only on a non-task suggestion.
+                            calendarDateContextEpochDay = capture.contextDateEpochDay
+                                ?: stored?.takeUnless { it.suggestedType.isTaskLike() }?.contextDateEpochDay,
                             startWithReminderSetup = startWithReminderSetup,
+                            possibleThoughts = runCatching { thoughtSplitter.possibleThoughts(capture.rawText) }.getOrDefault(0),
                         ),
                     )
                 }
@@ -237,6 +271,69 @@ class CaptureSortViewModel(
                         state.copy(message = localized(R.string.core_home_message_brain_dump_unavailable))
                     }
                 }
+        }
+    }
+
+    internal fun toggleBrainDumpRow(sourceKey: String) = brainDumpFlowCoordinator.toggleRow(sourceKey)
+
+    internal fun openBrainDumpRow(sourceKey: String) = brainDumpFlowCoordinator.openRow(sourceKey)
+
+    internal fun backToBrainDumpOverview() = brainDumpFlowCoordinator.backToOverview()
+
+    internal fun saveTickedBrainDumpRows() {
+        viewModelScope.launch { brainDumpFlowCoordinator.saveTicked() }
+    }
+
+    internal fun keepBrainDumpAsOneNote() {
+        val title = _uiState.value.suggestion?.analysis?.rawText
+            ?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim()?.take(90).orEmpty()
+        viewModelScope.launch { brainDumpFlowCoordinator.keepRestAsOneNote(title) }
+    }
+
+    /** "Split this list": a heading with a list under it becomes one thought per list line. */
+    internal fun splitBrainDumpRow(sourceKey: String) {
+        val suggestion = _uiState.value.suggestion ?: return
+        val item = suggestion.analysis.brainDumpItems.firstOrNull { it.id == sourceKey } ?: return
+        val lines = BrainDumpSplitter.listItemsOf(item.rawText)
+        if (lines.size < 2) return
+        viewModelScope.launch {
+            val timestamp = System.currentTimeMillis()
+            val parts = captureAnalyzer.brainDumpItemsFor(lines)
+                .mapIndexed { index, part -> part.toEntity(suggestion.captureId, index + 1, timestamp) }
+            val status = runCatching {
+                brainDumpActions.replaceWithParts(suggestion.captureId, sourceKey, parts)
+            }.getOrNull()
+            if (status == BrainDumpActionStatus.Applied) {
+                runCatching { loadBrainDumpSuggestion(suggestion.captureId) }
+            } else {
+                _uiState.update { it.copy(message = localized(R.string.core_home_message_brain_dump_item_save_failed)) }
+            }
+        }
+    }
+
+    /**
+     * "Looks like 3 thoughts · Split": makes a Brain Dump from one saved thought, only
+     * because the user asked. Then the overview opens.
+     */
+    fun splitIntoThoughts(captureId: Long) {
+        if (captureId <= 0L || _uiState.value.isPerformingAction) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = runCatching { thoughtSplitter.split(captureId) }.getOrDefault(ThoughtSplitter.Result.Unavailable)
+            _uiState.update { it.copy(isLoading = false) }
+            when (result) {
+                ThoughtSplitter.Result.Split, ThoughtSplitter.Result.AlreadySplit -> {
+                    savedStateHandle[OpenCaptureIdKey] = null
+                    _uiState.update { it.copy(suggestion = null) }
+                    resumeBrainDump(captureId)
+                }
+                ThoughtSplitter.Result.OneThought -> _uiState.update {
+                    it.copy(message = localized(R.string.split_one_thought))
+                }
+                ThoughtSplitter.Result.Unavailable -> _uiState.update {
+                    it.copy(message = localized(R.string.core_sort_open_failed))
+                }
+            }
         }
     }
 
@@ -318,20 +415,16 @@ class CaptureSortViewModel(
         }
     }
 
-    fun createTask(title: String, dueAt: Long?, spaceId: Long?, labelNames: List<String> = emptyList()) {
+    internal fun createTask(title: String, due: TaskDue, spaceId: Long?, labelNames: List<String> = emptyList()) {
         performConfirmedAction(
             successMessage = localized(R.string.core_home_message_task_created),
         ) { suggestion ->
-            val finalSchedule = calendarTaskSchedule(
-                dueAt = dueAt,
-                calendarDateContextEpochDay = suggestion.calendarDateContextEpochDay,
-            )
             val taskId = confirmCaptureAction.createTask(
                 captureId = suggestion.captureId,
                 spaceId = spaceId,
                 title = title,
-                dueAt = finalSchedule.dueAt,
-                scheduledDateEpochDay = finalSchedule.scheduledDateEpochDay,
+                dueAt = due.at,
+                scheduledDateEpochDay = due.dayEpochDay,
                 labelNames = labelNames,
             )
             ConfirmedActionResult(
@@ -342,7 +435,7 @@ class CaptureSortViewModel(
                     finalSpaceId = spaceId,
                     finalSpaceName = suggestion.spaceNameFor(spaceId),
                     finalTitle = title,
-                    finalDueAt = dueAt,
+                    finalDueAt = due.at,
                     sourceText = suggestion.analysis.rawText,
                 ),
                 resolved = ResolvedCapture(suggestion.captureId, SuggestedItemType.Task, taskId),
@@ -358,8 +451,7 @@ class CaptureSortViewModel(
         labelNames: List<String> = emptyList(),
     ) {
         performConfirmedAction(
-            successMessage = localized(R.string.core_home_message_reminder_created),
-            requestNotificationPermission = true,
+            successMessage = localized(R.string.reminder_outcome_saved),
         ) { suggestion ->
             val reminderId = confirmCaptureAction.createReminder(
                 captureId = suggestion.captureId,
@@ -369,9 +461,8 @@ class CaptureSortViewModel(
                 linkedTaskId = linkedTaskId,
                 labelNames = labelNames,
             )
-            val schedulingNeedsAttention = reminderRepository.getById(reminderId)?.let { reminder ->
-                reminder.shouldScheduleNotification() && reminder.notificationWorkId == null
-            } ?: true
+            val outcome = reminderOutcomeReporter.report(reminderId)
+            captureResolution.recordReminderOutcome(suggestion.captureId, reminderId, outcome)
             ConfirmedActionResult(
                 decision = CaptureSuggestionLearningDecision(
                     surface = AiSuggestionSurface.Capture,
@@ -383,89 +474,13 @@ class CaptureSortViewModel(
                     finalDueAt = dueAt,
                     sourceText = suggestion.analysis.rawText,
                 ),
-                notificationSchedulingNeedsAttention = schedulingNeedsAttention,
-                resolved = ResolvedCapture(suggestion.captureId, SuggestedItemType.Reminder, reminderId),
+                resolved = ResolvedCapture(suggestion.captureId, SuggestedItemType.Reminder, reminderId, outcome),
             )
-        }
-    }
-
-    fun saveBrainDumpItem(
-        item: BrainDumpSuggestion,
-        title: String,
-        type: SuggestedItemType,
-        dueAt: Long?,
-        spaceId: Long?,
-    ) {
-        require(type == SuggestedItemType.Note || type == SuggestedItemType.Task)
-        val cleanTitle = title.trim().ifBlank { item.title }
-        performBrainDumpAction(item, localized(R.string.core_home_message_brain_dump_item_saved)) { suggestion ->
-            val result = when (type) {
-                SuggestedItemType.Note -> brainDumpActions.saveNote(
-                    suggestion.captureId, item.id, cleanTitle, spaceId,
-                )
-                else -> brainDumpActions.saveTask(
-                    suggestion.captureId, item.id, cleanTitle, dueAt = dueAt, spaceId = spaceId,
-                )
-            }
-            result to CaptureSuggestionLearningDecision(
-                surface = AiSuggestionSurface.BrainDump,
-                userAction = "save_brain_dump_item",
-                finalType = type,
-                finalSpaceId = spaceId,
-                finalSpaceName = suggestion.spaceNameFor(spaceId),
-                finalTitle = cleanTitle,
-                finalDueAt = dueAt,
-                sourceItemId = item.id,
-                sourceText = item.rawText,
-            )
-        }
-    }
-
-    fun saveBrainDumpReminder(item: BrainDumpSuggestion, title: String, dueAt: Long, spaceId: Long?) {
-        val cleanTitle = title.trim().ifBlank { item.title }
-        performBrainDumpAction(
-            item = item,
-            successMessage = localized(R.string.core_home_message_reminder_created),
-            requestNotificationPermission = true,
-        ) { suggestion ->
-            brainDumpActions.saveReminder(suggestion.captureId, item.id, cleanTitle, dueAt, spaceId) to
-                CaptureSuggestionLearningDecision(
-                    surface = AiSuggestionSurface.BrainDump,
-                    userAction = "create_brain_dump_reminder",
-                    finalType = SuggestedItemType.Reminder,
-                    finalSpaceId = spaceId,
-                    finalSpaceName = suggestion.spaceNameFor(spaceId),
-                    finalTitle = cleanTitle,
-                    finalDueAt = dueAt,
-                    sourceItemId = item.id,
-                    sourceText = item.rawText,
-                )
-        }
-    }
-
-    fun saveBrainDumpOriginalForLater(item: BrainDumpSuggestion) {
-        performBrainDumpAction(
-            item,
-            localized(R.string.core_home_message_brain_dump_original_saved),
-        ) { suggestion ->
-            val result = brainDumpActions.saveOriginalLineForLater(suggestion.captureId, item.id)
-            result to null
-        }
-    }
-
-    fun skipBrainDumpItem(item: BrainDumpSuggestion) {
-        performBrainDumpAction(
-            item,
-            localized(R.string.core_home_message_brain_dump_suggestion_skipped),
-            rejectionAction = "skip_brain_dump_item",
-        ) { suggestion ->
-            brainDumpActions.skip(suggestion.captureId, item.id) to null
         }
     }
 
     private fun performConfirmedAction(
         successMessage: String,
-        requestNotificationPermission: Boolean = false,
         action: suspend (CaptureSuggestion) -> ConfirmedActionResult,
     ) {
         val suggestion = _uiState.value.suggestion ?: return
@@ -482,12 +497,9 @@ class CaptureSortViewModel(
                         isPerformingAction = false,
                         suggestion = null,
                         brainDumpHandledItemIds = emptySet(),
-                        message = if (result.notificationSchedulingNeedsAttention) {
-                            localized(R.string.core_home_message_reminder_notification_attention)
-                        } else {
-                            successMessage
-                        },
-                        notificationPermissionRequestPending = requestNotificationPermission,
+                        message = result.resolved?.reminderOutcome
+                            ?.let { outcome -> localized(outcome.messageRes()) }
+                            ?: successMessage,
                         learnedRuleProposal = learningProposal,
                         lastResolved = result.resolved,
                     )
@@ -497,87 +509,6 @@ class CaptureSortViewModel(
                     it.copy(
                         isPerformingAction = false,
                         message = localized(R.string.core_home_message_capture_action_failed),
-                    )
-                }
-            }
-        }
-    }
-
-    private fun performBrainDumpAction(
-        item: BrainDumpSuggestion,
-        successMessage: String,
-        requestNotificationPermission: Boolean = false,
-        rejectionAction: String? = null,
-        action: suspend (CaptureSuggestion) -> Pair<BrainDumpActionResult, CaptureSuggestionLearningDecision?>,
-    ) {
-        val suggestion = _uiState.value.suggestion ?: return
-        if (_uiState.value.isPerformingAction || item.id in _uiState.value.brainDumpHandledItemIds) return
-
-        _uiState.update { it.copy(isPerformingAction = true, message = null) }
-        viewModelScope.launch {
-            try {
-                val (result, decision) = action(suggestion)
-                if (result.status == BrainDumpActionStatus.Applied) {
-                    if (decision != null) {
-                        recordLearningOutcome(suggestion.learningContext(item), decision)
-                    } else if (rejectionAction != null && item.id !in _uiState.value.brainDumpHandledItemIds) {
-                        runCatching {
-                            if (rejectionAction == "skip_brain_dump_item") {
-                                recordAiLearningEvent.recordBrainDumpRejected(
-                                    context = suggestion.learningContext(item),
-                                    itemId = item.id,
-                                    sourceText = item.rawText,
-                                    suggestedType = item.suggestedType,
-                                    suggestedSpaceName = item.suggestedSpaceName,
-                                )
-                            } else {
-                                recordAiLearningEvent.recordRejected(
-                                    context = suggestion.learningContext(item),
-                                    userAction = rejectionAction,
-                                    surface = AiSuggestionSurface.BrainDump,
-                                    sourceItemId = item.id,
-                                    sourceText = item.rawText,
-                                )
-                            }
-                        }
-                    }
-                }
-                if (result.sessionCompleted || result.status == BrainDumpActionStatus.Missing) {
-                    savedStateHandle[ActiveBrainDumpCaptureIdKey] = null
-                    _uiState.update {
-                        it.copy(
-                            isPerformingAction = false,
-                            suggestion = null,
-                            brainDumpHandledItemIds = emptySet(),
-                            message = when {
-                                result.status == BrainDumpActionStatus.Missing ->
-                                    localized(R.string.core_home_message_brain_dump_unavailable)
-                                result.notificationScheduled == false ->
-                                    localized(R.string.core_home_message_brain_dump_completed_notification_attention)
-                                else -> localized(R.string.core_home_message_brain_dump_completed)
-                            },
-                            notificationPermissionRequestPending =
-                                requestNotificationPermission && result.reminderCreated,
-                        )
-                    }
-                } else {
-                    loadBrainDumpSuggestion(suggestion.captureId)
-                    _uiState.update { state -> state.copy(
-                        isPerformingAction = false,
-                        message = if (result.notificationScheduled == false) {
-                            localized(R.string.core_home_message_reminder_notification_attention)
-                        } else {
-                            successMessage
-                        },
-                        notificationPermissionRequestPending =
-                            requestNotificationPermission && result.reminderCreated,
-                    ) }
-                }
-            } catch (_: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isPerformingAction = false,
-                        message = localized(R.string.core_home_message_brain_dump_item_save_failed),
                     )
                 }
             }
@@ -623,6 +554,7 @@ class CaptureSortViewModel(
             items = items,
             spaces = spaces,
             storedOutcomes = stored.items.associate { item -> item.sourceKey to item.outcome },
+            startWithOverview = true,
         )
     }
 
@@ -640,8 +572,10 @@ class CaptureSortViewModel(
                 request.captureId,
                 request.sourceKey,
                 request.draft.title,
-                request.draft.scheduledAt,
+                request.draft.scheduledAt.takeIf { request.draft.scheduledDateEpochDay == null },
                 request.draft.spaceId,
+                status = taskStatusFor(request.sourceKey),
+                scheduledDateEpochDay = request.draft.scheduledDateEpochDay,
             )
             is BrainDumpCommitRequest.SaveReminder -> brainDumpActions.saveReminder(
                 request.captureId,
@@ -658,11 +592,16 @@ class CaptureSortViewModel(
                 request.captureId,
                 request.sourceKey,
             )
+            is BrainDumpCommitRequest.KeepRestAsOneNote -> brainDumpActions.keepRemainingAsOneNote(
+                request.captureId,
+                request.title,
+            )
         }
         if (result.status == BrainDumpActionStatus.Applied) {
             recordBrainDumpLearning(request)
-            if (request is BrainDumpCommitRequest.SaveReminder && result.reminderCreated) {
-                _uiState.update { it.copy(notificationPermissionRequestPending = true) }
+            val reminderId = result.reminderId
+            if (request is BrainDumpCommitRequest.SaveReminder && reminderId != null) {
+                return result.copy(reminderOutcome = reminderOutcomeReporter.report(reminderId))
             }
         } else if (result.status == BrainDumpActionStatus.Missing) {
             savedStateHandle[ActiveBrainDumpCaptureIdKey] = null
@@ -719,7 +658,9 @@ class CaptureSortViewModel(
                     suggestedSpaceName = item.suggestedSpaceName,
                 )
             }
-            is BrainDumpCommitRequest.KeepInInbox -> Unit
+            is BrainDumpCommitRequest.KeepInInbox,
+            is BrainDumpCommitRequest.KeepRestAsOneNote,
+            -> Unit
         }
     }
 
@@ -744,9 +685,20 @@ class CaptureSortViewModel(
         tinyNextAction = tinyNextAction,
         reason = reason,
         reminderTimeStatus = reminderStatus.toDomainStatus(),
-        suggestedReminderAt = suggestedReminderAt,
+        suggestedReminderAt = reminderTime(),
+        taskDateEpochDay = taskDateEpochDay(),
         reminderPhrase = reminderPhrase,
+        // Not stored: read again from the thought's words, in the app's language.
+        lifeSignal = captureLifeSignalOf(rawText, effectiveAppLocale(applicationContext)),
     )
+
+    /** "Someday" and "Waiting for" are kept as that task status. */
+    private fun taskStatusFor(sourceKey: String): TaskStatus =
+        when (_uiState.value.suggestion?.analysis?.brainDumpItems?.firstOrNull { it.id == sourceKey }?.lifeSignal) {
+            CaptureLifeSignal.Someday -> TaskStatus.Someday
+            CaptureLifeSignal.WaitingFor -> TaskStatus.WaitingFor
+            else -> TaskStatus.Open
+        }
 
     private fun BrainDumpReminderStatus.toDomainStatus() = when (this) {
         BrainDumpReminderStatus.Unspecified -> ReminderTimeStatus.Unspecified
@@ -845,21 +797,26 @@ class CaptureSortViewModel(
     }
 
     fun onNotificationPermissionResult(granted: Boolean) {
-        if (!granted) {
-            _uiState.update {
-                it.copy(
-                    message = localized(R.string.core_home_message_reminder_notifications_disabled),
-                )
-            }
-        }
+        reminderOutcomeReporter.onPermissionAnswer(granted)
     }
 
     fun messageShown() {
         _uiState.update { it.copy(message = null) }
     }
 
+    /** Clears [shown] only if it is still the current message, so a newer one is kept. */
+    fun messageShown(shown: String?) {
+        if (shown == null) return
+        _uiState.update { if (it.message == shown) it.copy(message = null) else it }
+    }
+
     fun resolvedHandled() {
         _uiState.update { it.copy(lastResolved = null) }
+    }
+
+    /** Clears [handled] only if it is still the latest sorted thought. */
+    fun resolvedHandled(handled: ResolvedCapture) {
+        _uiState.update { if (it.lastResolved == handled) it.copy(lastResolved = null) else it }
     }
 
     /** Undo right after sorting: the new item is removed and the thought is back in To sort. */
@@ -886,6 +843,9 @@ class CaptureSortViewModel(
         private val captureResolution: CaptureResolution,
         private val savedStateHandle: SavedStateHandle,
         private val applicationContext: Context,
+        private val captureAnalyzer: CaptureAnalyzer,
+        private val thoughtSplitter: ThoughtSplitter,
+        private val reminderSaveOutcomes: ReminderSaveOutcomes,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -905,6 +865,9 @@ class CaptureSortViewModel(
                 captureResolution = captureResolution,
                 savedStateHandle = savedStateHandle,
                 applicationContext = applicationContext,
+                captureAnalyzer = captureAnalyzer,
+                thoughtSplitter = thoughtSplitter,
+                reminderSaveOutcomes = reminderSaveOutcomes,
             ) as T
         }
     }
@@ -928,6 +891,9 @@ class CaptureSortViewModel(
             captureResolution = container.captureResolution,
             savedStateHandle = savedStateHandle,
             applicationContext = container.applicationContext,
+            captureAnalyzer = container.captureAnalyzer,
+            thoughtSplitter = container.thoughtSplitter,
+            reminderSaveOutcomes = container.reminderSaveOutcomes,
         )
 
         private const val ActiveBrainDumpCaptureIdKey = "activeBrainDumpCaptureId"

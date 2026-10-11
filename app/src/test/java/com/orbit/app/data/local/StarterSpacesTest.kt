@@ -32,4 +32,22 @@ class StarterSpacesTest {
         assertEquals(123L, space.createdAt)
         assertEquals(123L, space.updatedAt)
     }
+
+    @Test
+    fun allStarterSpacesAreBuiltInTemplateOrderForSilentSeeding() {
+        val spaces = StarterSpaces.all(now = 9L)
+
+        assertEquals(StarterSpaces.templates.map { it.storedName }, spaces.map { it.name })
+        assertEquals(StarterSpaces.templates.map { it.icon }, spaces.map { it.icon })
+        assertEquals(StarterSpaces.templates.indices.toList(), spaces.map { it.sortOrder })
+        assertTrue(spaces.all { it.id == 0L && it.createdAt == 9L && !it.hidden && !it.archived })
+    }
+
+    @Test
+    fun newInstallsGetHouseholdWhileAnExistingHomeSpaceKeepsItsName() {
+        assertEquals("Household", StarterSpaces.templates.single { it.key == "home" }.storedName)
+        // A Space saved as "Home" by an earlier version still shows as Home in every language.
+        assertEquals(com.orbit.app.R.string.core_starter_space_home, com.orbit.app.ui.localization.starterSpaceNameRes("Home"))
+        assertEquals(com.orbit.app.R.string.core_starter_space_household, com.orbit.app.ui.localization.starterSpaceNameRes("Household"))
+    }
 }

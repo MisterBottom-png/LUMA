@@ -17,8 +17,9 @@ internal data class ReminderTimeInterpretation(
     val phrase: String? = null,
 )
 
+/** A day named for a task. Tasks found in a thought get a day, never a clock time. */
 internal data class TaskDueDateInterpretation(
-    val epochMillis: Long,
+    val dateEpochDay: Long,
     val phrase: String,
 )
 
@@ -119,7 +120,7 @@ internal fun interpretTaskDueDate(
     val date = dates.distinctBy { it.date }.singleOrNull() ?: return null
     if (date.date.isAfter(today.plusYears(MaxYearsAhead))) return null
     return TaskDueDateInterpretation(
-        epochMillis = date.date.atTime(23, 59).atZone(zoneId).toInstant().toEpochMilli(),
+        dateEpochDay = date.date.toEpochDay(),
         phrase = date.label ?: packs.first().dateLabel(date.date, today),
     )
 }

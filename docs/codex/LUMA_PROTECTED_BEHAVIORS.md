@@ -15,7 +15,7 @@ These behaviors were previously confirmed or are strongly protected. Protection 
 | Reset Mode | Never broaden deletion scope accidentally. |
 | Waiting For and Someday | Preserve classification and visibility. |
 | Make Smaller | Preserve when editing item actions or AI prompts. |
-| Brain Dump | Preserve capture behavior and navigation. |
+| Brain Dump | Preserve capture behavior and navigation. Opens with the overview list; "Save N" saves only ticked rows, each its own exactly-once transaction. One-line thoughts are split only when the user taps Split. |
 | Ask LUMA | Keep user-facing and available. |
 
 ## Verification status

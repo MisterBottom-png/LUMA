@@ -1,5 +1,13 @@
 package com.orbit.app.ui.navigation
 
+import java.time.LocalDate
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.produceState
+import com.orbit.app.ui.screens.spaces.SpaceCaptureSheet
+import com.orbit.app.ui.screens.review.needsYouSomethingFailed
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -32,6 +40,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
@@ -47,6 +56,9 @@ import com.orbit.app.ui.components.GlassRenderingPolicy
 import com.orbit.app.ui.components.OrbitBackground
 import com.orbit.app.ui.screens.calendar.CalendarScreen
 import com.orbit.app.ui.screens.calendar.CalendarViewModel
+import com.orbit.app.ui.screens.home.CaptureReceiptReader
+import com.orbit.app.ui.screens.home.ReceiptItemType
+import com.orbit.app.ui.screens.home.rearmReceiptReminder
 import com.orbit.app.ui.screens.home.HomeScreen
 import com.orbit.app.ui.screens.home.HomeWeekViewModel
 import com.orbit.app.ui.screens.item.ItemDetailScreen
@@ -64,6 +76,7 @@ import com.orbit.app.ui.screens.spaces.SpacesScreen
 import com.orbit.app.ui.screens.spaces.SpacesViewModel
 import com.orbit.app.ui.screens.tutorial.FirstTimeTutorialScreen
 import com.orbit.app.ui.screens.tutorial.TutorialSpaceSetupViewModel
+import com.orbit.app.ui.screens.tutorial.seedStarterSpacesSilently
 import com.orbit.app.OrbitContainer
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.ui.screens.home.HomeCaptureViewModel
@@ -96,7 +109,18 @@ fun OrbitApp(
     var showSituationAi by rememberSaveable { mutableStateOf(false) }
     var situationAiQuestion by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
+    // A Space's "+" writes the thought over the Space; the user stays where they are.
+    var spaceCaptureId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var spaceCaptureSaving by remember { mutableStateOf(false) }
+    var spaceCaptureFailed by remember { mutableStateOf(false) }
+    val spaceCaptureScope = rememberCoroutineScope()
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
+    // Needs you gets a dot only when something failed; never a count.
+    val needsYouFailed by remember(container) {
+        container.captureRepository.observeAll()
+            .map(::needsYouSomethingFailed)
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
     val contentMaxWidth = portraitContentMaxWidth(LocalConfiguration.current.screenWidthDp.dp)
     val imeVisible = with(LocalDensity.current) {
         WindowInsets.ime.getBottom(this) > 0
@@ -106,6 +130,13 @@ fun OrbitApp(
         selectedRoute = selectedRoute,
         appearanceSubsectionOpen = settingsSubsectionOpen,
     )
+
+    // A first launch opens straight on Home with the starter Spaces already there.
+    LaunchedEffect(Unit) {
+        if (!settings.hasCompletedFirstTimeTutorial) {
+            runCatching { seedStarterSpacesSilently(container.spaceRepository) }
+        }
+    }
 
     LaunchedEffect(reminderToOpen) {
         reminderToOpen?.let { reminderId ->
@@ -166,7 +197,7 @@ fun OrbitApp(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = initialOrbitRoute(settings),
+                startDestination = initialOrbitRoute(),
                 modifier = Modifier
                     .widthIn(max = contentMaxWidth)
                     .fillMaxSize()
@@ -189,7 +220,7 @@ fun OrbitApp(
                         ?.getBoolean(FirstTimeTutorialDestination.ReplayArgument)
                         ?: false
                     val tutorialSpaceSetupViewModel: TutorialSpaceSetupViewModel = viewModel(
-                        factory = TutorialSpaceSetupViewModel.Factory(isReplay, container),
+                        factory = TutorialSpaceSetupViewModel.Factory(container),
                     )
                     val tutorialSpaceSetupState by tutorialSpaceSetupViewModel.uiState
                         .collectAsStateWithLifecycle()
@@ -223,8 +254,24 @@ fun OrbitApp(
                         factory = HomeCaptureViewModel.Factory(
                             captureInbox = container.captureInbox,
                             appSettingsRepository = container.appSettingsRepository,
-                            quickReminder = container.captureResolution::createQuickReminder,
                             savedStateHandle = entry.savedStateHandle,
+                            receipts = CaptureReceiptReader(
+                                captureRepository = container.captureRepository,
+                                noteRepository = container.noteRepository,
+                                taskRepository = container.taskRepository,
+                                reminderRepository = container.reminderRepository,
+                                spaceRepository = container.spaceRepository,
+                            )::observe,
+                            retryReminder = { captureId, reminderId ->
+                                rearmReceiptReminder(
+                                    reminderRepository = container.reminderRepository,
+                                    outcomes = container.reminderSaveOutcomes,
+                                    resolution = container.captureResolution,
+                                    captureId = captureId,
+                                    reminderId = reminderId,
+                                )
+                            },
+                            keepThought = container.captureResolution::keep,
                         ),
                     )
                     val homeSortViewModel: CaptureSortViewModel = viewModel(
@@ -233,6 +280,17 @@ fun OrbitApp(
                     val homeWeekViewModel: HomeWeekViewModel = viewModel(
                         factory = HomeWeekViewModel.Factory(container.calendarRepository),
                     )
+                    LifecycleResumeEffect(homeWeekViewModel) {
+                        homeWeekViewModel.refreshToday()
+                        onPauseOrDispose { }
+                    }
+                    // Home left open across midnight moves to the new day too.
+                    LaunchedEffect(homeWeekViewModel) {
+                        while (true) {
+                            kotlinx.coroutines.delay(millisUntilNextLocalMidnight(java.time.ZonedDateTime.now()))
+                            homeWeekViewModel.refreshToday()
+                        }
+                    }
                     val homeWeekUiState by homeWeekViewModel.uiState.collectAsStateWithLifecycle()
                     val calendarCaptureEpochDay by entry.savedStateHandle
                         .getStateFlow<Long?>(CalendarCaptureContext.EpochDayKey, null)
@@ -277,8 +335,19 @@ fun OrbitApp(
                                 launchSingleTop = true
                             }
                         },
+                        onOpenSearch = {
+                            navController.navigate(SearchDestination.BaseRoute) { launchSingleTop = true }
+                        },
                         focusCaptureOnOpen = settings.focusCaptureOnOpen,
                         focusRequest = focusCaptureRequest,
+                        firstRun = !settings.hasCompletedFirstTimeTutorial,
+                        voiceCloudNoticeSeen = settings.hasSeenVoiceCloudNotice,
+                        onVoiceCloudNoticeSeen = {
+                            onSettingsChanged(settings.copy(hasSeenVoiceCloudNotice = true))
+                        },
+                        onOpenReceiptTarget = { target ->
+                            navController.navigate(ItemDetailDestination.route(target.type.toItemDetailType(), target.id))
+                        },
                     )
                 }
                 composable(OrbitDestination.Spaces.route) {
@@ -312,13 +381,16 @@ fun OrbitApp(
                             }
                         },
                         onOpenSearch = {
-                            navController.navigate(SearchDestination.Route) {
+                            navController.navigate(SearchDestination.BaseRoute) {
                                 launchSingleTop = true
                             }
                         },
                         onItemSelected = { item ->
                             navController.navigate(item.route())
                         },
+                        onOpenToday = { navController.navigateToCalendar(LocalDate.now()) },
+                        onToggleDone = spacesViewModel::toggleDone,
+                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
                     )
                 }
                 composable(SpaceDetailDestination.UnfiledRoute) {
@@ -341,8 +413,10 @@ fun OrbitApp(
                         onUndoMove = spacesViewModel::undoLastMove,
                         onRetryMove = spacesViewModel::retryFailedMove,
                         onUnfiledSelected = {},
-                        onOpenSearch = { navController.navigate(SearchDestination.Route) },
+                        onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
+                        onToggleDone = spacesViewModel::toggleDone,
+                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
                     )
                 }
                 composable(
@@ -371,8 +445,10 @@ fun OrbitApp(
                         onUndoMove = spacesViewModel::undoLastMove,
                         onRetryMove = spacesViewModel::retryFailedMove,
                         onUnfiledSelected = {},
-                        onOpenSearch = { navController.navigate(SearchDestination.Route) },
+                        onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
+                        onToggleDone = spacesViewModel::toggleDone,
+                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
                     )
                 }
                 composable(OrbitDestination.Review.route) { entry ->
@@ -412,15 +488,23 @@ fun OrbitApp(
                             reviewViewModel::keepCarryForwardUnscheduled,
                         onCompleteCarryForward = reviewViewModel::completeCarryForward,
                         onWeeklyLookBackVisible = reviewViewModel::loadWeeklySummary,
+                        onCarryForwardAllTomorrow = reviewViewModel::carryForwardAllTomorrow,
+                        onUndoChange = reviewViewModel::undoChange,
+                        onChangeUndoExpired = reviewViewModel::changeUndoExpired,
                         onAskLuma = { prompt ->
                             situationAiQuestion = prompt?.name
                             showSituationAi = true
                         },
                         onAcceptToSort = reviewViewModel::acceptSuggestion,
                         onChangeToSort = { item -> reviewSortViewModel.open(item.captureId) },
+                        onSplitToSort = { item -> reviewSortViewModel.splitIntoThoughts(item.captureId) },
+                        onOpenToSort = { item ->
+                            navController.navigate(ItemDetailDestination.route(ItemDetailType.Capture, item.captureId))
+                        },
                         onHideSuggestion = reviewViewModel::hideSuggestion,
                         onLetGo = reviewViewModel::letGo,
                         onUndoSort = reviewViewModel::undoSort,
+                        onAcceptAllToSort = reviewViewModel::acceptAllSuggestions,
                         onSortFeedbackShown = reviewViewModel::sortFeedbackShown,
                         sortHost = { snackbarHostState ->
                             CaptureSortHost(
@@ -429,6 +513,20 @@ fun OrbitApp(
                                 snackbarHostState = snackbarHostState,
                             )
                         },
+                        onNeedsYouRemindAt = reviewViewModel::remindAt,
+                        // A reminder that exists gets its new time on its own screen; a thought
+                        // still saved opens the sort sheet on the reminder setup.
+                        onNeedsYouPickTime = { item ->
+                            val reminderId = item.reminderId
+                            if (reminderId != null) {
+                                navController.navigate(ItemDetailDestination.route(ItemDetailType.Reminder, reminderId))
+                            } else {
+                                reviewSortViewModel.open(item.captureId, startWithReminderSetup = true)
+                            }
+                        },
+                        onNeedsYouMakeTask = reviewViewModel::makeTask,
+                        onNeedsYouTryAgain = reviewViewModel::retryReminder,
+                        onNeedsYouKeep = reviewViewModel::keepThought,
                     )
                 }
                 composable(OrbitDestination.Settings.route) {
@@ -484,15 +582,20 @@ fun OrbitApp(
                         factory = CalendarViewModel.Factory(container.calendarRepository),
                     )
                     val calendarUiState by calendarViewModel.uiState.collectAsStateWithLifecycle()
+                    val calendarSpaces by remember { container.spaceRepository.observeAll() }
+                        .collectAsStateWithLifecycle(initialValue = emptyList())
                     CalendarScreen(
                         uiState = calendarUiState,
                         onPreviousDay = calendarViewModel::showPreviousDay,
                         onNextDay = calendarViewModel::showNextDay,
                         onPreviousMonth = calendarViewModel::showPreviousMonth,
                         onNextMonth = calendarViewModel::showNextMonth,
+                        onPreviousWeek = calendarViewModel::showPreviousWeek,
+                        onNextWeek = calendarViewModel::showNextWeek,
                         onToday = calendarViewModel::showToday,
                         onViewSelected = calendarViewModel::setActiveView,
-                        onDateSelected = calendarViewModel::selectDate,
+                        onDateSelected = calendarViewModel::focusDate,
+                        spaces = remember(calendarSpaces) { calendarSpaces.associateBy { it.id } },
                         timeFormat = timeFormat,
                         onEntrySelected = { entryId ->
                             navController.navigate(entryId.toItemDetailRoute()) {
@@ -506,16 +609,25 @@ fun OrbitApp(
                 }
                 composable(
                     route = SearchDestination.Route,
-                ) {
+                    arguments = listOf(
+                        navArgument(SearchDestination.QueryArgument) {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
+                ) { entry ->
                     val searchViewModel: SearchViewModel = viewModel(
                         factory = SearchViewModel.Factory(container),
                     )
                     SearchScreen(
                         viewModel = searchViewModel,
+                        initialQuery = entry.arguments?.getString(SearchDestination.QueryArgument),
                         onBack = { navController.popBackStack() },
                         onResultSelected = { result ->
                             navController.navigate(ItemDetailDestination.route(result.type, result.id))
                         },
+                        onOpenSpace = { spaceId -> navController.navigate(SpaceDetailDestination.route(spaceId)) },
                     )
                 }
                 composable(
@@ -605,18 +717,59 @@ fun OrbitApp(
             ) {
                 FloatingBottomNavigation(
                     selectedRoute = selectedRoute,
+                    alertDestinations = if (needsYouFailed) setOf(OrbitDestination.Review) else emptySet(),
                     onDestinationSelected = { destination ->
-                        navController.navigate(destination.navigationRoute) {
-                            launchSingleTop = true
-                            restoreState = true
-                            popUpTo(OrbitDestination.Home.route) {
-                                saveState = true
+                        // Home is the root of every tab: going back to it is a pop that saves the
+                        // tab being left (its tab keeps its place). Navigating to Home with
+                        // restoreState could bring back the screen just left (Calendar opened from
+                        // a day on Home), so the Home tab seemed to do nothing.
+                        val backAtHome = destination == OrbitDestination.Home &&
+                            navController.popBackStack(OrbitDestination.Home.route, inclusive = false, saveState = true)
+                        if (!backAtHome) {
+                            navController.navigate(destination.navigationRoute) {
+                                launchSingleTop = true
+                                restoreState = true
+                                popUpTo(OrbitDestination.Home.route) {
+                                    saveState = true
+                                }
                             }
                         }
                     },
                 )
             }
 
+            spaceCaptureId?.let { spaceId ->
+                val spaceName by produceState(initialValue = "", spaceId) {
+                    value = container.spaceRepository.getById(spaceId)?.name.orEmpty()
+                }
+                SpaceCaptureSheet(
+                    spaceName = if (spaceName.isEmpty()) "" else com.orbit.app.ui.localization.localizedSpaceName(spaceName),
+                    saving = spaceCaptureSaving,
+                    saveFailed = spaceCaptureFailed,
+                    onSave = { text ->
+                        // The sheet closes only once the thought is stored; on failure the
+                        // text stays in it and can be saved again.
+                        spaceCaptureSaving = true
+                        spaceCaptureFailed = false
+                        spaceCaptureScope.launch {
+                            val saved = try {
+                                container.captureInbox.save(text, spaceId = spaceId)
+                                true
+                            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                                throw cancellation
+                            } catch (_: Exception) {
+                                false
+                            }
+                            spaceCaptureSaving = false
+                            if (saved) spaceCaptureId = null else spaceCaptureFailed = true
+                        }
+                    },
+                    onDismiss = {
+                        spaceCaptureId = null
+                        spaceCaptureFailed = false
+                    },
+                )
+            }
             if (showSituationAi) {
                 val situationViewModel: SituationAiViewModel = viewModel(
                     factory = SituationAiViewModel.Factory(container),
@@ -641,6 +794,10 @@ fun OrbitApp(
                     },
                     onAskQueryChanged = situationViewModel::updateAskQuery,
                     onAskLuma = situationViewModel::askLuma,
+                    onSearch = { query ->
+                        showSituationAi = false
+                        navController.navigate(SearchDestination.route(query)) { launchSingleTop = true }
+                    },
                 )
             }
         }
@@ -758,6 +915,13 @@ private fun NavController.replaceCurrentItemDetail(
     }
 }
 
+private fun ReceiptItemType.toItemDetailType(): ItemDetailType = when (this) {
+    ReceiptItemType.Capture -> ItemDetailType.Capture
+    ReceiptItemType.Note -> ItemDetailType.Note
+    ReceiptItemType.Task -> ItemDetailType.Task
+    ReceiptItemType.Reminder -> ItemDetailType.Reminder
+}
+
 internal fun glassRenderingPolicyForRoute(selectedRoute: String?): GlassRenderingPolicy =
     when (selectedRoute) {
         OrbitDestination.Home.route,
@@ -780,3 +944,8 @@ private fun com.orbit.app.ui.screens.spaces.SpaceItemReference.route(): String {
     }
     return ItemDetailDestination.route(detailType, id)
 }
+
+/** Time until the next local midnight, plus a second so the new day has begun. */
+internal fun millisUntilNextLocalMidnight(now: java.time.ZonedDateTime): Long =
+    java.time.Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(now.zone)).toMillis()
+        .coerceAtLeast(0L) + 1_000L

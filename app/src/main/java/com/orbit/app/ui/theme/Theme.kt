@@ -6,6 +6,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
@@ -70,11 +73,16 @@ fun OrbitTheme(settings: AppSettings, content: @Composable () -> Unit) {
         SettingsThemeMode.Auto -> isSystemInDarkTheme()
     }
     val base = if (useDarkColors) DarkColors else LightColors
-    MaterialTheme(
-        colorScheme = base.withPersonalColors(settings.accentColor, settings.textColor, settings.paletteMode, useDarkColors),
-        typography = OrbitTypography,
-        content = content,
-    )
+    val language = LocalConfiguration.current.locales[0].language
+    val family = remember(language) { orbitFontFamilyFor(language) }
+    val typography = remember(family) { orbitTypography(family) }
+    CompositionLocalProvider(LocalOrbitFontFamily provides family) {
+        MaterialTheme(
+            colorScheme = base.withPersonalColors(settings.accentColor, settings.textColor, settings.paletteMode, useDarkColors),
+            typography = typography,
+            content = content,
+        )
+    }
 }
 
 private fun ColorScheme.withPersonalColors(

@@ -12,6 +12,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,8 +25,12 @@ data class TutorialSpaceSetupUiState(
     val saveFailed: Boolean = false,
 )
 
+/**
+ * The Space picker. A first launch no longer shows it: the starter Spaces are added
+ * silently ([seedStarterSpacesSilently]). It stays in the guide (Settings › "First-time
+ * guide") for someone who has no Spaces at all.
+ */
 class TutorialSpaceSetupViewModel(
-    private val isReplay: Boolean,
     private val spaceRepository: SpaceRepository,
     private val observationDispatcher: CoroutineContext = Dispatchers.IO,
     private val workerDispatcher: CoroutineContext = Dispatchers.IO,
@@ -38,7 +43,7 @@ class TutorialSpaceSetupViewModel(
         viewModelScope.launch(observationDispatcher) {
             spaceRepository.observeAll().collectLatest { spaces ->
                 _uiState.update { state ->
-                    state.copy(canConfigure = !isReplay && spaces.isEmpty())
+                    state.copy(canConfigure = spaces.isEmpty())
                 }
             }
         }
@@ -115,13 +120,12 @@ class TutorialSpaceSetupViewModel(
         StarterSpaces.templates.filter { it.key in selectedKeys }
 
     class Factory(
-        private val isReplay: Boolean,
         private val container: OrbitContainer,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(TutorialSpaceSetupViewModel::class.java))
-            return TutorialSpaceSetupViewModel(isReplay, container.spaceRepository) as T
+            return TutorialSpaceSetupViewModel(container.spaceRepository) as T
         }
     }
 
@@ -133,6 +137,19 @@ class TutorialSpaceSetupViewModel(
             colorAccent = "#E0A84F",
         )
     }
+}
+
+/**
+ * First launch: adds every starter Space without asking, but only while there are no
+ * Spaces at all, so it never adds to Spaces someone already has. Returns how many were added.
+ */
+suspend fun seedStarterSpacesSilently(
+    spaceRepository: SpaceRepository,
+    now: Long = System.currentTimeMillis(),
+): Int {
+    if (spaceRepository.observeAll().first().isNotEmpty()) return 0
+    // Skips names already taken, so a second run at the same moment adds nothing twice.
+    return spaceRepository.insertStarterSpaces(StarterSpaces.all(now))
 }
 
 private fun cleanName(value: String): String = value.trim().replace(WhitespacePattern, " ")

@@ -1,18 +1,15 @@
 package com.orbit.app.ui.screens.home
 
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.Animatable
-import android.Manifest
 import com.orbit.app.ui.components.rememberReducedMotion
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalView
 import android.view.HapticFeedbackConstants
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.annotation.StringRes
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.animateColorAsState
@@ -46,6 +43,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -55,11 +53,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -73,7 +71,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
@@ -104,10 +101,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.core.content.ContextCompat
 import com.orbit.app.R
-import com.orbit.app.capture.VoiceCapture
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
 import com.orbit.app.ui.components.SoftGlassSurface
+import com.orbit.app.ui.components.LiveGlassSurface
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.components.orbitPressFeedback
 import com.orbit.app.ui.time.OrbitTimeFormat
@@ -118,8 +115,14 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
 import kotlinx.coroutines.flow.collect
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(
@@ -133,10 +136,21 @@ fun HomeScreen(
     userName: String,
     timeFormat: OrbitTimeFormat,
     onOpenSettings: () -> Unit = {},
+    onOpenSearch: () -> Unit = {},
     focusCaptureOnOpen: Boolean = false,
     focusRequest: Long = 0L,
+    voiceCloudNoticeSeen: Boolean = false,
+    onVoiceCloudNoticeSeen: () -> Unit = {},
+    /** Opens what the save receipt is about: the item the thought became, or the thought. */
+    onOpenReceiptTarget: (ReceiptTarget) -> Unit = {},
+    /** A new user before their first thought: Home explains itself in two lines. */
+    firstRun: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val receipt by viewModel.receipt.collectAsStateWithLifecycle()
+    val question by viewModel.question.collectAsStateWithLifecycle()
+    val firstReceiptTip by viewModel.firstReceiptTip.collectAsStateWithLifecycle()
+    val notificationPriming by viewModel.notificationPriming.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val navigationBottomPadding = with(LocalDensity.current) {
@@ -166,28 +180,41 @@ fun HomeScreen(
     val homePaneTitle = stringResource(R.string.navigation_home)
     val view = LocalView.current
     val reduceMotion = rememberReducedMotion()
-    var savedConfirmationVisible by remember { mutableStateOf(false) }
     // The send moment: the sent words lift a little and fade, so letting go is something
     // you see, not just an empty box.
     var pendingSentText by remember { mutableStateOf("") }
     var sentGhostText by remember { mutableStateOf<String?>(null) }
     val sentGhostProgress = remember { Animatable(0f) }
-    val messageText = uiState.message?.takeIf { it != HomeMessage.Saved }?.let { stringResource(it.textRes) }
-    val voiceAvailable = remember(context) { VoiceCapture.isAvailable(context) }
+    val pendingMessage = uiState.message
+    val messageText = pendingMessage?.let { stringResource(it.textRes) }
     val voicePrompt = stringResource(R.string.home_voice_prompt)
     val voiceLocale = LocalConfiguration.current.locales[0]
-    val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        VoiceCapture.transcript(result.data)?.let(viewModel::receiveSharedText)
-    }
-    val voiceAction: (() -> Unit)? = if (voiceAvailable) {
-        {
-            runCatching {
-                voiceLauncher.launch(VoiceCapture.intent(voiceLocale, voicePrompt))
-            }
+    // After a spoken thought, a second mic tap adds the next one on its own line, so a
+    // spoken dump splits into thoughts with no guessing.
+    var spokeLast by rememberSaveable { mutableStateOf(false) }
+    var voiceProblem by remember { mutableStateOf<Int?>(null) }
+    val voice = rememberVoiceInput(
+        locale = voiceLocale,
+        prompt = voicePrompt,
+        cloudNoticeSeen = voiceCloudNoticeSeen,
+        onCloudNoticeSeen = onVoiceCloudNoticeSeen,
+        onTranscript = { transcript ->
+            viewModel.receiveSharedText(transcript)
+            spokeLast = true
+        },
+        onProblem = { textRes -> voiceProblem = textRes },
+    )
+    voiceProblem?.let { textRes ->
+        val problemText = stringResource(textRes)
+        LaunchedEffect(textRes, problemText) {
+            snackbarHostState.showSnackbar(problemText)
+            voiceProblem = null
         }
-    } else {
-        null
     }
+    LaunchedEffect(uiState.inputText.isBlank()) {
+        if (uiState.inputText.isBlank()) spokeLast = false
+    }
+    val voiceAction: (() -> Unit)? = voice.start
 
     LaunchedEffect(uiState.savedPulse) {
         if (uiState.savedPulse == 0) return@LaunchedEffect
@@ -212,17 +239,58 @@ fun HomeScreen(
             }
         }
         pendingSentText = ""
-        savedConfirmationVisible = true
-        viewModel.messageShown()
-        kotlinx.coroutines.delay(SavedConfirmationMillis)
-        savedConfirmationVisible = false
     }
 
-    LaunchedEffect(messageText) {
-        messageText?.let { message ->
-            viewModel.messageShown()
-            snackbarHostState.showSnackbar(message)
+    // Cleared only after the snackbar is gone; clearing first would cancel this
+    // effect and dismiss the message almost at once.
+    LaunchedEffect(pendingMessage) {
+        val shown = pendingMessage ?: return@LaunchedEffect
+        val text = messageText ?: return@LaunchedEffect
+        try {
+            snackbarHostState.showSnackbar(text)
+        } finally {
+            viewModel.messageShown(shown)
         }
+    }
+
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
+    val onReceiptAction: (CaptureReceipt, ReceiptAction) -> Unit = { current, action ->
+        when (action) {
+            ReceiptAction.View, ReceiptAction.Change -> {
+                // Opening the item is the end of this receipt.
+                viewModel.dismissReceipt()
+                onOpenReceiptTarget(current.openTarget())
+            }
+            // A reminder that exists gets its new time in its own screen; a thought
+            // that is still saved opens the sort sheet on the reminder setup.
+            ReceiptAction.ChooseTime -> if (current.reminderId != null) {
+                viewModel.dismissReceipt()
+                onOpenReceiptTarget(current.openTarget())
+            } else {
+                viewModel.chooseReceiptTime()
+            }
+            ReceiptAction.TurnOn -> turnOnNotifications()
+            ReceiptAction.TryAgain -> viewModel.retryReceiptReminder()
+        }
+    }
+
+    // Notifications are asked for when a reminder from Home first needs them, never on
+    // opening the app: one line says why, then Android asks.
+    val primingReceipt = notificationPriming?.takeIf {
+        question == null && needsNotificationPermission(context)
+    }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+        viewModel::notificationPermissionAnswered,
+    )
+    var notificationsAskedFor by rememberSaveable { mutableStateOf<Long?>(null) }
+    LaunchedEffect(primingReceipt?.captureId) {
+        val captureId = primingReceipt?.captureId ?: return@LaunchedEffect
+        if (notificationsAskedFor == captureId) return@LaunchedEffect
+        // Long enough to read the line before Android's dialog covers the screen.
+        delay(NotificationPrimingReadMillis)
+        notificationsAskedFor = captureId
+        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     LaunchedEffect(uiState.sortRequest) {
@@ -251,6 +319,7 @@ fun HomeScreen(
                 fontScale = fontScale,
                 imeVisible = imeVisible,
                 hasCalendarCaptureContext = calendarDateContext != null,
+                hasFirstRunLines = firstRun,
             )
             val scrollState = rememberScrollState()
             LaunchedEffect(imeVisible, requiresVerticalScroll, scrollState) {
@@ -281,6 +350,7 @@ fun HomeScreen(
                 HomeHeader(
                     greeting = homeGreeting(LocalTime.now().hour, userName),
                     onOpenSettings = onOpenSettings,
+                    onOpenSearch = onOpenSearch,
                 )
 
                 Spacer(modifier = Modifier.height(OrbitSpacing.Large))
@@ -308,6 +378,9 @@ fun HomeScreen(
             }
 
             Spacer(modifier = Modifier.height(if (imeVisible) OrbitSpacing.Large else HomeCaptureGap))
+            if (firstRun) {
+                FirstRunLine(R.string.home_first_line_above, Modifier.padding(bottom = 12.dp))
+            }
 
             BoxWithConstraints(
                 modifier = Modifier
@@ -343,6 +416,8 @@ fun HomeScreen(
                     requestFocusOnOpen = focusCaptureOnOpen,
                     focusRequest = focusRequest,
                     onVoice = voiceAction,
+                    showVoiceHint = spokeLast,
+                    listening = voice.listening,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth(),
@@ -368,15 +443,33 @@ fun HomeScreen(
                 }
             }
 
-            SavedConfirmation(visible = savedConfirmationVisible, reduceMotion = reduceMotion)
-            uiState.quickReminder?.let { question ->
+            if (firstRun) {
+                FirstRunLine(R.string.home_first_line_below, Modifier.padding(top = 12.dp))
+            }
+            // Home's one question sits in place of the receipt, never next to it.
+            SaveReceipt(
+                receipt = receipt.takeIf { question == null },
+                timeFormat = timeFormat,
+                reduceMotion = reduceMotion,
+                onAction = onReceiptAction,
+                onDismiss = viewModel::dismissReceipt,
+                isWorking = uiState.isSettingReminder,
+            )
+            if (question == null && receipt != null) {
+                if (primingReceipt != null) {
+                    NotificationPrimingLine(primingReceipt, timeFormat)
+                } else {
+                    FirstReceiptTipLine(firstReceiptTip)
+                }
+            }
+            question?.let {
                 QuickReminderCard(
-                    question = question,
-                    timeFormat = timeFormat,
+                    question = it,
                     isWorking = uiState.isSettingReminder,
-                    onConfirm = viewModel::confirmQuickReminder,
-                    onChangeTime = viewModel::changeQuickReminderTime,
-                    onNotNow = viewModel::dismissQuickReminder,
+                    // The same as the receipt's "Choose time": the sort sheet for a saved
+                    // thought, the reminder's own screen when one exists.
+                    onPickTime = { receipt?.let { current -> onReceiptAction(current, ReceiptAction.ChooseTime) } },
+                    onKeep = viewModel::keepQuestionThought,
                 )
             }
         }
@@ -398,7 +491,26 @@ fun HomeScreen(
     )
 }
 
-private const val SavedConfirmationMillis = 2_000L
+/** One of Home's two first-run lines; gone after the first thought is saved. */
+@Composable
+private fun FirstRunLine(@StringRes textRes: Int, modifier: Modifier = Modifier) {
+    Text(
+        text = stringResource(textRes),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** Android 13+ asks before an app may show notifications; older phones allow them at install. */
+private fun needsNotificationPermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+        PackageManager.PERMISSION_GRANTED
+
+private const val NotificationPrimingReadMillis = 1_200L
 
 @Composable
 private fun CalendarCaptureContextBanner(
@@ -409,6 +521,17 @@ private fun CalendarCaptureContextBanner(
     val formatter = remember(locale) {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
     }
+    CaptureContextBanner(
+        text = stringResource(R.string.core_home_adding_for_date, date.format(formatter)),
+        onClear = onClear,
+    )
+}
+
+@Composable
+private fun CaptureContextBanner(
+    text: String,
+    onClear: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -419,10 +542,7 @@ private fun CalendarCaptureContextBanner(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(
-                R.string.core_home_adding_for_date,
-                date.format(formatter),
-            ),
+            text = text,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -534,12 +654,15 @@ internal fun WeekStrip(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 BoxWithConstraints(modifier = sharedContentBounds) {
-                    val dayCapsuleWidth = minOf(HomeDayCapsuleMaxWidth, maxWidth / dates.size)
+                    // Every day is at least a 48 dp touch target. On a narrow phone the
+                    // row reaches a little into the page margins to make room.
+                    val rowWidth = maxOf(maxWidth, minOf(HomeDayMinTouch * dates.size, maxWidth + HomeWeekMarginBleed * 2))
+                    val dayCapsuleWidth = minOf(HomeDayCapsuleMaxWidth, rowWidth / dates.size)
                     val dayCapsuleHeight = HomeDayCapsuleHeight *
                         LocalDensity.current.fontScale.coerceAtLeast(1f)
                     val dayCapsuleShape = RoundedCornerShape(22.dp)
                     Row(
-                        modifier = sharedContentBounds,
+                        modifier = Modifier.requiredWidth(rowWidth),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         dates.forEach { date ->
@@ -650,9 +773,12 @@ private fun CaptureCard(
     requestFocusOnOpen: Boolean,
     focusRequest: Long,
     onVoice: (() -> Unit)?,
+    showVoiceHint: Boolean = false,
+    listening: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val isProcessing = processingState.isInProgress
+    val offersNextVoice = onVoice != null && showVoiceHint && text.isNotBlank() && !isProcessing
     val focusRequester = remember { FocusRequester() }
     // Focus once per visit to Home, only when the user asked for it in Settings.
     LaunchedEffect(requestFocusOnOpen) {
@@ -663,7 +789,7 @@ private fun CaptureCard(
         if (focusRequest != 0L) runCatching { focusRequester.requestFocus() }
     }
     val processingStatusRes = processingState.statusLabelRes()
-    SoftGlassSurface(
+    LiveGlassSurface(
         modifier = modifier
             .height(height),
         shape = RoundedCornerShape(32.dp),
@@ -682,12 +808,36 @@ private fun CaptureCard(
                     .fillMaxSize()
                     .focusRequester(focusRequester)
                     .padding(
-                        end = CaptureTextActionClearance,
-                        bottom = if (isProcessing) 34.dp else 0.dp,
+                        end = CaptureTextActionClearance + if (offersNextVoice) 48.dp else 0.dp,
+                        bottom = if (isProcessing || offersNextVoice) 34.dp else 0.dp,
                     ),
             )
 
-            processingStatusRes?.let { statusRes ->
+            if (offersNextVoice) {
+                Text(
+                    text = stringResource(R.string.home_voice_next_hint),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(end = CaptureTextActionClearance + 48.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                IconButton(
+                    onClick = { onVoice?.invoke() },
+                    modifier = Modifier
+                        .align(if (imeVisible) Alignment.CenterEnd else Alignment.BottomEnd)
+                        .padding(end = CaptureActionButtonSize + 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Mic,
+                        contentDescription = stringResource(R.string.home_voice_next),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            // While the phone listens on the device, say so; the mic tap then stops listening.
+            (if (listening && !isProcessing) R.string.home_voice_listening else processingStatusRes)?.let { statusRes ->
                 Text(
                     text = stringResource(statusRes),
                     modifier = Modifier
@@ -814,8 +964,6 @@ private fun CaptureActionButton(
     }
 }
 
-private val PlaceholderUserName = com.orbit.app.domain.model.AppSettings().userName
-
 private val CaptureHints = listOf(
     R.string.core_home_capture_placeholder,
     R.string.home_capture_hint_remind,
@@ -823,12 +971,11 @@ private val CaptureHints = listOf(
     R.string.home_capture_hint_small,
 )
 
-/** "Good afternoon, Name" on one line, or just the greeting when no name is set. */
+/** "Good afternoon, Name", or just the greeting when no name is set. */
 @Composable
 private fun homeGreeting(hour: Int, userName: String): String {
-    val name = userName.trim()
-    // "user" is the stored placeholder until the person sets a name in Settings.
-    return if (name.isEmpty() || name.equals(PlaceholderUserName, ignoreCase = true)) {
+    val name = com.orbit.app.domain.model.chosenUserName(userName)
+    return if (name == null) {
         stringResource(greetingResFor(hour))
     } else {
         stringResource(namedGreetingResFor(hour), name)
@@ -839,21 +986,35 @@ private fun homeGreeting(hour: Int, userName: String): String {
 private fun HomeHeader(
     greeting: String,
     onOpenSettings: () -> Unit,
+    onOpenSearch: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
+        // A name that does not fit after the greeting moves to its own line instead
+        // of being cut off ("Good afternoon," / "Vitautas").
         Text(
             text = greeting,
             modifier = Modifier
                 .weight(1f)
+                .padding(top = 6.dp)
                 .semantics { heading() },
             style = HomeTypography.userName.copy(fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.45).sp),
             color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        IconButton(
+            onClick = onOpenSearch,
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = stringResource(R.string.home_open_search),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         IconButton(
             onClick = onOpenSettings,
             modifier = Modifier.size(48.dp),
@@ -921,8 +1082,12 @@ private fun estimatedCaptureLineCount(text: String): Int = text
 private val HomeWeekCardHeight = 104.dp
 private val HomeDayCapsuleMaxWidth = 52.dp
 private val HomeDayCapsuleHeight = 64.dp
+private val HomeDayMinTouch = 48.dp
+private val HomeWeekMarginBleed = 16.dp
 private val HomeWeekCardScaledContentGrowth = 112.dp
 private val HomeCaptureGap = 28.dp
+/** Home's two first-run lines, about two short lines of text each, plus their gaps. */
+private val FirstRunLinesHeight = 104.dp
 private val CalendarCaptureContextBannerActionMinimumHeight = 48.dp
 private val CalendarCaptureContextBannerBodyLineHeight = 22.dp
 private val CaptureCardExpandedHeight = 244.dp
@@ -943,8 +1108,10 @@ private fun homeMinimumContentHeightFor(
     fontScale: Float,
     imeVisible: Boolean,
     hasCalendarCaptureContext: Boolean,
+    hasFirstRunLines: Boolean = false,
 ): Dp =
-    26.dp +
+    (if (hasFirstRunLines) FirstRunLinesHeight * fontScale else 0.dp) +
+        26.dp +
         maxOf(48.dp, 40.dp * fontScale) +
         OrbitSpacing.Large +
         homeWeekCardHeightFor(fontScale) +

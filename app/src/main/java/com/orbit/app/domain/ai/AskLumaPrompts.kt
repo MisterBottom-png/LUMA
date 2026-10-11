@@ -14,6 +14,8 @@ enum class AskLumaQuestion { WhatNow, WhatCanWait, DependsOnOthers, SmallestStep
 enum class AskLumaAnswerKind {
     StartWith,
     SortThoughts,
+    /** Nothing new today, but [AskLumaPromptAnswer.count] open items from earlier. */
+    FromEarlier,
     NothingNeeded,
     CanWait,
     NothingCanWait,
@@ -28,9 +30,14 @@ enum class AskLumaAnswerKind {
 data class AskLumaPromptAnswer(
     val kind: AskLumaAnswerKind,
     val items: List<AiSourceItem> = emptyList(),
-    /** Number of unresolved thoughts, for SortThoughts. */
+    /** Number of unresolved thoughts (SortThoughts) or earlier open items (FromEarlier). */
     val count: Int = 0,
-)
+    /** For CanWait: open tasks with no date, said separately under "No date set". */
+    val undated: List<AiSourceItem> = emptyList(),
+) {
+    /** Everything the answer cites. */
+    val sources: List<AiSourceItem> get() = items + undated
+}
 
 /**
  * Answers Review's Ask LUMA questions from the user's own items, deterministically
@@ -58,6 +65,13 @@ object AskLumaPromptAnswerer {
                 it.scheduledDateEpochDay == today.toEpochDay()
         }.sortedBy { it.dueAt ?: endOfToday }
         val toSort = corpus.captures.count { it.status == CaptureStatus.Inbox }
+        // Still open, with a time or day that has already passed (not counted, only mentioned).
+        val earlierTasks = openTasks.filter { task ->
+            (task.dueAt != null && task.dueAt < now) ||
+                (task.scheduledDateEpochDay != null && task.scheduledDateEpochDay < today.toEpochDay())
+        }.sortedBy { it.dueAt ?: Long.MIN_VALUE }
+        val earlierReminders = openReminders.filter { it.dueAt < now - UrgentWindowMillis }.sortedBy { it.dueAt }
+        val earlierCount = earlierTasks.size + earlierReminders.size
 
         return when (question) {
             AskLumaQuestion.WhatNow -> {
@@ -66,21 +80,28 @@ object AskLumaPromptAnswerer {
                 when {
                     next != null -> AskLumaPromptAnswer(AskLumaAnswerKind.StartWith, listOf(next))
                     toSort > 0 -> AskLumaPromptAnswer(AskLumaAnswerKind.SortThoughts, count = toSort)
+                    // Never "nothing needs you" while something from earlier is still open.
+                    earlierCount > 0 -> AskLumaPromptAnswer(
+                        AskLumaAnswerKind.FromEarlier,
+                        items = (earlierTasks.map(::taskSource) + earlierReminders.map(::reminderSource)).take(MaxItems),
+                        count = earlierCount,
+                    )
                     else -> AskLumaPromptAnswer(AskLumaAnswerKind.NothingNeeded)
                 }
             }
             AskLumaQuestion.WhatCanWait -> {
-                val canWait = (
+                val later = (
                     openTasks.filter { task ->
-                        task.dueAt == null && task.scheduledDateEpochDay == null ||
-                            (task.dueAt ?: 0L) > endOfToday ||
+                        (task.dueAt ?: 0L) > endOfToday ||
                             (task.scheduledDateEpochDay ?: Long.MIN_VALUE) > today.toEpochDay()
                     } + corpus.tasks.filter { it.status == TaskStatus.Someday }
                     ).sortedBy { it.updatedAt }.take(MaxItems).map(::taskSource)
-                if (canWait.isEmpty()) {
+                val undated = openTasks.filter { it.dueAt == null && it.scheduledDateEpochDay == null }
+                    .sortedBy { it.updatedAt }.take(MaxItems).map(::taskSource)
+                if (later.isEmpty() && undated.isEmpty()) {
                     AskLumaPromptAnswer(AskLumaAnswerKind.NothingCanWait)
                 } else {
-                    AskLumaPromptAnswer(AskLumaAnswerKind.CanWait, canWait)
+                    AskLumaPromptAnswer(AskLumaAnswerKind.CanWait, items = later, undated = undated)
                 }
             }
             AskLumaQuestion.DependsOnOthers -> {
@@ -105,7 +126,8 @@ object AskLumaPromptAnswerer {
                     .filter { it.dueAt in (now - UrgentWindowMillis)..(now + UrgentWindowMillis) }
                     .sortedBy { it.dueAt }
                     .map(::reminderSource) +
-                    openTasks.filter { it.dueAt != null && it.dueAt in now..(now + UrgentWindowMillis) }
+                    // The same window as reminders: a task due an hour ago is as urgent as a reminder.
+                    openTasks.filter { it.dueAt != null && it.dueAt in (now - UrgentWindowMillis)..(now + UrgentWindowMillis) }
                         .sortedBy { it.dueAt }
                         .map(::taskSource)
                 if (urgent.isEmpty()) {

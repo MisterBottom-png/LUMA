@@ -213,7 +213,13 @@ class LocalRulesSituationAnalyzer(
 
     private fun Long.formatLocalDateTime(use24HourClock: Boolean, locale: Locale): String = Instant.ofEpochMilli(this)
         .atZone(ZoneId.systemDefault())
-        .format(DateTimeFormatter.ofPattern(if (use24HourClock) "MMM d, HH:mm" else "MMM d, h:mm a", locale))
+        .format(
+            DateTimeFormatter.ofPattern(
+                "${com.orbit.app.domain.model.LocalizedDatePatterns.forLocale(locale).date}, " +
+                    com.orbit.app.domain.model.LocalizedDatePatterns.timePattern(use24HourClock),
+                locale,
+            ),
+        )
 
     private companion object {
         const val RecentCaptureDays = 7L

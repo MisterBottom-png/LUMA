@@ -6,10 +6,11 @@ import org.junit.Test
 
 class FirstTimeTutorialContentTest {
     @Test
-    fun tutorialHasSevenOrderedPagesWithDistinctIllustrations() {
-        assertEquals(7, firstTimeTutorialPages.size)
-        assertEquals(R.string.tutorial_idea_title, firstTimeTutorialPages.first().titleRes)
-        assertEquals(R.string.tutorial_control_title, firstTimeTutorialPages.last().titleRes)
-        assertEquals(7, firstTimeTutorialPages.map { it.illustration }.distinct().size)
+    fun tutorialHasFourShortStepsEndingWithPrivacy() {
+        assertEquals(4, firstTimeTutorialPages.size)
+        assertEquals(R.string.tutorial_write_title, firstTimeTutorialPages.first().titleRes)
+        assertEquals(TutorialIllustration.Spaces, firstTimeTutorialPages[2].illustration)
+        assertEquals(R.string.tutorial_private_title, firstTimeTutorialPages.last().titleRes)
+        assertEquals(4, firstTimeTutorialPages.map { it.illustration }.distinct().size)
     }
 }

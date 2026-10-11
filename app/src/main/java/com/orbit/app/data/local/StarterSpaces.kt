@@ -13,11 +13,16 @@ object StarterSpaces {
     val templates: List<StarterSpaceTemplate> = listOf(
         StarterSpaceTemplate("personal", "Personal", "person", "#B270D6"),
         StarterSpaceTemplate("work", "Work", "work", "#6D7CFF"),
-        StarterSpaceTemplate("home", "Home", "home", "#D7798D"),
+        // New installs get "Household"; Spaces already saved as "Home" keep that name.
+        StarterSpaceTemplate("home", "Household", "home", "#D7798D"),
         StarterSpaceTemplate("health", "Health", "favorite", "#59A6A6"),
         StarterSpaceTemplate("money", "Money", "payments", "#62A77A"),
         StarterSpaceTemplate("learning", "Learning", "school", "#7B8CB8"),
     )
+
+    /** Every starter Space, in template order: what a new install gets without being asked. */
+    fun all(now: Long = System.currentTimeMillis()): List<SpaceEntity> =
+        templates.mapIndexed { index, template -> spaceFor(template, sortOrder = index, now = now) }
 
     fun spaceFor(
         template: StarterSpaceTemplate,

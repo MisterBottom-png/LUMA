@@ -1,6 +1,8 @@
 package com.orbit.app.domain.capture
 
 import com.orbit.app.data.local.dao.CaptureSuggestionDao
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.repository.CaptureRepository
@@ -10,12 +12,15 @@ import com.orbit.app.data.repository.SpaceRepository
 import com.orbit.app.data.repository.TaskRepository
 import com.orbit.app.domain.usecase.CaptureFinalizationTransaction
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
-import com.orbit.app.reminders.shouldScheduleNotification
+import com.orbit.app.reminders.ReminderSaveOutcome
+import com.orbit.app.reminders.ReminderSaveOutcomes
 import kotlinx.coroutines.flow.first
 
 /**
- * Explicit, user-confirmed outcomes for a capture in To sort, and their Undo.
- * Every function here runs only after a user tap.
+ * Outcomes for a capture in To sort, and their Undo. Each runs after a user tap,
+ * except [acceptSuggestion], which the automatic filing of a clear thought also uses.
+ * "Change" never comes here: it opens the item itself, so nothing is deleted before
+ * the user confirms an edit.
  */
 class CaptureResolution(
     private val captureRepository: CaptureRepository,
@@ -26,41 +31,69 @@ class CaptureResolution(
     private val suggestionDao: CaptureSuggestionDao,
     private val confirmCaptureAction: ConfirmCaptureActionUseCase,
     private val transaction: CaptureFinalizationTransaction,
+    private val reminderOutcomes: ReminderSaveOutcomes,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
-    /**
-     * Creates the reminder from the quick question on Home. Returns true when the
-     * reminder was saved but its notification could not be scheduled.
-     */
-    suspend fun createQuickReminder(captureId: Long, title: String, reminderAt: Long): Boolean {
+    /** Creates the reminder from the quick question on Home and says what it achieved. */
+    suspend fun createQuickReminder(captureId: Long, title: String, reminderAt: Long): ReminderSaveOutcome {
         val suggestion = suggestionDao.getByCaptureId(captureId)
         val reminderId = confirmCaptureAction.createReminder(
             captureId = captureId,
-            spaceId = spaceIdFor(suggestion?.suggestedSpaceName),
+            spaceId = activeSpaceId(captureRepository.getById(captureId)?.suggestedSpaceId)
+                ?: spaceIdFor(suggestion?.suggestedSpaceName),
             title = title,
             dueAt = reminderAt,
             labelNames = suggestion?.labelNames().orEmpty(),
         )
-        val reminder = reminderRepository.getById(reminderId) ?: return true
-        return reminder.shouldScheduleNotification() && reminder.notificationWorkId == null
+        return reminderOutcomes.of(reminderId).also { recordReminderOutcome(captureId, reminderId, it) }
+    }
+
+    /**
+     * Stores what saving [reminderId] achieved on its thought: `ReminderSet` when it can
+     * ring, `NeedsYou` with the reason when it cannot. Every place that turns a thought
+     * into a reminder calls this once it knows the [outcome].
+     */
+    suspend fun recordReminderOutcome(captureId: Long, reminderId: Long, outcome: ReminderSaveOutcome) {
+        transaction.run {
+            val capture = captureRepository.getById(captureId) ?: return@run
+            // Undone or changed meanwhile: the thought no longer belongs to this reminder.
+            if (capture.status != CaptureStatus.Processed || capture.linkedItemId != reminderId) return@run
+            captureRepository.update(capture.withOutcome(outcome.toCaptureOutcome(), now()))
+        }
     }
 
     /**
      * Accepts LUMA's stored suggestion as it is ("one tap"). Returns null when the
      * suggestion needs a choice first (for example a reminder without a time).
+     *
+     * [automatic] is set by [AutoFiler]: the thought is then filed only while no decision
+     * was made about it, checked again inside the filing transaction.
      */
-    suspend fun acceptSuggestion(captureId: Long): AcceptedSuggestion? {
+    suspend fun acceptSuggestion(captureId: Long, automatic: Boolean = false): AcceptedSuggestion? {
         val capture = captureRepository.getById(captureId) ?: return null
         if (capture.status != CaptureStatus.Inbox) return null
+        if (automatic && capture.decidedAt != null) return null
         val suggestion = suggestionDao.getByCaptureId(captureId)?.takeUnless { it.dismissed } ?: return null
-        val spaceId = spaceIdFor(suggestion.suggestedSpaceName)
+        // Not sure enough for one tap: the user chooses in the sheet.
+        if (suggestion.isLowConfidence) return null
+        // A Space the user picked when saving wins over the suggested one.
+        val spaceId = activeSpaceId(capture.suggestedSpaceId) ?: spaceIdFor(suggestion.suggestedSpaceName)
         val labels = suggestion.labelNames()
         val title = suggestion.suggestedTitle
         return when (suggestion.suggestedType) {
             SuggestedItemType.Reminder -> {
                 val at = suggestion.suggestedReminderAt?.takeIf { it > now() } ?: return null
-                val id = confirmCaptureAction.createReminder(captureId, spaceId, title, at, labelNames = labels)
-                AcceptedSuggestion(SuggestedItemType.Reminder, id)
+                val id = confirmCaptureAction.createReminder(
+                    captureId,
+                    spaceId,
+                    title,
+                    at,
+                    labelNames = labels,
+                    onlyIfUndecided = automatic,
+                )
+                val outcome = reminderOutcomes.of(id)
+                recordReminderOutcome(captureId, id, outcome)
+                AcceptedSuggestion(SuggestedItemType.Reminder, id, outcome)
             }
             SuggestedItemType.Task, SuggestedItemType.MondayItem -> {
                 val id = confirmCaptureAction.createTask(
@@ -68,8 +101,9 @@ class CaptureResolution(
                     spaceId = spaceId,
                     title = title,
                     dueAt = suggestion.suggestedDueAt,
-                    scheduledDateEpochDay = suggestion.contextDateEpochDay.takeIf { suggestion.suggestedDueAt == null },
+                    scheduledDateEpochDay = suggestion.taskDateEpochDay().takeIf { suggestion.suggestedDueAt == null },
                     labelNames = labels,
+                    onlyIfUndecided = automatic,
                 )
                 AcceptedSuggestion(SuggestedItemType.Task, id)
             }
@@ -80,13 +114,18 @@ class CaptureResolution(
                     title = title,
                     scheduledDateEpochDay = suggestion.contextDateEpochDay,
                     labelNames = labels,
+                    onlyIfUndecided = automatic,
                 )
                 AcceptedSuggestion(SuggestedItemType.Note, id)
             }
         }
     }
 
-    /** Undo for a just-sorted capture: removes the new item and returns the thought to To sort. */
+    /**
+     * Undo for a just-sorted capture: removes the new item and returns the thought to
+     * To sort as a plain saved thought. The user decided, so [decidedAt][com.orbit.app.data.local.entity.CaptureEntity.decidedAt]
+     * is stamped and a late automatic decision cannot file it again.
+     */
     suspend fun undo(captureId: Long, itemType: SuggestedItemType, itemId: Long) {
         transaction.run {
             when (itemType) {
@@ -95,24 +134,68 @@ class CaptureResolution(
                 SuggestedItemType.Reminder -> reminderRepository.deleteById(itemId)
             }
             captureRepository.getById(captureId)?.let { capture ->
+                val timestamp = now()
                 captureRepository.update(
-                    capture.copy(status = CaptureStatus.Inbox, linkedItemId = null, updatedAt = now()),
+                    capture.copy(
+                        status = CaptureStatus.Inbox,
+                        linkedItemId = null,
+                        updatedAt = timestamp,
+                        outcome = CaptureOutcome.Saved,
+                        outcomeReason = CaptureOutcomeReason.None,
+                        outcomeAt = timestamp,
+                        decidedAt = timestamp,
+                    ),
                 )
             }
         }
     }
 
-    /** "Let it go": the user explicitly archives a thought (Undo restores it). */
+    /**
+     * "Just keep it": the thought stays a saved thought, in Later and in Search, and
+     * nothing can ring for it. A reminder made from it (one that cannot ring, or whose
+     * time passed) is removed first through [undo], which cancels its alarm and backup
+     * work. A thought filed as a note or task is left as it is.
+     */
+    suspend fun keep(captureId: Long) {
+        val capture = captureRepository.getById(captureId) ?: return
+        val linkedId = capture.linkedItemId
+        if (capture.status == CaptureStatus.Processed && linkedId != null) {
+            val reminder = reminderRepository.getById(linkedId) ?: return
+            if (capture.isSortedInto(reminder)) undo(captureId, SuggestedItemType.Reminder, linkedId)
+            return
+        }
+        transaction.run {
+            val current = captureRepository.getById(captureId)?.takeIf { it.status == CaptureStatus.Inbox } ?: return@run
+            val timestamp = now()
+            captureRepository.update(
+                current.copy(
+                    outcome = CaptureOutcome.Saved,
+                    outcomeReason = CaptureOutcomeReason.None,
+                    outcomeAt = timestamp,
+                    decidedAt = timestamp,
+                ),
+            )
+        }
+    }
+
+    /** "Let it go": the user explicitly archives a thought (Undo restores it). Its outcome is kept. */
     suspend fun archive(captureId: Long) {
         val capture = captureRepository.getById(captureId) ?: return
         if (capture.status != CaptureStatus.Inbox) return
-        captureRepository.update(capture.copy(status = CaptureStatus.Archived, updatedAt = now()))
+        val timestamp = now()
+        captureRepository.update(
+            capture.copy(status = CaptureStatus.Archived, updatedAt = timestamp, decidedAt = timestamp),
+        )
     }
 
     suspend fun unarchive(captureId: Long) {
         val capture = captureRepository.getById(captureId) ?: return
         if (capture.status != CaptureStatus.Archived) return
         captureRepository.update(capture.copy(status = CaptureStatus.Inbox, updatedAt = now()))
+    }
+
+    private suspend fun activeSpaceId(id: Long?): Long? = id?.let { spaceId ->
+        spaceRepository.getById(spaceId)?.takeUnless { it.archived }?.id
     }
 
     private suspend fun spaceIdFor(name: String?): Long? = name?.let { spaceName ->
@@ -122,4 +205,9 @@ class CaptureResolution(
     }
 }
 
-data class AcceptedSuggestion(val itemType: SuggestedItemType, val itemId: Long)
+data class AcceptedSuggestion(
+    val itemType: SuggestedItemType,
+    val itemId: Long,
+    /** Set for a reminder: whether it can actually reach the user. */
+    val reminderOutcome: ReminderSaveOutcome? = null,
+)

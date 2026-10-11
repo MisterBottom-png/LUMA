@@ -1,39 +1,28 @@
 package com.orbit.app.ui.screens.review
 
-import android.app.DatePickerDialog
+import com.orbit.app.ui.components.SectionHeader
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Archive
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Spa
 import com.orbit.app.ui.components.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -56,12 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.graphics.graphicsLayer
-import android.animation.ValueAnimator
-import android.os.Build
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -74,6 +58,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
+import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
+import com.orbit.app.ui.reminders.offerTurnOnIfBlocked
+import com.orbit.app.ui.reminders.offersTurnOn
+import com.orbit.app.ui.reminders.messageRes
+import com.orbit.app.reminders.ReminderSaveOutcome
 import com.orbit.app.ui.screens.home.sortedMessageRes
 import com.orbit.app.domain.analyzer.ReviewLoop
 import com.orbit.app.domain.analyzer.ReviewLoopType
@@ -82,13 +71,9 @@ import com.orbit.app.ui.components.LumaModalBottomSheet
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.orbitScrollEdgeFade
-import com.orbit.app.ui.components.userVisibleLabel
 import com.orbit.app.ui.time.OrbitTimeFormat
 import com.orbit.app.ui.theme.OrbitMotion
-import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.ZoneId
 import kotlinx.coroutines.delay
 
 
@@ -136,14 +121,25 @@ fun ReviewScreen(
     onKeepCarryForwardUnscheduled: (ReviewItem) -> Unit,
     onCompleteCarryForward: (ReviewItem) -> Unit,
     onWeeklyLookBackVisible: () -> Unit,
+    onCarryForwardAllTomorrow: (List<ReviewItem>) -> Unit = { items -> items.forEach(onCarryForwardTomorrow) },
+    onUndoChange: (Long) -> Unit = {},
+    onChangeUndoExpired: (Long) -> Unit = {},
     onAskLuma: (AskLumaPrompt?) -> Unit = {},
     onAcceptToSort: (ToSortItem) -> Unit = {},
     onChangeToSort: (ToSortItem) -> Unit = {},
+    onOpenToSort: (ToSortItem) -> Unit = {},
+    onSplitToSort: (ToSortItem) -> Unit = {},
     onHideSuggestion: (ToSortItem) -> Unit = {},
     onLetGo: (ToSortItem) -> Unit = {},
     onUndoSort: (SortUndoToken) -> Unit = {},
-    onSortFeedbackShown: () -> Unit = {},
+    onAcceptAllToSort: (List<ToSortItem>) -> Unit = {},
+    onSortFeedbackShown: (SortUndoToken?, ReviewSortMessage?) -> Unit = { _, _ -> },
     sortHost: @Composable (SnackbarHostState) -> Unit = {},
+    onNeedsYouRemindAt: (NeedsYouItem, Long) -> Unit = { _, _ -> },
+    onNeedsYouPickTime: (NeedsYouItem) -> Unit = {},
+    onNeedsYouMakeTask: (NeedsYouItem) -> Unit = {},
+    onNeedsYouTryAgain: (NeedsYouItem) -> Unit = {},
+    onNeedsYouKeep: (NeedsYouItem) -> Unit = {},
 ) {
     val reviewContext by rememberReviewContext()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -153,13 +149,35 @@ fun ReviewScreen(
         stringResource(taskUndo.action.undoMessageRes())
     }
     val sortUndo = uiState.pendingSortUndo
-    val sortUndoMessage = sortUndo?.let { stringResource(it.messageRes()) }
+    val sortUndoMessage = sortUndo?.let { token ->
+        if (token is SortUndoToken.AcceptedMany) {
+            pluralStringResource(R.plurals.review_sorted_many, token.accepted.size, token.accepted.size)
+        } else {
+            stringResource(token.messageRes())
+        }
+    }
+    val sortReminderFollowUp = sortUndo?.reminderOutcome
+        ?.takeIf { it != ReminderSaveOutcome.Saved }
+        ?.let { outcome ->
+            // A single reminder already says it in its Undo snackbar.
+            if (sortUndo is SortUndoToken.AcceptedMany || outcome.offersTurnOn) outcome else null
+        }
+    val turnOnPrompt = stringResource(R.string.reminder_outcome_turn_on_prompt)
+    val notScheduledText = stringResource(R.string.reminder_outcome_not_scheduled)
+    val turnOnLabel = stringResource(R.string.settings_turn_on)
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
     val sortMessage = uiState.sortMessage?.let { stringResource(it.messageRes()) }
+    val pendingChangeUndo = uiState.pendingChangeUndo
+    val pendingChangeMessage = pendingChangeUndo?.let { change -> reviewChangeMessage(change) }
     var showOpenLoops by rememberSaveable { mutableStateOf(false) }
     var showAllOpenLoops by rememberSaveable { mutableStateOf(false) }
     var showAllToSort by rememberSaveable { mutableStateOf(false) }
     var showAllToday by rememberSaveable { mutableStateOf(false) }
     var weeklyExpanded by rememberSaveable { mutableStateOf(false) }
+    var breathing by rememberSaveable { mutableStateOf(false) }
+    var earlierExpanded by rememberSaveable { mutableStateOf(false) }
+    var sortingOneByOne by rememberSaveable { mutableStateOf(false) }
+    var moreExpanded by rememberSaveable { mutableStateOf(false) }
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
@@ -171,7 +189,7 @@ fun ReviewScreen(
     val measuredHeaderClearance = with(LocalDensity.current) {
         headerHeightPx.toDp() + 20.dp
     }
-    val headerClearance = maxOf(statusBarTopPadding + 96.dp, measuredHeaderClearance)
+    val headerClearance = maxOf(statusBarTopPadding + 100.dp, measuredHeaderClearance)
     val reviewTitle = stringResource(R.string.core_review_title)
     LaunchedEffect(pendingTaskUndo?.operationId) {
         val taskUndo = pendingTaskUndo ?: return@LaunchedEffect
@@ -179,7 +197,7 @@ fun ReviewScreen(
         val result = snackbarHostState.showSnackbar(
             message = message,
             actionLabel = undoLabel,
-            duration = SnackbarDuration.Short,
+            duration = SnackbarDuration.Long,
         )
         if (result == SnackbarResult.ActionPerformed) {
             onUndoTaskMutation(taskUndo.operationId)
@@ -187,21 +205,58 @@ fun ReviewScreen(
             onTaskUndoExpired(taskUndo.operationId)
         }
     }
-    LaunchedEffect(sortUndo, sortMessage) {
-        when {
-            sortUndo != null && sortUndoMessage != null -> {
-                onSortFeedbackShown()
-                val result = snackbarHostState.showSnackbar(
-                    message = sortUndoMessage,
-                    actionLabel = undoLabel,
-                    duration = SnackbarDuration.Long,
-                )
-                if (result == SnackbarResult.ActionPerformed) onUndoSort(sortUndo)
+    // Keyed on the change; the token is cleared only after the snackbar is gone,
+    // and only if it is still this change.
+    LaunchedEffect(pendingChangeUndo?.operationId) {
+        val change = pendingChangeUndo ?: return@LaunchedEffect
+        val message = pendingChangeMessage ?: return@LaunchedEffect
+        var undone = false
+        try {
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = undoLabel,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                undone = true
+                onUndoChange(change.operationId)
             }
-            sortMessage != null -> {
-                onSortFeedbackShown()
-                snackbarHostState.showSnackbar(sortMessage)
+        } finally {
+            if (!undone) onChangeUndoExpired(change.operationId)
+        }
+    }
+    // Keyed on the feedback itself and cleared only after the snackbar is gone.
+    // Clearing first would change the key, cancel this effect and dismiss the
+    // snackbar (and its Undo) almost at once.
+    val sortMessageKind = uiState.sortMessage
+    LaunchedEffect(sortUndo, sortMessageKind) {
+        try {
+            when {
+                sortUndo != null && sortUndoMessage != null -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = sortUndoMessage,
+                        actionLabel = undoLabel,
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        onUndoSort(sortUndo)
+                    } else {
+                        when {
+                            sortReminderFollowUp == null -> Unit
+                            sortReminderFollowUp.offersTurnOn -> snackbarHostState.offerTurnOnIfBlocked(
+                                outcome = sortReminderFollowUp,
+                                prompt = turnOnPrompt,
+                                turnOnLabel = turnOnLabel,
+                                onTurnOn = turnOnNotifications,
+                            )
+                            else -> snackbarHostState.showSnackbar(notScheduledText)
+                        }
+                    }
+                }
+                sortMessage != null -> snackbarHostState.showSnackbar(sortMessage)
             }
+        } finally {
+            onSortFeedbackShown(sortUndo, sortMessageKind)
         }
     }
     Box(
@@ -214,179 +269,170 @@ fun ReviewScreen(
                 .fillMaxSize()
                 .orbitScrollEdgeFade(
                     top = headerClearance,
-                    bottom = OrbitBottomNavigationDefaults.ContentClearance,
+                    bottom = OrbitBottomNavigationDefaults.ScrollFadeHeight + navigationBottomPadding,
+                    bottomFadeLength = OrbitBottomNavigationDefaults.ScrollFadeLength,
                 ),
             contentPadding = PaddingValues(
-                start = 24.dp,
+                start = 20.dp,
                 top = headerClearance,
-                end = 24.dp,
+                end = 20.dp,
                 bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            reviewSectionOrder(reviewContext.period).forEach { section ->
-                when (section) {
-                    ReviewSection.AskLuma -> {
-                        item(key = "ask") { AskLumaCard(onAskLuma) }
-                        item(key = "breathe") { BreathingMoment() }
-                        if (uiState.nothingWaiting) item(key = "all_sorted") { AllSortedCard() }
-                    }
-
-                    ReviewSection.ToSort -> if (uiState.toSort.isNotEmpty()) {
-                        item(key = "to_sort_heading") {
-                            SectionHeading(
-                                stringResource(R.string.review_to_sort_title),
-                                stringResource(R.string.review_to_sort_subtitle),
-                            )
-                        }
-                        val visible = if (showAllToSort) uiState.toSort else uiState.toSort.take(ReviewSectionPreviewSize)
-                        items(visible, key = { "to_sort_${it.captureId}" }) { item ->
-                            ToSortRow(
-                                item = item,
-                                timeFormat = timeFormat,
-                                onAccept = { onAcceptToSort(item) },
-                                onChange = { onChangeToSort(item) },
-                                onHideSuggestion = { onHideSuggestion(item) },
-                                onLetGo = { onLetGo(item) },
-                                modifier = Modifier.animateItem(
-                                    fadeInSpec = tween(OrbitMotion.StandardDurationMillis),
-                                    placementSpec = tween(OrbitMotion.EmphasizedDurationMillis),
-                                    fadeOutSpec = tween(OrbitMotion.QuickDurationMillis),
-                                ),
-                            )
-                        }
-                        if (uiState.toSort.size > ReviewSectionPreviewSize) {
-                            item(key = "to_sort_more") {
-                                TextButton(onClick = { showAllToSort = !showAllToSort }) {
-                                    Text(
-                                        if (showAllToSort) {
-                                            stringResource(R.string.review_show_fewer)
-                                        } else {
-                                            stringResource(R.string.review_to_sort_show_all, uiState.toSort.size)
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    ReviewSection.Today -> {
-                        item(key = "today_heading") {
-                            SectionHeading(
-                                stringResource(R.string.review_today_title),
-                                stringResource(R.string.review_today_subtitle),
-                            )
-                        }
-                        if (uiState.dueToday.isEmpty()) {
-                            item(key = "today_empty") { EmptyMessage(stringResource(R.string.review_today_empty)) }
-                        } else {
-                            val visible = if (showAllToday) uiState.dueToday else uiState.dueToday.take(ReviewSectionPreviewSize)
-                            items(visible, key = { "due_${it.key}" }) { item ->
-                                ReviewItemRow(
-                                    item = item,
-                                    badge = if (item.schedule == ReviewItemSchedule.DateOnly) {
-                                        stringResource(R.string.core_today)
-                                    } else {
-                                        timeFormat.formatTime(item.timestamp)
-                                    },
-                                    onClick = reviewRowClick(item, onReviewItemSelected),
-                                )
-                            }
-                            if (uiState.dueToday.size > ReviewSectionPreviewSize) {
-                                item(key = "today_more") {
-                                    TextButton(onClick = { showAllToday = !showAllToday }) {
-                                        Text(
-                                            if (showAllToday) {
-                                                stringResource(R.string.review_show_fewer)
-                                            } else {
-                                                stringResource(
-                                                    R.string.review_show_more,
-                                                    uiState.dueToday.size - ReviewSectionPreviewSize,
-                                                )
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    ReviewSection.CarryForward -> if (uiState.carryForwardSuggestions.isNotEmpty()) {
-                        item(key = "carry_heading") {
-                            SectionHeading(
-                                stringResource(R.string.review_carry_title),
-                                stringResource(R.string.review_carry_subtitle),
-                            )
-                        }
-                        items(uiState.carryForwardSuggestions, key = { "carry_${it.item.key}" }) { suggestion ->
-                            CarryForwardDecisionCard(
-                                suggestion = suggestion,
-                                onOpen = { onReviewItemSelected(suggestion.item) },
-                                onTomorrow = { onCarryForwardTomorrow(suggestion.item) },
-                                onChooseDate = { epochDay -> onCarryForwardToDate(suggestion.item, epochDay) },
-                                onKeepUnscheduled = { onKeepCarryForwardUnscheduled(suggestion.item) },
-                                onMarkComplete = { onCompleteCarryForward(suggestion.item) },
-                            )
-                        }
-                    }
-
-                    ReviewSection.WeeklyLookBack -> {
-                        item(key = "weekly_entry") {
-                            WeeklyLookBackEntry(
-                                expanded = weeklyExpanded,
-                                suggested = reviewContext.weeklyReviewAvailable,
-                                onToggle = { weeklyExpanded = !weeklyExpanded },
-                            )
-                        }
-                        if (weeklyExpanded) {
-                            item(key = "weekly_pager") { WeeklyReviewPager(uiState, onWeeklyLookBackVisible) }
-                        }
-                    }
+            if (breathing) {
+                item(key = "breathe") { BreathingPanel(onFinished = { breathing = false }) }
+            }
+            // Needs a decision: only thoughts with one real question. Empty most days.
+            if (uiState.needsYou.isNotEmpty()) {
+                item(key = "needs_you_heading") {
+                    SectionHeader(
+                        title = stringResource(R.string.needs_you_decisions_heading),
+                        large = true,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                item(key = "needs_you_cards") {
+                    NeedsYouGroup(
+                        items = uiState.needsYou,
+                        timeFormat = timeFormat,
+                        now = remember(uiState.needsYou) { System.currentTimeMillis() },
+                        enabled = uiState.pendingSortUndo == null,
+                        onRemindAt = onNeedsYouRemindAt,
+                        onPickTime = onNeedsYouPickTime,
+                        onMakeTask = onNeedsYouMakeTask,
+                        onTurnOn = { turnOnNotifications() },
+                        onTryAgain = onNeedsYouTryAgain,
+                        onKeep = onNeedsYouKeep,
+                    )
+                }
+            } else {
+                item(key = "needs_you_empty") {
+                    NeedsYouEmptyCard(kept = uiState.keptToday, filed = uiState.filedToday)
                 }
             }
 
-            item(key = "open_loops_action") {
-                OpenLoopsAction(
-                    expanded = showOpenLoops,
-                    onClick = { showOpenLoops = !showOpenLoops },
+            // Today: plain rows, a quieter heading, never cards. A task is not a question.
+            item(key = "today_heading") {
+                SectionHeader(
+                    title = stringResource(R.string.needs_you_today_heading),
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
-            if (showOpenLoops) {
-                openLoopsWorkflow(
+            item(key = "today_list") {
+                TodayGroup(
+                    items = uiState.dueToday,
+                    showAll = showAllToday,
+                    timeFormat = timeFormat,
+                    onShowAllChanged = { showAllToday = it },
+                    onOpen = onReviewItemSelected,
+                    previewSize = NeedsYouTodayPreviewSize,
+                )
+            }
+
+            // Everything else is a tool, behind one row.
+            item(key = "more") {
+                NeedsYouMoreRow(expanded = moreExpanded, onToggle = { moreExpanded = !moreExpanded })
+            }
+            if (moreExpanded) {
+                if (uiState.carryForwardSuggestions.isNotEmpty()) {
+                    item(key = "carry_list") {
+                        FromEarlierGroup(
+                            suggestions = uiState.carryForwardSuggestions,
+                            expanded = earlierExpanded,
+                            onExpandedChange = { earlierExpanded = it },
+                            onOpen = onReviewItemSelected,
+                            onTomorrow = onCarryForwardTomorrow,
+                            onAllTomorrow = onCarryForwardAllTomorrow,
+                            onChooseDate = onCarryForwardToDate,
+                            onKeepUnscheduled = onKeepCarryForwardUnscheduled,
+                            onComplete = onCompleteCarryForward,
+                        )
+                    }
+                }
+                if (uiState.toSort.isNotEmpty()) {
+                    item(key = "to_sort_heading") {
+                        SectionHeader(
+                            title = stringResource(R.string.review_to_sort_title),
+                            actionLabel = stringResource(R.string.review_sort_one_by_one),
+                            onAction = { sortingOneByOne = true },
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                    item(key = "to_sort_list") {
+                        ToSortGroup(
+                            items = uiState.toSort,
+                            showAll = showAllToSort,
+                            timeFormat = timeFormat,
+                            onShowAllChanged = { showAllToSort = it },
+                            onAccept = onAcceptToSort,
+                            onAcceptAll = { onAcceptAllToSort(uiState.toSort) },
+                            onChange = onChangeToSort,
+                            onHideSuggestion = onHideSuggestion,
+                            onLetGo = onLetGo,
+                            onOpen = onOpenToSort,
+                            onSplit = onSplitToSort,
+                        )
+                    }
+                }
+                item(key = "weekly_entry") {
+                    WeeklyLookBackRow(
+                        expanded = weeklyExpanded,
+                        suggested = reviewContext.weeklyReviewAvailable,
+                        onToggle = { weeklyExpanded = !weeklyExpanded },
+                    )
+                }
+                if (weeklyExpanded) {
+                    item(key = "weekly_pager") { WeeklyReviewPager(uiState, onWeeklyLookBackVisible) }
+                }
+                item(key = "open_loops_action") {
+                    OpenLoopsAction(
+                        expanded = showOpenLoops,
+                        onClick = { showOpenLoops = !showOpenLoops },
+                    )
+                }
+                if (showOpenLoops) {
+                    openLoopsWorkflow(
+                        uiState = uiState,
+                        onKeepTaskActive = onKeepTaskActive,
+                        onConfirmCapture = onConfirmCapture,
+                        onArchive = onArchive,
+                        onCompleteTask = onCompleteTask,
+                        onDeferTask = onDeferTask,
+                        onDismissCapture = onDismissCapture,
+                        onMakeSmaller = onMakeSmaller,
+                        showAll = showAllOpenLoops,
+                        onShowAllChanged = { showAllOpenLoops = it },
+                    )
+                }
+                supportingReviewSections(
                     uiState = uiState,
-                    onKeepTaskActive = onKeepTaskActive,
-                    onConfirmCapture = onConfirmCapture,
-                    onArchive = onArchive,
-                    onCompleteTask = onCompleteTask,
-                    onDeferTask = onDeferTask,
-                    onDismissCapture = onDismissCapture,
-                    onMakeSmaller = onMakeSmaller,
-                    showAll = showAllOpenLoops,
-                    onShowAllChanged = { showAllOpenLoops = it },
+                    onReviewItemSelected = onReviewItemSelected,
                 )
             }
-            supportingReviewSections(
-                uiState = uiState,
-                onReviewItemSelected = onReviewItemSelected,
-            )
         }
 
-        Column(
+        ReviewHeader(
+            title = reviewTitle,
+            summary = reviewSummary(uiState),
+            onAsk = onAskLuma,
+            onBreathe = { breathing = true },
             modifier = Modifier
                 .onSizeChanged { headerHeightPx = it.height }
-                .padding(
-                    start = 24.dp,
-                    top = statusBarTopPadding + 26.dp,
-                    end = 24.dp,
-                ),
-        ) {
-            Text(
-                text = reviewTitle,
-                modifier = Modifier.semantics { heading() },
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold,
+                .padding(start = 20.dp, top = statusBarTopPadding + 20.dp, end = 12.dp),
+        )
+        if (sortingOneByOne) {
+            SortOneByOne(
+                items = uiState.toSort,
+                timeFormat = timeFormat,
+                onAccept = onAcceptToSort,
+                onChange = onChangeToSort,
+                onLetGo = onLetGo,
+                onClose = { sortingOneByOne = false },
             )
         }
+        // Drawn after the one-by-one view so its Undo is not hidden behind it, and
+        // lifted above that view's buttons while it is open.
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
@@ -395,17 +441,34 @@ fun ReviewScreen(
                     start = 16.dp,
                     top = 16.dp,
                     end = 16.dp,
-                    bottom = navigationBottomPadding + OrbitBottomNavigationDefaults.ContentClearance,
+                    bottom = navigationBottomPadding + OrbitBottomNavigationDefaults.ContentClearance +
+                        if (sortingOneByOne) SortOneByOneActionsClearance else 0.dp,
                 ),
         )
         sortHost(snackbarHostState)
     }
 }
 
+@Composable
+private fun reviewChangeMessage(change: ReviewChangeToken): String = when (change.kind) {
+    ReviewChangeKind.MovedTomorrow -> if (change.count == 1) {
+        stringResource(R.string.review_change_moved_tomorrow_one)
+    } else {
+        pluralStringResource(R.plurals.review_change_moved_tomorrow_many, change.count, change.count)
+    }
+    ReviewChangeKind.MovedToDate -> stringResource(R.string.review_change_moved_date)
+    ReviewChangeKind.KeptUndated -> stringResource(R.string.review_change_kept_undated)
+    ReviewChangeKind.Completed -> stringResource(R.string.review_change_completed)
+    ReviewChangeKind.ThoughtKept -> stringResource(R.string.review_change_thought_kept)
+    ReviewChangeKind.ThoughtHandled -> stringResource(R.string.review_change_thought_handled)
+    ReviewChangeKind.ThoughtLetGo -> stringResource(R.string.review_sort_let_go)
+}
+
 private fun SortUndoToken.messageRes(): Int = when (this) {
-    is SortUndoToken.Accepted -> itemType.sortedMessageRes()
+    is SortUndoToken.Accepted -> reminderOutcome?.messageRes() ?: itemType.sortedMessageRes()
     is SortUndoToken.LetGo -> R.string.review_sort_let_go
     is SortUndoToken.Hidden -> R.string.review_sort_hidden
+    is SortUndoToken.AcceptedMany -> accepted.first().itemType.sortedMessageRes()
 }
 
 private fun ReviewSortMessage.messageRes(): Int = when (this) {
@@ -434,77 +497,6 @@ internal fun reviewContextRefreshDelayMillis(now: LocalDateTime): Long {
         else -> now.plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0)
     }
     return java.time.Duration.between(now, nextBoundary).toMillis().coerceAtLeast(1L)
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun CarryForwardDecisionCard(
-    suggestion: CarryForwardSuggestion,
-    onOpen: () -> Unit,
-    onTomorrow: () -> Unit,
-    onChooseDate: (Long) -> Unit,
-    onKeepUnscheduled: () -> Unit,
-    onMarkComplete: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val zoneId = ZoneId.systemDefault()
-    val initialDate = Instant.ofEpochMilli(suggestion.item.timestamp)
-        .atZone(zoneId)
-        .toLocalDate()
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        ReviewItemRow(
-            item = suggestion.item,
-            badge = stringResource(suggestion.guidance.labelRes()),
-            onClick = onOpen,
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            AssistChip(
-                onClick = onTomorrow,
-                label = { Text(stringResource(R.string.core_tomorrow)) },
-            )
-            AssistChip(
-                onClick = {
-                    showCarryForwardDatePicker(context, initialDate, onChooseDate)
-                },
-                label = { Text(stringResource(R.string.core_choose_date)) },
-            )
-            if (suggestion.item.type == ReviewItemType.Task) {
-                AssistChip(
-                    onClick = onKeepUnscheduled,
-                    label = { Text(stringResource(R.string.core_review_keep_unscheduled)) },
-                )
-            }
-            AssistChip(
-                onClick = onMarkComplete,
-                label = { Text(stringResource(R.string.core_mark_complete)) },
-                leadingIcon = { Icon(Icons.Rounded.CheckCircle, contentDescription = null) },
-            )
-        }
-    }
-}
-
-private fun showCarryForwardDatePicker(
-    context: android.content.Context,
-    initialDate: LocalDate,
-    onSelected: (Long) -> Unit,
-) {
-    DatePickerDialog(
-        context,
-        { _, year, month, day ->
-            onSelected(LocalDate.of(year, month + 1, day).toEpochDay())
-        },
-        initialDate.year,
-        initialDate.monthValue - 1,
-        initialDate.dayOfMonth,
-    ).show()
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.openLoopsWorkflow(
@@ -635,23 +627,21 @@ private fun androidx.compose.foundation.lazy.LazyListScope.supportingReviewSecti
     }
 }
 
+/** Sorting older open loops is a rare chore, so it is a quiet text button at the end. */
 @Composable
 private fun OpenLoopsAction(
     expanded: Boolean,
     onClick: () -> Unit,
 ) {
-    FilledTonalButton(
+    TextButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
+        modifier = Modifier.heightIn(min = 48.dp),
     ) {
         Icon(
             Icons.Rounded.Refresh,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = stringResource(
@@ -662,6 +652,8 @@ private fun OpenLoopsAction(
                 },
             ),
             modifier = Modifier.padding(start = 8.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -1011,7 +1003,7 @@ private fun ReviewReason.labelRes(): Int = when (this) {
 }
 
 @StringRes
-private fun CarryForwardGuidance.labelRes(): Int = when (this) {
+internal fun CarryForwardGuidance.labelRes(): Int = when (this) {
     CarryForwardGuidance.ChooseNewDayOrSmallerStep ->
         R.string.core_review_choose_day_or_smaller
 

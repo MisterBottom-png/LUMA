@@ -31,7 +31,12 @@ class BrainDumpInteractionStateTest {
         assertEquals("Plan the appointment", draft.title)
         assertEquals(SuggestedItemType.Task, draft.type)
         assertEquals(7L, draft.spaceId)
-        assertEquals(1_800_000_000_000L, draft.scheduledAt)
+        // A task is date-only: the parsed time gives its day.
+        assertEquals(null, draft.scheduledAt)
+        assertEquals(
+            java.time.Instant.ofEpochMilli(1_800_000_000_000L).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay(),
+            draft.scheduledDateEpochDay,
+        )
     }
 
     @Test
@@ -55,6 +60,17 @@ class BrainDumpInteractionStateTest {
                 initialDraft = initial,
                 draft = initial,
                 actionInProgress = false,
+            ),
+        )
+        // The card itself can be changed now, so leaving it with changes asks first.
+        assertEquals(
+            BrainDumpDismissalDecision.ConfirmDiscard,
+            brainDumpDismissalDecision(
+                stage = BrainDumpStage.Suggestion,
+                initialDraft = initial,
+                draft = changed,
+                actionInProgress = false,
+                openedFromOverview = true,
             ),
         )
     }

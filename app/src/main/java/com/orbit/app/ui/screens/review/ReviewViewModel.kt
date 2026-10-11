@@ -1,5 +1,7 @@
 package com.orbit.app.ui.screens.review
 
+import com.orbit.app.reminders.ReminderSaveOutcome
+import com.orbit.app.reminders.worst
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -115,19 +117,52 @@ data class ReviewUiState(
     val toSort: List<ToSortItem> = emptyList(),
     val pendingSortUndo: SortUndoToken? = null,
     val sortMessage: ReviewSortMessage? = null,
+    /** Undo for the latest "To tomorrow", carry-forward or thought action. */
+    val pendingChangeUndo: ReviewChangeToken? = null,
+    /** True while the weekly look back is being written. */
+    val weeklySummaryLoading: Boolean = false,
+    /** Thoughts with one real question (stored outcome `NeedsYou`), newest first. */
+    val needsYou: List<NeedsYouItem> = emptyList(),
+    /** Thoughts saved today that Tallele kept as they are. */
+    val keptToday: Int = 0,
+    /** Thoughts saved today that Tallele filed (a note, task or reminder). */
+    val filedToday: Int = 0,
 ) {
-    /** "All sorted" is only claimed when nothing at all is waiting. */
+    /** Nothing needs a decision and nothing is due today. */
     val nothingWaiting: Boolean
-        get() = toSort.isEmpty() && dueToday.isEmpty() && carryForwardSuggestions.isEmpty()
+        get() = needsYou.isEmpty() && dueToday.isEmpty()
+
+    /** The tab shows a dot only when something failed, never a count. */
+    val somethingFailed: Boolean
+        get() = needsYou.any { it.somethingFailed }
 }
 
 /** An undoable outcome from To sort. */
 sealed interface SortUndoToken {
     val captureId: Long
 
-    data class Accepted(override val captureId: Long, val itemType: com.orbit.app.data.local.entity.SuggestedItemType, val itemId: Long) : SortUndoToken
+    data class Accepted(
+        override val captureId: Long,
+        val itemType: com.orbit.app.data.local.entity.SuggestedItemType,
+        val itemId: Long,
+        /** For a reminder: whether it can actually reach the user. */
+        val reminderOutcome: ReminderSaveOutcome? = null,
+    ) : SortUndoToken
     data class LetGo(override val captureId: Long) : SortUndoToken
     data class Hidden(override val captureId: Long) : SortUndoToken
+
+    /** "Accept all suggestions": one Undo puts every thought back in To sort. */
+    data class AcceptedMany(val accepted: List<Accepted>) : SortUndoToken {
+        override val captureId: Long get() = accepted.first().captureId
+    }
+}
+
+/** The least happy reminder outcome in this feedback, if it saved any reminder. */
+val SortUndoToken.reminderOutcome: ReminderSaveOutcome?
+    get() = when (this) {
+        is SortUndoToken.Accepted -> reminderOutcome
+        is SortUndoToken.AcceptedMany -> accepted.mapNotNull { it.reminderOutcome }.worst()
+        else -> null
 }
 
 enum class ReviewSortMessage { ActionFailed, NeedsChoice, Undone }
@@ -157,6 +192,7 @@ class ReviewViewModel internal constructor(
             taskRepository = container.taskRepository,
         ),
         brainDumpActions = container.brainDumpActions,
+        archivedTaskStatus = container.archivedTaskStatusMemory,
     ),
     private val taskUndoController: ReviewTaskUndoController = ReviewTaskUndoController(
         container.taskRepository,
@@ -166,6 +202,15 @@ class ReviewViewModel internal constructor(
     private val weeklySummary = MutableStateFlow<SourceLinkedAnswer?>(null)
     private val pendingTaskUndo = MutableStateFlow<ReviewTaskUndoToken?>(null)
     private val sortFeedback = MutableStateFlow<Pair<SortUndoToken?, ReviewSortMessage?>>(null to null)
+    private val pendingChange = MutableStateFlow<ReviewChangeToken?>(null)
+    private val weeklyLoading = MutableStateFlow(false)
+    private val changeUndo = ReviewChangeUndo(
+        taskRepository = container.taskRepository,
+        reminderRepository = container.reminderRepository,
+        captureRepository = container.captureRepository,
+        brainDumpRepository = container.brainDumpRepository,
+    )
+    private var sortActionInProgress = false
     private var weeklyDataVersion = 0L
 
     private val corpus = combine(
@@ -218,11 +263,15 @@ class ReviewViewModel internal constructor(
         smallerAction,
         weeklySummary,
         pendingTaskUndo,
-        sortFeedback,
-    ) { data, smallAction, summary, taskUndo, feedback ->
-        buildUiState(data, smallAction, summary, taskUndo).copy(
+        combine(sortFeedback, pendingChange, weeklyLoading) { sort, change, loading -> Triple(sort, change, loading) },
+    ) { data, smallAction, summary, taskUndo, (feedback, change, loading) ->
+        val state = buildUiState(data, smallAction, summary, taskUndo)
+        state.copy(
             pendingSortUndo = feedback.first,
             sortMessage = feedback.second,
+            pendingChangeUndo = change,
+            weeklySummaryLoading = loading && summary == null,
+            toSort = state.toSort.map { item -> item.withSplitOffer() },
         )
     }.stateIn(
         scope = viewModelScope,
@@ -230,18 +279,113 @@ class ReviewViewModel internal constructor(
         initialValue = ReviewUiState(),
     )
 
+    private val splitOffers = mutableMapOf<String, Int>()
+
+    /** "Looks like N thoughts" for one-line thoughts; remembered per text, it never changes. */
+    private suspend fun ToSortItem.withSplitOffer(): ToSortItem {
+        if (state != ToSortState.Suggested && state != ToSortState.NoSuggestion) return this
+        if (text.lines().count(String::isNotBlank) > 1) return this
+        val count = splitOffers[text] ?: runCatching { container.thoughtSplitter.possibleThoughts(text) }
+            .getOrDefault(0)
+            .also { splitOffers[text] = it }
+        return if (count >= 2) copy(possibleThoughts = count) else this
+    }
+
+    /** Needs you: a reminder at a quick time (today 18:00, tomorrow 09:00) for a thought without one. */
+    fun remindAt(item: NeedsYouItem, reminderAt: Long) = answer(item) {
+        container.captureResolution.createQuickReminder(item.captureId, item.title, reminderAt)
+    }
+
+    /** Needs you: "Just keep it". A reminder made for the thought is deleted and its alarm cancelled. */
+    fun keepThought(item: NeedsYouItem) = answer(item) {
+        container.captureResolution.keep(item.captureId)
+    }
+
+    /** Needs you: "Make it a task" for a thought Tallele could not place. */
+    fun makeTask(item: NeedsYouItem) = answer(item) {
+        container.confirmCaptureAction.createTask(
+            captureId = item.captureId,
+            spaceId = item.suggestedSpaceName?.let { name ->
+                container.spaceRepository.observeAll().first()
+                    .firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id
+            },
+            title = item.title,
+            dueAt = null,
+            scheduledDateEpochDay = item.taskDateEpochDay,
+        )
+    }
+
+    /** Needs you: "Try again" for a reminder whose alarm could not be set. */
+    fun retryReminder(item: NeedsYouItem) {
+        val reminderId = item.reminderId ?: return
+        answer(item) {
+            com.orbit.app.ui.screens.home.rearmReceiptReminder(
+                reminderRepository = container.reminderRepository,
+                outcomes = container.reminderSaveOutcomes,
+                resolution = container.captureResolution,
+                captureId = item.captureId,
+                reminderId = reminderId,
+            )
+        }
+    }
+
+    /** Cards being answered: a second tap on the same card waits; other cards stay usable. */
+    private val answering = mutableSetOf<Long>()
+
+    private fun answer(item: NeedsYouItem, action: suspend () -> Unit) {
+        if (!answering.add(item.captureId)) return
+        viewModelScope.launch {
+            try {
+                action()
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                sortFeedback.value = null to ReviewSortMessage.ActionFailed
+            } finally {
+                answering.remove(item.captureId)
+            }
+        }
+    }
+
     /** One tap: turn the thought into what LUMA suggested. */
     fun acceptSuggestion(item: ToSortItem) {
-        viewModelScope.launch {
+        runSortAction {
             runCatching { container.captureResolution.acceptSuggestion(item.captureId) }
                 .onSuccess { accepted ->
                     sortFeedback.value = if (accepted == null) {
                         null to ReviewSortMessage.NeedsChoice
                     } else {
-                        SortUndoToken.Accepted(item.captureId, accepted.itemType, accepted.itemId) to null
+                        SortUndoToken.Accepted(item.captureId, accepted.itemType, accepted.itemId, accepted.reminderOutcome) to null
                     }
                 }
                 .onFailure { sortFeedback.value = null to ReviewSortMessage.ActionFailed }
+        }
+    }
+
+    /**
+     * Accepts every waiting suggestion that needs no further choice. Thoughts that need a
+     * time, or have no suggestion, stay in To sort. One Undo reverts them all.
+     */
+    fun acceptAllSuggestions(items: List<ToSortItem>) {
+        val ready = items.filter { it.state == ToSortState.Suggested }
+        if (ready.isEmpty()) return
+        runSortAction {
+            val accepted = mutableListOf<SortUndoToken.Accepted>()
+            var failed = false
+            ready.forEach { item ->
+                runCatching { container.captureResolution.acceptSuggestion(item.captureId) }
+                    .onSuccess { result ->
+                        result?.let {
+                            accepted += SortUndoToken.Accepted(item.captureId, it.itemType, it.itemId, it.reminderOutcome)
+                        }
+                    }
+                    .onFailure { failed = true }
+            }
+            sortFeedback.value = when {
+                accepted.isNotEmpty() -> SortUndoToken.AcceptedMany(accepted) to null
+                failed -> null to ReviewSortMessage.ActionFailed
+                else -> null to ReviewSortMessage.NeedsChoice
+            }
         }
     }
 
@@ -270,6 +414,9 @@ class ReviewViewModel internal constructor(
                     is SortUndoToken.Accepted -> container.captureResolution.undo(token.captureId, token.itemType, token.itemId)
                     is SortUndoToken.LetGo -> container.captureResolution.unarchive(token.captureId)
                     is SortUndoToken.Hidden -> container.captureInbox.restoreSuggestion(token.captureId)
+                    is SortUndoToken.AcceptedMany -> token.accepted.forEach {
+                        container.captureResolution.undo(it.captureId, it.itemType, it.itemId)
+                    }
                 }
             }
                 .onSuccess { sortFeedback.value = null to ReviewSortMessage.Undone }
@@ -277,19 +424,41 @@ class ReviewViewModel internal constructor(
         }
     }
 
-    fun sortFeedbackShown() {
-        sortFeedback.value = null to null
+    /**
+     * Clears the feedback the screen just finished showing. It only clears that exact
+     * feedback, so a newer result (for example "Undone") that arrived meanwhile is
+     * still shown.
+     */
+    fun sortFeedbackShown(token: SortUndoToken?, message: ReviewSortMessage?) {
+        sortFeedback.compareAndSet(token to message, null to null)
+    }
+
+    /**
+     * Runs one accept action at a time. A second tap while the first is still saving
+     * would otherwise fail on the already sorted thought and replace the first
+     * action's Undo with an error message.
+     */
+    private fun runSortAction(action: suspend () -> Unit) {
+        if (sortActionInProgress) return
+        sortActionInProgress = true
+        viewModelScope.launch {
+            try {
+                action()
+            } finally {
+                sortActionInProgress = false
+            }
+        }
     }
 
     fun keepTaskActive(loop: ReviewLoop) = updateLoop(loop, actions::keepTaskActive)
 
-    fun confirmCapture(loop: ReviewLoop) = updateLoop(loop, actions::confirmCapture)
+    fun confirmCapture(loop: ReviewLoop) = changeThought(loop, ReviewChangeKind.ThoughtKept, actions::confirmCapture)
 
     fun archive(loop: ReviewLoop) {
         if (loop.type == ReviewLoopType.Task) {
             updateUndoableTask(loop, actions::archive)
         } else {
-            updateLoop(loop, actions::archive)
+            changeThought(loop, ReviewChangeKind.ThoughtLetGo) { actions.archive(it) }
         }
     }
 
@@ -297,27 +466,79 @@ class ReviewViewModel internal constructor(
 
     fun deferTask(loop: ReviewLoop) = updateUndoableTask(loop, actions::deferTask)
 
-    fun carryForwardTomorrow(item: ReviewItem) = updateItem(item, actions::carryForwardTomorrow)
+    fun carryForwardTomorrow(item: ReviewItem) = carryForwardAllTomorrow(listOf(item))
 
-    fun carryForwardToDate(item: ReviewItem, epochDay: Long) = updateItem(item) {
-        actions.carryForwardToDate(it, epochDay)
+    /** "To tomorrow" for every item from earlier at once, with one Undo. */
+    fun carryForwardAllTomorrow(items: List<ReviewItem>) {
+        val movable = items.filter { it.type != ReviewItemType.Capture }
+        if (movable.isEmpty()) return
+        changeItems(movable, ReviewChangeKind.MovedTomorrow) { movable.forEach { actions.carryForwardTomorrow(it) } }
+    }
+
+    /** A chosen day; days before today are refused (the picker does not offer them either). */
+    fun carryForwardToDate(item: ReviewItem, epochDay: Long) {
+        if (!carryForwardDayAllowed(epochDay, LocalDate.now(ZoneId.systemDefault()))) return
+        changeItems(listOf(item), ReviewChangeKind.MovedToDate) { actions.carryForwardToDate(item, epochDay) }
     }
 
     fun keepCarryForwardUnscheduled(item: ReviewItem) =
-        updateItem(item, actions::keepUnscheduled)
+        changeItems(listOf(item), ReviewChangeKind.KeptUndated) { actions.keepUnscheduled(item) }
 
-    fun completeCarryForward(item: ReviewItem) = updateItem(item, actions::completeCarryForward)
+    fun completeCarryForward(item: ReviewItem) =
+        changeItems(listOf(item), ReviewChangeKind.Completed) { actions.completeCarryForward(item) }
 
-    fun dismissCapture(loop: ReviewLoop) = updateLoop(loop, actions::dismissCapture)
+    fun dismissCapture(loop: ReviewLoop) = changeThought(loop, ReviewChangeKind.ThoughtHandled, actions::dismissCapture)
+
+    fun undoChange(operationId: Long) {
+        viewModelScope.launch {
+            if (pendingChange.value?.operationId != operationId) return@launch
+            runCatching { changeUndo.undo(operationId) }
+            if (pendingChange.value?.operationId == operationId) pendingChange.value = null
+        }
+    }
+
+    /** Clears [operationId] only if it is still the latest change, so a newer Undo is kept. */
+    fun changeUndoExpired(operationId: Long) {
+        if (pendingChange.value?.operationId == operationId) {
+            changeUndo.expire(operationId)
+            pendingChange.value = null
+        }
+    }
+
+    private fun changeItems(items: List<ReviewItem>, kind: ReviewChangeKind, change: suspend () -> Unit) {
+        val targets = ReviewChangeTargets(
+            taskIds = items.filter { it.type == ReviewItemType.Task }.map { it.id },
+            reminderIds = items.filter { it.type == ReviewItemType.Reminder }.map { it.id },
+        )
+        viewModelScope.launch {
+            runCatching { changeUndo.record(kind, targets, change) }
+                .onSuccess { pendingChange.value = it }
+        }
+    }
+
+    private fun changeThought(loop: ReviewLoop, kind: ReviewChangeKind, change: suspend (ReviewLoop) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                changeUndo.record(kind, ReviewChangeTargets(captureIds = listOf(loop.id))) { change(loop) }
+            }.onSuccess { pendingChange.value = it }
+            if (smallerAction.value?.sourceKey == loop.key) smallerAction.value = null
+        }
+    }
 
     fun loadWeeklySummary() {
-        if (weeklySummary.value != null) return
+        if (weeklySummary.value != null || weeklyLoading.value) return
+        weeklyLoading.value = true
         viewModelScope.launch {
-            val data = reviewData.first()
-            val version = weeklyDataVersion
-            val sources = weeklyReviewSources(data, System.currentTimeMillis(), ZoneId.systemDefault())
-            val summary = container.aiRouter.summarizeReview(sources, data.settings)
-            if (version == weeklyDataVersion) weeklySummary.value = summary
+            try {
+                val data = reviewData.first()
+                val version = weeklyDataVersion
+                val sources = weeklyReviewSources(data, System.currentTimeMillis(), ZoneId.systemDefault())
+                val summary = container.aiRouter.summarizeReview(sources, data.settings)
+                if (version == weeklyDataVersion) weeklySummary.value = summary
+            } finally {
+                // A failure leaves the calm fallback text, never an endless spinner.
+                weeklyLoading.value = false
+            }
         }
     }
 
@@ -370,10 +591,6 @@ class ReviewViewModel internal constructor(
         }
     }
 
-    private fun updateItem(item: ReviewItem, update: suspend (ReviewItem) -> Unit) {
-        viewModelScope.launch { update(item) }
-    }
-
     private fun buildUiState(
         data: ReviewData,
         smallAction: ReviewSuggestion?,
@@ -385,6 +602,7 @@ class ReviewViewModel internal constructor(
         val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val startOfToday = today.atStartOfDay(zone).toInstant().toEpochMilli()
         val startOfTomorrow = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val savedToday = savedTodayCounts(data.captures, startOfToday, startOfTomorrow)
         val recentCutoff = Instant.ofEpochMilli(startOfToday)
             .minus(7, ChronoUnit.DAYS)
             .toEpochMilli()
@@ -491,6 +709,9 @@ class ReviewViewModel internal constructor(
                 brainDumpCaptureIds = data.brainDumpCaptureIds,
                 now = now,
             ),
+            needsYou = buildNeedsYou(data.captures, data.suggestions, data.reminders),
+            keptToday = savedToday.kept,
+            filedToday = savedToday.filed,
         )
     }
 
@@ -632,6 +853,8 @@ internal class ReviewActions(
     private val now: () -> Long = System::currentTimeMillis,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
+    private val archivedTaskStatus: com.orbit.app.data.local.ArchivedTaskStatusMemory =
+        com.orbit.app.data.local.ArchivedTaskStatusMemory.None,
 ) {
     suspend fun keepTaskActive(loop: ReviewLoop) {
         require(loop.type == ReviewLoopType.Task)
@@ -662,6 +885,7 @@ internal class ReviewActions(
     suspend fun archive(loop: ReviewLoop): ReviewTaskMutation? = when (loop.type) {
         ReviewLoopType.Task -> taskRepository.getById(loop.id)?.let { task ->
             val updated = task.copy(status = TaskStatus.Archived, updatedAt = now())
+            archivedTaskStatus.remember(task.id, task.status)
             taskRepository.update(updated)
             ReviewTaskMutation(
                 action = ReviewTaskMutationAction.Archived,

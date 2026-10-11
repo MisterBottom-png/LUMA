@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -19,6 +20,10 @@ data class ReminderCapabilityStatus(
     val exactAlarmsAllowed: Boolean,
     val exactAlarmsAdjustable: Boolean,
     val lastBlockedDeliveryAt: Long?,
+    /** Android may restrict LUMA in the background to save battery. */
+    val batteryRestricted: Boolean = false,
+    /** The phone's maker is known to stop background apps more than Android itself does. */
+    val aggressiveBatteryBrand: Boolean = false,
 ) {
     /** Reminders can reach the user at all. */
     val canNotify: Boolean get() = notificationsAllowed && reminderChannelEnabled
@@ -27,11 +32,63 @@ data class ReminderCapabilityStatus(
         get() = when {
             !canNotify -> ReminderCapabilityState.Blocked
             !exactAlarmsAllowed -> ReminderCapabilityState.MayBeLate
+            // Plain battery optimisation on other phones is fine: exact alarms fire
+            // through Doze. Only brands with their own app killer get the hint.
+            batteryRestricted && aggressiveBatteryBrand -> ReminderCapabilityState.MayBeStopped
             else -> ReminderCapabilityState.Ready
         }
 }
 
-enum class ReminderCapabilityState { Ready, MayBeLate, Blocked }
+/**
+ * [MayBeStopped] is a hint, not a failure: the phone's own battery manager may stop
+ * LUMA in the background, which Android cannot report.
+ */
+enum class ReminderCapabilityState { Ready, MayBeLate, MayBeStopped, Blocked }
+
+/** What the Settings health row says. Blocked splits in two: each has its own fix screen. */
+enum class ReminderHealthIssue { None, NotificationsOff, ChannelOff, MayBeLate, MayBeStopped }
+
+/** The one button the health row offers, if any. */
+enum class ReminderHealthFix { TurnOn, Allow, Check }
+
+/**
+ * One line of text, at most one fix, and whether the text is red. Red only when reminders
+ * cannot ring at all and one is due within [ReminderHealthUrgentWindowMillis]; the late
+ * and battery hints are never red.
+ */
+data class ReminderHealth(
+    val issue: ReminderHealthIssue,
+    val fix: ReminderHealthFix?,
+    val urgent: Boolean,
+)
+
+const val ReminderHealthUrgentWindowMillis: Long = 24L * 60 * 60 * 1000
+
+/**
+ * Maps what Android allows to the health row. [nextNotificationAt] is the next reminder
+ * that has not rung yet (see ReminderDao.nextUndeliveredNotificationAt), or null.
+ */
+fun ReminderCapabilityStatus.health(nextNotificationAt: Long?, now: Long): ReminderHealth {
+    val issue = when (state) {
+        ReminderCapabilityState.Blocked ->
+            if (!notificationsAllowed) ReminderHealthIssue.NotificationsOff else ReminderHealthIssue.ChannelOff
+        ReminderCapabilityState.MayBeLate -> ReminderHealthIssue.MayBeLate
+        ReminderCapabilityState.MayBeStopped -> ReminderHealthIssue.MayBeStopped
+        ReminderCapabilityState.Ready -> ReminderHealthIssue.None
+    }
+    val fix = when (issue) {
+        ReminderHealthIssue.NotificationsOff, ReminderHealthIssue.ChannelOff -> ReminderHealthFix.TurnOn
+        // Below Android 12 there is no "Alarms & reminders" screen to send the user to.
+        ReminderHealthIssue.MayBeLate -> ReminderHealthFix.Allow.takeIf { exactAlarmsAdjustable }
+        ReminderHealthIssue.MayBeStopped -> ReminderHealthFix.Check
+        ReminderHealthIssue.None -> null
+    }
+    val urgent = state == ReminderCapabilityState.Blocked &&
+        nextNotificationAt != null &&
+        nextNotificationAt > now &&
+        nextNotificationAt - now <= ReminderHealthUrgentWindowMillis
+    return ReminderHealth(issue = issue, fix = fix, urgent = urgent)
+}
 
 object ReminderCapabilities {
     private const val PreferencesName = "luma_reminder_delivery"
@@ -47,7 +104,29 @@ object ReminderCapabilities {
             lastBlockedDeliveryAt = preferences(appContext)
                 .getLong(KeyLastBlocked, 0L)
                 .takeIf { it > 0L },
+            batteryRestricted = batteryRestricted(appContext),
+            aggressiveBatteryBrand = isAggressiveBatteryBrand(Build.MANUFACTURER),
         )
+    }
+
+    /** Makers whose own battery managers are known to stop background apps. */
+    internal val AggressiveBatteryBrands: Set<String> = setOf(
+        "samsung",
+        "xiaomi",
+        "huawei",
+        "oneplus",
+        "oppo",
+        "vivo",
+        "realme",
+    )
+
+    internal fun isAggressiveBatteryBrand(manufacturer: String?): Boolean =
+        manufacturer?.trim()?.lowercase() in AggressiveBatteryBrands
+
+    /** True when Android applies battery optimisation to LUMA. */
+    fun batteryRestricted(context: Context): Boolean {
+        val manager = context.getSystemService(PowerManager::class.java) ?: return false
+        return !manager.isIgnoringBatteryOptimizations(context.packageName)
     }
 
     fun notificationsAllowed(context: Context): Boolean {
@@ -91,6 +170,64 @@ object ReminderCapabilities {
         } else {
             null
         }
+
+    /** Asks Android to stop optimising LUMA's battery use. */
+    fun batteryOptimizationIntent(context: Context): Intent =
+        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            .setData(Uri.parse("package:${context.packageName}"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /**
+     * Samsung's "Never sleeping apps" list (Battery > Background usage limits). Not
+     * guaranteed on every One UI version: use [batteryFixIntent], which checks it first.
+     */
+    fun samsungNeverSleepingIntent(): Intent =
+        Intent(SamsungNeverSleepingAction)
+            .setPackage(SamsungDeviceCarePackage)
+            .putExtra(SamsungActivityTypeExtra, SamsungNeverSleepingActivityType)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /**
+     * The screen that best lifts a battery restriction: Samsung's own list when this
+     * phone can open it, otherwise the app's battery optimisation request.
+     */
+    fun batteryFixIntent(context: Context, manufacturer: String? = Build.MANUFACTURER): Intent {
+        val appContext = context.applicationContext
+        if (manufacturer?.trim()?.lowercase() == "samsung") {
+            val samsung = samsungNeverSleepingIntent()
+            if (appContext.packageManager.resolveActivity(samsung, 0) != null) return samsung
+        }
+        return batteryOptimizationIntent(appContext)
+    }
+
+    /**
+     * On a Samsung phone whose "Never sleeping apps" list cannot be opened directly, the
+     * health row spells out the path instead.
+     */
+    fun needsSamsungSteps(context: Context, manufacturer: String? = Build.MANUFACTURER): Boolean =
+        manufacturer?.trim()?.lowercase() == "samsung" &&
+            context.applicationContext.packageManager.resolveActivity(samsungNeverSleepingIntent(), 0) == null
+
+    /** Opens the system screen for the Reminders channel, where its sound can be turned back on. */
+    fun channelSettingsIntent(context: Context): Intent =
+        Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            .putExtra(Settings.EXTRA_CHANNEL_ID, ReminderNotifications.CHANNEL_ID)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /** The screen that fixes [issue], or null when there is nothing to fix or nowhere to go. */
+    fun fixIntent(context: Context, issue: ReminderHealthIssue): Intent? = when (issue) {
+        ReminderHealthIssue.NotificationsOff -> notificationSettingsIntent(context)
+        ReminderHealthIssue.ChannelOff -> channelSettingsIntent(context)
+        ReminderHealthIssue.MayBeLate -> exactAlarmSettingsIntent(context)
+        ReminderHealthIssue.MayBeStopped -> batteryFixIntent(context)
+        ReminderHealthIssue.None -> null
+    }
+
+    private const val SamsungNeverSleepingAction = "com.samsung.android.sm.ACTION_OPEN_CHECKABLE_LISTACTIVITY"
+    private const val SamsungDeviceCarePackage = "com.samsung.android.lool"
+    private const val SamsungActivityTypeExtra = "activity_type"
+    private const val SamsungNeverSleepingActivityType = 2
 
     private fun preferences(context: Context) =
         context.applicationContext.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)

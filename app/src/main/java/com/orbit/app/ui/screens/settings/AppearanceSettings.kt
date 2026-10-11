@@ -12,8 +12,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,10 +29,8 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import com.orbit.app.ui.components.OutlinedButton
@@ -45,15 +41,21 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.orbit.app.domain.model.GlassEffect
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -62,7 +64,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.annotation.StringRes
 import com.orbit.app.R
@@ -73,25 +74,25 @@ import com.orbit.app.domain.model.AppearancePaletteMode
 import com.orbit.app.domain.model.BackgroundBlur
 import com.orbit.app.domain.model.BackgroundDimmingMode
 import com.orbit.app.domain.model.BackgroundPreset
-import com.orbit.app.domain.model.GlassEffect
 import com.orbit.app.domain.model.GlassPreference
-import com.orbit.app.domain.model.SettingsThemeMode
-import com.orbit.app.domain.model.withDefaultAppearance
 import com.orbit.app.ui.components.GlassRolePreview
-import com.orbit.app.ui.components.GlassSurfaceStyle
-import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.orbitPressFeedback
 import kotlin.math.roundToInt
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Switch
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.orbit.app.ui.theme.textPalette
 
 @Composable
 internal fun AppearanceSettingsSection(
     settings: AppSettings,
     onSettingsChanged: (AppSettings) -> Unit,
-    selectedMenuSection: AppearanceMenuSection?,
-    onSectionSelected: (AppearanceMenuSection) -> Unit,
+    selectedMenuSection: AppearanceMenuSection,
+    onOpenSection: (AppearanceMenuSection) -> Unit = {},
 ) {
     val context = LocalContext.current
-    var showResetConfirmation by rememberSaveable { mutableStateOf(false) }
     val customBackgroundPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
@@ -109,63 +110,35 @@ internal fun AppearanceSettingsSection(
         modifier = Modifier.padding(top = 22.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (selectedMenuSection == null) {
-            AppearanceMenuCard(
+        when (selectedMenuSection) {
+            AppearanceMenuSection.Look -> AppearanceLookSection(
                 settings = settings,
-                onSectionSelected = onSectionSelected,
+                onSettingsChanged = onSettingsChanged,
+                onOpen = onOpenSection,
             )
-            // A rarely used action: a quiet text button, not a full-width button.
-            TextButton(
-                onClick = { showResetConfirmation = true },
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_reset_appearance),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (showResetConfirmation) {
-                AlertDialog(
-                    onDismissRequest = { showResetConfirmation = false },
-                    title = { Text(stringResource(R.string.settings_reset_appearance)) },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            onSettingsChanged(settings.withDefaultAppearance())
-                            showResetConfirmation = false
-                        }) { Text(stringResource(R.string.settings_reset_appearance)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showResetConfirmation = false }) {
-                            Text(stringResource(R.string.settings_cancel))
-                        }
-                    },
-                )
-            }
-        } else {
-            when (selectedMenuSection) {
-                AppearanceMenuSection.Profile -> AppearanceProfileSection(
-                    settings = settings,
-                    onSettingsChanged = onSettingsChanged,
-                )
 
-                AppearanceMenuSection.Colors -> AppearanceColorsSection(
-                    settings = settings,
-                    onSettingsChanged = onSettingsChanged,
-                )
+            AppearanceMenuSection.Profile -> AppearanceProfileSection(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged,
+            )
 
-                AppearanceMenuSection.Background -> AppearanceBackgroundSection(
-                    settings = settings,
-                    onSettingsChanged = onSettingsChanged,
-                    onChooseCustomBackground = {
-                        customBackgroundPicker.launch(arrayOf("image/*"))
-                    },
-                )
+            AppearanceMenuSection.Colors -> AppearanceColorsSection(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged,
+            )
 
-                AppearanceMenuSection.Glass -> AppearanceGlassSection(
-                    settings = settings,
-                    onSettingsChanged = onSettingsChanged,
-                )
-            }
+            AppearanceMenuSection.Background -> AppearanceBackgroundSection(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged,
+                onChooseCustomBackground = {
+                    customBackgroundPicker.launch(arrayOf("image/*"))
+                },
+            )
+
+            AppearanceMenuSection.Glass -> AppearanceGlassSection(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged,
+            )
         }
     }
 }
@@ -175,6 +148,7 @@ internal enum class AppearanceMenuSection(
     @param:StringRes val subtitleRes: Int,
     val icon: ImageVector,
 ) {
+    Look(R.string.settings_look_title, R.string.settings_look_subtitle, Icons.Filled.Palette),
     Profile(R.string.settings_profile_title, R.string.settings_profile_subtitle, Icons.Filled.Person),
     Colors(R.string.settings_colors_title, R.string.settings_colors_subtitle, Icons.Filled.Palette),
     Background(
@@ -183,73 +157,11 @@ internal enum class AppearanceMenuSection(
         Icons.Filled.Image,
     ),
     Glass(
-        R.string.settings_transparency_title,
-        R.string.settings_transparency_subtitle,
+        R.string.settings_glass_title,
+        R.string.settings_glass_subtitle,
         Icons.Filled.Tune,
     ),
 }
-
-@Composable
-private fun AppearanceMenuCard(
-    settings: AppSettings,
-    onSectionSelected: (AppearanceMenuSection) -> Unit,
-) {
-    SoftGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        style = GlassSurfaceStyle.Standard,
-    ) {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-            AppearanceMenuRow(
-                section = AppearanceMenuSection.Profile,
-                status = settings.userName.ifBlank { stringResource(R.string.settings_no_name) },
-                onClick = { onSectionSelected(AppearanceMenuSection.Profile) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            AppearanceMenuRow(
-                section = AppearanceMenuSection.Colors,
-                status = stringResource(
-                    R.string.settings_status_colors,
-                    stringResource(settings.themeMode.labelRes()),
-                    stringResource(settings.accentColor.labelRes()),
-                    stringResource(settings.textColor.labelRes()),
-                ),
-                onClick = { onSectionSelected(AppearanceMenuSection.Colors) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            AppearanceMenuRow(
-                section = AppearanceMenuSection.Background,
-                status = if (settings.customBackgroundUri != null) {
-                    stringResource(R.string.settings_custom_image)
-                } else {
-                    stringResource(settings.backgroundPreset.labelRes())
-                },
-                onClick = { onSectionSelected(AppearanceMenuSection.Background) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
-            AppearanceMenuRow(
-                section = AppearanceMenuSection.Glass,
-                status = stringResource(
-                    R.string.settings_status_surface_opacity,
-                    stringResource(settings.glassPreference.labelRes()),
-                ),
-                onClick = { onSectionSelected(AppearanceMenuSection.Glass) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun AppearanceMenuRow(
-    section: AppearanceMenuSection,
-    status: String,
-    onClick: () -> Unit,
-) = SettingsMenuRow(
-    icon = section.icon,
-    title = stringResource(section.titleRes),
-    status = status,
-    onClick = onClick,
-)
 
 @Composable
 private fun AppearanceProfileSection(
@@ -258,7 +170,7 @@ private fun AppearanceProfileSection(
 ) {
     AppearanceCard {
         OutlinedTextField(
-            value = settings.userName,
+            value = com.orbit.app.domain.model.chosenUserName(settings.userName).orEmpty(),
             onValueChange = { value ->
                 onSettingsChanged(settings.copy(userName = value.take(MaxUserNameLength)))
             },
@@ -270,75 +182,16 @@ private fun AppearanceProfileSection(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * Text color, plus the one color choice that is not on the main Settings page. Theme
+ * and overall color live on the main page only, so nothing is shown twice.
+ */
 @Composable
 private fun AppearanceColorsSection(
     settings: AppSettings,
     onSettingsChanged: (AppSettings) -> Unit,
 ) {
     AppearanceCard {
-        SettingsGroup(title = stringResource(R.string.settings_theme)) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                SettingsThemeMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = settings.themeMode == mode,
-                        onClick = {
-                            onSettingsChanged(settings.copy(themeMode = mode))
-                        },
-                        label = { Text(stringResource(mode.labelRes())) },
-                        colors = readableFilterChipColors(),
-                    )
-                }
-            }
-            Text(
-                text = stringResource(R.string.settings_theme_auto_explanation),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        SettingsGroup(title = stringResource(R.string.settings_overall_color)) {
-            AppAccentColor.entries.chunked(2).forEach { rowChoices ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    rowChoices.forEach { choice ->
-                        AccentColorOption(
-                            choice = choice,
-                            selected = settings.accentColor == choice,
-                            onSelected = {
-                                onSettingsChanged(settings.copy(accentColor = choice))
-                            },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    if (rowChoices.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-            FilterChip(
-                selected = settings.paletteMode == AppearancePaletteMode.FullPalette,
-                onClick = {
-                    onSettingsChanged(
-                        settings.copy(
-                            paletteMode = if (settings.paletteMode == AppearancePaletteMode.FullPalette) {
-                                AppearancePaletteMode.Standard
-                            } else {
-                                AppearancePaletteMode.FullPalette
-                            },
-                        ),
-                    )
-                },
-                label = { Text(stringResource(R.string.settings_advanced_full_palette)) },
-                colors = readableFilterChipColors(),
-            )
-        }
-
         SettingsGroup(title = stringResource(R.string.settings_text_color)) {
             AppTextColor.entries.chunked(2).forEach { rowChoices ->
                 Row(
@@ -362,23 +215,44 @@ private fun AppearanceColorsSection(
             }
         }
     }
-}
-
-@Composable
-private fun AccentColorOption(
-    choice: AppAccentColor,
-    selected: Boolean,
-    onSelected: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = accentSwatchColors(choice)
-    ColorSwatchOption(
-        label = stringResource(choice.labelRes()),
-        selected = selected,
-        onSelected = onSelected,
-        colors = colors,
-        modifier = modifier,
-    )
+    AppearanceCard {
+        val secondColor = settings.paletteMode == AppearancePaletteMode.FullPalette
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = secondColor,
+                    role = Role.Switch,
+                    onValueChange = { on ->
+                        onSettingsChanged(
+                            settings.copy(
+                                paletteMode = if (on) AppearancePaletteMode.FullPalette else AppearancePaletteMode.Standard,
+                            ),
+                        )
+                    },
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_second_color),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.settings_second_color_body),
+                    modifier = Modifier.padding(top = 2.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = secondColor,
+                onCheckedChange = null,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+    }
 }
 
 @Composable
@@ -388,11 +262,20 @@ private fun TextColorOption(
     onSelected: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Show the text color as it will look in the current theme: dark text on a light
+    // theme, light text on a dark one.
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val sample = textPalette(
+        textColor = choice,
+        isDark = isDark,
+        defaultPrimary = if (isDark) Color(0xFFE2E3DD) else Color(0xFF1B1C19),
+    ).primary
     ColorSwatchOption(
         label = stringResource(choice.labelRes()),
         selected = selected,
         onSelected = onSelected,
-        colors = listOf(textSwatchColor(choice)),
+        colors = emptyList(),
+        sample = sample,
         modifier = modifier,
     )
 }
@@ -404,6 +287,7 @@ private fun ColorSwatchOption(
     onSelected: () -> Unit,
     colors: List<Color>,
     modifier: Modifier = Modifier,
+    sample: Color? = null,
 ) {
     val shape = RoundedCornerShape(18.dp)
     val selectedDescription = stringResource(
@@ -445,6 +329,15 @@ private fun ColorSwatchOption(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (sample != null) {
+                Text(
+                    text = "Aa",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = sample,
+                    modifier = Modifier.clearAndSetSemantics { },
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 colors.forEach { color ->
                     Box(
@@ -552,28 +445,59 @@ private fun AppearanceGlassSection(
         modifier = Modifier.fillMaxWidth(),
         title = stringResource(R.string.settings_surface_preview),
     )
+    val currentPreset = GlassPreset.of(settings)
     AppearanceCard {
-        SettingsGroup(title = stringResource(R.string.settings_glass_effect)) {
-            val effects = GlassEffect.entries
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                effects.forEachIndexed { index, effect ->
-                    SegmentedButton(
-                        selected = settings.glassEffect == effect,
-                        onClick = { onSettingsChanged(settings.copy(glassEffect = effect)) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = effects.size),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(stringResource(effect.labelRes()))
-                    }
-                }
+        Column(modifier = Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            GlassPreset.entries.forEach { preset ->
+                GlassPresetRow(
+                    preset = preset,
+                    selected = preset == currentPreset,
+                    onSelected = { onSettingsChanged(preset.applyTo(settings)) },
+                )
             }
+        }
+        if (currentPreset == null) {
             Text(
-                text = stringResource(R.string.settings_glass_effect_body),
+                text = stringResource(R.string.settings_glass_custom),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+    // The finer controls stay available, folded away under Advanced.
+    var advancedOpen by rememberSaveable { mutableStateOf(currentPreset == null) }
+    TextButton(
+        onClick = { advancedOpen = !advancedOpen },
+        modifier = Modifier.heightIn(min = 48.dp),
+    ) {
+        Text(stringResource(R.string.settings_glass_advanced))
+        Icon(
+            imageVector = if (advancedOpen) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+        )
+    }
+    if (!advancedOpen) return
+    AppearanceCard {
+        SettingsGroup(title = stringResource(R.string.settings_glass_effect)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassEffect.entries.forEach { choice ->
+                    FilterChip(
+                        selected = settings.glassEffect == choice,
+                        onClick = { onSettingsChanged(settings.copy(glassEffect = choice)) },
+                        label = { Text(stringResource(choice.labelRes())) },
+                        colors = readableFilterChipColors(),
+                    )
+                }
+            }
+        }
         SettingsGroup(title = stringResource(R.string.settings_image_blur)) {
+            if (settings.customBackgroundUri == null) {
+                Text(
+                    text = stringResource(R.string.settings_blur_needs_image_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BackgroundBlur.entries.forEach { choice ->
                     FilterChip(
@@ -624,6 +548,49 @@ private fun AppearanceGlassSection(
                     )
                 },
                 colors = readableFilterChipColors(),
+            )
+        }
+    }
+}
+
+/** Three ready-made looks that set the glass effect and surface opacity together. */
+internal enum class GlassPreset(
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val hintRes: Int,
+    val effect: GlassEffect,
+    val opacity: GlassPreference,
+) {
+    Clear(R.string.settings_glass_preset_clear, R.string.settings_glass_preset_clear_hint, GlassEffect.Strong, GlassPreference.Standard),
+    Soft(R.string.settings_glass_preset_soft, R.string.settings_glass_preset_soft_hint, GlassEffect.Soft, GlassPreference.Standard),
+    Solid(R.string.settings_glass_preset_solid, R.string.settings_glass_preset_solid_hint, GlassEffect.Off, GlassPreference.Prominent),
+    ;
+
+    fun applyTo(settings: AppSettings): AppSettings = settings.copy(glassEffect = effect, glassPreference = opacity)
+
+    companion object {
+        /** The preset the settings match, or null when Advanced changed them. */
+        fun of(settings: AppSettings): GlassPreset? =
+            entries.firstOrNull { it.effect == settings.glassEffect && it.opacity == settings.glassPreference }
+    }
+}
+
+@Composable
+private fun GlassPresetRow(preset: GlassPreset, selected: Boolean, onSelected: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onSelected)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Column(modifier = Modifier.padding(start = 12.dp)) {
+            Text(stringResource(preset.titleRes), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = stringResource(preset.hintRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -693,9 +660,11 @@ private fun BackgroundPresetOption(
                 interactionSource = interactionSource,
                 clipShape = shape,
             )
-            .clickable(
+            .selectable(
+                selected = selected,
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
+                role = androidx.compose.ui.semantics.Role.RadioButton,
                 onClick = onSelected,
             )
             .padding(12.dp),
@@ -886,7 +855,7 @@ private fun AppearanceSlider(
     }
 }
 
-private fun presetPreviewColors(preset: BackgroundPreset): List<Color> = when (preset) {
+internal fun presetPreviewColors(preset: BackgroundPreset): List<Color> = when (preset) {
     BackgroundPreset.InkPaper -> listOf(Color(0xFFFBF9F5), Color(0xFFEEF2F0))
     BackgroundPreset.SoftDawn -> listOf(Color(0xFFFFD8CA), Color(0xFFDCCAF1))
     BackgroundPreset.VioletMist -> listOf(Color(0xFFDCCAF4), Color(0xFF9D86CD))
@@ -894,18 +863,11 @@ private fun presetPreviewColors(preset: BackgroundPreset): List<Color> = when (p
     BackgroundPreset.NightOrbit -> listOf(Color(0xFF34315D), Color(0xFF163C4C))
 }
 
-private fun accentSwatchColors(choice: AppAccentColor): List<Color> = when (choice) {
+internal fun accentSwatchColors(choice: AppAccentColor): List<Color> = when (choice) {
     AppAccentColor.InkPaper -> listOf(Color(0xFF3D5962), Color(0xFF705D4A))
     AppAccentColor.LumaViolet -> listOf(Color(0xFF6550C8), Color(0xFF3F7479))
     AppAccentColor.Sage -> listOf(Color(0xFF3E6F45), Color(0xFF74642F))
     AppAccentColor.Rose -> listOf(Color(0xFF99415E), Color(0xFF725A42))
     AppAccentColor.Amber -> listOf(Color(0xFF865400), Color(0xFF5D6F47))
     AppAccentColor.Ocean -> listOf(Color(0xFF2D6684), Color(0xFF5C6090))
-}
-
-private fun textSwatchColor(choice: AppTextColor): Color = when (choice) {
-    AppTextColor.Neutral -> Color(0xFF1B1C19)
-    AppTextColor.Plum -> Color(0xFF2A173C)
-    AppTextColor.Forest -> Color(0xFF152A1D)
-    AppTextColor.WarmIvory -> Color(0xFFFFF1DB)
 }

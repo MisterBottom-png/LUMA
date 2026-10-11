@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="core_back">Назад</string>
-    <string name="core_add">Добавить</string>
     <string name="core_clear">Очистить</string>
     <string name="core_today">Сегодня</string>
     <string name="core_tomorrow">Завтра</string>
@@ -31,53 +30,31 @@
     <string name="core_home_show_previous_week">Показать предыдущую неделю</string>
     <string name="core_home_show_next_week">Показать следующую неделю</string>
     <string name="core_home_week_number">Неделя %1$d</string>
-    <string name="core_home_save_and_analyze">Сохранить и проанализировать запись</string>
+    <string name="core_home_save_and_analyze">Сохранить мысль</string>
     <string name="core_home_saving_capture">Конфиденциальное сохранение</string>
     <string name="core_home_analyzing_capture">Подготовка предложения</string>
     <string name="core_home_capture_input">Текст записи</string>
     <string name="core_home_capture_placeholder">Что у тебя на уме?</string>
 
     <string name="core_calendar_title">Календарь</string>
-    <string name="core_calendar_previous_month">Предыдущий месяц</string>
-    <string name="core_calendar_next_month">Следующий месяц</string>
-    <string name="core_calendar_previous_day">Предыдущий день</string>
-    <string name="core_calendar_next_day">Следующий день</string>
     <string name="core_calendar_show_previous_month">Показать предыдущий месяц</string>
     <string name="core_calendar_show_next_month">Показать следующий месяц</string>
     <string name="core_calendar_show_previous_day">Показать предыдущий день</string>
     <string name="core_calendar_show_next_day">Показать следующий день</string>
-    <string name="core_calendar_day">День</string>
-    <string name="core_calendar_month">Месяц</string>
     <string name="core_calendar_add_for_day">Добавить на этот день</string>
     <string name="core_calendar_outside_current_month">за пределами текущего месяца</string>
     <string name="core_calendar_any_time">Без точного времени</string>
-    <string name="core_calendar_timeline">Шкала времени</string>
-    <string name="core_calendar_nothing_scheduled">На этот день ничего не запланировано.</string>
-    <string name="core_calendar_loading_day">Подготовка дня…</string>
-    <string name="core_calendar_no_timed_items_today">Сегодня нет элементов с точным временем.</string>
     <string name="core_calendar_notifications_off">Уведомления выключены</string>
-    <string name="core_calendar_notification_timing_unavailable">Время уведомления недоступно</string>
-    <string name="core_calendar_notification_at_target">Уведомление примерно в заданное время</string>
-    <plurals name="core_calendar_notification_minutes_before">
-        <item quantity="one">Уведомление примерно за %1$d минуту</item>
-        <item quantity="few">Уведомление примерно за %1$d минуты</item>
-        <item quantity="many">Уведомление примерно за %1$d минут</item>
-        <item quantity="other">Уведомление примерно за %1$d минуты</item>
-    </plurals>
 
     <string name="core_search_title">Поиск</string>
-    <string name="core_search_local_data">Поиск в локальных данных</string>
-    <string name="core_search_include_archived">Включая архивные</string>
-    <string name="core_search_start_typing">Начните вводить запрос для поиска в локальных данных.</string>
-    <string name="core_search_minimum_query">Введите не менее двух символов.</string>
-    <string name="core_search_empty">Здесь пока ничего не найдено.</string>
-    <string name="core_search_empty_recovery">Попробуйте другое слово или очистите поиск.</string>
+    <string name="core_search_local_data">Искать во всём сохранённом</string>
+    <string name="core_search_start_typing">Введите слово из заметки, задачи или напоминания.</string>
     <string name="core_search_clear_query">Очистить поиск</string>
     <string name="core_source_row_accessibility">%1$s: %2$s. Открыть</string>
     <string name="core_source_row_accessibility_with_date">%1$s: %2$s, %3$s. Открыть</string>
     <string name="core_open_item_type">Открыть: %1$s</string>
 
-    <string name="core_situation_title">Ситуационный ИИ</string>
+    <string name="core_situation_title">Ваш обзор</string>
     <string name="core_situation_subtitle">Локальный обзор того, что требует внимания</string>
     <string name="core_situation_close">Закрыть ситуационный ИИ</string>
     <string name="core_situation_ask_luma">Спросить Tallele</string>
@@ -90,7 +67,7 @@
     <string name="core_situation_what_matters">Что важно?</string>
     <string name="core_situation_what_is_stuck">Что застопорилось?</string>
 
-    <string name="core_review_title">Обзор</string>
+    <string name="core_review_title">Ждёт вас</string>
     <string name="core_review_breathe_in">Вдох</string>
     <string name="core_review_breathe_out">Выдох</string>
     <string name="core_review_weekly_title">Обзор недели</string>
@@ -104,7 +81,7 @@
     <string name="core_review_page_position">%1$s · %2$d из %3$d</string>
     <string name="core_review_weekly_fallback">Эту неделю можно заметить, не измеряя её.</string>
     <string name="core_review_local_sources_considered">Учтено локальных источников</string>
-    <string name="core_review_open_loops">Открытые вопросы</string>
+    <string name="core_review_open_loops">Ещё не решено</string>
     <string name="core_review_quiet_for_a_while">Давно без изменений</string>
     <string name="core_review_waiting">В ожидании</string>
     <string name="core_review_loose_ends_message">Можно оставить это здесь и вернуться, когда будет полезно.</string>
@@ -114,15 +91,15 @@
     <string name="core_review_choose_day_or_smaller">Выберите новый день или уменьшите следующий шаг.</string>
     <string name="core_review_reschedule_if_relevant">Перенесите, если это всё ещё важно.</string>
     <string name="core_review_keep_unscheduled">Оставить без даты</string>
-    <string name="core_review_open_loops_subtitle">Примите по каждому ожидающему элементу спокойное, обдуманное решение</string>
-    <string name="core_review_no_open_loops">Нет открытых вопросов, требующих решения.</string>
+    <string name="core_review_open_loops_subtitle">Спокойно решите, что нужно каждому пункту</string>
+    <string name="core_review_no_open_loops">Ничто не ждёт решения.</string>
     <string name="core_review_stale_loops">Давно без изменений</string>
     <string name="core_review_waiting_for_subtitle">Отложенные задачи, ожидающие внешнего ответа</string>
     <string name="core_review_someday_subtitle">Спокойные идеи, а не срочные задачи</string>
-    <string name="core_review_close_open_loops">Закрыть открытые вопросы</string>
-    <string name="core_review_sort_open_loops">Разобрать открытые вопросы</string>
-    <string name="core_review_show_all_open_loops">Показать все открытые вопросы</string>
-    <string name="core_review_show_fewer_open_loops">Показать меньше открытых вопросов</string>
+    <string name="core_review_close_open_loops">Скрыть нерешённое</string>
+    <string name="core_review_sort_open_loops">Разобрать нерешённое</string>
+    <string name="core_review_show_all_open_loops">Показать все</string>
+    <string name="core_review_show_fewer_open_loops">Показать меньше</string>
     <string name="core_review_clear">Всё просмотрено</string>
     <string name="core_review_reason_open_task">Нужно просмотреть: задача всё ещё открыта.</string>
     <string name="core_review_reason_brain_dump">В разборе мыслей есть предложения, ожидающие решения.</string>
@@ -134,10 +111,10 @@
     <string name="core_review_mark_task_done">Отметить задачу выполненной</string>
     <string name="core_review_defer_to_someday">Отложить на «Когда-нибудь»</string>
     <string name="core_review_resume_brain_dump">Продолжить разбор мыслей</string>
-    <string name="core_review_confirm_as_someday">Подтвердить как задачу «Когда-нибудь»</string>
-    <string name="core_review_dismiss_capture">Отклонить запись</string>
+    <string name="core_review_confirm_as_someday">Оставить на «Когда-нибудь»</string>
+    <string name="core_review_dismiss_capture">Отметить как разобранное</string>
     <string name="core_review_archive_task">Архивировать задачу</string>
-    <string name="core_review_archive_source">Архивировать источник</string>
+    <string name="core_review_archive_source">Отпустить эту мысль</string>
     <string name="core_review_make_smaller">Уменьшить шаг</string>
     <string name="core_review_more_actions">Другие действия</string>
     <string name="core_review_task_completed">Задача отмечена выполненной</string>
@@ -169,4 +146,23 @@
     <string name="core_learning_save_body">Вы внесли это исправление несколько раз: %1$s</string>
     <string name="core_learning_save_confirm">Сохранить предпочтение</string>
     <string name="core_learning_not_now">Не сейчас</string>
+    <!-- The save receipt under the capture box on Home. -->
+    <string name="receipt_saved">Сохранено.</string>
+    <string name="receipt_saved_note">Сохранено как заметка.</string>
+    <string name="receipt_saved_task">Сохранено как задача.</string>
+    <string name="receipt_filed_note">Добавлено в «%1$s» как заметка.</string>
+    <string name="receipt_filed_task">Задача на %1$s.</string>
+    <string name="receipt_filed_task_in_space">Добавлено в «%1$s» как задача.</string>
+    <string name="receipt_reminder_set">Напоминание установлено на %1$s.</string>
+    <string name="receipt_reminder_not_armed">Сохранено, но напоминание ещё не установлено.</string>
+    <string name="receipt_needs_time">Сохранено. Когда вам напомнить?</string>
+    <string name="receipt_time_passed">Это время уже прошло. Выбрать новое?</string>
+    <string name="receipt_notifications_off">Сохранено, но напоминания не сработают. Уведомления выключены.</string>
+    <string name="receipt_not_scheduled">Сохранено, но Tallele не удалось установить напоминание.</string>
+    <string name="receipt_action_view">Открыть</string>
+    <string name="receipt_action_change">Изменить</string>
+    <string name="receipt_action_choose_time">Выбрать время</string>
+    <string name="receipt_action_turn_on">Включить</string>
+    <string name="receipt_action_try_again">Повторить</string>
+    <string name="receipt_action_keep">Просто сохранить</string>
 </resources>
