@@ -33,8 +33,10 @@ import com.orbit.app.data.local.StarterSpaces
 import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.TaskEntity
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import org.junit.Assert.assertTrue
@@ -182,7 +184,7 @@ abstract class ScreenTour(private val theme: String) {
             tasks.insert(TaskEntity(title = "Send the quarterly report", spaceId = ids["work"], dueAt = at(today, 11)))
             tasks.insert(TaskEntity(title = "Book a car service", spaceId = ids["personal"], dueAt = at(today.minusDays(2), 10)))
             tasks.insert(TaskEntity(title = "Fix the kitchen tap", spaceId = ids["home"]))
-            tasks.insert(TaskEntity(title = "Prepare slides for Monday", spaceId = ids["work"], dueAt = at(today.plusDays(3), 9)))
+            tasks.insert(TaskEntity(title = "Prepare slides for Monday", spaceId = ids["work"], dueAt = at(today.with(TemporalAdjusters.next(DayOfWeek.MONDAY)), 9)))
             tasks.insert(TaskEntity(title = "Pay the electricity bill", spaceId = ids["money"], dueAt = at(today.minusDays(1), 9)))
             tasks.insert(TaskEntity(title = "Stretch for ten minutes", spaceId = ids["health"], scheduledDateEpochDay = today.toEpochDay()))
             val reminders = container.reminderRepository
