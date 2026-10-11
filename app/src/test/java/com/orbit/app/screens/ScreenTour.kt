@@ -38,7 +38,11 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import org.robolectric.Shadows.shadowOf
 import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -382,6 +386,49 @@ abstract class ScreenTour(private val theme: String) {
         back()
     }
 
+    /**
+     * Step 4: the save receipt under the capture box. Filed is driven the way automatic
+     * filing files a clear thought (it is not wired into the app yet); the reminder lines
+     * come from Home's one question, first with notifications off, then allowed.
+     */
+    private fun receiptScreens() {
+        val app = compose.activity.application as OrbitApplication
+        val container = app.container
+        tapTab("Home")
+        capture("Buy milk tomorrow")
+        step("file it") {
+            runBlocking {
+                val id = requireNotNull(container.appSettingsRepository.settings.first().lastReceiptCaptureId)
+                withTimeout(10_000) {
+                    while (container.database.captureSuggestionDao().getByCaptureId(id) == null) delay(50)
+                }
+                container.captureResolution.acceptSuggestion(id)
+            }
+            compose.waitUntil(10_000) { count("Task for tomorrow.") > 0 }
+        }
+        shot("home-receipt-filed")
+        step("notifications off") {
+            shadowOf(app).denyPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        capture("Remind me tomorrow at 10:00 to water the roses")
+        step("remind me, notifications off") {
+            compose.waitUntil(10_000) { count("Remind me") > 0 }
+            compose.onNodeWithText("Remind me").performClick()
+            compose.waitUntil(10_000) { count("Turn on") > 0 }
+        }
+        shot("home-receipt-needs-you")
+        step("notifications on") {
+            shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        capture("Remind me tomorrow at 9:00 to call the bank")
+        step("remind me") {
+            compose.waitUntil(10_000) { count("Remind me") > 0 }
+            compose.onNodeWithText("Remind me").performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Reminder set for", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        }
+        shot("home-receipt-reminder")
+    }
+
     /** A messy list written in one go opens as a calm list of thoughts to tick and save. */
     private fun brainDump(prefix: String) {
         tapTab("Home")
@@ -427,6 +474,7 @@ abstract class ScreenTour(private val theme: String) {
         back()
         back()
         mainScreens("v")
+        receiptScreens()
 
         outDir?.let { dir ->
             File(dir, "$theme-problems.txt").writeText(problems.joinToString("\n").ifEmpty { "none" })

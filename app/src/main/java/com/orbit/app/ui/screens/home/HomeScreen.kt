@@ -104,8 +104,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.orbit.app.R
 import com.orbit.app.ui.localization.localizedSpaceName
 import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SnackbarDuration
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.LiveGlassSurface
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
@@ -139,8 +137,11 @@ fun HomeScreen(
     focusRequest: Long = 0L,
     voiceCloudNoticeSeen: Boolean = false,
     onVoiceCloudNoticeSeen: () -> Unit = {},
+    /** Opens what the save receipt is about: the item the thought became, or the thought. */
+    onOpenReceiptTarget: (ReceiptTarget) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val receipt by viewModel.receipt.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val navigationBottomPadding = with(LocalDensity.current) {
@@ -170,13 +171,12 @@ fun HomeScreen(
     val homePaneTitle = stringResource(R.string.navigation_home)
     val view = LocalView.current
     val reduceMotion = rememberReducedMotion()
-    var savedConfirmationVisible by remember { mutableStateOf(false) }
     // The send moment: the sent words lift a little and fade, so letting go is something
     // you see, not just an empty box.
     var pendingSentText by remember { mutableStateOf("") }
     var sentGhostText by remember { mutableStateOf<String?>(null) }
     val sentGhostProgress = remember { Animatable(0f) }
-    val pendingMessage = uiState.message?.takeIf { it != HomeMessage.Saved }
+    val pendingMessage = uiState.message
     val messageText = pendingMessage?.let { stringResource(it.textRes) }
     val voicePrompt = stringResource(R.string.home_voice_prompt)
     val voiceLocale = LocalConfiguration.current.locales[0]
@@ -231,32 +231,38 @@ fun HomeScreen(
             }
         }
         pendingSentText = ""
-        savedConfirmationVisible = true
-        viewModel.messageShown()
-        kotlinx.coroutines.delay(SavedConfirmationMillis)
-        savedConfirmationVisible = false
     }
 
     // Cleared only after the snackbar is gone; clearing first would cancel this
     // effect and dismiss the message almost at once.
-    val turnOnLabel = stringResource(R.string.settings_turn_on)
-    val turnOnNotifications = rememberTurnOnReminderNotifications()
     LaunchedEffect(pendingMessage) {
         val shown = pendingMessage ?: return@LaunchedEffect
         val text = messageText ?: return@LaunchedEffect
         try {
-            if (shown == HomeMessage.ReminderNotificationsOff) {
-                val result = snackbarHostState.showSnackbar(
-                    message = text,
-                    actionLabel = turnOnLabel,
-                    duration = SnackbarDuration.Long,
-                )
-                if (result == SnackbarResult.ActionPerformed) turnOnNotifications()
-            } else {
-                snackbarHostState.showSnackbar(text)
-            }
+            snackbarHostState.showSnackbar(text)
         } finally {
             viewModel.messageShown(shown)
+        }
+    }
+
+    val turnOnNotifications = rememberTurnOnReminderNotifications()
+    val onReceiptAction: (CaptureReceipt, ReceiptAction) -> Unit = { current, action ->
+        when (action) {
+            ReceiptAction.View, ReceiptAction.Change -> {
+                // Opening the item is the end of this receipt.
+                viewModel.dismissReceipt()
+                onOpenReceiptTarget(current.openTarget())
+            }
+            // A reminder that exists gets its new time in its own screen; a thought
+            // that is still saved opens the sort sheet on the reminder setup.
+            ReceiptAction.ChooseTime -> if (current.reminderId != null) {
+                viewModel.dismissReceipt()
+                onOpenReceiptTarget(current.openTarget())
+            } else {
+                viewModel.chooseReceiptTime()
+            }
+            ReceiptAction.TurnOn -> turnOnNotifications()
+            ReceiptAction.TryAgain -> viewModel.retryReceiptReminder()
         }
     }
 
@@ -412,10 +418,19 @@ fun HomeScreen(
                 }
             }
 
-            SavedConfirmation(visible = savedConfirmationVisible, reduceMotion = reduceMotion)
-            uiState.quickReminder?.let { question ->
+            // Home's one question sits in place of the receipt, never next to it.
+            val question = uiState.quickReminder
+            SaveReceipt(
+                receipt = receipt.takeIf { question == null },
+                timeFormat = timeFormat,
+                reduceMotion = reduceMotion,
+                onAction = onReceiptAction,
+                onDismiss = viewModel::dismissReceipt,
+                isWorking = uiState.isSettingReminder,
+            )
+            question?.let {
                 QuickReminderCard(
-                    question = question,
+                    question = it,
                     timeFormat = timeFormat,
                     isWorking = uiState.isSettingReminder,
                     onConfirm = viewModel::confirmQuickReminder,
@@ -441,8 +456,6 @@ fun HomeScreen(
         snackbarHostState = snackbarHostState,
     )
 }
-
-private const val SavedConfirmationMillis = 2_000L
 
 @Composable
 private fun CalendarCaptureContextBanner(

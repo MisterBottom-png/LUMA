@@ -125,6 +125,13 @@ data class AppSettings(
     val focusCaptureOnOpen: Boolean = false,
     /** The once-only notice that the phone's speech screen may use Google's servers. */
     val hasSeenVoiceCloudNotice: Boolean = false,
+    /**
+     * The thought the save receipt on Home is about. Kept here, not in the screen's saved
+     * state, so the receipt is still right after a force-stop, a reboot or a removed task.
+     */
+    val lastReceiptCaptureId: Long? = null,
+    /** True once the user swiped the receipt away or opened its item; the next save shows a new one. */
+    val lastReceiptDismissed: Boolean = false,
 )
 
 val AppSettings.hasCurrentGeminiConsent: Boolean

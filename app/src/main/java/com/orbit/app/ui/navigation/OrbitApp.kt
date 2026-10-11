@@ -49,6 +49,9 @@ import com.orbit.app.ui.components.GlassRenderingPolicy
 import com.orbit.app.ui.components.OrbitBackground
 import com.orbit.app.ui.screens.calendar.CalendarScreen
 import com.orbit.app.ui.screens.calendar.CalendarViewModel
+import com.orbit.app.ui.screens.home.CaptureReceiptReader
+import com.orbit.app.ui.screens.home.ReceiptItemType
+import com.orbit.app.ui.screens.home.rearmReceiptReminder
 import com.orbit.app.ui.screens.home.HomeScreen
 import com.orbit.app.ui.screens.home.SpaceCaptureTarget
 import com.orbit.app.ui.screens.home.HomeWeekViewModel
@@ -228,6 +231,22 @@ fun OrbitApp(
                             appSettingsRepository = container.appSettingsRepository,
                             quickReminder = container.captureResolution::createQuickReminder,
                             savedStateHandle = entry.savedStateHandle,
+                            receipts = CaptureReceiptReader(
+                                captureRepository = container.captureRepository,
+                                noteRepository = container.noteRepository,
+                                taskRepository = container.taskRepository,
+                                reminderRepository = container.reminderRepository,
+                                spaceRepository = container.spaceRepository,
+                            )::observe,
+                            retryReminder = { captureId, reminderId ->
+                                rearmReceiptReminder(
+                                    reminderRepository = container.reminderRepository,
+                                    outcomes = container.reminderSaveOutcomes,
+                                    resolution = container.captureResolution,
+                                    captureId = captureId,
+                                    reminderId = reminderId,
+                                )
+                            },
                         ),
                     )
                     val homeSortViewModel: CaptureSortViewModel = viewModel(
@@ -311,6 +330,9 @@ fun OrbitApp(
                         voiceCloudNoticeSeen = settings.hasSeenVoiceCloudNotice,
                         onVoiceCloudNoticeSeen = {
                             onSettingsChanged(settings.copy(hasSeenVoiceCloudNotice = true))
+                        },
+                        onOpenReceiptTarget = { target ->
+                            navController.navigate(ItemDetailDestination.route(target.type.toItemDetailType(), target.id))
                         },
                     )
                 }
@@ -830,6 +852,13 @@ private fun NavController.replaceCurrentItemDetail(
         popUpTo(entry.destination.id) { inclusive = true }
         launchSingleTop = true
     }
+}
+
+private fun ReceiptItemType.toItemDetailType(): ItemDetailType = when (this) {
+    ReceiptItemType.Capture -> ItemDetailType.Capture
+    ReceiptItemType.Note -> ItemDetailType.Note
+    ReceiptItemType.Task -> ItemDetailType.Task
+    ReceiptItemType.Reminder -> ItemDetailType.Reminder
 }
 
 internal fun glassRenderingPolicyForRoute(selectedRoute: String?): GlassRenderingPolicy =
