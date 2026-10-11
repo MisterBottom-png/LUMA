@@ -85,6 +85,11 @@
     <string name="split_one_thought">Tallele leidis siit ainult ühe mõtte.</string>
     <string name="home_voice_next_hint">Järgmise mõtte jaoks puuduta uuesti mikrofoni.</string>
     <string name="home_voice_next">Ütle järgmine mõte</string>
+    <string name="voice_cloud_notice">Kõnesisestus võib selles telefonis kasutada Google’i servereid.</string>
+    <string name="voice_continue">Jätka</string>
+    <string name="home_voice_listening">Kuulan…</string>
+    <string name="voice_nothing_heard">Midagi ei kuuldud. Proovi uuesti.</string>
+    <string name="voice_unavailable">Kõnesisestus pole selles telefonis praegu saadaval.</string>
     <string name="brain_overview_back">Tagasi loendisse</string>
     <string name="spaces_preview_placeholder">Sinu uus ruum</string>
     <string name="spaces_colour">Värv</string>

@@ -8,6 +8,9 @@
          inexact alarms and says so in Settings > Notifications. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- On-device dictation only (Android 12+): the phone's own recogniser listens and
+         Tallele keeps the words, never the audio. Asked for on the first mic tap. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Lets LUMA see whether the phone has a speech recognition screen to open. -->
     <queries>

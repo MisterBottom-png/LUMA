@@ -85,6 +85,11 @@
     <string name="split_one_thought">Tallele нашла здесь только одну мысль.</string>
     <string name="home_voice_next_hint">Нажмите на микрофон ещё раз для следующей мысли.</string>
     <string name="home_voice_next">Сказать следующую мысль</string>
+    <string name="voice_cloud_notice">Голосовой ввод на этом телефоне может использовать серверы Google.</string>
+    <string name="voice_continue">Продолжить</string>
+    <string name="home_voice_listening">Слушаю…</string>
+    <string name="voice_nothing_heard">Ничего не слышно. Попробуйте ещё раз.</string>
+    <string name="voice_unavailable">Голосовой ввод сейчас недоступен на этом телефоне.</string>
     <string name="brain_overview_back">Назад к списку</string>
     <string name="spaces_preview_placeholder">Ваше новое пространство</string>
     <string name="spaces_colour">Цвет</string>

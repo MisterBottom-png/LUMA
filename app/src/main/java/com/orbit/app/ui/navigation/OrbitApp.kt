@@ -308,6 +308,10 @@ fun OrbitApp(
                         },
                         focusCaptureOnOpen = settings.focusCaptureOnOpen,
                         focusRequest = focusCaptureRequest,
+                        voiceCloudNoticeSeen = settings.hasSeenVoiceCloudNotice,
+                        onVoiceCloudNoticeSeen = {
+                            onSettingsChanged(settings.copy(hasSeenVoiceCloudNotice = true))
+                        },
                     )
                 }
                 composable(OrbitDestination.Spaces.route) {

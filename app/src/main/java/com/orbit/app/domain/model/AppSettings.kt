@@ -119,6 +119,8 @@ data class AppSettings(
     val sortRightAfterSaving: Boolean = false,
     /** Places the cursor in the Home capture box when Home opens. */
     val focusCaptureOnOpen: Boolean = false,
+    /** The once-only notice that the phone's speech screen may use Google's servers. */
+    val hasSeenVoiceCloudNotice: Boolean = false,
 )
 
 val AppSettings.hasCurrentGeminiConsent: Boolean

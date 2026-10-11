@@ -85,6 +85,11 @@
     <string name="split_one_thought">Tallele found only one thought here.</string>
     <string name="home_voice_next_hint">Tap the mic again for the next thought.</string>
     <string name="home_voice_next">Say the next thought</string>
+    <string name="voice_cloud_notice">Voice may use Google’s servers on this phone.</string>
+    <string name="voice_continue">Continue</string>
+    <string name="home_voice_listening">Listening…</string>
+    <string name="voice_nothing_heard">Nothing was heard. Try again.</string>
+    <string name="voice_unavailable">Voice isn’t available on this phone right now.</string>
     <string name="brain_overview_back">Back to the list</string>
     <string name="spaces_preview_placeholder">Your new Space</string>
     <string name="spaces_colour">Color</string>

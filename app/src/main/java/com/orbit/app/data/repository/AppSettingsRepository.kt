@@ -98,6 +98,7 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 settings.hasCompletedFirstTimeTutorial
             preferences[Keys.SORT_RIGHT_AFTER_SAVING] = settings.sortRightAfterSaving
             preferences[Keys.FOCUS_CAPTURE_ON_OPEN] = settings.focusCaptureOnOpen
+            preferences[Keys.HAS_SEEN_VOICE_CLOUD_NOTICE] = settings.hasSeenVoiceCloudNotice
         }
     }
 
@@ -182,6 +183,8 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 ?: defaults.sortRightAfterSaving,
             focusCaptureOnOpen = preferences[Keys.FOCUS_CAPTURE_ON_OPEN]
                 ?: defaults.focusCaptureOnOpen,
+            hasSeenVoiceCloudNotice = preferences[Keys.HAS_SEEN_VOICE_CLOUD_NOTICE]
+                ?: defaults.hasSeenVoiceCloudNotice,
         )
     }
 
@@ -241,5 +244,6 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             booleanPreferencesKey("has_completed_first_time_tutorial")
         val SORT_RIGHT_AFTER_SAVING = booleanPreferencesKey("sort_right_after_saving")
         val FOCUS_CAPTURE_ON_OPEN = booleanPreferencesKey("focus_capture_on_open")
+        val HAS_SEEN_VOICE_CLOUD_NOTICE = booleanPreferencesKey("has_seen_voice_cloud_notice")
     }
 }
