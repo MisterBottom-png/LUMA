@@ -1,6 +1,8 @@
 package com.orbit.app.data.export
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.LearnedRuleCategory
 import com.orbit.app.data.local.entity.LearnedRuleEntity
@@ -74,7 +76,7 @@ object LocalDataBackupCodec {
     // existing backups keep restoring after the app was renamed to Tallele.
     const val Product = "LUMA"
     const val Format = "luma-local-json"
-    const val Version = 6
+    const val Version = 7
     const val MaximumInputBytes = 10 * 1024 * 1024
     const val MaximumStructureDepth = 64
 
@@ -87,7 +89,12 @@ object LocalDataBackupCodec {
         }
         val exportableCaptures = snapshot.captures.map { capture ->
             if (capture.linkedItemId != null && capture.linkedItemId !in itemIds) {
-                capture.copy(linkedItemId = null)
+                // Without its item the thought is a plain saved thought again.
+                capture.copy(
+                    linkedItemId = null,
+                    outcome = CaptureOutcome.Saved,
+                    outcomeReason = CaptureOutcomeReason.None,
+                )
             } else {
                 capture
             }
@@ -246,6 +253,11 @@ object LocalDataBackupCodec {
         linkedItemId = json.optionalPositiveId("linkedItemId"),
         // Format 6; older files have no Calendar day on a thought.
         contextDateEpochDay = json.optionalLong("contextDateEpochDay"),
+        // Format 7; older files restore every thought as Saved, still to be looked at once.
+        outcome = json.optionalEnum("outcome", CaptureOutcome.entries) ?: CaptureOutcome.Saved,
+        outcomeReason = json.optionalEnum("outcomeReason", CaptureOutcomeReason.entries) ?: CaptureOutcomeReason.None,
+        outcomeAt = json.optionalNonNegativeLong("outcomeAt"),
+        decidedAt = json.optionalNonNegativeLong("decidedAt"),
     )
 
     private fun decodeNote(json: JSONObject) = NoteEntity(
@@ -552,6 +564,8 @@ object LocalDataBackupCodec {
         .put("suggestedSpaceId", suggestedSpaceId).put("source", source.name)
         .put("linkedItemId", linkedItemId)
         .put("contextDateEpochDay", contextDateEpochDay)
+        .put("outcome", outcome.name).put("outcomeReason", outcomeReason.name)
+        .put("outcomeAt", outcomeAt).put("decidedAt", decidedAt)
 
     private fun NoteEntity.toJson() = JSONObject()
         .put("id", id).put("title", title).put("body", body).put("spaceId", spaceId)

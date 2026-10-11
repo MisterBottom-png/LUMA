@@ -370,6 +370,8 @@ class ItemDetailViewModel(
                                     CaptureStatus.Processed
                                 },
                                 updatedAt = now,
+                                // The user touched it: no automatic decision may follow.
+                                decidedAt = it.decidedAt ?: now,
                             ),
                         )
                     }
