@@ -216,12 +216,33 @@ internal class ItemTypeConversion(
         ItemDetailType.Capture -> null
     }
 
+    /** [snapshot] together with how the converted item looks right after the change. */
+    suspend fun afterConversion(
+        snapshot: TypeConversionSnapshot,
+        convertedType: ItemDetailType,
+        itemId: Long,
+    ): TypeConversionSnapshot = snapshot.copy(converted = convertedStateOf(convertedType, itemId))
+
+    private suspend fun convertedStateOf(type: ItemDetailType, id: Long): ConvertedState? {
+        val updatedAt = when (type) {
+            ItemDetailType.Note -> database.noteDao().getById(id)?.updatedAt
+            ItemDetailType.Task -> database.taskDao().getById(id)?.updatedAt
+            ItemDetailType.Reminder -> database.reminderDao().getById(id)?.updatedAt
+            ItemDetailType.Capture -> null
+        } ?: return null
+        return ConvertedState(updatedAt, labelIdsOf(type, id).toSet())
+    }
+
     /**
      * Undo for a type change: the converted row goes and the original comes back as it
      * was, with its labels, repeat, notification and status. False if it changed since.
      */
     suspend fun undo(snapshot: TypeConversionSnapshot, currentType: ItemDetailType, itemId: Long): Boolean {
         val restored = database.withTransaction restore@{
+            // An edit made after the change would be lost by deleting the row: keep it.
+            if (snapshot.converted != null && snapshot.converted != convertedStateOf(currentType, itemId)) {
+                return@restore false
+            }
             when (currentType) {
                 ItemDetailType.Note -> database.noteDao().getById(itemId)?.let { database.noteDao().deleteById(itemId) }
                 ItemDetailType.Task -> database.taskDao().getById(itemId)?.let { database.taskDao().deleteById(itemId) }
@@ -254,7 +275,11 @@ internal data class TypeConversionSnapshot(
     val task: TaskEntity? = null,
     val reminder: ReminderEntity? = null,
     val labelIds: List<Long> = emptyList(),
+    /** The converted item right after the change; Undo refuses once it differs. */
+    val converted: ConvertedState? = null,
 )
+
+internal data class ConvertedState(val updatedAt: Long, val labelIds: Set<Long>)
 
 /** What changing an item's type would remove, so the confirmation can name it. */
 internal sealed interface TypeChangeLoss {

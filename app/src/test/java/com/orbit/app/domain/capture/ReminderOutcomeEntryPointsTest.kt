@@ -162,6 +162,24 @@ class ReminderOutcomeEntryPointsTest {
     }
 
     @Test
+    fun aMissedRepeatThatMovedOnToItsNextTimeIsASetReminderAgain() = runBlocking {
+        val id = analysedThought("remind me to call the bank")
+        val reminderId = requireNotNull(resolution().quickReminder(id))
+        val reminder = requireNotNull(database.reminderDao().getById(reminderId))
+        val missedAt = reminder.dueAt + 60L * 60_000L
+        reconcile(at = missedAt)
+        assertStored(id, StoredCaptureOutcome(CaptureOutcome.NeedsYou, CaptureOutcomeReason.TimePassed))
+
+        // Marking the missed repeat done moves it on to next week's time.
+        database.reminderDao().update(
+            reminder.copy(repeatRule = "weekly@09:00", dueAt = reminder.dueAt + 7L * 86_400_000L),
+        )
+        reconcile(at = missedAt)
+
+        assertStored(id, StoredCaptureOutcome(CaptureOutcome.ReminderSet))
+    }
+
+    @Test
     fun reconciliationNeverTouchesAThoughtThatIsNotSortedIntoThatReminder() = runBlocking {
         val id = inbox().save("a plain idea")
         // A reminder that claims the thought, but the thought was never sorted into it.

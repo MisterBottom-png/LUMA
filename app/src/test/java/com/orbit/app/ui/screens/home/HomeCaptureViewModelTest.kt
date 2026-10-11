@@ -37,6 +37,7 @@ import com.orbit.app.reminders.ReminderScheduler
 import com.orbit.app.testing.inMemoryOrbitDatabase
 import java.time.Instant
 import java.time.ZoneId
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -157,6 +158,32 @@ class HomeCaptureViewModelTest {
     }
 
     @Test
+    fun aCalendarThoughtStillOpensItsSheetWhenAnotherIsSavedBeforeItsAnalysisLands() {
+        val app = TestApp(scheduler = TokenScheduler(armed = true))
+        val slow = CompletableDeferred<Unit>().also { app.heldBack["Dentist"] = it }
+        val viewModel = app.viewModel()
+        val day = java.time.LocalDate.of(2026, 7, 20).toEpochDay()
+
+        viewModel.onInputChanged("Dentist")
+        assertTrue(viewModel.send(calendarDateContextEpochDay = day))
+        awaitUntil { viewModel.receipt.value != null }
+        val calendarThought = requireNotNull(viewModel.receipt.value).captureId
+
+        // A second thought is saved and analysed while the first is still being analysed.
+        viewModel.onInputChanged("parking code 4826")
+        assertTrue(viewModel.send())
+        awaitUntil { viewModel.receipt.value?.captureId?.let { it != calendarThought } == true }
+        val plain = requireNotNull(viewModel.receipt.value).captureId
+        awaitUntil { runBlocking { app.database.captureSuggestionDao().getByCaptureId(plain) } != null }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull(viewModel.uiState.value.sortRequest)
+
+        slow.complete(Unit)
+        awaitUntil { viewModel.uiState.value.sortRequest != null }
+        assertEquals(calendarThought, viewModel.uiState.value.sortRequest?.captureId)
+    }
+
+    @Test
     fun theNextSaveReplacesTheReceiptAndDismissingHidesItUntilThen() {
         val app = TestApp(scheduler = TokenScheduler(armed = true))
         val viewModel = app.viewModel()
@@ -247,6 +274,9 @@ class HomeCaptureViewModelTest {
     private inner class TestApp(scheduler: ReminderScheduler) {
         val database = inMemoryOrbitDatabase().also { databases += it }
         val settings = MutableStateFlow(AppSettings())
+
+        /** Analysis of these texts waits until the test completes the gate. */
+        val heldBack = java.util.concurrent.ConcurrentHashMap<String, CompletableDeferred<Unit>>()
         private val transaction = RoomCaptureFinalizationTransaction(database)
         private val captures = RoomCaptureRepository(database.captureDao())
         private val notes = RoomNoteRepository(database.noteDao())
@@ -263,6 +293,7 @@ class HomeCaptureViewModelTest {
             brainDumpRepository = RoomBrainDumpRepository(database.brainDumpDao()),
             spaceRepository = spaceRepository,
             suggester = { text, _ ->
+                heldBack[text]?.await()
                 if (text == CabinNote) {
                     CaptureAnalysis(
                         rawText = text,

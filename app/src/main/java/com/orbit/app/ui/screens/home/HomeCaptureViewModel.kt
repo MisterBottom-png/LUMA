@@ -138,7 +138,11 @@ class HomeCaptureViewModel(
         HomeCaptureUiState(inputText = savedStateHandle.get<String>(DraftTextKey).orEmpty()),
     )
     internal val uiState: StateFlow<HomeCaptureUiState> = _uiState.asStateFlow()
-    private var awaitingAnalysisFor: Long? = null
+    /**
+     * Thoughts saved here whose analysis has not landed yet, each with whether it was
+     * added for a Calendar day. A second save before the first result keeps both.
+     */
+    private val awaitingAnalysis = java.util.concurrent.ConcurrentHashMap<Long, Boolean>()
     private val receiptGate = MutableStateFlow<ReceiptGate>(ReceiptGate.Open)
 
     /** The save receipt under the capture box, or null when there is none to show. */
@@ -160,9 +164,6 @@ class HomeCaptureViewModel(
     internal val question: StateFlow<QuickReminderQuestion?> = receipt
         .map { it?.quickQuestion() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    /** True when the awaited thought was added for a Calendar day. */
-    private var awaitingForCalendarDay = false
 
     /**
      * The one-time tip under the first receipt, matching what really happened to the
@@ -191,10 +192,7 @@ class HomeCaptureViewModel(
     init {
         viewModelScope.launch {
             captureInbox.events.collect { event ->
-                if (event.captureId != awaitingAnalysisFor) return@collect
-                awaitingAnalysisFor = null
-                val forCalendarDay = awaitingForCalendarDay
-                awaitingForCalendarDay = false
+                val forCalendarDay = awaitingAnalysis.remove(event.captureId) ?: return@collect
                 when (event) {
                     is CaptureInboxEvent.Analyzed -> onAnalyzed(event.captureId, forCalendarDay)
                     // Added for a Calendar day: still open the sheet, so the day can be used.
@@ -231,8 +229,7 @@ class HomeCaptureViewModel(
             val id = try {
                 // Registered before analysis starts, so a fast result is not missed.
                 captureInbox.save(rawText, contextDateEpochDay = safeContext) { id ->
-                    awaitingAnalysisFor = id
-                    awaitingForCalendarDay = safeContext != null
+                    awaitingAnalysis[id] = safeContext != null
                 }
             } catch (_: Exception) {
                 // Nothing was saved: keep the text in the box so it is not lost.

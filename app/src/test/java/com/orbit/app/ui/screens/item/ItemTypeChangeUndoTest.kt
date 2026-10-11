@@ -4,9 +4,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.local.SharedPreferencesArchivedTaskStatusMemory
 import com.orbit.app.data.local.entity.LabelEntity
+import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.ReminderLabelCrossRef
 import com.orbit.app.data.local.entity.TaskEntity
+import com.orbit.app.data.local.entity.TaskLabelCrossRef
 import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.data.local.statusAfterRestore
 import com.orbit.app.data.repository.RoomCaptureRepository
@@ -19,6 +21,8 @@ import com.orbit.app.ui.navigation.ItemDetailType
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -74,6 +78,41 @@ class ItemTypeChangeUndoTest {
         assertEquals(original.copy(notificationWorkId = restored.notificationWorkId), restored)
         assertEquals(listOf(label), database.labelDao().getLabelIdsForReminder(5))
         assertTrue(scheduler.scheduled.any { it.first == 5L })
+    }
+
+    @Test
+    fun undoKeepsAnEditMadeAfterTheTypeChange() = runBlocking {
+        var clock = now
+        val conversion = ItemTypeConversion(database, PolicyRecordingScheduler { clock }, now = { clock })
+        val label = database.labelDao().insert(LabelEntity(name = "Home", normalizedName = "home"))
+        database.noteDao().insert(NoteEntity(id = 7, title = "Paint the fence", body = "", createdAt = 1, updatedAt = 2))
+
+        fun convertToTask(): TypeConversionSnapshot = runBlocking {
+            val before = requireNotNull(conversion.snapshot(ItemDetailType.Note, 7))
+            assertEquals(TypeConversionOutcome.Converted, conversion.convert(ItemDetailType.Note, 7, ItemDetailType.Task))
+            conversion.afterConversion(before, ItemDetailType.Task, 7)
+        }
+
+        // Nothing changed since: Undo works.
+        assertTrue(conversion.undo(convertToTask(), ItemDetailType.Task, 7))
+        assertNotNull(database.noteDao().getById(7))
+
+        // The title was edited after the change: Undo refuses and the edit stays.
+        var snapshot = convertToTask()
+        clock += 1_000
+        val task = requireNotNull(database.taskDao().getById(7))
+        database.taskDao().update(task.copy(title = "Paint the fence white", updatedAt = clock))
+        assertFalse(conversion.undo(snapshot, ItemDetailType.Task, 7))
+        assertEquals("Paint the fence white", database.taskDao().getById(7)?.title)
+        assertNull(database.noteDao().getById(7))
+
+        // A label added after the change counts as an edit too.
+        database.taskDao().deleteById(7)
+        database.noteDao().insert(NoteEntity(id = 7, title = "Paint the fence", body = "", createdAt = 1, updatedAt = 2))
+        snapshot = convertToTask()
+        database.labelDao().insertTaskLabels(listOf(TaskLabelCrossRef(7, label)))
+        assertFalse(conversion.undo(snapshot, ItemDetailType.Task, 7))
+        assertNotNull(database.taskDao().getById(7))
     }
 
     @Test

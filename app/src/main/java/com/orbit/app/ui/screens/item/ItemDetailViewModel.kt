@@ -511,7 +511,11 @@ class ItemDetailViewModel(
                         TypeConversionOutcome.Converted -> {
                             currentType = targetType
                             // The new type's screen takes over and offers Undo.
-                            before?.let { container.pendingTypeChanges.put(itemId, it) }
+                            before?.let {
+                                val handover = runCatching { typeConversion.afterConversion(it, targetType, itemId) }
+                                    .getOrDefault(it)
+                                container.pendingTypeChanges.put(itemId, handover)
+                            }
                             load(message = localized(R.string.core_item_detail_type_changed), convertedToType = targetType)
                         }
                         TypeConversionOutcome.Conflict -> load(

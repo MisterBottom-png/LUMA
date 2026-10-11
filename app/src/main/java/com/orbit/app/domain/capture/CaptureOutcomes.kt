@@ -8,6 +8,7 @@ import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.repository.CaptureRepository
 import com.orbit.app.domain.usecase.CaptureFinalizationTransaction
 import com.orbit.app.reminders.ReminderSaveOutcome
+import com.orbit.app.reminders.notificationTimeMillis
 
 /** One stored answer to "what did Tallele do with this thought?". */
 data class StoredCaptureOutcome(
@@ -54,14 +55,18 @@ class LinkedCaptureOutcomes(
     /**
      * The reminder is armed again. A thought that was waiting because notifications
      * were off, or because the alarm could not be set, is a set reminder once Android
-     * lets it ring.
+     * lets it ring. So is one whose time had passed, once the reminder has a time
+     * ahead again (a repeat moved on to its next occurrence).
      */
     suspend fun armed(reminder: ReminderEntity, now: Long) {
         if (!canNotify()) return
+        val timeAhead = reminder.notificationTimeMillis()?.let { it > now } == true
         update(reminder) { capture ->
-            val waitingOnDelivery = capture.outcome == CaptureOutcome.NeedsYou &&
-                capture.outcomeReason in DeliveryReasons
-            if (waitingOnDelivery) capture.withOutcome(StoredCaptureOutcome(CaptureOutcome.ReminderSet), now) else null
+            val waiting = capture.outcome == CaptureOutcome.NeedsYou && (
+                capture.outcomeReason in DeliveryReasons ||
+                    (capture.outcomeReason == CaptureOutcomeReason.TimePassed && timeAhead)
+                )
+            if (waiting) capture.withOutcome(StoredCaptureOutcome(CaptureOutcome.ReminderSet), now) else null
         }
     }
 
