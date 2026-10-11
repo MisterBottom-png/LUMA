@@ -48,4 +48,11 @@ class ItemDetailFieldsTest {
     fun aRawThoughtHasNoDetailRows() {
         assertTrue(itemDetailFields(ItemDetailType.Capture, hasNotificationSettings = false).shown.isEmpty())
     }
+
+    @Test
+    fun aNoteThatHasADateKeepsItsScheduleRow_soTheDateCanBeMovedOrCleared() {
+        val fields = itemDetailFields(ItemDetailType.Note, hasNotificationSettings = false, noteIsScheduled = true)
+
+        assertEquals(listOf(ItemDetailField.Type, ItemDetailField.Schedule, ItemDetailField.Space), fields.shown)
+    }
 }

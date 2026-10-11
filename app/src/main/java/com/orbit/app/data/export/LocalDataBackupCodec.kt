@@ -196,7 +196,9 @@ object LocalDataBackupCodec {
             },
         )
         validateRelationships(snapshot)
-        return snapshot
+        // Formats 1–6 carry no outcome: give each thought the answer the 10→11 database
+        // migration would, from what really exists, so filed thoughts stay filed.
+        return if (version < 7L) snapshot.copy(captures = withLegacyOutcomes(snapshot.captures, snapshot.reminders)) else snapshot
     }
 
     private fun validateInputBounds(json: String) {
@@ -253,7 +255,7 @@ object LocalDataBackupCodec {
         linkedItemId = json.optionalPositiveId("linkedItemId"),
         // Format 6; older files have no Calendar day on a thought.
         contextDateEpochDay = json.optionalLong("contextDateEpochDay"),
-        // Format 7; older files restore every thought as Saved, still to be looked at once.
+        // Format 7; older files get theirs from withLegacyOutcomes() after decoding.
         outcome = json.optionalEnum("outcome", CaptureOutcome.entries) ?: CaptureOutcome.Saved,
         outcomeReason = json.optionalEnum("outcomeReason", CaptureOutcomeReason.entries) ?: CaptureOutcomeReason.None,
         outcomeAt = json.optionalNonNegativeLong("outcomeAt"),
@@ -769,4 +771,31 @@ object LocalDataBackupCodec {
 
     private const val MaxEntriesPerType = 100_000
     private const val MaxRepeatRuleLength = 32
+}
+
+/**
+ * The outcome a thought from a format 1–6 backup gets, mirroring `Migration10To11`: an
+ * open reminder made from it means ReminderSet, any other linked item means Filed, and
+ * everything else stays Saved (never NeedsYou).
+ */
+internal fun withLegacyOutcomes(captures: List<CaptureEntity>, reminders: List<ReminderEntity>): List<CaptureEntity> {
+    val openReminderCaptures = reminders
+        .filter { it.linkedCaptureId != null && it.completedAt == null }
+        .mapTo(hashSetOf()) { it.linkedCaptureId }
+    return captures.map { capture ->
+        when {
+            capture.status != CaptureStatus.Processed -> capture
+            capture.id in openReminderCaptures -> capture.copy(
+                outcome = CaptureOutcome.ReminderSet,
+                outcomeAt = capture.updatedAt,
+                decidedAt = capture.updatedAt,
+            )
+            capture.linkedItemId != null -> capture.copy(
+                outcome = CaptureOutcome.Filed,
+                outcomeAt = capture.updatedAt,
+                decidedAt = capture.updatedAt,
+            )
+            else -> capture
+        }
+    }
 }

@@ -208,8 +208,8 @@ class CaptureReceiptReader(
     private suspend fun receipt(capture: CaptureEntity): CaptureReceipt? {
         val linkedId = capture.linkedItemId
         if (capture.status != CaptureStatus.Processed || linkedId == null) return capture.baseReceipt()
-        // The thought stores only the item's id; its kind is told by the suggestion it was
-        // sorted from, checked against what exists.
+        // Filing stores what the thought became in suggestedType next to the link (note
+        // and task ids can be equal); older rows fall back to checking what exists.
         val taskFirst = capture.suggestedType == SuggestedItemType.Task || capture.suggestedType == SuggestedItemType.MondayItem
         // Null when the item was removed elsewhere: there is nothing true left to say about it.
         return if (taskFirst) {

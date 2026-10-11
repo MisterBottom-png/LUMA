@@ -1,6 +1,7 @@
 package com.orbit.app.ui.navigation
 
 import java.time.LocalDate
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.produceState
 import com.orbit.app.ui.screens.spaces.SpaceCaptureSheet
@@ -111,6 +112,9 @@ fun OrbitApp(
     var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
     // A Space's "+" writes the thought over the Space; the user stays where they are.
     var spaceCaptureId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var spaceCaptureSaving by remember { mutableStateOf(false) }
+    var spaceCaptureFailed by remember { mutableStateOf(false) }
+    val spaceCaptureScope = rememberCoroutineScope()
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
     // Needs you gets a dot only when something failed; never a count.
     val needsYouFailed by remember(container) {
@@ -753,13 +757,30 @@ fun OrbitApp(
                 }
                 SpaceCaptureSheet(
                     spaceName = if (spaceName.isEmpty()) "" else com.orbit.app.ui.localization.localizedSpaceName(spaceName),
+                    saving = spaceCaptureSaving,
+                    saveFailed = spaceCaptureFailed,
                     onSave = { text ->
-                        spaceCaptureId = null
-                        container.applicationScope.launch {
-                            runCatching { container.captureInbox.save(text, spaceId = spaceId) }
+                        // The sheet closes only once the thought is stored; on failure the
+                        // text stays in it and can be saved again.
+                        spaceCaptureSaving = true
+                        spaceCaptureFailed = false
+                        spaceCaptureScope.launch {
+                            val saved = try {
+                                container.captureInbox.save(text, spaceId = spaceId)
+                                true
+                            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                                throw cancellation
+                            } catch (_: Exception) {
+                                false
+                            }
+                            spaceCaptureSaving = false
+                            if (saved) spaceCaptureId = null else spaceCaptureFailed = true
                         }
                     },
-                    onDismiss = { spaceCaptureId = null },
+                    onDismiss = {
+                        spaceCaptureId = null
+                        spaceCaptureFailed = false
+                    },
                 )
             }
             if (showSituationAi) {

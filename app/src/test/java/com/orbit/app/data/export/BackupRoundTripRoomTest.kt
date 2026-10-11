@@ -155,7 +155,7 @@ class BackupRoundTripRoomTest {
     }
 
     @Test
-    fun formatSixBackupsRestoreEveryThoughtAsSavedAndStillToBeLookedAt() = runBlocking {
+    fun formatSixBackupsRestoreFiledThoughtsAsFiled_andTheRestAsSaved() = runBlocking {
         seed(source)
         val current = org.json.JSONObject(buildLocalDataExportPayload(RoomLocalDataRestoreStore(source), exportedAt = now))
         val old = org.json.JSONObject(current.toString())
@@ -172,8 +172,14 @@ class BackupRoundTripRoomTest {
 
         val restored = RoomLocalDataRestoreStore(target).read().captures
         assertEquals(3, restored.size)
-        assertTrue(restored.all { it.outcome == CaptureOutcome.Saved && it.outcomeReason == CaptureOutcomeReason.None })
-        assertTrue(restored.all { it.outcomeAt == null && it.decidedAt == null })
+        // A sorted thought keeps its answer, like the 10→11 migration gives it (the reminder
+        // made from thought 10 is linked back, but 10 was never sorted: it stays Saved).
+        val filed = restored.single { it.id == 12L }
+        assertEquals(CaptureOutcome.Filed, filed.outcome)
+        assertEquals(5L, filed.decidedAt)
+        val unsorted = restored.filter { it.id != 12L }
+        assertTrue(unsorted.all { it.outcome == CaptureOutcome.Saved && it.outcomeReason == CaptureOutcomeReason.None })
+        assertTrue(unsorted.all { it.outcomeAt == null && it.decidedAt == null })
         // Format 6 still carries the Calendar day.
         assertEquals(20_650L, restored.single { it.id == 10L }.contextDateEpochDay)
     }

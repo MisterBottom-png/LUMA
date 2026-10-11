@@ -117,11 +117,22 @@ internal data class ItemDetailFields(
 )
 
 /**
- * Only what fits the kind of item: a note has no date, status or reminder; a task keeps
- * its date and status one tap away under "More"; a reminder shows its time and alert.
+ * Only what fits the kind of item: a note has no status or reminder, and shows its date
+ * only when it already has one (so it can still be moved or cleared); a task keeps its
+ * date and status one tap away under "More"; a reminder shows its time and alert.
  */
-internal fun itemDetailFields(type: ItemDetailType, hasNotificationSettings: Boolean): ItemDetailFields = when (type) {
-    ItemDetailType.Note -> ItemDetailFields(shown = listOf(ItemDetailField.Type, ItemDetailField.Space))
+internal fun itemDetailFields(
+    type: ItemDetailType,
+    hasNotificationSettings: Boolean,
+    noteIsScheduled: Boolean = false,
+): ItemDetailFields = when (type) {
+    ItemDetailType.Note -> ItemDetailFields(
+        shown = if (noteIsScheduled) {
+            listOf(ItemDetailField.Type, ItemDetailField.Schedule, ItemDetailField.Space)
+        } else {
+            listOf(ItemDetailField.Type, ItemDetailField.Space)
+        },
+    )
     ItemDetailType.Task -> ItemDetailFields(
         shown = listOf(ItemDetailField.Type, ItemDetailField.Space),
         underMore = listOf(ItemDetailField.Schedule, ItemDetailField.LifeState),
@@ -390,7 +401,11 @@ private fun ItemDetailContent(
                     Text(stringResource(R.string.core_item_detail_details), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     SoftGlassSurface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                         Column {
-                            val fields = itemDetailFields(state.type, state.notificationEnabled != null)
+                            val fields = itemDetailFields(
+                                type = state.type,
+                                hasNotificationSettings = state.notificationEnabled != null,
+                                noteIsScheduled = state.scheduledDateEpochDay != null || state.scheduledAt != null,
+                            )
                             val detailRow: @Composable (ItemDetailField) -> Unit = { field ->
                                 when (field) {
                                     ItemDetailField.Type ->

@@ -51,4 +51,25 @@ class SpaceCaptureSheetJvmTest {
         assertEquals(true, dismissed)
         assertNull(saved)
     }
+
+    @Test
+    fun aFailedSaveSaysSo() {
+        composeRule.setContent {
+            MaterialTheme {
+                SpaceCaptureSheet(spaceName = "Garden", onSave = {}, onDismiss = {}, saveFailed = true)
+            }
+        }
+        composeRule.onNodeWithText("Could not save that capture. Your text is still here.").assertExists()
+    }
+
+    @Test
+    fun savingCannotBeTappedTwice() {
+        composeRule.setContent {
+            MaterialTheme {
+                SpaceCaptureSheet(spaceName = "Garden", onSave = {}, onDismiss = {}, saving = true)
+            }
+        }
+        composeRule.onNode(hasSetTextAction()).performTextInput("Water the roses")
+        composeRule.onNodeWithText("Save thought").assertIsNotEnabled()
+    }
 }

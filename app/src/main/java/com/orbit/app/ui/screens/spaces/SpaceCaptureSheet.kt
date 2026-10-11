@@ -27,7 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -39,6 +41,8 @@ import com.orbit.app.ui.components.LumaModalBottomSheet
 /**
  * A Space's "+": write a thought for this Space without leaving it. The thought is saved
  * like one from Home (kept, then filed by Tallele when it is clear), with this Space chosen.
+ * The sheet stays open, with the text, until the thought is safely stored; if saving
+ * fails it says so and the text can be saved again.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +50,8 @@ fun SpaceCaptureSheet(
     spaceName: String,
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
+    saving: Boolean = false,
+    saveFailed: Boolean = false,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
@@ -93,9 +99,19 @@ fun SpaceCaptureSheet(
                 placeholder = { Text(stringResource(R.string.space_capture_hint)) },
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             )
+            if (saveFailed) {
+                Text(
+                    text = stringResource(R.string.core_home_message_capture_save_failed),
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .semantics { liveRegion = LiveRegionMode.Polite },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             Button(
                 onClick = { onSave(text.trim()) },
-                enabled = text.isNotBlank(),
+                enabled = text.isNotBlank() && !saving,
                 modifier = Modifier
                     .align(Alignment.End)
                     .padding(top = 12.dp)

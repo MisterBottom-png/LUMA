@@ -7,6 +7,7 @@ import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureOutcome
 import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
+import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.TaskEntity
@@ -64,7 +65,7 @@ class ConfirmCaptureActionUseCase(
                         noteId,
                         labelNames.map { labelRepository.findOrCreate(it).id }.toSet(),
                     )
-                    markProcessed(capture, noteId, CaptureOutcome.Filed)
+                    markProcessed(capture, noteId, SuggestedItemType.Note, CaptureOutcome.Filed)
                 } catch (exception: Exception) {
                     noteRepository.deleteById(noteId)
                     throw exception
@@ -101,7 +102,7 @@ class ConfirmCaptureActionUseCase(
                     taskId,
                     labelNames.map { labelRepository.findOrCreate(it).id }.toSet(),
                 )
-                markProcessed(capture, taskId, CaptureOutcome.Filed)
+                markProcessed(capture, taskId, SuggestedItemType.Task, CaptureOutcome.Filed)
             } catch (exception: Exception) {
                 taskRepository.deleteById(taskId)
                 throw exception
@@ -137,7 +138,7 @@ class ConfirmCaptureActionUseCase(
                 )
                 // "A reminder row exists and is open"; whether it can ring is recorded
                 // after scheduling (see CaptureResolution.recordReminderOutcome).
-                markProcessed(capture, reminderId, CaptureOutcome.ReminderSet)
+                markProcessed(capture, reminderId, SuggestedItemType.Reminder, CaptureOutcome.ReminderSet)
             } catch (exception: Exception) {
                 reminderRepository.deleteById(reminderId)
                 throw exception
@@ -208,12 +209,22 @@ class ConfirmCaptureActionUseCase(
      * can never disagree with what exists. Sorting is a decision: [CaptureEntity.decidedAt]
      * is stamped, so a pending automatic decision can no longer touch this thought.
      */
-    private suspend fun markProcessed(capture: CaptureEntity, linkedItemId: Long, outcome: CaptureOutcome) {
+    /**
+     * [itemType] is what the thought became. It is stored with the link, because note and
+     * task ids come from separate tables and can be equal: the id alone cannot say which.
+     */
+    private suspend fun markProcessed(
+        capture: CaptureEntity,
+        linkedItemId: Long,
+        itemType: SuggestedItemType,
+        outcome: CaptureOutcome,
+    ) {
         val timestamp = System.currentTimeMillis()
         captureRepository.update(
             capture.copy(
                 status = CaptureStatus.Processed,
                 linkedItemId = linkedItemId,
+                suggestedType = itemType,
                 updatedAt = timestamp,
                 outcome = outcome,
                 outcomeReason = CaptureOutcomeReason.None,
