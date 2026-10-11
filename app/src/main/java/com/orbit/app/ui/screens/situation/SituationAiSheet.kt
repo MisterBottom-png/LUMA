@@ -1,7 +1,6 @@
 package com.orbit.app.ui.screens.situation
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,10 +73,11 @@ fun SituationAiSheet(
     val sheetPaneTitle = stringResource(R.string.core_situation_title)
     val listState = rememberLazyListState()
     val answer = uiState.askAnswer
-    // A new answer is scrolled into view; it sits right after the overview card.
+    // A new answer sits right under the question; bring the two back into view together.
     LaunchedEffect(answer) {
-        if (answer != null && uiState.analysis != null) listState.animateScrollToItem(AnswerItemIndex)
+        if (answer != null) listState.animateScrollToItem(0)
     }
+    val overviewReady = !uiState.isLoading && uiState.analysis != null
     LumaModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -114,49 +114,62 @@ fun SituationAiSheet(
                 ),
                 verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Medium),
             ) {
-                if (uiState.isLoading || uiState.analysis == null) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 48.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                } else {
-                    val analysis = uiState.analysis
-                    item {
-                        BriefingSurface(
-                            whereYouAre = analysis.whereYouAre,
-                            whatMatters = analysis.whatMatters,
-                            whatIsStuck = analysis.whatIsStuck,
-                        )
-                    }
-                    uiState.askAnswer?.let { answer ->
-                        item {
-                            AskLumaAnswer(
-                                answer = answer,
-                                onSourceSelected = onSourceSelected,
-                                onSearch = onSearch,
+                // Opened from Ask: the question box and its answer come first, the overview below.
+                situationSheetSections(overviewReady = overviewReady, hasAnswer = answer != null).forEach { section ->
+                    when (section) {
+                        SituationSheetSection.Question -> item(key = "question") {
+                            AskLumaSection(
+                                query = uiState.askQuery,
+                                isAsking = uiState.isAsking,
+                                onQueryChanged = onAskQueryChanged,
+                                onAsk = onAskLuma,
+                                modifier = Modifier.fillMaxWidth(),
                             )
+                        }
+                        SituationSheetSection.Answer -> answer?.let { shown ->
+                            item(key = "answer") {
+                                AskLumaAnswer(
+                                    answer = shown,
+                                    onSourceSelected = onSourceSelected,
+                                    onSearch = onSearch,
+                                )
+                            }
+                        }
+                        SituationSheetSection.Overview -> uiState.analysis?.let { analysis ->
+                            item(key = "overview") {
+                                BriefingSurface(
+                                    whereYouAre = analysis.whereYouAre,
+                                    whatMatters = analysis.whatMatters,
+                                    whatIsStuck = analysis.whatIsStuck,
+                                )
+                            }
+                        }
+                        SituationSheetSection.Loading -> item(key = "loading") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 48.dp),
+                                horizontalArrangement = Arrangement.Center,
+                            ) {
+                                CircularProgressIndicator()
+                            }
                         }
                     }
                 }
             }
-            if (!uiState.isLoading && uiState.analysis != null) {
-                AskLumaSection(
-                    query = uiState.askQuery,
-                    isAsking = uiState.isAsking,
-                    onQueryChanged = onAskQueryChanged,
-                    onAsk = onAskLuma,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
         }
     }
 }
+
+internal enum class SituationSheetSection { Question, Answer, Overview, Loading }
+
+/** The sheet top to bottom: the question box, its answer when there is one, then the overview. */
+internal fun situationSheetSections(overviewReady: Boolean, hasAnswer: Boolean): List<SituationSheetSection> =
+    buildList {
+        add(SituationSheetSection.Question)
+        if (hasAnswer) add(SituationSheetSection.Answer)
+        add(if (overviewReady) SituationSheetSection.Overview else SituationSheetSection.Loading)
+    }
 
 @Composable
 private fun AskLumaSection(
@@ -167,17 +180,9 @@ private fun AskLumaSection(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f))
-            .padding(
-                horizontal = OrbitSpacing.ExtraLarge,
-                vertical = OrbitSpacing.Large,
-            ),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(OrbitSpacing.Small),
     ) {
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.52f),
-        )
         Text(
             text = stringResource(R.string.core_situation_ask_luma),
             modifier = Modifier.semantics { heading() },
@@ -305,8 +310,6 @@ private fun AskLumaAnswer(
     }
 }
 
-
-private const val AnswerItemIndex = 1
 
 internal data class AskComposerState(
     val sendEnabled: Boolean,

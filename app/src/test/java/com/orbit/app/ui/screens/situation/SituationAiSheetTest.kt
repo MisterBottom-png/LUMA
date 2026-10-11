@@ -49,3 +49,30 @@ class SituationAiSheetTest {
         assertEquals(1, submissions)
     }
 }
+
+/** Opened from Ask, the sheet leads with the question and its answer; the overview follows. */
+class SituationSheetOrderTest {
+    @Test
+    fun theQuestionBoxComesFirst_thenTheAnswer_thenTheOverview() {
+        assertEquals(
+            listOf(SituationSheetSection.Question, SituationSheetSection.Answer, SituationSheetSection.Overview),
+            situationSheetSections(overviewReady = true, hasAnswer = true),
+        )
+    }
+
+    @Test
+    fun beforeAnyAnswer_theQuestionBoxStillLeads() {
+        assertEquals(
+            listOf(SituationSheetSection.Question, SituationSheetSection.Overview),
+            situationSheetSections(overviewReady = true, hasAnswer = false),
+        )
+    }
+
+    @Test
+    fun whileTheOverviewLoads_theQuestionBoxIsAlreadyThere() {
+        assertEquals(
+            listOf(SituationSheetSection.Question, SituationSheetSection.Loading),
+            situationSheetSections(overviewReady = false, hasAnswer = false),
+        )
+    }
+}
