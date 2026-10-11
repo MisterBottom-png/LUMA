@@ -32,6 +32,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
 import com.orbit.app.ui.screens.home.homeWeekDates
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.longClick
