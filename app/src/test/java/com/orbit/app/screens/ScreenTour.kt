@@ -70,7 +70,7 @@ import org.robolectric.shadows.ShadowAlarmManager
  *
  * Each theme must run in its own test JVM: the app's database and settings store are
  * process-wide singletons, so a second tour in the same JVM starts with the first tour's
- * data (no first-run guide, duplicate Spaces). The Screens workflow runs them one by one.
+ * data (no first-run lines, duplicate Spaces). The Screens workflow runs them one by one.
  */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -189,9 +189,14 @@ abstract class ScreenTour(private val theme: String) {
         val today = LocalDate.now(zone)
         fun at(day: LocalDate, h: Int, m: Int = 0) = day.atTime(h, m).atZone(zone).toInstant().toEpochMilli()
         runBlocking {
-            val ids = StarterSpaces.templates.take(5).mapIndexed { i, t ->
-                t.key to container.spaceRepository.insert(StarterSpaces.spaceFor(t, sortOrder = i))
-            }.toMap()
+            // A first launch adds the starter Spaces by itself; use those.
+            val spaces = withTimeout(10_000) {
+                while (container.spaceRepository.observeAll().first().size < StarterSpaces.templates.size) delay(50)
+                container.spaceRepository.observeAll().first()
+            }
+            val ids = StarterSpaces.templates.take(5).associate { t ->
+                t.key to spaces.first { it.name == t.storedName }.id
+            }
             val tasks = container.taskRepository
             tasks.insert(TaskEntity(title = "Send the quarterly report", spaceId = ids["work"], dueAt = at(today, 11)))
             tasks.insert(TaskEntity(title = "Book a car service", spaceId = ids["personal"], dueAt = at(today.minusDays(2), 10)))
@@ -420,6 +425,12 @@ abstract class ScreenTour(private val theme: String) {
             compose.onNodeWithText("Remind me").performClick()
             compose.waitUntil(10_000) { count("Turn on") > 0 }
         }
+        // Step 7: the one line before Android asks for notifications (asked once, from Home).
+        step("notification priming") {
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("So this reminder can ring at", substring = true).fetchSemanticsNodes().isNotEmpty()
+            }
+        }
         shot("home-receipt-needs-you")
         step("notifications on") {
             shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -493,11 +504,14 @@ abstract class ScreenTour(private val theme: String) {
     @Test
     fun tour() {
         assumeTrue("set LUMA_SCREENS_DIR to render the screens", outDir != null)
-        step("first launch") { compose.waitUntil(30_000) { count("Skip") > 0 } }
-        shot("00-tutorial")
-        step("skip guide") { compose.onNodeWithText("Skip").performClick() }
+        // Step 7: a first launch opens on Home with two lines; there is no guide to skip.
+        step("first launch") { compose.waitUntil(30_000) { count(FirstRunLineAbove) > 0 } }
+        shot("00-first-launch")
         seed()
-        listOf("Renew passport", "Ideas for the garden", "Buy milk and coffee").forEach(::capture)
+        capture("Renew passport")
+        step("first receipt tip") { compose.waitUntil(10_000) { count(FirstReceiptTipKept) > 0 } }
+        shot("00-first-receipt-tip")
+        listOf("Ideas for the garden", "Buy milk and coffee").forEach(::capture)
         shot("01-home")
 
         mainScreens("a")
@@ -525,6 +539,9 @@ abstract class ScreenTour(private val theme: String) {
         )
     }
 }
+
+private const val FirstRunLineAbove = "Write anything. Tallele keeps it safe and sorts what it can."
+private const val FirstReceiptTipKept = "Tallele kept this. You’ll find it in To sort and in Search."
 
 @Config(qualifiers = "w411dp-h891dp-notnight-xxhdpi")
 class ScreenTourLightTest : ScreenTour("light")
