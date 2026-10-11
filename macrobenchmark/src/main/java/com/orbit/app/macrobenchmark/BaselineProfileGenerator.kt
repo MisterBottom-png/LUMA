@@ -28,7 +28,7 @@ class BaselineProfileGenerator {
         device.waitForIdle()
 
         skipFirstTimeGuideIfShown()
-        listOf("Spaces", "Calendar", "Review", "Home").forEach { tab -> openTab(tab) }
+        listOf("Spaces", "Calendar", "Needs you", "Home").forEach { tab -> openTab(tab) }
         openSettings()
         device.pressBack()
         device.waitForIdle()
