@@ -16,7 +16,7 @@ class CalendarAgendaTest {
     private val day = LocalDate.of(2026, 10, 10)
 
     @Test
-    fun today_nowSitsInOrder_andFreeTimeShowsOnlyAfterNow() {
+    fun today_nowSitsInOrder_andGapsAreNotFilledWithNothingPlannedLines() {
         val entries = listOf(
             timed(1, "Dentist", 9, 30),
             timed(2, "Report", 11, 0),
@@ -27,18 +27,27 @@ class CalendarAgendaTest {
         val rows = agenda(entries, now = at(10, 15)).rows.map(::label)
 
         assertEquals(
-            listOf("Dentist", "now 10:15", "Report", "free until 14:00", "Stand-up", "free until 17:30", "Parcel"),
+            listOf("Dentist", "now 10:15", "Report", "Stand-up", "Parcel"),
             rows,
         )
     }
 
     @Test
-    fun anotherDay_hasNoNowLine_andShortGapsStayQuiet() {
+    fun anotherDay_hasNoNowLine_andLongGapsStayQuiet() {
         val entries = listOf(timed(1, "Breakfast", 8, 0), timed(2, "Walk", 9, 0), timed(3, "Dinner", 19, 0))
 
         val rows = agenda(entries, now = at(10, 0).minusSeconds(86_400)).rows.map(::label)
 
-        assertEquals(listOf("Breakfast", "Walk", "free until 19:00", "Dinner"), rows)
+        assertEquals(listOf("Breakfast", "Walk", "Dinner"), rows)
+    }
+
+    @Test
+    fun nothingPlannedIsSaidOnceADay_afterTheLastItem_orAloneOnAnEmptyDay() {
+        val busy = agenda(listOf(timed(1, "Breakfast", 8, 0), timed(2, "Dinner", 19, 0)), now = at(12, 0))
+        val empty = agenda(emptyList(), now = at(12, 0))
+
+        assertEquals(CalendarFillerPlacement.AfterLastItem, busy.fillerPlacement)
+        assertEquals(CalendarFillerPlacement.EmptyDay, empty.fillerPlacement)
     }
 
     @Test
@@ -69,7 +78,6 @@ class CalendarAgendaTest {
     private fun label(row: CalendarAgendaRow): String = when (row) {
         is CalendarAgendaRow.Item -> row.entry.title
         is CalendarAgendaRow.Now -> "now %02d:%02d".format(row.minuteOfDay / 60, row.minuteOfDay % 60)
-        is CalendarAgendaRow.FreeUntil -> "free until %02d:%02d".format(row.minuteOfDay / 60, row.minuteOfDay % 60)
     }
 
     private fun at(hour: Int, minute: Int): Instant = day.atTime(hour, minute).atZone(zoneId).toInstant()

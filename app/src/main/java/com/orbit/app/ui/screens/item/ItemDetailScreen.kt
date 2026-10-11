@@ -36,6 +36,9 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Spa
@@ -104,6 +107,38 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 private enum class DetailSheet { Type, Schedule, LifeState, Space, Notification, Repeat }
 
 internal enum class ItemDetailBackAction { CancelEditing, ConfirmDiscard, NavigateUp }
+
+internal enum class ItemDetailField { Type, Schedule, Notification, Repeat, LifeState, Space }
+
+/** The detail rows an item shows at once, and the ones folded under "More". */
+internal data class ItemDetailFields(
+    val shown: List<ItemDetailField>,
+    val underMore: List<ItemDetailField> = emptyList(),
+)
+
+/**
+ * Only what fits the kind of item: a note has no date, status or reminder; a task keeps
+ * its date and status one tap away under "More"; a reminder shows its time and alert.
+ */
+internal fun itemDetailFields(type: ItemDetailType, hasNotificationSettings: Boolean): ItemDetailFields = when (type) {
+    ItemDetailType.Note -> ItemDetailFields(shown = listOf(ItemDetailField.Type, ItemDetailField.Space))
+    ItemDetailType.Task -> ItemDetailFields(
+        shown = listOf(ItemDetailField.Type, ItemDetailField.Space),
+        underMore = listOf(ItemDetailField.Schedule, ItemDetailField.LifeState),
+    )
+    ItemDetailType.Reminder -> ItemDetailFields(
+        shown = buildList {
+            add(ItemDetailField.Type)
+            add(ItemDetailField.Schedule)
+            if (hasNotificationSettings) {
+                add(ItemDetailField.Notification)
+                add(ItemDetailField.Repeat)
+            }
+            add(ItemDetailField.Space)
+        },
+    )
+    ItemDetailType.Capture -> ItemDetailFields(shown = emptyList())
+}
 
 /** Back while editing: leave quietly when nothing changed, ask first when it did. */
 internal fun itemDetailBackAction(isEditing: Boolean, hasChanges: Boolean = false): ItemDetailBackAction = when {
@@ -240,6 +275,7 @@ private fun ItemDetailContent(
     var overflowOpen by remember { mutableStateOf(false) }
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
     var pendingTypeChange by rememberSaveable { mutableStateOf<ItemDetailType?>(null) }
+    var moreDetailsOpen by rememberSaveable(state.itemId) { mutableStateOf(false) }
     val hasChanges = isEditing && (title != state.title || body != state.body)
 
     LaunchedEffect(state.saveCompletedAt) {
@@ -354,37 +390,52 @@ private fun ItemDetailContent(
                     Text(stringResource(R.string.core_item_detail_details), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     SoftGlassSurface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                         Column {
-                            DetailRow(stringResource(R.string.core_item_detail_type), state.type.userLabel(), !isEditing) { openSheet = DetailSheet.Type }
-                            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                            DetailRow(stringResource(R.string.core_item_detail_schedule), scheduleLabel(state, timeFormat), !isEditing) { openSheet = DetailSheet.Schedule }
-                            if (state.type == ItemDetailType.Reminder && state.notificationEnabled != null) {
-                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                                DetailRow(
-                                    stringResource(R.string.core_reminder_detail_notification),
-                                    stringResource(
-                                        if (state.notificationEnabled == true) {
-                                            R.string.core_enabled
-                                        } else {
-                                            R.string.core_disabled
-                                        },
-                                    ) + " · " + reminderOffsetLabel(state.notificationOffsetMinutes ?: 0L),
-                                    !isEditing,
-                                ) { openSheet = DetailSheet.Notification }
-                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                                DetailRow(
-                                    stringResource(R.string.reminder_repeat_title),
-                                    stringResource(state.repeat.labelRes()),
-                                    !isEditing,
-                                ) { openSheet = DetailSheet.Repeat }
+                            val fields = itemDetailFields(state.type, state.notificationEnabled != null)
+                            val detailRow: @Composable (ItemDetailField) -> Unit = { field ->
+                                when (field) {
+                                    ItemDetailField.Type ->
+                                        DetailRow(stringResource(R.string.core_item_detail_type), state.type.userLabel(), !isEditing) { openSheet = DetailSheet.Type }
+                                    ItemDetailField.Schedule ->
+                                        DetailRow(stringResource(R.string.core_item_detail_schedule), scheduleLabel(state, timeFormat), !isEditing) { openSheet = DetailSheet.Schedule }
+                                    ItemDetailField.Notification -> DetailRow(
+                                        stringResource(R.string.core_reminder_detail_notification),
+                                        stringResource(
+                                            if (state.notificationEnabled == true) {
+                                                R.string.core_enabled
+                                            } else {
+                                                R.string.core_disabled
+                                            },
+                                        ) + " · " + reminderOffsetLabel(state.notificationOffsetMinutes ?: 0L),
+                                        !isEditing,
+                                    ) { openSheet = DetailSheet.Notification }
+                                    ItemDetailField.Repeat -> DetailRow(
+                                        stringResource(R.string.reminder_repeat_title),
+                                        stringResource(state.repeat.labelRes()),
+                                        !isEditing,
+                                    ) { openSheet = DetailSheet.Repeat }
+                                    ItemDetailField.LifeState -> DetailRow(
+                                        stringResource(R.string.core_item_detail_life_state),
+                                        state.taskStatus?.lifeStateLabel() ?: stringResource(R.string.core_item_detail_not_applicable),
+                                        !isEditing && state.type == ItemDetailType.Task,
+                                    ) { openSheet = DetailSheet.LifeState }
+                                    ItemDetailField.Space ->
+                                        DetailRow(stringResource(R.string.core_item_detail_space), state.spaceName(), !isEditing) { openSheet = DetailSheet.Space }
+                                }
                             }
-                            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                            DetailRow(
-                                stringResource(R.string.core_item_detail_life_state),
-                                state.taskStatus?.lifeStateLabel() ?: stringResource(R.string.core_item_detail_not_applicable),
-                                !isEditing && state.type == ItemDetailType.Task,
-                            ) { openSheet = DetailSheet.LifeState }
-                            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                            DetailRow(stringResource(R.string.core_item_detail_space), state.spaceName(), !isEditing) { openSheet = DetailSheet.Space }
+                            fields.shown.forEachIndexed { index, field ->
+                                if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                                detailRow(field)
+                            }
+                            if (fields.underMore.isNotEmpty()) {
+                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                                MoreDetailsRow(expanded = moreDetailsOpen, onToggle = { moreDetailsOpen = !moreDetailsOpen })
+                                if (moreDetailsOpen) {
+                                    fields.underMore.forEach { field ->
+                                        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                                        detailRow(field)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -521,6 +572,33 @@ private fun ItemDetailContent(
             onDismiss = { openSheet = null },
         ) { openSheet = null; onUpdateSpace(it) }
         null -> Unit
+    }
+}
+
+/** Folds a task's date and status away until asked for. */
+@Composable
+private fun MoreDetailsRow(expanded: Boolean, onToggle: () -> Unit) {
+    val stateText = stringResource(if (expanded) R.string.expand_state_open else R.string.expand_state_closed)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(role = Role.Button, onClick = onToggle)
+            .semantics { stateDescription = stateText }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(R.string.item_detail_more),
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Icon(
+            if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

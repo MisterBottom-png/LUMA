@@ -15,6 +15,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -28,6 +29,8 @@ data class SearchUiState(
     val spaces: List<SearchSpace> = emptyList(),
     /** True while the newest words are still being looked up, so "nothing found" never flashes. */
     val searching: Boolean = false,
+    /** The newest saved items, shown before anything is typed. */
+    val recent: List<LocalSearchResult> = emptyList(),
 )
 
 /** The chips under the search bar. Archived shows only archived items. */
@@ -35,13 +38,19 @@ enum class SearchFilter { All, Tasks, Reminders, Notes, Archived }
 
 data class SearchSpace(val id: Long, val name: String, val icon: String, val colorAccent: String)
 
-/** Which results a filter chip keeps. Thoughts still to sort show under All only. */
-internal fun LocalSearchResult.matches(filter: SearchFilter): Boolean = when (filter) {
-    SearchFilter.All -> status != LocalSearchStatus.Archived
-    SearchFilter.Tasks -> type == ItemDetailType.Task && status != LocalSearchStatus.Archived
-    SearchFilter.Reminders -> type == ItemDetailType.Reminder && status != LocalSearchStatus.Archived
-    SearchFilter.Notes -> type == ItemDetailType.Note && status != LocalSearchStatus.Archived
-    SearchFilter.Archived -> status == LocalSearchStatus.Archived
+/**
+ * Which results a filter chip keeps. Thoughts still to sort show under All only.
+ * With "Search archived too" on, archived items join the other chips as well.
+ */
+internal fun LocalSearchResult.matches(filter: SearchFilter, includeArchived: Boolean = false): Boolean {
+    val archivedAllowed = includeArchived || status != LocalSearchStatus.Archived
+    return when (filter) {
+        SearchFilter.All -> archivedAllowed
+        SearchFilter.Tasks -> type == ItemDetailType.Task && archivedAllowed
+        SearchFilter.Reminders -> type == ItemDetailType.Reminder && archivedAllowed
+        SearchFilter.Notes -> type == ItemDetailType.Note && archivedAllowed
+        SearchFilter.Archived -> status == LocalSearchStatus.Archived
+    }
 }
 
 class SearchViewModel(
@@ -76,19 +85,25 @@ class SearchViewModel(
         currentQuery to localSearch.search(currentQuery, data, showArchived)
     }.flowOn(searchDispatcher)
 
+    /** Before typing: the Spaces to look in and the newest saved items. */
+    private val browse = combine(spaces, corpus.map { localSearch.recent(it) }.flowOn(searchDispatcher)) { allSpaces, newest ->
+        allSpaces
+            .filterNot { it.hidden || it.archived }
+            .sortedBy { it.sortOrder }
+            .map { SearchSpace(it.id, it.name, it.icon, it.colorAccent) } to newest
+    }.onStart { emit(emptyList<SearchSpace>() to emptyList()) }
+
     // The typed query is shown immediately; only the results wait for the debounce.
-    val uiState = combine(query, includeArchived, results.onStart { emit("" to emptyList()) }, filter, spaces) {
-            currentQuery, showArchived, (foundFor, found), chosen, allSpaces ->
+    val uiState = combine(query, includeArchived, results.onStart { emit("" to emptyList()) }, filter, browse) {
+            currentQuery, showArchived, (foundFor, found), chosen, (visibleSpaces, newest) ->
         SearchUiState(
             query = currentQuery,
             includeArchived = showArchived,
-            results = if (currentQuery.isBlank()) emptyList() else found.filter { it.matches(chosen) },
+            results = if (currentQuery.isBlank()) emptyList() else found.filter { it.matches(chosen, showArchived) },
             filter = chosen,
-            spaces = allSpaces
-                .filterNot { it.hidden || it.archived }
-                .sortedBy { it.sortOrder }
-                .map { SearchSpace(it.id, it.name, it.icon, it.colorAccent) },
+            spaces = visibleSpaces,
             searching = currentQuery.isNotBlank() && foundFor != currentQuery,
+            recent = newest,
         )
     }.stateIn(
         scope = viewModelScope,

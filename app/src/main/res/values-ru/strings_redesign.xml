@@ -154,6 +154,7 @@
         <item quantity="other">Сегодня ничего нового. С прошлых дней ждут %d, когда будете готовы.</item>
     </plurals>
     <string name="item_discard_title">Отменить изменения?</string>
+    <string name="item_detail_more">Ещё</string>
     <string name="item_discard_body">Изменения в названии и заметках будут потеряны.</string>
     <string name="item_discard_confirm">Не сохранять</string>
     <string name="item_keep_editing">Продолжить</string>

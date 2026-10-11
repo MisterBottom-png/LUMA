@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextClearance
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.Configuration
@@ -302,6 +303,85 @@ abstract class ScreenTour(private val theme: String) {
         brainDump(prefix)
     }
 
+    /**
+     * Step 9 screens: Search before typing, from one letter and with no match; a Space made
+     * from its name; a note's and a task's details; Ask leading with the question; plain
+     * backup words. The voice notice is not shown here: Robolectric reports on-device
+     * recognition, so the mic never opens the system screen (see VoiceCloudNoticeJvmTest).
+     */
+    private fun smallFixScreens(prefix: String) {
+        tapTab("Spaces")
+        step("search") {
+            compose.onNodeWithContentDescription("Search").performClick()
+            // The newest items come from the database off the main thread; wait for them.
+            compose.waitUntil(10_000) { count("Recently saved") > 0 }
+        }
+        shot("$prefix-search-recent")
+        step("one letter") {
+            compose.onNode(hasSetTextAction()).performTextInput("g")
+            compose.waitUntil(10_000) { count("2 results") > 0 }
+        }
+        shot("$prefix-search-one-letter")
+        step("no match") {
+            compose.onNode(hasSetTextAction()).performTextClearance()
+            compose.onNode(hasSetTextAction()).performTextInput("zzq")
+            compose.waitUntil(10_000) { count("No matches for “zzq”.") > 0 }
+        }
+        shot("$prefix-search-no-match")
+        back()
+        back()
+        tapTab("Spaces")
+        step("new space by name") {
+            compose.onNodeWithText("New Space").performScrollTo().performClick()
+            compose.waitForIdle()
+            compose.onNode(hasSetTextAction()).performTextInput("Garden")
+            compose.waitForIdle()
+        }
+        shot("$prefix-space-create-name-only")
+        step("colour and icon") { compose.onNodeWithText("Color and icon").performClick(); compose.waitForIdle() }
+        shot("$prefix-space-create-style")
+        step("cancel create") { compose.onNodeWithText("Cancel").performClick(); compose.waitForIdle() }
+        step("open Personal") { compose.onAllNodesWithText("Personal")[0].performClick(); compose.waitForIdle() }
+        step("open note") {
+            compose.onAllNodesWithText("Gift ideas")[0].performClick()
+            compose.waitUntil(10_000) { count("Space") > 0 }
+        }
+        shot("$prefix-item-note")
+        back()
+        back()
+        step("open Work") { compose.onAllNodesWithText("Work")[0].performClick(); compose.waitForIdle() }
+        step("open task") {
+            compose.onAllNodesWithText("Send the quarterly report")[0].performClick()
+            compose.waitUntil(10_000) { count("More") > 0 }
+        }
+        shot("$prefix-item-task")
+        step("more details") { compose.onNodeWithText("More").performScrollTo().performClick(); compose.waitForIdle() }
+        shot("$prefix-item-task-more")
+        back()
+        back()
+        tapTab("Review")
+        step("ask") {
+            compose.onNodeWithText("Ask").performClick()
+            compose.waitForIdle()
+            compose.onNodeWithText("Is anything actually urgent?").performClick()
+            compose.waitUntil(10_000) { count("Local answer") > 0 }
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
+        }
+        shot("$prefix-ask-answer-first")
+        step("close ask") {
+            compose.onNodeWithContentDescription("Close Situation AI").performClick()
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
+        }
+        tapTab("Home")
+        step("settings") { compose.onNodeWithContentDescription("Open settings").performClick(); compose.waitForIdle() }
+        step("backup") { compose.onNodeWithText("Backup and restore").performScrollTo().performClick(); compose.waitForIdle() }
+        shot("$prefix-settings-backup")
+        back()
+        back()
+    }
+
     /** A messy list written in one go opens as a calm list of thoughts to tick and save. */
     private fun brainDump(prefix: String) {
         tapTab("Home")
@@ -337,6 +417,7 @@ abstract class ScreenTour(private val theme: String) {
 
         mainScreens("a")
         extraScreens("x")
+        smallFixScreens("s9")
 
         // The same screens in the violet look (accent + background).
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick() }

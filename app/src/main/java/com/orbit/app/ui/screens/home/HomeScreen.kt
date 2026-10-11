@@ -1,6 +1,7 @@
 package com.orbit.app.ui.screens.home
 
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.Animatable
 import com.orbit.app.ui.components.rememberReducedMotion
@@ -9,8 +10,6 @@ import androidx.compose.ui.platform.LocalView
 import android.view.HapticFeedbackConstants
 import android.os.Build
 import androidx.annotation.StringRes
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.animateColorAsState
@@ -107,7 +106,6 @@ import com.orbit.app.ui.localization.localizedSpaceName
 import com.orbit.app.ui.reminders.rememberTurnOnReminderNotifications
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarDuration
-import com.orbit.app.capture.VoiceCapture
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.components.LiveGlassSurface
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
@@ -139,6 +137,8 @@ fun HomeScreen(
     onOpenSearch: () -> Unit = {},
     focusCaptureOnOpen: Boolean = false,
     focusRequest: Long = 0L,
+    voiceCloudNoticeSeen: Boolean = false,
+    onVoiceCloudNoticeSeen: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -178,30 +178,29 @@ fun HomeScreen(
     val sentGhostProgress = remember { Animatable(0f) }
     val pendingMessage = uiState.message?.takeIf { it != HomeMessage.Saved }
     val messageText = pendingMessage?.let { stringResource(it.textRes) }
-    val voiceAvailable = remember(context) { VoiceCapture.isAvailable(context) }
     val voicePrompt = stringResource(R.string.home_voice_prompt)
     val voiceLocale = LocalConfiguration.current.locales[0]
     // After a spoken thought, a second mic tap adds the next one on its own line, so a
     // spoken dump splits into thoughts with no guessing.
     var spokeLast by rememberSaveable { mutableStateOf(false) }
-    val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        VoiceCapture.transcript(result.data)?.let { transcript ->
+    val voiceScope = rememberCoroutineScope()
+    val voice = rememberVoiceInput(
+        locale = voiceLocale,
+        prompt = voicePrompt,
+        cloudNoticeSeen = voiceCloudNoticeSeen,
+        onCloudNoticeSeen = onVoiceCloudNoticeSeen,
+        onTranscript = { transcript ->
             viewModel.receiveSharedText(transcript)
             spokeLast = true
-        }
-    }
+        },
+        onProblem = { textRes ->
+            voiceScope.launch { snackbarHostState.showSnackbar(context.getString(textRes)) }
+        },
+    )
     LaunchedEffect(uiState.inputText.isBlank()) {
         if (uiState.inputText.isBlank()) spokeLast = false
     }
-    val voiceAction: (() -> Unit)? = if (voiceAvailable) {
-        {
-            runCatching {
-                voiceLauncher.launch(VoiceCapture.intent(voiceLocale, voicePrompt))
-            }
-        }
-    } else {
-        null
-    }
+    val voiceAction: (() -> Unit)? = voice.start
 
     LaunchedEffect(uiState.savedPulse) {
         if (uiState.savedPulse == 0) return@LaunchedEffect
@@ -382,6 +381,7 @@ fun HomeScreen(
                     focusRequest = focusRequest,
                     onVoice = voiceAction,
                     showVoiceHint = spokeLast,
+                    listening = voice.listening,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth(),
@@ -704,6 +704,7 @@ private fun CaptureCard(
     focusRequest: Long,
     onVoice: (() -> Unit)?,
     showVoiceHint: Boolean = false,
+    listening: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val isProcessing = processingState.isInProgress
@@ -765,7 +766,8 @@ private fun CaptureCard(
                 }
             }
 
-            processingStatusRes?.let { statusRes ->
+            // While the phone listens on the device, say so; the mic tap then stops listening.
+            (if (listening && !isProcessing) R.string.home_voice_listening else processingStatusRes)?.let { statusRes ->
                 Text(
                     text = stringResource(statusRes),
                     modifier = Modifier

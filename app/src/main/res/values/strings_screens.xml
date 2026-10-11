@@ -85,9 +85,17 @@
     <string name="split_one_thought">Tallele found only one thought here.</string>
     <string name="home_voice_next_hint">Tap the mic again for the next thought.</string>
     <string name="home_voice_next">Say the next thought</string>
+    <string name="voice_cloud_notice">Voice may use Google’s servers on this phone.</string>
+    <string name="voice_continue">Continue</string>
+    <string name="home_voice_listening">Listening…</string>
+    <string name="voice_nothing_heard">Nothing was heard. Try again.</string>
+    <string name="voice_unavailable">Voice isn’t available on this phone right now.</string>
     <string name="brain_overview_back">Back to the list</string>
     <string name="spaces_preview_placeholder">Your new Space</string>
     <string name="spaces_colour">Color</string>
+    <string name="spaces_color_and_icon">Color and icon</string>
+    <string name="expand_state_open">Expanded</string>
+    <string name="expand_state_closed">Collapsed</string>
     <string name="spaces_icon_travel">Travel</string>
     <string name="search_filter_all">All</string>
     <string name="search_group_to_sort">Still to sort</string>
@@ -97,6 +105,9 @@
     <string name="search_group_archived">Archived</string>
     <string name="search_look_in_space">Look inside a Space</string>
     <string name="search_stays_on_phone">Search stays on this phone.</string>
+    <string name="search_recent">Recently saved</string>
+    <string name="search_no_matches">No matches for “%1$s”.</string>
+    <string name="search_include_archived">Search archived too</string>
     <string name="tutorial_write_title">Write it down. Sort it later.</string>
     <string name="tutorial_write_body">Put any thought in, the way it comes. You don’t need to pick a type, a date or a place first.</string>
     <string name="tutorial_suggest_title">Tallele suggests. You decide.</string>

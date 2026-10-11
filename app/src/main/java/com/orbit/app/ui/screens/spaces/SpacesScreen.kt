@@ -121,6 +121,9 @@ import com.orbit.app.ui.components.LumaMenu
 import com.orbit.app.ui.components.LumaMenuItem
 import com.orbit.app.ui.components.LumaMenuGap
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.imePadding
@@ -134,7 +137,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.semantics.Role
 import com.orbit.app.ui.components.LumaModalBottomSheet
 
-private val iconChoices = listOf(
+internal val iconChoices = listOf(
     "work",
     "person",
     "directions_car",
@@ -149,7 +152,7 @@ private val iconChoices = listOf(
     "flight",
 )
 
-private val accentChoices = listOf(
+internal val accentChoices = listOf(
     "#6D7CFF",
     "#B270D6",
     "#4E91D8",
@@ -1182,11 +1185,12 @@ private fun NoteRow(
 
 /**
  * New Space / Edit Space as a sheet: a live preview of the Space at the top, then the
- * name, the colour and the icon. "Create Space" stays off until the name is there.
+ * name. A new Space needs only the name: its colour and icon follow from the name until
+ * the user opens "Color and icon" and picks. "Create Space" stays off until the name is there.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SpaceEditorDialog(
+internal fun SpaceEditorDialog(
     space: SpaceEntity?,
     existingSpaces: List<SpaceEntity>,
     onDismiss: () -> Unit,
@@ -1194,9 +1198,19 @@ private fun SpaceEditorDialog(
     onRestoreExisting: ((Long) -> Unit)?,
 ) {
     var name by rememberSaveable(space?.id) { mutableStateOf(space?.name.orEmpty()) }
-    var icon by rememberSaveable(space?.id) { mutableStateOf(space?.icon ?: "folder") }
-    var accent by rememberSaveable(space?.id) {
+    // An existing Space keeps its own look; a new one follows its name until the user picks.
+    var styleChosen by rememberSaveable(space?.id) { mutableStateOf(space != null) }
+    var styleExpanded by rememberSaveable(space?.id) { mutableStateOf(false) }
+    var chosenIcon by rememberSaveable(space?.id) { mutableStateOf(space?.icon ?: "folder") }
+    var chosenAccent by rememberSaveable(space?.id) {
         mutableStateOf(space?.colorAccent ?: accentChoices.first())
+    }
+    val icon = if (styleChosen) chosenIcon else iconChoices[SpaceNames.autoIconIndex(name, iconChoices.size)]
+    val accent = if (styleChosen) chosenAccent else accentChoices[SpaceNames.autoColorIndex(name, accentChoices.size)]
+    val pickStyle: (String, String) -> Unit = { pickedIcon, pickedAccent ->
+        chosenIcon = pickedIcon
+        chosenAccent = pickedAccent
+        styleChosen = true
     }
     val conflict = SpaceNames.conflict(name, existingSpaces, excludingSpaceId = space?.id)
     val canSave = name.isNotBlank() && conflict == null
@@ -1303,69 +1317,77 @@ private fun SpaceEditorDialog(
                 }
             }
 
-            EditorLabel(stringResource(R.string.spaces_colour))
-            Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
-                accentChoices.forEach { choice ->
-                    val selected = accent == choice
-                    val swatch = choice.asColor()
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .selectable(selected = selected, role = Role.RadioButton, onClick = { accent = choice }),
-                        contentAlignment = Alignment.Center,
-                    ) {
+            SpaceStyleRow(
+                icon = icon,
+                accentColor = accentColor,
+                expanded = styleExpanded,
+                onToggle = { styleExpanded = !styleExpanded },
+            )
+            if (styleExpanded) {
+                EditorLabel(stringResource(R.string.spaces_colour))
+                Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
+                    accentChoices.forEach { choice ->
+                        val selected = accent == choice
+                        val swatch = choice.asColor()
                         Box(
                             modifier = Modifier
-                                .size(if (selected) 38.dp else 32.dp)
-                                .then(
-                                    if (selected) Modifier.border(2.dp, swatch, CircleShape) else Modifier,
-                                ),
+                                .weight(1f)
+                                .height(48.dp)
+                                .selectable(selected = selected, role = Role.RadioButton, onClick = { pickStyle(icon, choice) }),
                             contentAlignment = Alignment.Center,
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(if (selected) 28.dp else 32.dp)
-                                    .background(swatch, CircleShape),
-                            )
+                                    .size(if (selected) 38.dp else 32.dp)
+                                    .then(
+                                        if (selected) Modifier.border(2.dp, swatch, CircleShape) else Modifier,
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (selected) 28.dp else 32.dp)
+                                        .background(swatch, CircleShape),
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            EditorLabel(stringResource(R.string.core_icon))
-            Column(
-                modifier = Modifier.selectableGroup(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                iconChoices.chunked(6).forEach { rowChoices ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowChoices.forEach { choice ->
-                            val selected = icon == choice
-                            Surface(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .selectable(selected = selected, role = Role.RadioButton, onClick = { icon = choice }),
-                                shape = RoundedCornerShape(16.dp),
-                                color = if (selected) accentColor.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceContainerLowest,
-                                contentColor = if (selected) accentColor else MaterialTheme.colorScheme.onSurface,
-                                border = if (selected) {
-                                    BorderStroke(1.5.dp, accentColor)
-                                } else {
-                                    BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
-                                },
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = choice.asImageVector(),
-                                        contentDescription = stringResource(choice.iconContentDescriptionRes()),
-                                        modifier = Modifier.size(22.dp),
-                                    )
+                EditorLabel(stringResource(R.string.core_icon))
+                Column(
+                    modifier = Modifier.selectableGroup(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    iconChoices.chunked(6).forEach { rowChoices ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            rowChoices.forEach { choice ->
+                                val selected = icon == choice
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .selectable(selected = selected, role = Role.RadioButton, onClick = { pickStyle(choice, accent) }),
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (selected) accentColor.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceContainerLowest,
+                                    contentColor = if (selected) accentColor else MaterialTheme.colorScheme.onSurface,
+                                    border = if (selected) {
+                                        BorderStroke(1.5.dp, accentColor)
+                                    } else {
+                                        BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
+                                    },
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = choice.asImageVector(),
+                                            contentDescription = stringResource(choice.iconContentDescriptionRes()),
+                                            modifier = Modifier.size(22.dp),
+                                        )
+                                    }
                                 }
                             }
+                            repeat(6 - rowChoices.size) { Spacer(modifier = Modifier.weight(1f)) }
                         }
-                        repeat(6 - rowChoices.size) { Spacer(modifier = Modifier.weight(1f)) }
                     }
                 }
             }
@@ -1384,6 +1406,52 @@ private fun SpaceEditorDialog(
                 )
             }
         }
+    }
+}
+
+/** "Color and icon", folded away: the name alone is enough to make a Space. */
+@Composable
+private fun SpaceStyleRow(
+    icon: String,
+    accentColor: Color,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val stateText = stringResource(if (expanded) R.string.expand_state_open else R.string.expand_state_closed)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+            .heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClick = onToggle)
+            .semantics { stateDescription = stateText },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.spaces_color_and_icon),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(accentColor.copy(alpha = 0.16f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon.asImageVector(),
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        Icon(
+            imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 

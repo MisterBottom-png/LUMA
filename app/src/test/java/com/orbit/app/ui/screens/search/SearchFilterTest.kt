@@ -33,7 +33,20 @@ class SearchFilterTest {
         val marked = "Garden plan for the garden".withMatch("garden", Color.Red)
 
         assertEquals(listOf(0 to 6, 20 to 26), marked.spanStyles.map { it.start to it.end })
-        assertTrue("Garden".withMatch("g", Color.Red).spanStyles.isEmpty())
+        // Search works from the first letter, so one letter is marked too.
+        assertEquals(listOf(0 to 1), "Garden".withMatch("g", Color.Red).spanStyles.map { it.start to it.end })
+        assertTrue("Garden".withMatch("", Color.Red).spanStyles.isEmpty())
+    }
+
+    @Test
+    fun searchArchivedToo_letsArchivedItemsJoinTheOtherChips() {
+        val archivedTask = result(ItemDetailType.Task, LocalSearchStatus.Archived)
+        val archivedNote = result(ItemDetailType.Note, LocalSearchStatus.Archived)
+
+        assertTrue(archivedTask.matches(SearchFilter.All, includeArchived = true))
+        assertTrue(archivedTask.matches(SearchFilter.Tasks, includeArchived = true))
+        assertFalse(archivedNote.matches(SearchFilter.Tasks, includeArchived = true))
+        assertFalse(archivedTask.matches(SearchFilter.All, includeArchived = false))
     }
 
     @Test

@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -42,6 +43,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -64,6 +66,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -93,7 +97,6 @@ import com.orbit.app.ui.theme.OrbitMotion
 
 internal enum class SearchFeedbackState {
     StartTyping,
-    MinimumQuery,
     Searching,
     EmptyResults,
     Results,
@@ -101,7 +104,6 @@ internal enum class SearchFeedbackState {
 
 internal fun SearchUiState.feedbackState(): SearchFeedbackState = when {
     query.isBlank() -> SearchFeedbackState.StartTyping
-    query.trim().length < 2 -> SearchFeedbackState.MinimumQuery
     results.isEmpty() && searching -> SearchFeedbackState.Searching
     results.isEmpty() -> SearchFeedbackState.EmptyResults
     else -> SearchFeedbackState.Results
@@ -190,6 +192,9 @@ internal fun SearchContent(
                         fadeEnd = chipScroll.canScrollForward,
                     )
                     .horizontalScroll(chipScroll)
+                    // Room after the last chip, so the row scrolls far enough to show it whole
+                    // and, before scrolling, a chip is cut through its middle, not at its edge.
+                    .padding(end = ChipRowEndPadding)
                     .selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -225,18 +230,38 @@ internal fun SearchContent(
                         }
                     }
                 }
-                item(key = "hint") { StartTypingHint() }
-            }
-
-            SearchFeedbackState.MinimumQuery -> item(key = "min") {
-                QuietLine(stringResource(R.string.core_search_minimum_query))
+                if (state.recent.isNotEmpty()) {
+                    item(key = "recent") {
+                        Column(modifier = Modifier.padding(top = 24.dp)) {
+                            SectionHeader(title = stringResource(R.string.search_recent))
+                            GroupedCard {
+                                state.recent.forEachIndexed { index, result ->
+                                    if (index > 0) GroupDivider(startInset = 64.dp)
+                                    SearchResultRow(
+                                        result = result,
+                                        query = "",
+                                        onClick = { onResultSelected(result) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    item(key = "hint") { StartTypingHint() }
+                }
             }
 
             // A short pause while the words are looked up: show nothing rather than "nothing found".
             SearchFeedbackState.Searching -> Unit
 
             SearchFeedbackState.EmptyResults -> item(key = "empty") {
-                CalmSearchEmptyState(onClearSearch = { onQueryChanged("") })
+                CalmSearchEmptyState(
+                    query = state.query.trim(),
+                    offerArchived = state.filter != SearchFilter.Archived,
+                    includeArchived = state.includeArchived,
+                    onIncludeArchivedChanged = onIncludeArchivedChanged,
+                    onClearSearch = { onQueryChanged("") },
+                )
             }
 
             SearchFeedbackState.Results -> {
@@ -277,6 +302,16 @@ internal fun SearchContent(
                                 }
                             }
                         }
+                    }
+                }
+                // Archived items were asked for: the switch stays in reach to turn them off.
+                if (state.includeArchived && state.filter != SearchFilter.Archived) {
+                    item(key = "archived-toggle") {
+                        SearchArchivedToggle(
+                            checked = true,
+                            onCheckedChange = onIncludeArchivedChanged,
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
                     }
                 }
             }
@@ -491,7 +526,7 @@ internal fun String.withMatch(query: String, highlight: Color): AnnotatedString 
     val source = this
     return buildAnnotatedString {
         append(source)
-        if (query.length < 2) return@buildAnnotatedString
+        if (query.isEmpty()) return@buildAnnotatedString
         var start = source.indexOf(query, ignoreCase = true)
         while (start >= 0) {
             addStyle(SpanStyle(background = highlight), start, start + query.length)
@@ -500,8 +535,13 @@ internal fun String.withMatch(query: String, highlight: Color): AnnotatedString 
     }
 }
 
+/** No matches: say so with the words that were typed, and offer to look in archived items too. */
 @Composable
 private fun CalmSearchEmptyState(
+    query: String,
+    offerArchived: Boolean,
+    includeArchived: Boolean,
+    onIncludeArchivedChanged: (Boolean) -> Unit,
     onClearSearch: () -> Unit,
 ) {
     Column(
@@ -511,18 +551,19 @@ private fun CalmSearchEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = stringResource(R.string.core_search_empty),
+            text = stringResource(R.string.search_no_matches, query),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
         )
-        Text(
-            text = stringResource(R.string.core_search_empty_recovery),
-            modifier = Modifier.padding(top = 6.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
+        if (offerArchived) {
+            SearchArchivedToggle(
+                checked = includeArchived,
+                onCheckedChange = onIncludeArchivedChanged,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+        }
         TextButton(
             onClick = onClearSearch,
             modifier = Modifier.padding(top = 8.dp),
@@ -532,7 +573,32 @@ private fun CalmSearchEmptyState(
     }
 }
 
-/** Result groups, in the order they are shown. */
+@Composable
+private fun SearchArchivedToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.search_include_archived),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        // The row carries the toggle for TalkBack; the switch only shows its state.
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+private val ChipRowEndPadding = 48.dp
+
 /** Result groups in display order: thoughts still to sort come after finished items, quietly. */
 internal enum class SearchGroup(@StringRes val labelRes: Int) {
     Tasks(R.string.search_group_tasks),

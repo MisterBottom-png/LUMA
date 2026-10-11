@@ -85,9 +85,17 @@
     <string name="split_one_thought">Tallele leidis siit ainult ühe mõtte.</string>
     <string name="home_voice_next_hint">Järgmise mõtte jaoks puuduta uuesti mikrofoni.</string>
     <string name="home_voice_next">Ütle järgmine mõte</string>
+    <string name="voice_cloud_notice">Kõnesisestus võib selles telefonis kasutada Google’i servereid.</string>
+    <string name="voice_continue">Jätka</string>
+    <string name="home_voice_listening">Kuulan…</string>
+    <string name="voice_nothing_heard">Midagi ei kuuldud. Proovi uuesti.</string>
+    <string name="voice_unavailable">Kõnesisestus pole selles telefonis praegu saadaval.</string>
     <string name="brain_overview_back">Tagasi loendisse</string>
     <string name="spaces_preview_placeholder">Sinu uus ruum</string>
     <string name="spaces_colour">Värv</string>
+    <string name="spaces_color_and_icon">Värv ja ikoon</string>
+    <string name="expand_state_open">Laiendatud</string>
+    <string name="expand_state_closed">Ahendatud</string>
     <string name="spaces_icon_travel">Reisimine</string>
     <string name="search_filter_all">Kõik</string>
     <string name="search_group_to_sort">Veel sorteerimata</string>
@@ -97,6 +105,9 @@
     <string name="search_group_archived">Arhiveeritud</string>
     <string name="search_look_in_space">Vaata ruumi sisse</string>
     <string name="search_stays_on_phone">Otsing jääb sellesse telefoni.</string>
+    <string name="search_recent">Hiljuti salvestatud</string>
+    <string name="search_no_matches">„%1$s“ kohta vasteid pole.</string>
+    <string name="search_include_archived">Otsi ka arhiivist</string>
     <string name="tutorial_write_title">Kirjuta üles. Sorteeri hiljem.</string>
     <string name="tutorial_write_body">Kirjuta iga mõte üles nii, nagu see tuleb. Liiki, kuupäeva ega kohta ei pea enne valima.</string>
     <string name="tutorial_suggest_title">Tallele soovitab. Sina otsustad.</string>
