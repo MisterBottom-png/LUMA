@@ -171,4 +171,6 @@
     </plurals>
     <string name="settings_look_title">Внешний вид</string>
     <string name="settings_look_subtitle">Тема, цвет, фон и стекло</string>
+    <string name="space_capture_title">Добавить в «%1$s»</string>
+    <string name="space_capture_hint">Мысль для этого пространства</string>
 </resources>

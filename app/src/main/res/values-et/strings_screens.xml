@@ -169,4 +169,6 @@
     </plurals>
     <string name="settings_look_title">Välimus</string>
     <string name="settings_look_subtitle">Teema, värv, taust ja klaas</string>
+    <string name="space_capture_title">Lisa ruumi „%1$s“</string>
+    <string name="space_capture_hint">Mõte selle ruumi jaoks</string>
 </resources>

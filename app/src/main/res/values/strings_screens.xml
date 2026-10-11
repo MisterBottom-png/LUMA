@@ -171,4 +171,6 @@
     </plurals>
     <string name="settings_look_title">Look</string>
     <string name="settings_look_subtitle">Theme, color, background and glass</string>
+    <string name="space_capture_title">Add to %1$s</string>
+    <string name="space_capture_hint">A thought for this Space</string>
 </resources>

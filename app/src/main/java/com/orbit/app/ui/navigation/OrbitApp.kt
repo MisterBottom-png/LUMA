@@ -1,6 +1,9 @@
 package com.orbit.app.ui.navigation
 
 import java.time.LocalDate
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.produceState
+import com.orbit.app.ui.screens.spaces.SpaceCaptureSheet
 import com.orbit.app.ui.screens.review.needsYouSomethingFailed
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -106,6 +109,8 @@ fun OrbitApp(
     var showSituationAi by rememberSaveable { mutableStateOf(false) }
     var situationAiQuestion by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
+    // A Space's "+" writes the thought over the Space; the user stays where they are.
+    var spaceCaptureId by rememberSaveable { mutableStateOf<Long?>(null) }
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
     // Needs you gets a dot only when something failed; never a count.
     val needsYouFailed by remember(container) {
@@ -394,7 +399,7 @@ fun OrbitApp(
                         },
                         onOpenToday = { navController.navigateToCalendar(LocalDate.now()) },
                         onToggleDone = spacesViewModel::toggleDone,
-                        onAddThought = { spaceId -> navController.returnHomeWithSpaceCapture(spaceId) },
+                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
                     )
                 }
                 composable(SpaceDetailDestination.UnfiledRoute) {
@@ -420,7 +425,7 @@ fun OrbitApp(
                         onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
-                        onAddThought = { spaceId -> navController.returnHomeWithSpaceCapture(spaceId) },
+                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
                     )
                 }
                 composable(
@@ -452,7 +457,7 @@ fun OrbitApp(
                         onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
-                        onAddThought = { spaceId -> navController.returnHomeWithSpaceCapture(spaceId) },
+                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
                     )
                 }
                 composable(OrbitDestination.Review.route) { entry ->
@@ -742,6 +747,21 @@ fun OrbitApp(
                 )
             }
 
+            spaceCaptureId?.let { spaceId ->
+                val spaceName by produceState(initialValue = "", spaceId) {
+                    value = container.spaceRepository.getById(spaceId)?.name.orEmpty()
+                }
+                SpaceCaptureSheet(
+                    spaceName = if (spaceName.isEmpty()) "" else com.orbit.app.ui.localization.localizedSpaceName(spaceName),
+                    onSave = { text ->
+                        spaceCaptureId = null
+                        container.applicationScope.launch {
+                            runCatching { container.captureInbox.save(text, spaceId = spaceId) }
+                        }
+                    },
+                    onDismiss = { spaceCaptureId = null },
+                )
+            }
             if (showSituationAi) {
                 val situationViewModel: SituationAiViewModel = viewModel(
                     factory = SituationAiViewModel.Factory(container),

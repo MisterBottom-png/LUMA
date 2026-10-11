@@ -220,6 +220,38 @@ abstract class ScreenTour(private val theme: String) {
         }
     }
 
+    /** Step 9.6: a Space's "+" writes the thought over the Space, and the Space stays open. */
+    private fun spaceCaptureScreens() {
+        val container = (compose.activity.application as OrbitApplication).container
+        step("space plus") {
+            compose.onNodeWithContentDescription("Add a thought to Work").performClick()
+            compose.waitUntil(10_000) { count("Add to Work") > 0 }
+            compose.onNode(hasSetTextAction()).performTextInput("Draft the team update")
+            compose.waitForIdle()
+        }
+        shot("space-capture-sheet")
+        step("save in place") {
+            compose.onNodeWithText("Save thought").performClick()
+            compose.waitUntil(10_000) { count("Add to Work") == 0 }
+            runBlocking {
+                withTimeout(10_000) {
+                    while (container.captureRepository.observeAll().first().none { it.rawText == "Draft the team update" }) delay(50)
+                }
+            }
+            // Still on the Work Space, not sent back to Home.
+            compose.onNodeWithContentDescription("Add a thought to Work").assertExists()
+        }
+        step("tidy the tour") {
+            // Later shots expect the seeded thoughts only: put this one away again.
+            runBlocking {
+                container.captureRepository.observeAll().first()
+                    .filter { it.rawText == "Draft the team update" }
+                    .forEach { container.captureResolution.archive(it.id) }
+            }
+            compose.waitForIdle()
+        }
+    }
+
     /** Needs you keeps To sort, earlier tasks and the look back behind one "More" row. */
     private fun openNeedsYouMore() = step("needs you more") {
         val opened = count("Look back at your week") + count("Close the look back") > 0
@@ -289,6 +321,7 @@ abstract class ScreenTour(private val theme: String) {
         shot("$prefix-spaces-scrolled")
         step("open Work") { compose.onAllNodesWithText("Work")[0].performClick(); compose.waitForIdle() }
         shot("$prefix-space-detail")
+        if (prefix == "a") spaceCaptureScreens()
         back()
         tapTab("Calendar")
         shot("$prefix-calendar-day")
