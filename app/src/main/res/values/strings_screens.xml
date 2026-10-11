@@ -97,6 +97,9 @@
     <string name="search_group_archived">Archived</string>
     <string name="search_look_in_space">Look inside a Space</string>
     <string name="search_stays_on_phone">Search stays on this phone.</string>
+    <string name="search_recent">Recently saved</string>
+    <string name="search_no_matches">No matches for “%1$s”.</string>
+    <string name="search_include_archived">Search archived too</string>
     <string name="tutorial_write_title">Write it down. Sort it later.</string>
     <string name="tutorial_write_body">Put any thought in, the way it comes. You don’t need to pick a type, a date or a place first.</string>
     <string name="tutorial_suggest_title">Tallele suggests. You decide.</string>

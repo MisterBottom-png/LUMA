@@ -97,6 +97,9 @@
     <string name="search_group_archived">В архиве</string>
     <string name="search_look_in_space">Заглянуть в пространство</string>
     <string name="search_stays_on_phone">Поиск не покидает этот телефон.</string>
+    <string name="search_recent">Недавно сохранённые</string>
+    <string name="search_no_matches">Совпадений для «%1$s» нет.</string>
+    <string name="search_include_archived">Искать и в архиве</string>
     <string name="tutorial_write_title">Запишите. Разберёте потом.</string>
     <string name="tutorial_write_body">Записывайте любую мысль как есть. Тип, дату или место заранее выбирать не нужно.</string>
     <string name="tutorial_suggest_title">Tallele предлагает. Решаете вы.</string>

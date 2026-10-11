@@ -97,6 +97,9 @@
     <string name="search_group_archived">Arhiveeritud</string>
     <string name="search_look_in_space">Vaata ruumi sisse</string>
     <string name="search_stays_on_phone">Otsing jääb sellesse telefoni.</string>
+    <string name="search_recent">Hiljuti salvestatud</string>
+    <string name="search_no_matches">„%1$s“ kohta vasteid pole.</string>
+    <string name="search_include_archived">Otsi ka arhiivist</string>
     <string name="tutorial_write_title">Kirjuta üles. Sorteeri hiljem.</string>
     <string name="tutorial_write_body">Kirjuta iga mõte üles nii, nagu see tuleb. Liiki, kuupäeva ega kohta ei pea enne valima.</string>
     <string name="tutorial_suggest_title">Tallele soovitab. Sina otsustad.</string>

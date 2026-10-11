@@ -57,55 +57,70 @@ class LocalSearch {
             corpus.notes
                 .filter { includeArchived || !it.archived }
                 .filter { SearchText.matchesAll(tokens, it.title, it.body) }
-                .mapTo(this) {
-                    LocalSearchResult(
-                        type = ItemDetailType.Note,
-                        id = it.id,
-                        title = it.title,
-                        snippet = it.body.ifBlank { it.title },
-                        spaceName = it.spaceId?.let(spacesById::get)?.name,
-                        status = if (it.archived) LocalSearchStatus.Archived else LocalSearchStatus.Note,
-                        timestamp = it.updatedAt,
-                    )
-                }
+                .mapTo(this) { it.toResult(spacesById) }
 
             corpus.tasks
                 .filter { includeArchived || it.status != TaskStatus.Archived }
                 .filter { SearchText.matchesAll(tokens, it.title, it.notes) }
-                .mapTo(this) {
-                    LocalSearchResult(
-                        type = ItemDetailType.Task,
-                        id = it.id,
-                        title = it.title,
-                        snippet = it.notes,
-                        spaceName = it.spaceId?.let(spacesById::get)?.name,
-                        status = it.status.label(),
-                        timestamp = it.updatedAt,
-                    )
-                }
+                .mapTo(this) { it.toResult(spacesById) }
 
             corpus.reminders
                 .filter { SearchText.matchesAll(tokens, it.title, it.notes) }
-                .mapTo(this) {
-                    LocalSearchResult(
-                        type = ItemDetailType.Reminder,
-                        id = it.id,
-                        title = it.title,
-                        snippet = it.notes,
-                        spaceName = it.spaceId?.let(spacesById::get)?.name,
-                        status = if (it.completedAt == null) {
-                            LocalSearchStatus.Reminder
-                        } else {
-                            LocalSearchStatus.CompletedReminder
-                        },
-                        timestamp = it.dueAt,
-                    )
-                }
+                .mapTo(this) { it.toResult(spacesById) }
         }.sortedByDescending { it.timestamp }
     }
 
+    /**
+     * What Search shows before anything is typed: the newest notes, tasks and reminders,
+     * newest first. Archived items stay out, and raw thoughts stay private here too.
+     */
+    fun recent(corpus: SearchCorpus, limit: Int = RecentLimit): List<LocalSearchResult> {
+        val spacesById = corpus.spaces.associateBy { it.id }
+        val newest = buildList {
+            corpus.notes.filterNot { it.archived }.mapTo(this) { it.createdAt to it.toResult(spacesById) }
+            corpus.tasks.filter { it.status != TaskStatus.Archived }.mapTo(this) { it.createdAt to it.toResult(spacesById) }
+            corpus.reminders.mapTo(this) { it.createdAt to it.toResult(spacesById) }
+        }
+        return newest
+            .sortedWith(compareByDescending<Pair<Long, LocalSearchResult>> { it.first }.thenByDescending { it.second.id })
+            .take(limit)
+            .map { it.second }
+    }
+
+    private fun NoteEntity.toResult(spacesById: Map<Long, SpaceEntity>) = LocalSearchResult(
+        type = ItemDetailType.Note,
+        id = id,
+        title = title,
+        snippet = body.ifBlank { title },
+        spaceName = spaceId?.let(spacesById::get)?.name,
+        status = if (archived) LocalSearchStatus.Archived else LocalSearchStatus.Note,
+        timestamp = updatedAt,
+    )
+
+    private fun TaskEntity.toResult(spacesById: Map<Long, SpaceEntity>) = LocalSearchResult(
+        type = ItemDetailType.Task,
+        id = id,
+        title = title,
+        snippet = notes,
+        spaceName = spaceId?.let(spacesById::get)?.name,
+        status = status.label(),
+        timestamp = updatedAt,
+    )
+
+    private fun ReminderEntity.toResult(spacesById: Map<Long, SpaceEntity>) = LocalSearchResult(
+        type = ItemDetailType.Reminder,
+        id = id,
+        title = title,
+        snippet = notes,
+        spaceName = spaceId?.let(spacesById::get)?.name,
+        status = if (completedAt == null) LocalSearchStatus.Reminder else LocalSearchStatus.CompletedReminder,
+        timestamp = dueAt,
+    )
+
     private companion object {
-        const val MinQueryLength = 2
+        // One letter is enough: results follow from the first key press.
+        const val MinQueryLength = 1
+        const val RecentLimit = 5
     }
 }
 

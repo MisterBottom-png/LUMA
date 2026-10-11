@@ -148,7 +148,7 @@ class LocalSearchTest {
     }
 
     @Test
-    fun emptyAndPartialQueriesReturnNoResults() {
+    fun emptyQueryReturnsNothing_andOneLetterAlreadyFinds() {
         val corpus = SearchCorpus(
             captures = emptyList(),
             notes = listOf(NoteEntity(id = 8, title = "Plan", body = "Details")),
@@ -158,7 +158,37 @@ class LocalSearchTest {
         )
 
         assertTrue(search.search(query = "", corpus = corpus).isEmpty())
-        assertTrue(search.search(query = "p", corpus = corpus).isEmpty())
+        assertTrue(search.search(query = "  ", corpus = corpus).isEmpty())
+        assertEquals(listOf(8L), search.search(query = "p", corpus = corpus).map { it.id })
+        assertTrue(search.search(query = "z", corpus = corpus).isEmpty())
+    }
+
+    @Test
+    fun recentShowsTheFiveNewestSavedItems_withoutArchivedOrRawThoughts() {
+        val corpus = SearchCorpus(
+            captures = listOf(CaptureEntity(id = 50, rawText = "Private source", status = CaptureStatus.Inbox, createdAt = 99)),
+            notes = listOf(
+                NoteEntity(id = 1, title = "Oldest note", body = "", createdAt = 1),
+                NoteEntity(id = 2, title = "Archived note", body = "", createdAt = 90, archived = true),
+                NoteEntity(id = 3, title = "Newest note", body = "", createdAt = 80),
+            ),
+            tasks = listOf(
+                TaskEntity(id = 4, title = "Task", createdAt = 70),
+                TaskEntity(id = 5, title = "Archived task", createdAt = 95, status = TaskStatus.Archived),
+                TaskEntity(id = 6, title = "Done task", createdAt = 40, status = TaskStatus.Done),
+            ),
+            reminders = listOf(
+                ReminderEntity(id = 7, title = "Reminder", dueAt = 10_000, createdAt = 60),
+                ReminderEntity(id = 8, title = "Older reminder", dueAt = 20_000, createdAt = 5),
+            ),
+            spaces = emptyList(),
+        )
+
+        val recent = search.recent(corpus)
+
+        assertEquals(listOf("Newest note", "Task", "Reminder", "Done task", "Older reminder"), recent.map { it.title })
+        assertTrue(recent.none { it.type == ItemDetailType.Capture || it.status == LocalSearchStatus.Archived })
+        assertEquals(2, search.recent(corpus, limit = 2).size)
     }
 
     private fun notes(vararg titles: String) = SearchCorpus(
