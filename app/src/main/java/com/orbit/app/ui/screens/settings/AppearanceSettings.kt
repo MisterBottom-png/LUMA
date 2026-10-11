@@ -47,6 +47,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.orbit.app.domain.model.GlassEffect
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -140,8 +149,8 @@ internal enum class AppearanceMenuSection(
         Icons.Filled.Image,
     ),
     Glass(
-        R.string.settings_transparency_title,
-        R.string.settings_transparency_subtitle,
+        R.string.settings_glass_title,
+        R.string.settings_glass_subtitle,
         Icons.Filled.Tune,
     ),
 }
@@ -153,7 +162,7 @@ private fun AppearanceProfileSection(
 ) {
     AppearanceCard {
         OutlinedTextField(
-            value = settings.userName,
+            value = com.orbit.app.domain.model.chosenUserName(settings.userName).orEmpty(),
             onValueChange = { value ->
                 onSettingsChanged(settings.copy(userName = value.take(MaxUserNameLength)))
             },
@@ -428,8 +437,59 @@ private fun AppearanceGlassSection(
         modifier = Modifier.fillMaxWidth(),
         title = stringResource(R.string.settings_surface_preview),
     )
+    val currentPreset = GlassPreset.of(settings)
     AppearanceCard {
+        Column(modifier = Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            GlassPreset.entries.forEach { preset ->
+                GlassPresetRow(
+                    preset = preset,
+                    selected = preset == currentPreset,
+                    onSelected = { onSettingsChanged(preset.applyTo(settings)) },
+                )
+            }
+        }
+        if (currentPreset == null) {
+            Text(
+                text = stringResource(R.string.settings_glass_custom),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    // The finer controls stay available, folded away under Advanced.
+    var advancedOpen by rememberSaveable { mutableStateOf(currentPreset == null) }
+    TextButton(
+        onClick = { advancedOpen = !advancedOpen },
+        modifier = Modifier.heightIn(min = 48.dp),
+    ) {
+        Text(stringResource(R.string.settings_glass_advanced))
+        Icon(
+            imageVector = if (advancedOpen) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+        )
+    }
+    if (!advancedOpen) return
+    AppearanceCard {
+        SettingsGroup(title = stringResource(R.string.settings_glass_effect)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassEffect.entries.forEach { choice ->
+                    FilterChip(
+                        selected = settings.glassEffect == choice,
+                        onClick = { onSettingsChanged(settings.copy(glassEffect = choice)) },
+                        label = { Text(stringResource(choice.labelRes())) },
+                        colors = readableFilterChipColors(),
+                    )
+                }
+            }
+        }
         SettingsGroup(title = stringResource(R.string.settings_image_blur)) {
+            if (settings.customBackgroundUri == null) {
+                Text(
+                    text = stringResource(R.string.settings_blur_needs_image_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BackgroundBlur.entries.forEach { choice ->
                     FilterChip(
@@ -480,6 +540,49 @@ private fun AppearanceGlassSection(
                     )
                 },
                 colors = readableFilterChipColors(),
+            )
+        }
+    }
+}
+
+/** Three ready-made looks that set the glass effect and surface opacity together. */
+internal enum class GlassPreset(
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val hintRes: Int,
+    val effect: GlassEffect,
+    val opacity: GlassPreference,
+) {
+    Clear(R.string.settings_glass_preset_clear, R.string.settings_glass_preset_clear_hint, GlassEffect.Strong, GlassPreference.Standard),
+    Soft(R.string.settings_glass_preset_soft, R.string.settings_glass_preset_soft_hint, GlassEffect.Soft, GlassPreference.Standard),
+    Solid(R.string.settings_glass_preset_solid, R.string.settings_glass_preset_solid_hint, GlassEffect.Off, GlassPreference.Prominent),
+    ;
+
+    fun applyTo(settings: AppSettings): AppSettings = settings.copy(glassEffect = effect, glassPreference = opacity)
+
+    companion object {
+        /** The preset the settings match, or null when Advanced changed them. */
+        fun of(settings: AppSettings): GlassPreset? =
+            entries.firstOrNull { it.effect == settings.glassEffect && it.opacity == settings.glassPreference }
+    }
+}
+
+@Composable
+private fun GlassPresetRow(preset: GlassPreset, selected: Boolean, onSelected: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onSelected)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Column(modifier = Modifier.padding(start = 12.dp)) {
+            Text(stringResource(preset.titleRes), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = stringResource(preset.hintRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -549,9 +652,11 @@ private fun BackgroundPresetOption(
                 interactionSource = interactionSource,
                 clipShape = shape,
             )
-            .clickable(
+            .selectable(
+                selected = selected,
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
+                role = androidx.compose.ui.semantics.Role.RadioButton,
                 onClick = onSelected,
             )
             .padding(12.dp),

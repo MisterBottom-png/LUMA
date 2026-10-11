@@ -49,6 +49,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
@@ -176,7 +183,7 @@ fun FirstTimeTutorialScreen(
                     .heightIn(min = 56.dp),
             ) {
                 Text(
-                    text = stringResource(if (isLastPage) R.string.tutorial_start else R.string.tutorial_continue),
+                    text = stringResource(tutorialPrimaryLabel(isLastPage = isLastPage, isReplay = isReplay)),
                     style = MaterialTheme.typography.titleSmall,
                 )
             }
@@ -318,12 +325,22 @@ private fun WriteDemo() {
                 }
             }
         }
-        Row(
-            modifier = Modifier.clearAndSetSemantics { },
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        // Earlier thoughts as quiet lines, not chips: nothing here is meant to be tapped.
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                .clearAndSetSemantics { },
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            DemoChip(stringResource(R.string.tutorial_demo_other_1), faded = true)
-            DemoChip(stringResource(R.string.tutorial_demo_other_2), faded = true)
+            listOf(R.string.tutorial_demo_other_1, R.string.tutorial_demo_other_2).forEach { line ->
+                Text(
+                    text = stringResource(line),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -337,51 +354,50 @@ private fun SuggestDemo() {
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
         )
+        // The same parts as the real sort sheet: the suggestion, the type, when, the
+        // Space, and one button that names the result.
         Row(modifier = Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
             Text(
-                text = stringResource(R.string.review_one_suggests),
+                text = stringResource(
+                    R.string.sort_suggests,
+                    stringResource(com.orbit.app.ui.screens.home.suggestedActionLabel(com.orbit.app.data.local.entity.SuggestedItemType.Reminder)),
+                ),
                 modifier = Modifier.padding(start = 6.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         FlowRow(
+            modifier = Modifier.padding(top = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DemoChip(stringResource(R.string.core_task), faded = true)
+            DemoChip(stringResource(R.string.core_reminder))
+            DemoChip(stringResource(R.string.core_note), faded = true)
+        }
+        FlowRow(
             modifier = Modifier.padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            DemoChip(stringResource(R.string.core_reminder))
             DemoChip(stringResource(R.string.core_tomorrow))
             DemoChip(localizedSpaceName("Health"))
         }
-        Row(modifier = Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .weight(2f)
-                    .heightIn(min = 44.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    stringResource(R.string.core_capture_action_set_reminder),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 44.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    stringResource(R.string.review_to_sort_change),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
+        Box(
+            modifier = Modifier
+                .padding(top = 18.dp)
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .background(MaterialTheme.colorScheme.primary, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                stringResource(R.string.core_capture_action_set_reminder),
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.labelLarge,
+            )
         }
     }
 }
@@ -517,6 +533,7 @@ private fun TutorialSpacePicker(
                                 style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Box(
                                 modifier = Modifier
@@ -549,6 +566,16 @@ private fun TutorialSpacePicker(
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 label = { Text(stringResource(R.string.tutorial_space_setup_name)) },
+                // The keyboard's Done adds the Space, like the + button.
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, capitalization = KeyboardCapitalization.Sentences),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (customName.isNotBlank()) {
+                            onAddCustomSpace(customName)
+                            customName = ""
+                        }
+                    },
+                ),
             )
             IconButton(
                 onClick = {
@@ -562,9 +589,26 @@ private fun TutorialSpacePicker(
         }
         state.customNames.forEach { name ->
             TextButton(onClick = { onRemoveCustomSpace(name) }, enabled = !state.isSaving) {
-                Text(stringResource(R.string.tutorial_space_setup_remove, name))
+                Text(
+                    text = stringResource(R.string.tutorial_space_setup_remove, name),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
+        // Says which Spaces will be made, so the choice is clear before "Start".
+        val picked = StarterSpaces.templates.filter { it.key in state.selectedTemplateKeys }
+            .map { localizedStarterSpaceName(it) } + state.customNames
+        Text(
+            text = if (picked.isEmpty()) {
+                stringResource(R.string.tutorial_spaces_none_picked)
+            } else {
+                stringResource(R.string.tutorial_spaces_picked, picked.joinToString(", "))
+            },
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (state.saveFailed) {
             Text(
                 text = stringResource(R.string.tutorial_space_setup_error),
@@ -573,4 +617,11 @@ private fun TutorialSpacePicker(
             )
         }
     }
+}
+
+@androidx.annotation.StringRes
+internal fun tutorialPrimaryLabel(isLastPage: Boolean, isReplay: Boolean): Int = when {
+    !isLastPage -> R.string.tutorial_continue
+    isReplay -> R.string.tutorial_done
+    else -> R.string.tutorial_start
 }

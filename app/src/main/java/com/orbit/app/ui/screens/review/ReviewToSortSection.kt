@@ -5,7 +5,9 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.Box
@@ -114,14 +116,25 @@ internal fun ToSortRow(
             if (offerSplit) {
                 CompactTonalButton(stringResource(R.string.split_offer_action), onSplit)
             } else when (item.state) {
-                ToSortState.Suggested -> FilledTonalIconButton(
-                    onClick = onAccept,
-                    modifier = Modifier.size(44.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = stringResource(acceptLabelRes(item.suggestedType)),
-                    )
+                ToSortState.Suggested -> {
+                    // A short visible word; TalkBack hears what it will save, e.g. "Make it a task".
+                    val acceptLabel = stringResource(acceptLabelRes(item.suggestedType))
+                    FilledTonalButton(
+                        onClick = onAccept,
+                        contentPadding = PaddingValues(start = 10.dp, end = 14.dp),
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .semantics { contentDescription = acceptLabel },
+                    ) {
+                        Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            stringResource(R.string.review_to_sort_accept_short),
+                            modifier = Modifier.clearAndSetSemantics { },
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                        )
+                    }
                 }
                 ToSortState.NeedsChoice -> CompactTonalButton(
                     stringResource(if (item.lowConfidence) R.string.review_to_sort_sort else R.string.review_to_sort_pick_time),

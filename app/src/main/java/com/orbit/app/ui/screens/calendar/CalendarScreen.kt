@@ -47,7 +47,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
@@ -171,18 +173,30 @@ fun CalendarScreen(
                 FilledTonalButton(
                     onClick = onToday,
                     contentPadding = PaddingValues(horizontal = 14.dp),
-                    modifier = Modifier.height(36.dp),
                 ) {
                     Text(stringResource(R.string.core_today), style = MaterialTheme.typography.labelLarge)
                 }
             }
-            IconButton(
+            // A labelled switch: the word says which view it opens.
+            val toggleDescription = stringResource(if (isMonth) R.string.calendar_show_day else R.string.calendar_show_month)
+            TextButton(
                 onClick = { onViewSelected(if (isMonth) CalendarViewMode.Day else CalendarViewMode.Month) },
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .semantics { contentDescription = toggleDescription },
             ) {
                 Icon(
                     imageVector = if (isMonth) Icons.Rounded.ViewAgenda else Icons.Rounded.CalendarViewMonth,
-                    contentDescription = stringResource(if (isMonth) R.string.calendar_show_day else R.string.calendar_show_month),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(if (isMonth) R.string.calendar_toggle_day else R.string.calendar_toggle_month),
+                    modifier = Modifier.padding(start = 6.dp).clearAndSetSemantics { },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(onClick = onAddForSelectedDate) {
@@ -249,7 +263,7 @@ private fun CalendarWeekStrip(
     val todayLabel = stringResource(R.string.core_today)
     val hasItemsLabel = stringResource(R.string.core_has_scheduled_items)
     val selectedLabel = stringResource(R.string.core_selected)
-    val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("EEEE d MMMM", locale) }
+    val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern(com.orbit.app.domain.model.LocalizedDatePatterns.forLocale(locale).longWeekdayDate, locale) }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -520,7 +534,7 @@ private fun CalendarMonthView(
 
 @Composable
 internal fun CalendarDayTitle(date: LocalDate, today: LocalDate, locale: Locale, modifier: Modifier = Modifier) {
-    val formatter = remember(locale) { DateTimeFormatter.ofPattern("EEEE d MMMM", locale) }
+    val formatter = remember(locale) { DateTimeFormatter.ofPattern(com.orbit.app.domain.model.LocalizedDatePatterns.forLocale(locale).longWeekdayDate, locale) }
     val dayText = date.format(formatter).replaceFirstChar { it.titlecase(locale) }
     Text(
         text = if (date == today) stringResource(R.string.calendar_today_prefix, dayText) else dayText,

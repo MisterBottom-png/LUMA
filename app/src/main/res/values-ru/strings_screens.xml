@@ -90,7 +90,7 @@
     <string name="spaces_colour">Цвет</string>
     <string name="spaces_icon_travel">Путешествия</string>
     <string name="search_filter_all">Все</string>
-    <string name="search_group_to_sort">Разобрать</string>
+    <string name="search_group_to_sort">Ещё не разобрано</string>
     <string name="search_group_tasks">Задачи</string>
     <string name="search_group_reminders">Напоминания</string>
     <string name="search_group_notes">Заметки</string>

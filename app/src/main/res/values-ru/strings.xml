@@ -11,8 +11,6 @@
     <string name="navigation_settings">Настройки</string>
 
     <string name="settings_title">Настройки</string>
-    <string name="settings_back">Назад к настройкам</string>
-    <string name="settings_back_to_menu">Назад в меню «%1$s»</string>
     <string name="settings_appearance_title">Оформление</string>
 
     <string name="settings_time_title">Время</string>
@@ -38,8 +36,6 @@
     <string name="settings_colors_subtitle">Цвет текста и второй цвет</string>
     <string name="settings_background_title">Фон</string>
     <string name="settings_background_subtitle">Готовый фон или своё изображение</string>
-    <string name="settings_transparency_title">Прозрачность</string>
-    <string name="settings_transparency_subtitle">Эффекты фона и непрозрачность поверхностей</string>
     <string name="settings_status_gemini_ready">Gemini API готов</string>
     <string name="settings_status_key_saved">сохранён</string>
     <string name="settings_status_key_not_saved">не сохранён</string>

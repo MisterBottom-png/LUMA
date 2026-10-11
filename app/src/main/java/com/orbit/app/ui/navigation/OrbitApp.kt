@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
@@ -49,6 +50,7 @@ import com.orbit.app.ui.components.OrbitBackground
 import com.orbit.app.ui.screens.calendar.CalendarScreen
 import com.orbit.app.ui.screens.calendar.CalendarViewModel
 import com.orbit.app.ui.screens.home.HomeScreen
+import com.orbit.app.ui.screens.home.SpaceCaptureTarget
 import com.orbit.app.ui.screens.home.HomeWeekViewModel
 import com.orbit.app.ui.screens.item.ItemDetailScreen
 import com.orbit.app.ui.screens.item.ItemDetailViewModel
@@ -234,10 +236,29 @@ fun OrbitApp(
                     val homeWeekViewModel: HomeWeekViewModel = viewModel(
                         factory = HomeWeekViewModel.Factory(container.calendarRepository),
                     )
+                    LifecycleResumeEffect(homeWeekViewModel) {
+                        homeWeekViewModel.refreshToday()
+                        onPauseOrDispose { }
+                    }
+                    // Home left open across midnight moves to the new day too.
+                    LaunchedEffect(homeWeekViewModel) {
+                        while (true) {
+                            kotlinx.coroutines.delay(millisUntilNextLocalMidnight(java.time.ZonedDateTime.now()))
+                            homeWeekViewModel.refreshToday()
+                        }
+                    }
                     val homeWeekUiState by homeWeekViewModel.uiState.collectAsStateWithLifecycle()
                     val calendarCaptureEpochDay by entry.savedStateHandle
                         .getStateFlow<Long?>(CalendarCaptureContext.EpochDayKey, null)
                         .collectAsStateWithLifecycle()
+                    val spaceCaptureId by entry.savedStateHandle
+                        .getStateFlow<Long?>(SpaceCaptureContext.SpaceIdKey, null)
+                        .collectAsStateWithLifecycle()
+                    val homeSpaces by remember { container.spaceRepository.observeAll() }
+                        .collectAsStateWithLifecycle(initialValue = emptyList())
+                    val spaceCaptureTarget = spaceCaptureId?.let { id ->
+                        homeSpaces.firstOrNull { it.id == id && !it.archived }?.let { SpaceCaptureTarget(it.id, it.name) }
+                    }
                     val brainDumpResumeCaptureId by entry.savedStateHandle
                         .getStateFlow<Long?>(BrainDumpResumeContext.CaptureIdKey, null)
                         .collectAsStateWithLifecycle()
@@ -267,6 +288,10 @@ fun OrbitApp(
                         onCalendarDateContextConsumed = {
                             entry.savedStateHandle[CalendarCaptureContext.EpochDayKey] = null
                         },
+                        spaceContext = spaceCaptureTarget,
+                        onSpaceContextConsumed = {
+                            entry.savedStateHandle[SpaceCaptureContext.SpaceIdKey] = null
+                        },
                         onCalendarDateSelected = { date ->
                             navController.navigateToCalendar(date)
                         },
@@ -277,6 +302,9 @@ fun OrbitApp(
                             navController.navigate(OrbitDestination.Settings.route) {
                                 launchSingleTop = true
                             }
+                        },
+                        onOpenSearch = {
+                            navController.navigate(SearchDestination.BaseRoute) { launchSingleTop = true }
                         },
                         focusCaptureOnOpen = settings.focusCaptureOnOpen,
                         focusRequest = focusCaptureRequest,
@@ -322,6 +350,7 @@ fun OrbitApp(
                         },
                         onOpenToday = { navController.navigateToCalendar(LocalDate.now()) },
                         onToggleDone = spacesViewModel::toggleDone,
+                        onAddThought = { spaceId -> navController.returnHomeWithSpaceCapture(spaceId) },
                     )
                 }
                 composable(SpaceDetailDestination.UnfiledRoute) {
@@ -347,6 +376,7 @@ fun OrbitApp(
                         onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
+                        onAddThought = { spaceId -> navController.returnHomeWithSpaceCapture(spaceId) },
                     )
                 }
                 composable(
@@ -378,6 +408,7 @@ fun OrbitApp(
                         onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
+                        onAddThought = { spaceId -> navController.returnHomeWithSpaceCapture(spaceId) },
                     )
                 }
                 composable(OrbitDestination.Review.route) { entry ->
@@ -417,6 +448,9 @@ fun OrbitApp(
                             reviewViewModel::keepCarryForwardUnscheduled,
                         onCompleteCarryForward = reviewViewModel::completeCarryForward,
                         onWeeklyLookBackVisible = reviewViewModel::loadWeeklySummary,
+                        onCarryForwardAllTomorrow = reviewViewModel::carryForwardAllTomorrow,
+                        onUndoChange = reviewViewModel::undoChange,
+                        onChangeUndoExpired = reviewViewModel::changeUndoExpired,
                         onAskLuma = { prompt ->
                             situationAiQuestion = prompt?.name
                             showSituationAi = true
@@ -808,3 +842,8 @@ private fun com.orbit.app.ui.screens.spaces.SpaceItemReference.route(): String {
     }
     return ItemDetailDestination.route(detailType, id)
 }
+
+/** Time until the next local midnight, plus a second so the new day has begun. */
+internal fun millisUntilNextLocalMidnight(now: java.time.ZonedDateTime): Long =
+    java.time.Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(now.zone)).toMillis()
+        .coerceAtLeast(0L) + 1_000L

@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -66,7 +67,6 @@ import com.orbit.app.R
 import com.orbit.app.domain.model.AiMode
 import com.orbit.app.domain.model.AppAccentColor
 import com.orbit.app.domain.model.AppSettings
-import com.orbit.app.domain.model.GlassEffect
 import com.orbit.app.domain.model.SettingsThemeMode
 import com.orbit.app.domain.model.withDefaultAppearance
 import com.orbit.app.ui.components.GroupDivider
@@ -114,10 +114,14 @@ internal fun SettingsHome(
     ) {
         GroupedCard {
             ProfileRow(
-                name = settings.userName,
+                // The stored placeholder is not a name: the row says "Add your name".
+                name = com.orbit.app.domain.model.chosenUserName(settings.userName).orEmpty(),
                 onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Profile)) },
             )
         }
+
+        // Reminders come first: whether they can reach you matters more than how things look.
+        RemindersGroup(settings = settings, onSettingsChanged = onSettingsChanged)
 
         SettingsGroupBlock(title = stringResource(R.string.settings_appearance_title)) {
             ControlBlock(icon = Icons.Filled.Contrast, title = stringResource(R.string.settings_theme)) {
@@ -178,25 +182,15 @@ internal fun SettingsHome(
                 onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Background)) },
             )
             GroupDivider(startInset = 64.dp)
-            ControlBlock(icon = Icons.Filled.AutoAwesome, title = stringResource(R.string.settings_glass_effect)) {
-                ChoiceRow(
-                    choices = GlassEffect.entries,
-                    selected = settings.glassEffect,
-                    label = { stringResource(it.labelRes()) },
-                    onSelected = { onSettingsChanged(settings.copy(glassEffect = it)) },
-                )
-            }
-            GroupDivider(startInset = 64.dp)
+            // One Glass page: three presets, with the finer controls under Advanced.
             SettingsLinkRow(
-                title = stringResource(R.string.settings_transparency_title),
-                value = stringResource(settings.glassPreference.labelRes()),
+                title = stringResource(R.string.settings_glass_title),
+                value = stringResource(GlassPreset.of(settings)?.titleRes ?: R.string.settings_glass_custom),
                 icon = Icons.Filled.Tune,
                 iconColor = SettingsHues.Look,
                 onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Glass)) },
             )
         }
-
-        RemindersGroup(settings = settings, onSettingsChanged = onSettingsChanged)
 
         SettingsGroupBlock(title = stringResource(R.string.settings_section_language_time)) {
             SettingsLinkRow(
@@ -283,11 +277,15 @@ internal fun SettingsHome(
         AlertDialog(
             onDismissRequest = { showResetConfirmation = false },
             title = { Text(stringResource(R.string.settings_reset_appearance)) },
+            text = { Text(stringResource(R.string.settings_reset_appearance_body)) },
             confirmButton = {
-                TextButton(onClick = {
-                    onSettingsChanged(settings.withDefaultAppearance())
-                    showResetConfirmation = false
-                }) { Text(stringResource(R.string.settings_reset_appearance)) }
+                TextButton(
+                    onClick = {
+                        onSettingsChanged(settings.withDefaultAppearance())
+                        showResetConfirmation = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.settings_reset_appearance)) }
             },
             dismissButton = {
                 TextButton(onClick = { showResetConfirmation = false }) {

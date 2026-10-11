@@ -87,10 +87,10 @@
     <string name="home_voice_next">Say the next thought</string>
     <string name="brain_overview_back">Back to the list</string>
     <string name="spaces_preview_placeholder">Your new Space</string>
-    <string name="spaces_colour">Colour</string>
+    <string name="spaces_colour">Color</string>
     <string name="spaces_icon_travel">Travel</string>
     <string name="search_filter_all">All</string>
-    <string name="search_group_to_sort">To sort</string>
+    <string name="search_group_to_sort">Still to sort</string>
     <string name="search_group_tasks">Tasks</string>
     <string name="search_group_reminders">Reminders</string>
     <string name="search_group_notes">Notes</string>

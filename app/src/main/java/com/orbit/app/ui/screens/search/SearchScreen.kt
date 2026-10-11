@@ -80,6 +80,8 @@ import com.orbit.app.R
 import com.orbit.app.domain.search.LocalSearchResult
 import com.orbit.app.domain.search.LocalSearchStatus
 import com.orbit.app.ui.components.GroupDivider
+import com.orbit.app.ui.components.horizontalEdgeFade
+import androidx.compose.ui.draw.alpha
 import com.orbit.app.ui.components.GroupedCard
 import com.orbit.app.ui.components.SectionHeader
 import com.orbit.app.ui.components.TintedIconChip
@@ -177,11 +179,17 @@ internal fun SearchContent(
             )
         }
         item(key = "filters") {
+            val chipScroll = rememberScrollState()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp)
-                    .horizontalScroll(rememberScrollState())
+                    // Fades the cut-off side so more chips read as "scroll for more".
+                    .horizontalEdgeFade(
+                        fadeStart = chipScroll.canScrollBackward,
+                        fadeEnd = chipScroll.canScrollForward,
+                    )
+                    .horizontalScroll(chipScroll)
                     .selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -247,7 +255,18 @@ internal fun SearchContent(
                                 ),
                         ) {
                             SectionHeader(title = stringResource(group.labelRes))
-                            GroupedCard {
+                            if (group == SearchGroup.ToSort) {
+                                Text(
+                                    text = stringResource(R.string.search_to_sort_note),
+                                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            GroupedCard(
+                                // Quieter than finished items: raw thoughts are source material.
+                                modifier = if (group == SearchGroup.ToSort) Modifier.alpha(0.86f) else Modifier,
+                            ) {
                                 results.forEachIndexed { index, result ->
                                     if (index > 0) GroupDivider(startInset = 64.dp)
                                     SearchResultRow(
@@ -514,15 +533,16 @@ private fun CalmSearchEmptyState(
 }
 
 /** Result groups, in the order they are shown. */
+/** Result groups in display order: thoughts still to sort come after finished items, quietly. */
 internal enum class SearchGroup(@StringRes val labelRes: Int) {
-    ToSort(R.string.search_group_to_sort),
     Tasks(R.string.search_group_tasks),
     Reminders(R.string.search_group_reminders),
     Notes(R.string.search_group_notes),
+    ToSort(R.string.search_group_to_sort),
     Archived(R.string.search_group_archived),
 }
 
-private fun LocalSearchResult.groupKey(): SearchGroup = when {
+internal fun LocalSearchResult.groupKey(): SearchGroup = when {
     status == LocalSearchStatus.Archived -> SearchGroup.Archived
     type == ItemDetailType.Capture -> SearchGroup.ToSort
     type == ItemDetailType.Task -> SearchGroup.Tasks

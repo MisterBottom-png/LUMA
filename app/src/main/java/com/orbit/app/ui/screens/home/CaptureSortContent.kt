@@ -328,7 +328,7 @@ internal fun SortForm(
         ) {
             spaces.forEach { space ->
                 SortChip(
-                    label = localizedSpaceName(space.name),
+                    label = if (space.id == null) stringResource(R.string.core_inbox) else localizedSpaceName(space.name),
                     selected = selectedSpaceId == space.id,
                     enabled = !isPerformingAction,
                     onClick = { onSpaceSelected(if (selectedSpaceId == space.id) null else space.id) },
@@ -421,16 +421,19 @@ internal fun SortForm(
 
     aboveButton()
 
+    // The button always names the result and waits until the choice is complete.
     val needsTime = selectedAction == CaptureDecisionAction.CreateReminder && reminderAt == null
+    if (needsTime) {
+        Text(
+            text = stringResource(R.string.sort_pick_time_first),
+            modifier = Modifier.padding(top = 16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
     Button(
-        onClick = {
-            if (needsTime) {
-                pickDateTime(context, null, initialDate, timeFormat, onReminderAtChanged)
-            } else {
-                onConfirm()
-            }
-        },
-        enabled = !isPerformingAction && title.isNotBlank(),
+        onClick = onConfirm,
+        enabled = sortPrimaryEnabled(isPerformingAction, title, needsTime),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 24.dp)
@@ -440,13 +443,16 @@ internal fun SortForm(
             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
         } else {
             Text(
-                text = stringResource(if (needsTime) R.string.sort_pick_time else selectedAction.primaryLabelRes),
+                text = stringResource(selectedAction.primaryLabelRes),
                 style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp),
             )
         }
     }
     below()
 }
+
+internal fun sortPrimaryEnabled(isPerformingAction: Boolean, title: String, needsTime: Boolean): Boolean =
+    !isPerformingAction && title.isNotBlank() && !needsTime
 
 @Composable
 private fun SortLabel(text: String) {
@@ -519,7 +525,7 @@ private fun CaptureDecisionAction.tileLabelRes(): Int = when (this) {
     CaptureDecisionAction.CreateTask -> R.string.core_task
     CaptureDecisionAction.CreateReminder -> R.string.core_reminder
     CaptureDecisionAction.SaveNote -> R.string.core_note
-    CaptureDecisionAction.KeepInbox -> R.string.core_inbox
+    CaptureDecisionAction.KeepInbox -> R.string.sort_type_later
 }
 
 private fun CaptureDecisionAction.tileIcon(): ImageVector = when (this) {

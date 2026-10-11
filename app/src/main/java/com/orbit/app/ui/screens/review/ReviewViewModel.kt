@@ -117,6 +117,10 @@ data class ReviewUiState(
     val toSort: List<ToSortItem> = emptyList(),
     val pendingSortUndo: SortUndoToken? = null,
     val sortMessage: ReviewSortMessage? = null,
+    /** Undo for the latest "To tomorrow", carry-forward or thought action. */
+    val pendingChangeUndo: ReviewChangeToken? = null,
+    /** True while the weekly look back is being written. */
+    val weeklySummaryLoading: Boolean = false,
 ) {
     /** "All sorted" is only claimed when nothing at all is waiting. */
     val nothingWaiting: Boolean
@@ -178,6 +182,7 @@ class ReviewViewModel internal constructor(
             taskRepository = container.taskRepository,
         ),
         brainDumpActions = container.brainDumpActions,
+        archivedTaskStatus = container.archivedTaskStatusMemory,
     ),
     private val taskUndoController: ReviewTaskUndoController = ReviewTaskUndoController(
         container.taskRepository,
@@ -187,6 +192,14 @@ class ReviewViewModel internal constructor(
     private val weeklySummary = MutableStateFlow<SourceLinkedAnswer?>(null)
     private val pendingTaskUndo = MutableStateFlow<ReviewTaskUndoToken?>(null)
     private val sortFeedback = MutableStateFlow<Pair<SortUndoToken?, ReviewSortMessage?>>(null to null)
+    private val pendingChange = MutableStateFlow<ReviewChangeToken?>(null)
+    private val weeklyLoading = MutableStateFlow(false)
+    private val changeUndo = ReviewChangeUndo(
+        taskRepository = container.taskRepository,
+        reminderRepository = container.reminderRepository,
+        captureRepository = container.captureRepository,
+        brainDumpRepository = container.brainDumpRepository,
+    )
     private var sortActionInProgress = false
     private var weeklyDataVersion = 0L
 
@@ -240,12 +253,14 @@ class ReviewViewModel internal constructor(
         smallerAction,
         weeklySummary,
         pendingTaskUndo,
-        sortFeedback,
-    ) { data, smallAction, summary, taskUndo, feedback ->
+        combine(sortFeedback, pendingChange, weeklyLoading) { sort, change, loading -> Triple(sort, change, loading) },
+    ) { data, smallAction, summary, taskUndo, (feedback, change, loading) ->
         val state = buildUiState(data, smallAction, summary, taskUndo)
         state.copy(
             pendingSortUndo = feedback.first,
             sortMessage = feedback.second,
+            pendingChangeUndo = change,
+            weeklySummaryLoading = loading && summary == null,
             toSort = state.toSort.map { item -> item.withSplitOffer() },
         )
     }.stateIn(
@@ -371,13 +386,13 @@ class ReviewViewModel internal constructor(
 
     fun keepTaskActive(loop: ReviewLoop) = updateLoop(loop, actions::keepTaskActive)
 
-    fun confirmCapture(loop: ReviewLoop) = updateLoop(loop, actions::confirmCapture)
+    fun confirmCapture(loop: ReviewLoop) = changeThought(loop, ReviewChangeKind.ThoughtKept, actions::confirmCapture)
 
     fun archive(loop: ReviewLoop) {
         if (loop.type == ReviewLoopType.Task) {
             updateUndoableTask(loop, actions::archive)
         } else {
-            updateLoop(loop, actions::archive)
+            changeThought(loop, ReviewChangeKind.ThoughtLetGo) { actions.archive(it) }
         }
     }
 
@@ -385,27 +400,79 @@ class ReviewViewModel internal constructor(
 
     fun deferTask(loop: ReviewLoop) = updateUndoableTask(loop, actions::deferTask)
 
-    fun carryForwardTomorrow(item: ReviewItem) = updateItem(item, actions::carryForwardTomorrow)
+    fun carryForwardTomorrow(item: ReviewItem) = carryForwardAllTomorrow(listOf(item))
 
-    fun carryForwardToDate(item: ReviewItem, epochDay: Long) = updateItem(item) {
-        actions.carryForwardToDate(it, epochDay)
+    /** "To tomorrow" for every item from earlier at once, with one Undo. */
+    fun carryForwardAllTomorrow(items: List<ReviewItem>) {
+        val movable = items.filter { it.type != ReviewItemType.Capture }
+        if (movable.isEmpty()) return
+        changeItems(movable, ReviewChangeKind.MovedTomorrow) { movable.forEach { actions.carryForwardTomorrow(it) } }
+    }
+
+    /** A chosen day; days before today are refused (the picker does not offer them either). */
+    fun carryForwardToDate(item: ReviewItem, epochDay: Long) {
+        if (!carryForwardDayAllowed(epochDay, LocalDate.now(ZoneId.systemDefault()))) return
+        changeItems(listOf(item), ReviewChangeKind.MovedToDate) { actions.carryForwardToDate(item, epochDay) }
     }
 
     fun keepCarryForwardUnscheduled(item: ReviewItem) =
-        updateItem(item, actions::keepUnscheduled)
+        changeItems(listOf(item), ReviewChangeKind.KeptUndated) { actions.keepUnscheduled(item) }
 
-    fun completeCarryForward(item: ReviewItem) = updateItem(item, actions::completeCarryForward)
+    fun completeCarryForward(item: ReviewItem) =
+        changeItems(listOf(item), ReviewChangeKind.Completed) { actions.completeCarryForward(item) }
 
-    fun dismissCapture(loop: ReviewLoop) = updateLoop(loop, actions::dismissCapture)
+    fun dismissCapture(loop: ReviewLoop) = changeThought(loop, ReviewChangeKind.ThoughtHandled, actions::dismissCapture)
+
+    fun undoChange(operationId: Long) {
+        viewModelScope.launch {
+            if (pendingChange.value?.operationId != operationId) return@launch
+            runCatching { changeUndo.undo(operationId) }
+            if (pendingChange.value?.operationId == operationId) pendingChange.value = null
+        }
+    }
+
+    /** Clears [operationId] only if it is still the latest change, so a newer Undo is kept. */
+    fun changeUndoExpired(operationId: Long) {
+        if (pendingChange.value?.operationId == operationId) {
+            changeUndo.expire(operationId)
+            pendingChange.value = null
+        }
+    }
+
+    private fun changeItems(items: List<ReviewItem>, kind: ReviewChangeKind, change: suspend () -> Unit) {
+        val targets = ReviewChangeTargets(
+            taskIds = items.filter { it.type == ReviewItemType.Task }.map { it.id },
+            reminderIds = items.filter { it.type == ReviewItemType.Reminder }.map { it.id },
+        )
+        viewModelScope.launch {
+            runCatching { changeUndo.record(kind, targets, change) }
+                .onSuccess { pendingChange.value = it }
+        }
+    }
+
+    private fun changeThought(loop: ReviewLoop, kind: ReviewChangeKind, change: suspend (ReviewLoop) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                changeUndo.record(kind, ReviewChangeTargets(captureIds = listOf(loop.id))) { change(loop) }
+            }.onSuccess { pendingChange.value = it }
+            if (smallerAction.value?.sourceKey == loop.key) smallerAction.value = null
+        }
+    }
 
     fun loadWeeklySummary() {
-        if (weeklySummary.value != null) return
+        if (weeklySummary.value != null || weeklyLoading.value) return
+        weeklyLoading.value = true
         viewModelScope.launch {
-            val data = reviewData.first()
-            val version = weeklyDataVersion
-            val sources = weeklyReviewSources(data, System.currentTimeMillis(), ZoneId.systemDefault())
-            val summary = container.aiRouter.summarizeReview(sources, data.settings)
-            if (version == weeklyDataVersion) weeklySummary.value = summary
+            try {
+                val data = reviewData.first()
+                val version = weeklyDataVersion
+                val sources = weeklyReviewSources(data, System.currentTimeMillis(), ZoneId.systemDefault())
+                val summary = container.aiRouter.summarizeReview(sources, data.settings)
+                if (version == weeklyDataVersion) weeklySummary.value = summary
+            } finally {
+                // A failure leaves the calm fallback text, never an endless spinner.
+                weeklyLoading.value = false
+            }
         }
     }
 
@@ -456,10 +523,6 @@ class ReviewViewModel internal constructor(
             }
             if (smallerAction.value?.sourceKey == loop.key) smallerAction.value = null
         }
-    }
-
-    private fun updateItem(item: ReviewItem, update: suspend (ReviewItem) -> Unit) {
-        viewModelScope.launch { update(item) }
     }
 
     private fun buildUiState(
@@ -720,6 +783,8 @@ internal class ReviewActions(
     private val now: () -> Long = System::currentTimeMillis,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
+    private val archivedTaskStatus: com.orbit.app.data.local.ArchivedTaskStatusMemory =
+        com.orbit.app.data.local.ArchivedTaskStatusMemory.None,
 ) {
     suspend fun keepTaskActive(loop: ReviewLoop) {
         require(loop.type == ReviewLoopType.Task)
@@ -750,6 +815,7 @@ internal class ReviewActions(
     suspend fun archive(loop: ReviewLoop): ReviewTaskMutation? = when (loop.type) {
         ReviewLoopType.Task -> taskRepository.getById(loop.id)?.let { task ->
             val updated = task.copy(status = TaskStatus.Archived, updatedAt = now())
+            archivedTaskStatus.remember(task.id, task.status)
             taskRepository.update(updated)
             ReviewTaskMutation(
                 action = ReviewTaskMutationAction.Archived,

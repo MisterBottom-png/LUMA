@@ -35,7 +35,8 @@ class CaptureResolution(
         val suggestion = suggestionDao.getByCaptureId(captureId)
         val reminderId = confirmCaptureAction.createReminder(
             captureId = captureId,
-            spaceId = spaceIdFor(suggestion?.suggestedSpaceName),
+            spaceId = activeSpaceId(captureRepository.getById(captureId)?.suggestedSpaceId)
+                ?: spaceIdFor(suggestion?.suggestedSpaceName),
             title = title,
             dueAt = reminderAt,
             labelNames = suggestion?.labelNames().orEmpty(),
@@ -53,7 +54,8 @@ class CaptureResolution(
         val suggestion = suggestionDao.getByCaptureId(captureId)?.takeUnless { it.dismissed } ?: return null
         // Not sure enough for one tap: the user chooses in the sheet.
         if (suggestion.isLowConfidence) return null
-        val spaceId = spaceIdFor(suggestion.suggestedSpaceName)
+        // A Space the user picked when saving wins over the suggested one.
+        val spaceId = activeSpaceId(capture.suggestedSpaceId) ?: spaceIdFor(suggestion.suggestedSpaceName)
         val labels = suggestion.labelNames()
         val title = suggestion.suggestedTitle
         return when (suggestion.suggestedType) {
@@ -113,6 +115,10 @@ class CaptureResolution(
         val capture = captureRepository.getById(captureId) ?: return
         if (capture.status != CaptureStatus.Archived) return
         captureRepository.update(capture.copy(status = CaptureStatus.Inbox, updatedAt = now()))
+    }
+
+    private suspend fun activeSpaceId(id: Long?): Long? = id?.let { spaceId ->
+        spaceRepository.getById(spaceId)?.takeUnless { it.archived }?.id
     }
 
     private suspend fun spaceIdFor(name: String?): Long? = name?.let { spaceName ->

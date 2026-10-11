@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import com.orbit.app.ui.components.OutlinedButton
@@ -30,6 +31,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -136,6 +140,10 @@ internal fun AiSettingsCard(
                         showClearLearningConfirmation = false
                         onClearLearningData()
                     },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
                 ) {
                     Text(stringResource(R.string.settings_clear_learning_confirm))
                 }
@@ -374,6 +382,7 @@ private fun AiSettingsDetailsCard(
                         ),
                     )
                 }
+                if (!aiSettings.hasKey) DisabledHint(stringResource(R.string.settings_key_needed_hint))
                 aiSettings.connectionMessage?.let { message ->
                     Text(
                         text = message,
@@ -413,6 +422,7 @@ private fun AiSettingsDetailsCard(
 
         if (AiSettingsContent.Features in visibleContent) {
             SettingsGroup(title = stringResource(R.string.settings_use_gemini_for)) {
+                if (!canUseGeminiFeatures) DisabledHint(stringResource(R.string.settings_gemini_needed_hint))
                 AiFeatureSwitch(
                     title = stringResource(R.string.settings_capture_suggestions),
                     checked = settings.useGeminiForCapture,
@@ -478,6 +488,18 @@ private fun AiSettingsDetailsCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                when {
+                    !settings.enableLocalAiLearning -> DisabledHint(stringResource(R.string.settings_learning_needed_hint))
+                    !canUseGeminiFeatures -> DisabledHint(stringResource(R.string.settings_gemini_needed_hint))
+                }
+                if (aiSettings.learnedRuleFailed) {
+                    Text(
+                        text = stringResource(R.string.settings_learned_rule_update_failed),
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 aiSettings.learnedRules.forEach { rule ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -571,4 +593,14 @@ private fun AiFeatureSwitch(
             enabled = enabled,
         )
     }
+}
+
+/** Says why the controls next to it are turned off. */
+@Composable
+private fun DisabledHint(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

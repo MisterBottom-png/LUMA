@@ -109,6 +109,17 @@ object CalendarCaptureContext {
     }
 }
 
+/** A Space's "+": the next thought saved on Home goes into that Space. */
+object SpaceCaptureContext {
+    const val SpaceIdKey = "spaceCaptureSpaceId"
+}
+
+fun NavController.returnHomeWithSpaceCapture(spaceId: Long): Boolean {
+    getBackStackEntry(OrbitDestination.Home.route)
+        .savedStateHandle[SpaceCaptureContext.SpaceIdKey] = spaceId
+    return popBackStack(OrbitDestination.Home.route, inclusive = false)
+}
+
 object SharedTextContext {
     const val TextKey = "sharedTextForHome"
 
