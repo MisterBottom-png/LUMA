@@ -93,6 +93,33 @@ class HomeWeekViewModelTest {
     }
 
     @Test
+    fun showToday_returnsFromAnotherWeek() {
+        val handle = SavedStateHandle()
+        val repository = FakeCalendarRepository()
+        val original = viewModel(handle, repository)
+
+        original.moveVisibleWeek(2)
+        original.showToday()
+        val restored = viewModel(handle, repository)
+
+        assertEquals(today, original.uiState.value.visibleWeekDate)
+        assertEquals(today, restored.uiState.value.visibleWeekDate)
+        assertEquals(today.minusDays(6), repository.observedRanges.last().startDate)
+    }
+
+    @Test
+    fun showToday_doesNothingOnTodaysWeek() {
+        val handle = SavedStateHandle()
+        val viewModel = viewModel(handle, FakeCalendarRepository())
+        val before = viewModel.uiState.value
+
+        viewModel.showToday()
+
+        assertEquals(before, viewModel.uiState.value)
+        assertEquals(today.toEpochDay(), handle.get<Long>("home.week.visibleDate"))
+    }
+
+    @Test
     fun today_anchorsTheInitialWeek() {
         val viewModel = viewModel(SavedStateHandle(), FakeCalendarRepository())
 
