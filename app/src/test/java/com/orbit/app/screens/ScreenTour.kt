@@ -1,5 +1,6 @@
 package com.orbit.app.screens
 
+import android.app.NotificationManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -7,6 +8,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -55,6 +57,8 @@ import org.junit.runner.RunWith
 import org.junit.runners.model.Statement
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowAlarmManager
 
 /**
  * Design review tour: renders every main screen of the real app to PNG so the look can be
@@ -429,6 +433,40 @@ abstract class ScreenTour(private val theme: String) {
         shot("home-receipt-reminder")
     }
 
+    /**
+     * Step 2: the reminder health row in Settings, calm when nothing blocks reminders and
+     * with one "Turn on" when notifications are off (red: a seeded reminder is due within a
+     * day). The row re-reads Android on resume, so each change pauses and resumes the activity.
+     */
+    private fun reminderHealthScreens() {
+        fun allowReminders(notifications: Boolean) {
+            val app = compose.activity.application
+            shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+            shadowOf(app.getSystemService(NotificationManager::class.java)).setNotificationsEnabled(notifications)
+            ShadowAlarmManager.setCanScheduleExactAlarms(true)
+            compose.activityRule.scenario.moveToState(Lifecycle.State.STARTED)
+            compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+            compose.waitForIdle()
+        }
+        tapTab("Home")
+        step("settings") { compose.onNodeWithContentDescription("Open settings").performClick(); compose.waitForIdle() }
+        step("reminders ok") {
+            allowReminders(notifications = true)
+            compose.waitUntil(10_000) { count("Nothing is blocking reminders.") > 0 }
+        }
+        shot("settings-reminders-ok")
+        step("notifications off") {
+            allowReminders(notifications = false)
+            compose.waitUntil(10_000) { count("Notifications are off, so reminders can’t ring.") > 0 }
+        }
+        shot("settings-reminders-blocked")
+        step("notifications back on") {
+            allowReminders(notifications = true)
+            compose.waitUntil(10_000) { count("Nothing is blocking reminders.") > 0 }
+        }
+        back()
+    }
+
     /** A messy list written in one go opens as a calm list of thoughts to tick and save. */
     private fun brainDump(prefix: String) {
         tapTab("Home")
@@ -465,6 +503,7 @@ abstract class ScreenTour(private val theme: String) {
         mainScreens("a")
         extraScreens("x")
         smallFixScreens("s9")
+        reminderHealthScreens()
 
         // The same screens in the violet look (accent + background).
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick() }

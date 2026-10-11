@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,25 +33,33 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.orbit.app.R
-import com.orbit.app.ui.reminders.openReminderNotificationSettings
 import com.orbit.app.reminders.ReminderCapabilities
-import com.orbit.app.reminders.ReminderCapabilityState
 import com.orbit.app.reminders.ReminderCapabilityStatus
+import com.orbit.app.reminders.ReminderHealth
+import com.orbit.app.reminders.ReminderHealthFix
+import com.orbit.app.reminders.ReminderHealthIssue
+import com.orbit.app.reminders.ReminderNotifier
+import com.orbit.app.reminders.health
 import com.orbit.app.ui.components.TintedIconChip
+import kotlinx.coroutines.launch
 
 /**
- * Whether reminders can reach the user, said plainly, with the one fix right on the row
- * ("Turn on" when notifications are off, "Allow" when exact timing is off).
+ * Settings › Reminders health row: one line that is calm when nothing blocks reminders,
+ * and exactly one fix button when something does. Re-read on every return to Tallele.
  */
 @Composable
 internal fun ReminderStatusRow(icon: ImageVector, iconColor: Color) {
-    val context = LocalContext.current
     val status = rememberReminderCapabilityStatus()
-    val exactAlarmIntent = if (status.state == ReminderCapabilityState.MayBeLate && status.exactAlarmsAdjustable) {
-        ReminderCapabilities.exactAlarmSettingsIntent(context)
-    } else {
-        null
-    }
+    val nextNotificationAt = rememberNextReminderNotificationAt()
+    val health = status.health(nextNotificationAt = nextNotificationAt, now = System.currentTimeMillis())
+    ReminderHealthRow(health = health, icon = icon, iconColor = iconColor)
+}
+
+@Composable
+internal fun ReminderHealthRow(health: ReminderHealth, icon: ImageVector, iconColor: Color) {
+    val context = LocalContext.current
+    val samsungSteps = remember(context) { ReminderCapabilities.needsSamsungSteps(context) }
+    val showSamsungSteps = health.issue == ReminderHealthIssue.MayBeStopped && samsungSteps
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -62,35 +71,36 @@ internal fun ReminderStatusRow(icon: ImageVector, iconColor: Color) {
         TintedIconChip(icon = icon, color = iconColor)
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = stringResource(R.string.settings_reminder_delivery_title),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = stringResource(status.state.messageRes()),
+                text = stringResource(health.issue.messageRes()),
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (status.state == ReminderCapabilityState.Blocked) {
+                style = MaterialTheme.typography.bodyMedium,
+                // Red only when reminders can't ring and one is due within a day.
+                color = if (health.urgent) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
+            if (showSamsungSteps) {
+                Text(
+                    text = stringResource(R.string.reminder_health_samsung_steps),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
-        when {
-            status.state == ReminderCapabilityState.Blocked -> RowActionButton(
-                label = stringResource(R.string.settings_turn_on),
-                onClick = { openReminderNotificationSettings(context) },
-            )
-            exactAlarmIntent != null -> RowActionButton(
-                label = stringResource(R.string.settings_allow),
-                onClick = { context.startSafely(exactAlarmIntent) },
+        val fix = health.fix
+        val intent = remember(context, health.issue) { ReminderCapabilities.fixIntent(context, health.issue) }
+        if (fix != null && intent != null) {
+            RowActionButton(
+                label = stringResource(fix.labelRes()),
+                onClick = { context.startSafely(intent) },
             )
         }
     }
 }
 
-/** Re-reads Android's permissions every time the user comes back to LUMA. */
+/** Re-reads Android's permissions every time the user comes back to Tallele. */
 @Composable
 internal fun rememberReminderCapabilityStatus(): ReminderCapabilityStatus {
     val context = LocalContext.current
@@ -102,14 +112,37 @@ internal fun rememberReminderCapabilityStatus(): ReminderCapabilityStatus {
     return status
 }
 
+/** The next reminder that has not rung yet, re-read on every return to Tallele. */
+@Composable
+private fun rememberNextReminderNotificationAt(): Long? {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var next by remember { mutableStateOf<Long?>(null) }
+    LifecycleResumeEffect(context) {
+        val job = scope.launch {
+            next = runCatching {
+                ReminderNotifier.reminderDao(context).nextUndeliveredNotificationAt(System.currentTimeMillis())
+            }.getOrNull()
+        }
+        onPauseOrDispose { job.cancel() }
+    }
+    return next
+}
+
 @StringRes
-internal fun ReminderCapabilityState.messageRes(): Int = when (this) {
-    // The battery hint gets its own row text with the reminder health row; until then
-    // it reads as before, since nothing in Android blocks or delays reminders.
-    ReminderCapabilityState.Ready, ReminderCapabilityState.MayBeStopped ->
-        R.string.settings_reminder_delivery_ready
-    ReminderCapabilityState.MayBeLate -> R.string.settings_reminder_delivery_may_be_late
-    ReminderCapabilityState.Blocked -> R.string.settings_reminder_delivery_blocked
+internal fun ReminderHealthIssue.messageRes(): Int = when (this) {
+    ReminderHealthIssue.None -> R.string.reminder_health_ok
+    ReminderHealthIssue.NotificationsOff -> R.string.reminder_health_notifications_off
+    ReminderHealthIssue.ChannelOff -> R.string.reminder_health_channel_off
+    ReminderHealthIssue.MayBeLate -> R.string.reminder_health_late
+    ReminderHealthIssue.MayBeStopped -> R.string.reminder_health_battery
+}
+
+@StringRes
+internal fun ReminderHealthFix.labelRes(): Int = when (this) {
+    ReminderHealthFix.TurnOn -> R.string.settings_turn_on
+    ReminderHealthFix.Allow -> R.string.settings_allow
+    ReminderHealthFix.Check -> R.string.reminder_health_action_check
 }
 
 /** A whole-row switch: the label and the switch are one target for touch and TalkBack. */
