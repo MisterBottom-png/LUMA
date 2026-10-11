@@ -19,9 +19,14 @@ class ProposeLearnedRuleUseCase(
     private val correctionHistoryRepository: AiCorrectionHistoryRepository,
     private val learnedRuleRepository: LearnedRuleRepository,
     private val isLearningEnabled: suspend () -> Boolean = { true },
+    /**
+     * Whether a saved rule would be used at all. Learned rules only reach Gemini
+     * prompts, so with Gemini or sharing off, Tallele does not offer to save one.
+     */
+    private val rulesAreUsed: suspend () -> Boolean = isLearningEnabled,
 ) {
     suspend fun proposalAfterCorrection(): LearnedRuleProposal? {
-        if (!isLearningEnabled()) return null
+        if (!isLearningEnabled() || !rulesAreUsed()) return null
         val corrections = correctionHistoryRepository.observeAll().first()
         val candidate = corrections
             .asSequence()

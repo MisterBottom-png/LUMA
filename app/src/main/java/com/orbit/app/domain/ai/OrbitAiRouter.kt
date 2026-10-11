@@ -52,6 +52,8 @@ class OrbitAiRouter(
     private val learningProfileProvider: LearningProfileProvider = EmptyLearningProfileProvider,
     private val locale: () -> Locale = { Locale.ENGLISH },
     private val zoneId: () -> ZoneId = { ZoneId.systemDefault() },
+    private val answerText: LocalAnswerText = EnglishLocalAnswerText,
+    private val retriever: LocalAiRetriever = LocalAiRetriever(),
 ) {
     suspend fun analyzeCapture(
         rawText: String,
@@ -268,7 +270,15 @@ class OrbitAiRouter(
         question: String,
         sources: List<AiSourceItem>,
     ): SourceLinkedAnswer {
-        if (sources.isEmpty()) return noDataAnswer()
+        if (sources.isEmpty()) {
+            return SourceLinkedAnswer(
+                answer = answerText.text(localGuidanceLocale(question, locale()), LocalAnswerKind.NoMatch, ""),
+                sourceItemIds = emptyList(),
+                sourceItems = emptyList(),
+                fromGemini = false,
+                searchQuery = question.trim(),
+            )
+        }
         // V1 keeps factual answers deterministic. Gemini is not allowed to add facts or state;
         // source-backed wording can be reintroduced only behind a validator that proves this.
         return localAnswer(question, sources)
@@ -409,29 +419,20 @@ class OrbitAiRouter(
 
     private fun noDataAnswer(): SourceLinkedAnswer =
         SourceLinkedAnswer(
-            answer = noDataMessage(locale()),
+            answer = answerText.text(locale(), LocalAnswerKind.NoData, ""),
             sourceItemIds = emptyList(),
             sourceItems = emptyList(),
             fromGemini = false,
         )
 
+    /** Cites the first three sources; the wording comes from string resources. */
     private fun localAnswer(question: String, sources: List<AiSourceItem>): SourceLinkedAnswer {
         val top = sources.take(3)
+        val locale = localGuidanceLocale(question, locale())
         val answer = if (top.isEmpty()) {
-            noDataMessage(localGuidanceLocale(question, locale()))
+            answerText.text(locale, LocalAnswerKind.NoData, "")
         } else {
-            val lower = question.lowercase()
-            val englishPrefix = when {
-                "overdue" in lower || "late" in lower -> "These matching local items are overdue: "
-                listOf("stuck", "blocked", "waiting").any(lower::contains) -> "These local items are marked Waiting For: "
-                listOf("completed", "complete", "done", "finished").any(lower::contains) -> "These matching local items are completed: "
-                listOf("due", "upcoming", "today", "soon").any(lower::contains) -> "These local items have upcoming dates: "
-                listOf("recent", "recently", "latest", "new", "captured").any(lower::contains) -> "These local items were updated recently: "
-                else -> "These local items match your question: "
-            }
-            val prefix = localizedLocalAnswerPrefix(question)
-                ?: englishPrefix
-            prefix + top.joinToString { it.title } + "."
+            answerText.text(locale, retriever.answerKind(question), top.joinToString { it.title })
         }
         return SourceLinkedAnswer(
             answer = answer,
@@ -444,18 +445,18 @@ class OrbitAiRouter(
     private fun List<AiSourceItem>.toProfileQuery(prefix: String): String =
         (listOf(prefix) + take(8).flatMap { item -> listOf(item.title, item.snippet, item.spaceName.orEmpty()) })
             .joinToString(" ")
+}
 
-    private fun noDataMessage(locale: Locale): String = when (locale.language) {
-        "et" -> "Andmeid ei leitud."
-        "ru" -> "Данные не найдены."
-        else -> "No data found."
-    }
-
-    private fun localizedLocalAnswerPrefix(question: String): String? = when (
-        localGuidanceLocale(question, locale()).language
-    ) {
-        "et" -> "Need kohalikud üksused vastavad teie küsimusele: "
-        "ru" -> "Эти локальные элементы соответствуют вашему вопросу: "
-        else -> null
+/** English wording, for tests and as a fallback; the app passes string resources. */
+object EnglishLocalAnswerText : LocalAnswerText {
+    override fun text(locale: Locale, kind: LocalAnswerKind, titles: String): String = when (kind) {
+        LocalAnswerKind.NoMatch -> "Nothing in Tallele mentions that."
+        LocalAnswerKind.NoData -> "Nothing found."
+        LocalAnswerKind.Matches -> "These mention it: $titles."
+        LocalAnswerKind.Overdue -> "These are overdue: $titles."
+        LocalAnswerKind.Waiting -> "These are waiting on something: $titles."
+        LocalAnswerKind.Completed -> "These are done: $titles."
+        LocalAnswerKind.Upcoming -> "These have dates coming up: $titles."
+        LocalAnswerKind.Recent -> "These changed recently: $titles."
     }
 }

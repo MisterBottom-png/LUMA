@@ -85,7 +85,12 @@ object ItemDetailDestination {
 }
 
 object SearchDestination {
-    const val Route = "search"
+    const val QueryArgument = "query"
+    const val BaseRoute = "search"
+    const val Route = "$BaseRoute?$QueryArgument={$QueryArgument}"
+
+    /** Search, opened with [query] already typed (for example from Ask). */
+    fun route(query: String): String = "$BaseRoute?$QueryArgument=${android.net.Uri.encode(query)}"
 }
 
 object SpaceDetailDestination {
@@ -102,6 +107,17 @@ object CalendarCaptureContext {
     fun date(epochDay: Long?): LocalDate? = epochDay?.let {
         runCatching { LocalDate.ofEpochDay(it) }.getOrNull()
     }
+}
+
+/** A Space's "+": the next thought saved on Home goes into that Space. */
+object SpaceCaptureContext {
+    const val SpaceIdKey = "spaceCaptureSpaceId"
+}
+
+fun NavController.returnHomeWithSpaceCapture(spaceId: Long): Boolean {
+    getBackStackEntry(OrbitDestination.Home.route)
+        .savedStateHandle[SpaceCaptureContext.SpaceIdKey] = spaceId
+    return popBackStack(OrbitDestination.Home.route, inclusive = false)
 }
 
 object SharedTextContext {

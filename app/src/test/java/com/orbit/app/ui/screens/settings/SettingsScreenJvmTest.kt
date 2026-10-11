@@ -68,12 +68,17 @@ class SettingsScreenJvmTest {
         composeRule.onNodeWithContentDescription("Sage").performScrollTo().performClick()
         assertEquals(AppAccentColor.Sage, settings.accentColor)
 
-        composeRule.onNodeWithText("Off").performScrollTo().performClick()
+        // Glass is one page: a preset sets the effect and the opacity together.
+        composeRule.onNodeWithText("Glass").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Solid").performScrollTo().performClick()
         assertEquals(GlassEffect.Off, settings.glassEffect)
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Language").performScrollTo().performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithContentDescription("Back to Settings menu").performClick()
+        composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Your data").assertExists()
     }

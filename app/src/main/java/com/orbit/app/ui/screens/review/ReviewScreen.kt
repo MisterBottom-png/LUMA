@@ -121,6 +121,9 @@ fun ReviewScreen(
     onKeepCarryForwardUnscheduled: (ReviewItem) -> Unit,
     onCompleteCarryForward: (ReviewItem) -> Unit,
     onWeeklyLookBackVisible: () -> Unit,
+    onCarryForwardAllTomorrow: (List<ReviewItem>) -> Unit = { items -> items.forEach(onCarryForwardTomorrow) },
+    onUndoChange: (Long) -> Unit = {},
+    onChangeUndoExpired: (Long) -> Unit = {},
     onAskLuma: (AskLumaPrompt?) -> Unit = {},
     onAcceptToSort: (ToSortItem) -> Unit = {},
     onChangeToSort: (ToSortItem) -> Unit = {},
@@ -159,6 +162,8 @@ fun ReviewScreen(
     val turnOnLabel = stringResource(R.string.settings_turn_on)
     val turnOnNotifications = rememberTurnOnReminderNotifications()
     val sortMessage = uiState.sortMessage?.let { stringResource(it.messageRes()) }
+    val pendingChangeUndo = uiState.pendingChangeUndo
+    val pendingChangeMessage = pendingChangeUndo?.let { change -> reviewChangeMessage(change) }
     var showOpenLoops by rememberSaveable { mutableStateOf(false) }
     var showAllOpenLoops by rememberSaveable { mutableStateOf(false) }
     var showAllToSort by rememberSaveable { mutableStateOf(false) }
@@ -186,12 +191,32 @@ fun ReviewScreen(
         val result = snackbarHostState.showSnackbar(
             message = message,
             actionLabel = undoLabel,
-            duration = SnackbarDuration.Short,
+            duration = SnackbarDuration.Long,
         )
         if (result == SnackbarResult.ActionPerformed) {
             onUndoTaskMutation(taskUndo.operationId)
         } else {
             onTaskUndoExpired(taskUndo.operationId)
+        }
+    }
+    // Keyed on the change; the token is cleared only after the snackbar is gone,
+    // and only if it is still this change.
+    LaunchedEffect(pendingChangeUndo?.operationId) {
+        val change = pendingChangeUndo ?: return@LaunchedEffect
+        val message = pendingChangeMessage ?: return@LaunchedEffect
+        var undone = false
+        try {
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = undoLabel,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                undone = true
+                onUndoChange(change.operationId)
+            }
+        } finally {
+            if (!undone) onChangeUndoExpired(change.operationId)
         }
     }
     // Keyed on the feedback itself and cleared only after the snackbar is gone.
@@ -311,6 +336,7 @@ fun ReviewScreen(
                                 onExpandedChange = { earlierExpanded = it },
                                 onOpen = onReviewItemSelected,
                                 onTomorrow = onCarryForwardTomorrow,
+                                onAllTomorrow = onCarryForwardAllTomorrow,
                                 onChooseDate = onCarryForwardToDate,
                                 onKeepUnscheduled = onKeepCarryForwardUnscheduled,
                                 onComplete = onCompleteCarryForward,
@@ -394,6 +420,21 @@ fun ReviewScreen(
         )
         sortHost(snackbarHostState)
     }
+}
+
+@Composable
+private fun reviewChangeMessage(change: ReviewChangeToken): String = when (change.kind) {
+    ReviewChangeKind.MovedTomorrow -> if (change.count == 1) {
+        stringResource(R.string.review_change_moved_tomorrow_one)
+    } else {
+        pluralStringResource(R.plurals.review_change_moved_tomorrow_many, change.count, change.count)
+    }
+    ReviewChangeKind.MovedToDate -> stringResource(R.string.review_change_moved_date)
+    ReviewChangeKind.KeptUndated -> stringResource(R.string.review_change_kept_undated)
+    ReviewChangeKind.Completed -> stringResource(R.string.review_change_completed)
+    ReviewChangeKind.ThoughtKept -> stringResource(R.string.review_change_thought_kept)
+    ReviewChangeKind.ThoughtHandled -> stringResource(R.string.review_change_thought_handled)
+    ReviewChangeKind.ThoughtLetGo -> stringResource(R.string.review_sort_let_go)
 }
 
 private fun SortUndoToken.messageRes(): Int = when (this) {

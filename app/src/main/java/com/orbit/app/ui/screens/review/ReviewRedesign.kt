@@ -37,6 +37,11 @@ import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -97,6 +102,7 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 
 /** Title row: Review, a breath button and an Ask button whose questions open as a menu. */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 internal fun ReviewHeader(
     title: String,
     summary: String,
@@ -115,31 +121,40 @@ internal fun ReviewHeader(
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            IconButton(onClick = onBreathe) {
-                Icon(
-                    imageVector = Icons.Rounded.Spa,
-                    contentDescription = stringResource(R.string.review_breathe_start),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            // The leaf says what it does when held, as well as to TalkBack.
+            TooltipBox(
+                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                tooltip = { PlainTooltip { Text(stringResource(R.string.review_breathe_start)) } },
+                state = rememberTooltipState(),
+            ) {
+                IconButton(onClick = onBreathe) {
+                    Icon(
+                        imageVector = Icons.Rounded.Spa,
+                        contentDescription = stringResource(R.string.review_breathe_start),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             Box {
                 FilledTonalButton(
                     onClick = { askOpen = true },
                     contentPadding = PaddingValues(start = 12.dp, end = 16.dp),
-                    modifier = Modifier.height(40.dp),
+                    modifier = Modifier.heightIn(min = 48.dp),
                 ) {
                     Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(stringResource(R.string.review_ask_button), style = MaterialTheme.typography.labelLarge)
                 }
                 LumaMenu(expanded = askOpen, onDismissRequest = { askOpen = false }) {
+                    LumaMenuItem(
+                        text = { Text(stringResource(R.string.review_ask_own), fontWeight = FontWeight.SemiBold) },
+                        onClick = { askOpen = false; onAsk(null) },
+                    )
+                    LumaMenuGap()
                     AskLumaPrompt.entries.forEach { prompt ->
                         LumaMenuItem(
                             text = {
-                                Text(
-                                    stringResource(prompt.labelRes),
-                                    fontWeight = if (prompt == AskLumaPrompt.WhatNow) FontWeight.SemiBold else null,
-                                )
+                                Text(stringResource(prompt.labelRes))
                             },
                             onClick = { askOpen = false; onAsk(prompt) },
                         )
@@ -399,6 +414,7 @@ internal fun FromEarlierGroup(
     onChooseDate: (ReviewItem, Long) -> Unit,
     onKeepUnscheduled: (ReviewItem) -> Unit,
     onComplete: (ReviewItem) -> Unit,
+    onAllTomorrow: (List<ReviewItem>) -> Unit = { items -> items.forEach(onTomorrow) },
 ) {
     val context = LocalContext.current
     GroupedCard {
@@ -437,7 +453,7 @@ internal fun FromEarlierGroup(
                 )
             } else {
                 CompactTonalButton(stringResource(R.string.review_move_all_tomorrow)) {
-                    suggestions.forEach { onTomorrow(it.item) }
+                    onAllTomorrow(suggestions.map { it.item })
                 }
             }
         }
@@ -449,9 +465,12 @@ internal fun FromEarlierGroup(
                     onOpen = { onOpen(suggestion.item) },
                     onTomorrow = { onTomorrow(suggestion.item) },
                     onChooseDate = {
-                        val initial = Instant.ofEpochMilli(suggestion.item.timestamp)
-                            .atZone(ZoneId.systemDefault())
-                            .toLocalDate()
+                        // Its own day has passed, so the picker opens on today at the earliest.
+                        val today = LocalDate.now(ZoneId.systemDefault())
+                        val initial = maxOf(
+                            Instant.ofEpochMilli(suggestion.item.timestamp).atZone(ZoneId.systemDefault()).toLocalDate(),
+                            today,
+                        )
                         showEarlierDatePicker(context, initial) { epochDay -> onChooseDate(suggestion.item, epochDay) }
                     },
                     onKeepUnscheduled = { onKeepUnscheduled(suggestion.item) },
@@ -546,7 +565,11 @@ private fun showEarlierDatePicker(
         initialDate.year,
         initialDate.monthValue - 1,
         initialDate.dayOfMonth,
-    ).show()
+    ).apply {
+        // Earlier days cannot be chosen: the item would come straight back here.
+        datePicker.minDate = LocalDate.now(ZoneId.systemDefault())
+            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    }.show()
 }
 
 /** Weekly look back as a quiet row; on the weekend a short hint says now is a good time. */

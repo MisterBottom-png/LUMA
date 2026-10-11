@@ -106,15 +106,22 @@ class HomeCaptureViewModel(
     )
     internal val uiState: StateFlow<HomeCaptureUiState> = _uiState.asStateFlow()
     private var awaitingAnalysisFor: Long? = null
+    /** True when the awaited thought was added for a Calendar day. */
+    private var awaitingForCalendarDay = false
 
     init {
         viewModelScope.launch {
             captureInbox.events.collect { event ->
                 if (event.captureId != awaitingAnalysisFor) return@collect
                 awaitingAnalysisFor = null
+                val forCalendarDay = awaitingForCalendarDay
+                awaitingForCalendarDay = false
                 when (event) {
-                    is CaptureInboxEvent.Analyzed -> onAnalyzed(event.captureId, event.analysis)
-                    is CaptureInboxEvent.AnalysisFailed -> Unit
+                    is CaptureInboxEvent.Analyzed -> onAnalyzed(event.captureId, event.analysis, forCalendarDay)
+                    // Added for a Calendar day: still open the sheet, so the day can be used.
+                    is CaptureInboxEvent.AnalysisFailed -> if (forCalendarDay) {
+                        _uiState.update { it.copy(sortRequest = SortRequest(event.captureId, startWithReminderSetup = false)) }
+                    }
                 }
             }
         }
@@ -132,7 +139,7 @@ class HomeCaptureViewModel(
     }
 
     /** Saves the thought. Returns false when there is nothing to save. */
-    fun send(calendarDateContextEpochDay: Long? = null): Boolean {
+    fun send(calendarDateContextEpochDay: Long? = null, spaceId: Long? = null): Boolean {
         val rawText = _uiState.value.inputText.trim()
         if (rawText.isBlank() || _uiState.value.isProcessing) return false
         val safeContext = calendarDateContextEpochDay
@@ -141,7 +148,10 @@ class HomeCaptureViewModel(
         viewModelScope.launch {
             try {
                 // Registered before analysis starts, so a fast result is not missed.
-                captureInbox.save(rawText, contextDateEpochDay = safeContext) { id -> awaitingAnalysisFor = id }
+                captureInbox.save(rawText, contextDateEpochDay = safeContext, spaceId = spaceId) { id ->
+                    awaitingAnalysisFor = id
+                    awaitingForCalendarDay = safeContext != null
+                }
             } catch (_: Exception) {
                 // Nothing was saved: keep the text in the box so it is not lost.
                 _uiState.update {
@@ -162,12 +172,13 @@ class HomeCaptureViewModel(
         return true
     }
 
-    private suspend fun onAnalyzed(captureId: Long, analysis: CaptureAnalysis) {
+    private suspend fun onAnalyzed(captureId: Long, analysis: CaptureAnalysis, forCalendarDay: Boolean) {
         val settings = appSettingsRepository.settings.first()
-        when {
-            settings.sortRightAfterSaving ->
+        when (afterSaving(analysis, settings.sortRightAfterSaving, forCalendarDay, now())) {
+            AfterSaving.OpenSortSheet ->
                 _uiState.update { it.copy(sortRequest = SortRequest(captureId, startWithReminderSetup = false)) }
-            analysis.needsImmediateTimeQuestion(now()) -> _uiState.update {
+            AfterSaving.Nothing -> Unit
+            AfterSaving.AskForTime -> _uiState.update {
                 it.copy(
                     quickReminder = QuickReminderQuestion(
                         captureId = captureId,
@@ -255,4 +266,21 @@ class HomeCaptureViewModel(
     private companion object {
         const val DraftTextKey = "homeCaptureDraft"
     }
+}
+
+internal enum class AfterSaving { OpenSortSheet, AskForTime, Nothing }
+
+/**
+ * What Home does once a saved thought is analysed. A thought added from a Calendar
+ * day opens the sort sheet with that day preset, as if "Sort right after saving" were on.
+ */
+internal fun afterSaving(
+    analysis: CaptureAnalysis,
+    sortRightAfterSaving: Boolean,
+    addedForCalendarDay: Boolean,
+    now: Long,
+): AfterSaving = when {
+    sortRightAfterSaving || addedForCalendarDay -> AfterSaving.OpenSortSheet
+    analysis.needsImmediateTimeQuestion(now) -> AfterSaving.AskForTime
+    else -> AfterSaving.Nothing
 }

@@ -28,6 +28,8 @@ data class AiSettingsUiState(
     val isClearingLearning: Boolean = false,
     val learningClearSucceeded: Boolean? = null,
     val learnedRules: List<LearnedRuleEntity> = emptyList(),
+    /** A learned rule could not be changed; shown on the Learning page. */
+    val learnedRuleFailed: Boolean = false,
 )
 
 class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
@@ -205,6 +207,7 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
     fun updateLearnedRule(rule: LearnedRuleEntity) {
         viewModelScope.launch {
             runCatching { container.learnedRuleRepository.update(rule) }
+                .onSuccess { _uiState.update { it.copy(learnedRuleFailed = false) } }
                 .onFailure { reportLearnedRuleFailure() }
         }
     }
@@ -212,17 +215,13 @@ class AiSettingsViewModel(private val container: OrbitContainer) : ViewModel() {
     fun deleteLearnedRule(rule: LearnedRuleEntity) {
         viewModelScope.launch {
             runCatching { container.learnedRuleRepository.delete(rule) }
+                .onSuccess { _uiState.update { it.copy(learnedRuleFailed = false) } }
                 .onFailure { reportLearnedRuleFailure() }
         }
     }
 
     private fun reportLearnedRuleFailure() {
-        _uiState.update {
-            it.copy(
-                connectionMessage = localized(R.string.settings_learned_rule_update_failed),
-                connectionSucceeded = false,
-            )
-        }
+        _uiState.update { it.copy(learnedRuleFailed = true) }
     }
 
     class Factory(private val container: OrbitContainer) : ViewModelProvider.Factory {

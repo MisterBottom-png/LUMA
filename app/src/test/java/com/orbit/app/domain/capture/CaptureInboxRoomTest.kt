@@ -121,6 +121,21 @@ class CaptureInboxRoomTest {
     )
 
     @Test
+    fun theCalendarDayIsKeptWithTheThoughtAndSurvivesARestartBeforeAnalysis() = runBlocking {
+        val day = java.time.LocalDate.of(2026, 7, 20).toEpochDay()
+        // The test scope is cancelled, so no analysis runs: the app "stops" right after saving.
+        val note = inbox().save("Ideas for the garden", contextDateEpochDay = day)
+        val dump = inbox().save("Ideas for the garden\nCall the plumber", contextDateEpochDay = day)
+        assertEquals(day, database.captureDao().getById(note)?.contextDateEpochDay)
+
+        // After the restart a new inbox picks the pending thoughts up.
+        inbox().analyzePending()
+
+        assertEquals(day, database.captureSuggestionDao().getByCaptureId(note)?.contextDateEpochDay)
+        assertEquals(day, database.brainDumpDao().getSession(dump)?.calendarDateContextEpochDay)
+    }
+
+    @Test
     fun aThoughtIsSafeInTheInboxBeforeAnyAnalysis() = runBlocking {
         val id = inbox().save("  call the bank tomorrow  ")
         val capture = requireNotNull(database.captureDao().getById(id))
@@ -331,5 +346,25 @@ class CaptureInboxRoomTest {
         assertEquals(home, stored.suggestedSpaceId)
         // Sorting reads the suggestion's Space, so it must name the chosen one too.
         assertEquals("Home", database.captureSuggestionDao().getByCaptureId(id)?.suggestedSpaceName)
+    }
+
+    @Test
+    fun aThoughtAddedFromASpaceGoesIntoThatSpace() = runBlocking {
+        val household = database.spaceDao().insert(
+            SpaceEntity(name = "Household", icon = "home", colorAccent = "#000000", sortOrder = 0),
+        )
+        database.spaceDao().insert(SpaceEntity(name = "Work", icon = "work", colorAccent = "#000000", sortOrder = 1))
+        val inbox = inbox()
+        val id = inbox.save("Send the quarterly report to the team", spaceId = household)
+        inbox.analyze(id)
+
+        assertEquals(household, database.captureDao().getById(id)?.suggestedSpaceId)
+        val accepted = requireNotNull(resolution().acceptSuggestion(id))
+        val spaceOfItem = when (accepted.itemType) {
+            SuggestedItemType.Note -> database.noteDao().getById(accepted.itemId)?.spaceId
+            SuggestedItemType.Reminder -> database.reminderDao().getById(accepted.itemId)?.spaceId
+            else -> database.taskDao().getById(accepted.itemId)?.spaceId
+        }
+        assertEquals(household, spaceOfItem)
     }
 }

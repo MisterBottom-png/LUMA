@@ -18,11 +18,11 @@
     <string name="calendar_show_day">Näita päeva</string>
     <string name="calendar_show_month">Näita kuud</string>
     <string name="calendar_today_prefix">Täna · %1$s</string>
-    <string name="calendar_free_until">Vaba kuni %1$s</string>
+    <string name="calendar_free_until">Midagi pole plaanis kuni %1$s</string>
     <string name="calendar_now">Praegu, %1$s</string>
     <string name="calendar_nothing_planned">Midagi pole plaanis</string>
-    <string name="calendar_free_day">Vaba päev. Lisa midagi ainult siis, kui tahad.</string>
-    <string name="calendar_free_day_short">Midagi pole plaanis. Vaba päev.</string>
+    <string name="calendar_free_day">Midagi pole plaanis. Lisa asju ainult siis, kui tahad.</string>
+    <string name="calendar_free_day_short">Midagi pole plaanis.</string>
     <string name="calendar_add_to_day">Lisa sellele päevale</string>
     <string name="review_ask_button">Küsi</string>
     <string name="review_summary_to_sort">%1$d sorteerida</string>
@@ -90,7 +90,7 @@
     <string name="spaces_colour">Värv</string>
     <string name="spaces_icon_travel">Reisimine</string>
     <string name="search_filter_all">Kõik</string>
-    <string name="search_group_to_sort">Sorteerimiseks</string>
+    <string name="search_group_to_sort">Veel sorteerimata</string>
     <string name="search_group_tasks">Ülesanded</string>
     <string name="search_group_reminders">Meeldetuletused</string>
     <string name="search_group_notes">Märkmed</string>

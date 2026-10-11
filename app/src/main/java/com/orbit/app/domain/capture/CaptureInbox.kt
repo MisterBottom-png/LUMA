@@ -82,6 +82,7 @@ class CaptureInbox(
         rawText: String,
         source: CaptureSource = CaptureSource.Manual,
         contextDateEpochDay: Long? = null,
+        spaceId: Long? = null,
         onSaved: (Long) -> Unit = {},
     ): Long {
         val text = rawText.trim()
@@ -94,18 +95,23 @@ class CaptureInbox(
                 updatedAt = timestamp,
                 status = CaptureStatus.Inbox,
                 source = source,
+                // Kept on the thought, so analysis after a restart still knows the day.
+                contextDateEpochDay = contextDateEpochDay,
+                // Chosen by the user (a Space's "+"); it wins over any suggested Space.
+                suggestedSpaceId = spaceId,
             ),
         )
         onSaved(id)
-        scope.launch { analyze(id, contextDateEpochDay) }
+        scope.launch { analyze(id) }
         return id
     }
 
     /**
      * Analyses one Inbox capture and stores the suggestion. Safe to call repeatedly:
      * a capture that already has a suggestion or Brain Dump session is left as is.
+     * The Calendar day, if any, is read from the capture row.
      */
-    suspend fun analyze(captureId: Long, contextDateEpochDay: Long? = null): CaptureAnalysis? {
+    suspend fun analyze(captureId: Long): CaptureAnalysis? {
         analysisMutex.withLock {
             if (!inFlight.add(captureId)) return null
         }
@@ -126,7 +132,7 @@ class CaptureInbox(
             }
             // The suggester can take a while (Gemini waits up to its network timeout).
             // If the user acted on the thought meanwhile, the late result is dropped.
-            if (!store(captureId, analysis, spaces, contextDateEpochDay)) return null
+            if (!store(captureId, analysis, spaces)) return null
             _events.tryEmit(CaptureInboxEvent.Analyzed(captureId, analysis))
             return analysis
         } finally {
@@ -166,9 +172,9 @@ class CaptureInbox(
         captureId: Long,
         analysis: CaptureAnalysis,
         spaces: List<SpaceEntity>,
-        contextDateEpochDay: Long?,
     ): Boolean = transaction.run storeIfStillWaiting@{
         val current = captureRepository.getById(captureId) ?: return@storeIfStillWaiting false
+        val contextDateEpochDay = current.contextDateEpochDay
         if (current.status != CaptureStatus.Inbox) return@storeIfStillWaiting false
         if (suggestionDao.getByCaptureId(captureId) != null) return@storeIfStillWaiting false
         if (brainDumpRepository.getSession(captureId) != null) return@storeIfStillWaiting false

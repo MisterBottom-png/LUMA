@@ -4,6 +4,7 @@ import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import com.orbit.app.domain.model.LocalizedDatePatterns
 import com.orbit.app.domain.model.SettingsTimeFormatMode
 import com.orbit.app.domain.model.uses24HourClock
 import java.time.Instant
@@ -29,26 +30,34 @@ data class OrbitTimeFormat(
         formatTime(LocalTime.MIDNIGHT)
     }
 
+    /** One set of date patterns, in this language's own order (see LocalizedDatePatterns). */
+    private val dates: LocalizedDatePatterns
+        get() = LocalizedDatePatterns.forLocale(locale)
+
     fun formatDate(epochMillis: Long): String =
-        epochMillis.formatWithPattern("EEE, MMM d", locale)
+        epochMillis.formatWithPattern(dates.weekdayDate, locale)
 
     fun formatDate(date: LocalDate): String =
-        date.format(DateTimeFormatter.ofPattern("EEE, MMM d", locale))
+        date.format(DateTimeFormatter.ofPattern(dates.weekdayDate, locale))
 
     fun formatDateWithYear(epochMillis: Long): String =
-        epochMillis.formatWithPattern("MMM d, yyyy", locale)
+        epochMillis.formatWithPattern(dates.dateWithYear, locale)
 
     fun formatDateTime(epochMillis: Long): String =
-        epochMillis.formatWithPattern("MMM d, $timePattern", locale)
+        epochMillis.formatWithPattern("${dates.date}, $timePattern", locale)
 
     fun formatWeekdayDateTime(epochMillis: Long): String =
-        epochMillis.formatWithPattern("EEE, MMM d - $timePattern", locale)
+        epochMillis.formatWithPattern("${dates.weekdayDate}, $timePattern", locale)
 
     fun formatShortDateTime(epochMillis: Long): String =
-        epochMillis.formatWithPattern("MMM d - $timePattern", locale)
+        epochMillis.formatWithPattern("${dates.date}, $timePattern", locale)
+
+    /** "Wednesday, October 15" in this language's order. */
+    fun formatLongDay(date: LocalDate): String =
+        date.format(DateTimeFormatter.ofPattern(dates.longWeekdayDate, locale))
 
     private val timePattern: String
-        get() = if (uses24HourClock) "HH:mm" else "h:mm a"
+        get() = LocalizedDatePatterns.timePattern(uses24HourClock)
 }
 
 @Composable
