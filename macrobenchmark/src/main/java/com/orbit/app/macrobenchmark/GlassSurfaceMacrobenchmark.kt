@@ -35,7 +35,7 @@ class GlassSurfaceMacrobenchmark {
     fun scrollSpaces() = measureRoute("Spaces") { scrollContent() }
 
     @Test
-    fun scrollReview() = measureRoute("Review") { scrollContent() }
+    fun scrollReview() = measureRoute("Needs you") { scrollContent() }
 
     @Test
     fun scrollSettings() = measureSettings { scrollContent() }

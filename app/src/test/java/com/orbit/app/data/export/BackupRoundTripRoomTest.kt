@@ -7,6 +7,8 @@ import com.orbit.app.data.local.entity.BrainDumpItemOutcome
 import com.orbit.app.data.local.entity.BrainDumpReminderStatus
 import com.orbit.app.data.local.entity.BrainDumpSessionEntity
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.LabelEntity
 import com.orbit.app.data.local.entity.LearnedRuleCategory
@@ -69,6 +71,15 @@ class BackupRoundTripRoomTest {
         assertEquals(original.spaces, restored.spaces)
         assertEquals(original.captures, restored.captures)
         assertEquals(20_650L, restored.captures.single { it.id == 10L }.contextDateEpochDay)
+        // Format 7: each thought's stored outcome travels with it.
+        val waiting = restored.captures.single { it.id == 10L }
+        assertEquals(CaptureOutcome.NeedsYou, waiting.outcome)
+        assertEquals(CaptureOutcomeReason.TimeUnclear, waiting.outcomeReason)
+        assertEquals(3L, waiting.outcomeAt)
+        assertEquals(3L, waiting.decidedAt)
+        assertEquals(CaptureOutcome.Filed, restored.captures.single { it.id == 12L }.outcome)
+        assertEquals(CaptureOutcome.Saved, restored.captures.single { it.id == 11L }.outcome)
+        assertNull(restored.captures.single { it.id == 11L }.decidedAt)
         assertEquals(original.notes, restored.notes)
         assertEquals(original.tasks, restored.tasks)
         assertEquals(original.labels, restored.labels)
@@ -123,12 +134,15 @@ class BackupRoundTripRoomTest {
     fun backupsFromFormatsOneToFiveStillRestoreWithoutACalendarDayOnThoughts() = runBlocking {
         seed(source)
         val current = org.json.JSONObject(buildLocalDataExportPayload(RoomLocalDataRestoreStore(source), exportedAt = now))
-        assertEquals(6L, current.getJSONObject("metadata").getLong("version"))
+        assertEquals(7L, current.getJSONObject("metadata").getLong("version"))
         (1..5).forEach { version ->
             val old = org.json.JSONObject(current.toString())
             old.getJSONObject("metadata").put("version", version)
             val captures = old.getJSONArray("captures")
-            (0 until captures.length()).forEach { captures.getJSONObject(it).remove("contextDateEpochDay") }
+            (0 until captures.length()).forEach { index ->
+                listOf("contextDateEpochDay", "outcome", "outcomeReason", "outcomeAt", "decidedAt")
+                    .forEach { captures.getJSONObject(index).remove(it) }
+            }
             val restorer = LocalDataRestorer(
                 RoomLocalDataRestoreStore(target),
                 LocalReminderRestoreReconciler(PolicyRecordingScheduler { now }, target.reminderDao(), now = { now }),
@@ -138,6 +152,65 @@ class BackupRoundTripRoomTest {
             assertEquals("v$version", 3, restored.captures.size)
             assertTrue("v$version", restored.captures.all { it.contextDateEpochDay == null })
         }
+    }
+
+    @Test
+    fun formatSixBackupsRestoreFiledThoughtsAsFiled_andTheRestAsSaved() = runBlocking {
+        seed(source)
+        val current = org.json.JSONObject(buildLocalDataExportPayload(RoomLocalDataRestoreStore(source), exportedAt = now))
+        val old = org.json.JSONObject(current.toString())
+        old.getJSONObject("metadata").put("version", 6)
+        val captures = old.getJSONArray("captures")
+        (0 until captures.length()).forEach { index ->
+            listOf("outcome", "outcomeReason", "outcomeAt", "decidedAt").forEach { captures.getJSONObject(index).remove(it) }
+        }
+        val restorer = LocalDataRestorer(
+            RoomLocalDataRestoreStore(target),
+            LocalReminderRestoreReconciler(PolicyRecordingScheduler { now }, target.reminderDao(), now = { now }),
+        )
+        restorer.restore(requireNotNull(restorer.prepare(old.toString())))
+
+        val restored = RoomLocalDataRestoreStore(target).read().captures
+        assertEquals(3, restored.size)
+        // A sorted thought keeps its answer, like the 10→11 migration gives it (the reminder
+        // made from thought 10 is linked back, but 10 was never sorted: it stays Saved).
+        val filed = restored.single { it.id == 12L }
+        assertEquals(CaptureOutcome.Filed, filed.outcome)
+        assertEquals(5L, filed.decidedAt)
+        val unsorted = restored.filter { it.id != 12L }
+        assertTrue(unsorted.all { it.outcome == CaptureOutcome.Saved && it.outcomeReason == CaptureOutcomeReason.None })
+        assertTrue(unsorted.all { it.outcomeAt == null && it.decidedAt == null })
+        // Format 6 still carries the Calendar day.
+        assertEquals(20_650L, restored.single { it.id == 10L }.contextDateEpochDay)
+    }
+
+    @Test
+    fun aThoughtWhoseItemIsMissingFromTheBackupIsExportedAsSaved() {
+        val json = LocalDataBackupCodec.encode(
+            LocalDataSnapshot(
+                spaces = emptyList(),
+                captures = listOf(
+                    CaptureEntity(
+                        id = 1,
+                        rawText = "call the bank",
+                        status = CaptureStatus.Processed,
+                        linkedItemId = 99,
+                        outcome = CaptureOutcome.ReminderSet,
+                        outcomeAt = 4,
+                        decidedAt = 4,
+                    ),
+                ),
+                notes = emptyList(),
+                tasks = emptyList(),
+                reminders = emptyList(),
+            ),
+            exportedAt = now,
+        )
+        val capture = LocalDataBackupCodec.decode(json).captures.single()
+        assertNull(capture.linkedItemId)
+        assertEquals(CaptureOutcome.Saved, capture.outcome)
+        assertEquals(CaptureOutcomeReason.None, capture.outcomeReason)
+        assertEquals(4L, capture.decidedAt)
     }
 
     @Test
@@ -205,9 +278,9 @@ class BackupRoundTripRoomTest {
         )
         db.captureDao().insertAll(
             listOf(
-                CaptureEntity(id = 10, rawText = "unsorted thought", createdAt = 3, updatedAt = 3, status = CaptureStatus.Inbox, suggestedType = SuggestedItemType.Task, suggestedSpaceId = 1, contextDateEpochDay = 20_650),
+                CaptureEntity(id = 10, rawText = "unsorted thought", createdAt = 3, updatedAt = 3, status = CaptureStatus.Inbox, suggestedType = SuggestedItemType.Task, suggestedSpaceId = 1, contextDateEpochDay = 20_650, outcome = CaptureOutcome.NeedsYou, outcomeReason = CaptureOutcomeReason.TimeUnclear, outcomeAt = 3, decidedAt = 3),
                 CaptureEntity(id = 11, rawText = "a\nb", createdAt = 4, updatedAt = 4, status = CaptureStatus.Inbox),
-                CaptureEntity(id = 12, rawText = "done one", createdAt = 4, updatedAt = 5, status = CaptureStatus.Processed, linkedItemId = 20),
+                CaptureEntity(id = 12, rawText = "done one", createdAt = 4, updatedAt = 5, status = CaptureStatus.Processed, linkedItemId = 20, outcome = CaptureOutcome.Filed, outcomeAt = 5, decidedAt = 5),
             ),
         )
         db.brainDumpDao().insertSessionWithItems(

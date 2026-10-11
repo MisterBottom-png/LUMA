@@ -4,7 +4,7 @@
     <string name="reminder_notification_action_done">Готово</string>
     <string name="reminder_notification_action_snooze">Отложить на 15 мин</string>
     <string name="reminder_notification_missed_body">Пропущено. Срок был %1$s.</string>
-    <string name="reminder_notification_missed_summary_body">Они ждут вас в обзоре.</string>
+    <string name="reminder_notification_missed_summary_body">Они ждут вас в разделе «Ждёт вас».</string>
     <plurals name="reminder_notification_missed_summary_title">
         <item quantity="one">%d напоминание пропущено</item>
         <item quantity="few">%d напоминания пропущено</item>
@@ -22,7 +22,6 @@
     <string name="core_sort_already_sorted">Эта мысль уже разобрана.</string>
     <string name="core_sort_undone">Отменено. Мысль снова ждёт разбора.</string>
     <string name="core_sort_undo_failed">Не удалось отменить. Ничего не потеряно; запись можно изменить в её пространстве.</string>
-    <string name="core_home_saved_let_go">Сохранено. Можно отпустить эту мысль.</string>
     <string name="core_home_quick_reminder_question">Напомнить %1$s?</string>
     <string name="core_home_quick_reminder_when">Когда Tallele должна напомнить?</string>
     <string name="core_home_quick_reminder_set">Напомнить</string>
@@ -98,13 +97,9 @@
     <string name="home_capture_hint_dump">Запишите всё как есть — Tallele разберёт позже</string>
     <string name="home_capture_hint_small">Даже полмысли стоит сохранить</string>
     <string name="settings_sort_right_after_saving">Разбирать сразу после сохранения</string>
-    <string name="settings_sort_right_after_saving_body">Сразу показывать предложение Tallele. Если выключено, мысли спокойно ждут в разделе «Обзор» → «Разобрать».</string>
+    <string name="settings_sort_right_after_saving_body">Открывать сортировку после каждой мысли. Пока это включено, Tallele ничего не раскладывает сама.</string>
     <string name="settings_focus_capture">Открывать клавиатуру на главном экране</string>
     <string name="settings_focus_capture_body">Начинайте печатать сразу, как откроется главный экран.</string>
-    <string name="settings_reminder_delivery_title">Доставка напоминаний</string>
-    <string name="settings_reminder_delivery_ready">Напоминания придут вовремя.</string>
-    <string name="settings_reminder_delivery_may_be_late">Напоминания могут приходить с опозданием на несколько минут. Для точного времени разрешите «Будильники и напоминания».</string>
-    <string name="settings_reminder_delivery_blocked">Уведомления выключены, поэтому напоминания не смогут до вас дойти. Ваши напоминания по-прежнему сохранены.</string>
     <string name="settings_glass_effect">Эффект стекла</string>
     <string name="settings_glass_effect_strong">Сильный</string>
     <string name="settings_glass_effect_soft">Мягкий</string>
@@ -113,10 +108,10 @@
     <string name="spaces_name_taken_archived">Пространство «%1$s» в архиве. Восстановить его вместо создания второго?</string>
     <string name="spaces_name_taken_hidden">Пространство «%1$s» скрыто. Показать его снова вместо создания второго?</string>
     <plurals name="spaces_to_sort_waiting">
-        <item quantity="one">%1$d мысль ждёт в обзоре</item>
-        <item quantity="few">%1$d мысли ждут в обзоре</item>
-        <item quantity="many">%1$d мыслей ждут в обзоре</item>
-        <item quantity="other">%1$d мысли ждут в обзоре</item>
+        <item quantity="one">%1$d мысль ждёт разбора</item>
+        <item quantity="few">%1$d мысли ждут разбора</item>
+        <item quantity="many">%1$d мыслей ждут разбора</item>
+        <item quantity="other">%1$d мысли ждут разбора</item>
     </plurals>
     <string name="shortcut_new_thought_short">Новая мысль</string>
     <string name="shortcut_new_thought_long">Записать новую мысль</string>
@@ -154,6 +149,7 @@
         <item quantity="other">Сегодня ничего нового. С прошлых дней ждут %d, когда будете готовы.</item>
     </plurals>
     <string name="item_discard_title">Отменить изменения?</string>
+    <string name="item_detail_more">Ещё</string>
     <string name="item_discard_body">Изменения в названии и заметках будут потеряны.</string>
     <string name="item_discard_confirm">Не сохранять</string>
     <string name="item_keep_editing">Продолжить</string>

@@ -70,7 +70,7 @@
     <string name="core_situation_what_matters">Что важно?</string>
     <string name="core_situation_what_is_stuck">Что застопорилось?</string>
 
-    <string name="core_review_title">Обзор</string>
+    <string name="core_review_title">Ждёт вас</string>
     <string name="core_review_breathe_in">Вдох</string>
     <string name="core_review_breathe_out">Выдох</string>
     <string name="core_review_weekly_title">Обзор недели</string>
@@ -149,4 +149,23 @@
     <string name="core_learning_save_body">Вы внесли это исправление несколько раз: %1$s</string>
     <string name="core_learning_save_confirm">Сохранить предпочтение</string>
     <string name="core_learning_not_now">Не сейчас</string>
+    <!-- The save receipt under the capture box on Home. -->
+    <string name="receipt_saved">Сохранено.</string>
+    <string name="receipt_saved_note">Сохранено как заметка.</string>
+    <string name="receipt_saved_task">Сохранено как задача.</string>
+    <string name="receipt_filed_note">Добавлено в «%1$s» как заметка.</string>
+    <string name="receipt_filed_task">Задача на %1$s.</string>
+    <string name="receipt_filed_task_in_space">Добавлено в «%1$s» как задача.</string>
+    <string name="receipt_reminder_set">Напоминание установлено на %1$s.</string>
+    <string name="receipt_reminder_not_armed">Сохранено, но напоминание ещё не установлено.</string>
+    <string name="receipt_needs_time">Сохранено. Когда вам напомнить?</string>
+    <string name="receipt_time_passed">Это время уже прошло. Выбрать новое?</string>
+    <string name="receipt_notifications_off">Сохранено, но напоминания не сработают. Уведомления выключены.</string>
+    <string name="receipt_not_scheduled">Сохранено, но Tallele не удалось установить напоминание.</string>
+    <string name="receipt_action_view">Открыть</string>
+    <string name="receipt_action_change">Изменить</string>
+    <string name="receipt_action_choose_time">Выбрать время</string>
+    <string name="receipt_action_turn_on">Включить</string>
+    <string name="receipt_action_try_again">Повторить</string>
+    <string name="receipt_action_keep">Просто сохранить</string>
 </resources>

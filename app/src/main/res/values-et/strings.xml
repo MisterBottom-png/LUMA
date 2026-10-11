@@ -7,7 +7,7 @@
     <string name="settings_manual_dimming">Käsitsi tumedus</string>
     <string name="navigation_home">Avaleht</string>
     <string name="navigation_spaces">Alad</string>
-    <string name="navigation_review">Ülevaade</string>
+    <string name="navigation_review">Vajab sind</string>
     <string name="navigation_settings">Sätted</string>
 
     <string name="settings_title">Sätted</string>
@@ -41,6 +41,10 @@
     <string name="settings_status_key_not_saved">pole salvestatud</string>
     <string name="settings_status_last_export">Viimane eksport on valmis</string>
     <string name="settings_export_json">Ekspordi JSON</string>
+    <string name="settings_create_backup">Loo varukoopia</string>
+    <string name="settings_create_backup_note">Salvestub ühe .json-failina sinu valitud kohta.</string>
+    <string name="settings_restore_backup">Taasta varukoopiast</string>
+    <string name="settings_restore_backup_note">Taastamine asendab selle telefoni andmed. Midagi ei muutu enne, kui kinnitad.</string>
 
     <string name="settings_your_name">Sinu nimi</string>
     <string name="settings_name_supporting">Kuvatakse tervituses</string>

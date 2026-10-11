@@ -123,23 +123,26 @@ fun CalendarDayAgendaView(
             CalendarDayTitle(date = uiState.selectedDate, today = uiState.today, locale = locale)
         }
         if (uiState.isLoadingEntries) return@LazyColumn
-        if (agenda.isEmpty) {
-            item(key = "quiet") {
+        when (agenda.fillerPlacement) {
+            // "Nothing planned" is said once a day: alone on an empty day...
+            CalendarFillerPlacement.EmptyDay -> item(key = "quiet") {
                 CalendarQuietDay(
-                    message = stringResource(R.string.calendar_free_day),
-                    title = stringResource(R.string.calendar_nothing_planned),
+                    message = stringResource(R.string.calendar_nothing_planned),
                     action = onAddForSelectedDate,
                 )
             }
-        } else {
-            item(key = "agenda") {
-                CalendarAgendaList(
-                    agenda = agenda,
-                    timeFormat = timeFormat,
-                    spaces = spaces,
-                    onEntrySelected = onEntrySelected,
-                    compact = false,
-                )
+            // ...or once, quietly, after the last thing on the day.
+            CalendarFillerPlacement.AfterLastItem -> {
+                item(key = "agenda") {
+                    CalendarAgendaList(
+                        agenda = agenda,
+                        timeFormat = timeFormat,
+                        spaces = spaces,
+                        onEntrySelected = onEntrySelected,
+                        compact = false,
+                    )
+                }
+                item(key = "nothing-more") { CalendarNothingMoreLine() }
             }
         }
     }
@@ -191,12 +194,6 @@ internal fun CalendarAgendaList(
                             }
                             is CalendarAgendaRow.Now -> {
                                 CalendarNowRow(timeFormat.formatTime(row.instant.toEpochMilli()))
-                                previousWasItem = false
-                            }
-                            is CalendarAgendaRow.FreeUntil -> {
-                                CalendarFreeRow(
-                                    stringResource(R.string.calendar_free_until, timeFormat.formatTime(row.until.toEpochMilli())),
-                                )
                                 previousWasItem = false
                             }
                         }
@@ -327,20 +324,15 @@ private fun CalendarNowRow(timeText: String) {
 }
 
 @Composable
-private fun CalendarFreeRow(text: String) {
-    Row(
+private fun CalendarNothingMoreLine() {
+    Text(
+        text = stringResource(R.string.calendar_nothing_planned),
         modifier = Modifier
             .fillMaxWidth()
-            .height(34.dp)
-            .padding(start = 104.dp, end = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+            .padding(start = 20.dp, top = 12.dp, end = 16.dp),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** A day with nothing on it: said kindly, with one gentle way to add something. */

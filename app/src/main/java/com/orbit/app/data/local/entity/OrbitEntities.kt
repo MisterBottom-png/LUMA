@@ -1,11 +1,31 @@
 package com.orbit.app.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
 enum class CaptureStatus { Inbox, Processed, Archived }
+
+/**
+ * What Tallele did with a thought, stored on the thought itself (Room v11), so every
+ * screen reads the same answer and it survives the app being stopped.
+ *
+ * [ReminderSet] only means a reminder row exists for the thought and is open; whether
+ * its alarm is armed is read live from the reminder's `notificationWorkId`.
+ */
+enum class CaptureOutcome { Saved, Filed, ReminderSet, NeedsYou }
+
+/** Why a thought needs the user; [None] for every other outcome. */
+enum class CaptureOutcomeReason {
+    None,
+    TimeUnclear,
+    TypeUnclear,
+    NotificationsOff,
+    NotScheduled,
+    TimePassed,
+}
 
 enum class CaptureSource {
     Manual,
@@ -74,6 +94,15 @@ data class CaptureEntity(
     val linkedItemId: Long? = null,
     /** Day picked in Calendar when the thought was captured for that day (Room v10). */
     val contextDateEpochDay: Long? = null,
+    /** What Tallele did with this thought (Room v11). */
+    @ColumnInfo(defaultValue = "Saved")
+    val outcome: CaptureOutcome = CaptureOutcome.Saved,
+    @ColumnInfo(defaultValue = "None")
+    val outcomeReason: CaptureOutcomeReason = CaptureOutcomeReason.None,
+    /** When [outcome] was last written. */
+    val outcomeAt: Long? = null,
+    /** When act/ask/keep was applied to this thought, or the user touched it. Null = still pending. */
+    val decidedAt: Long? = null,
 )
 
 @Entity(

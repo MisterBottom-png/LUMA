@@ -121,10 +121,20 @@ data class ReviewUiState(
     val pendingChangeUndo: ReviewChangeToken? = null,
     /** True while the weekly look back is being written. */
     val weeklySummaryLoading: Boolean = false,
+    /** Thoughts with one real question (stored outcome `NeedsYou`), newest first. */
+    val needsYou: List<NeedsYouItem> = emptyList(),
+    /** Thoughts saved today that Tallele kept as they are. */
+    val keptToday: Int = 0,
+    /** Thoughts saved today that Tallele filed (a note, task or reminder). */
+    val filedToday: Int = 0,
 ) {
-    /** "All sorted" is only claimed when nothing at all is waiting. */
+    /** Nothing needs a decision and nothing is due today. */
     val nothingWaiting: Boolean
-        get() = toSort.isEmpty() && dueToday.isEmpty() && carryForwardSuggestions.isEmpty()
+        get() = needsYou.isEmpty() && dueToday.isEmpty()
+
+    /** The tab shows a dot only when something failed, never a count. */
+    val somethingFailed: Boolean
+        get() = needsYou.any { it.somethingFailed }
 }
 
 /** An undoable outcome from To sort. */
@@ -279,6 +289,62 @@ class ReviewViewModel internal constructor(
             .getOrDefault(0)
             .also { splitOffers[text] = it }
         return if (count >= 2) copy(possibleThoughts = count) else this
+    }
+
+    /** Needs you: a reminder at a quick time (today 18:00, tomorrow 09:00) for a thought without one. */
+    fun remindAt(item: NeedsYouItem, reminderAt: Long) = answer(item) {
+        container.captureResolution.createQuickReminder(item.captureId, item.title, reminderAt)
+    }
+
+    /** Needs you: "Just keep it". A reminder made for the thought is deleted and its alarm cancelled. */
+    fun keepThought(item: NeedsYouItem) = answer(item) {
+        container.captureResolution.keep(item.captureId)
+    }
+
+    /** Needs you: "Make it a task" for a thought Tallele could not place. */
+    fun makeTask(item: NeedsYouItem) = answer(item) {
+        container.confirmCaptureAction.createTask(
+            captureId = item.captureId,
+            spaceId = item.suggestedSpaceName?.let { name ->
+                container.spaceRepository.observeAll().first()
+                    .firstOrNull { !it.archived && it.name.equals(name, ignoreCase = true) }?.id
+            },
+            title = item.title,
+            dueAt = null,
+            scheduledDateEpochDay = item.taskDateEpochDay,
+        )
+    }
+
+    /** Needs you: "Try again" for a reminder whose alarm could not be set. */
+    fun retryReminder(item: NeedsYouItem) {
+        val reminderId = item.reminderId ?: return
+        answer(item) {
+            com.orbit.app.ui.screens.home.rearmReceiptReminder(
+                reminderRepository = container.reminderRepository,
+                outcomes = container.reminderSaveOutcomes,
+                resolution = container.captureResolution,
+                captureId = item.captureId,
+                reminderId = reminderId,
+            )
+        }
+    }
+
+    /** Cards being answered: a second tap on the same card waits; other cards stay usable. */
+    private val answering = mutableSetOf<Long>()
+
+    private fun answer(item: NeedsYouItem, action: suspend () -> Unit) {
+        if (!answering.add(item.captureId)) return
+        viewModelScope.launch {
+            try {
+                action()
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                sortFeedback.value = null to ReviewSortMessage.ActionFailed
+            } finally {
+                answering.remove(item.captureId)
+            }
+        }
     }
 
     /** One tap: turn the thought into what LUMA suggested. */
@@ -536,6 +602,7 @@ class ReviewViewModel internal constructor(
         val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val startOfToday = today.atStartOfDay(zone).toInstant().toEpochMilli()
         val startOfTomorrow = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val savedToday = savedTodayCounts(data.captures, startOfToday, startOfTomorrow)
         val recentCutoff = Instant.ofEpochMilli(startOfToday)
             .minus(7, ChronoUnit.DAYS)
             .toEpochMilli()
@@ -642,6 +709,9 @@ class ReviewViewModel internal constructor(
                 brainDumpCaptureIds = data.brainDumpCaptureIds,
                 now = now,
             ),
+            needsYou = buildNeedsYou(data.captures, data.suggestions, data.reminders),
+            keptToday = savedToday.kept,
+            filedToday = savedToday.filed,
         )
     }
 

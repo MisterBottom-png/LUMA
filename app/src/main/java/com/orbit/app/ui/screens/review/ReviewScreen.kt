@@ -135,6 +135,11 @@ fun ReviewScreen(
     onAcceptAllToSort: (List<ToSortItem>) -> Unit = {},
     onSortFeedbackShown: (SortUndoToken?, ReviewSortMessage?) -> Unit = { _, _ -> },
     sortHost: @Composable (SnackbarHostState) -> Unit = {},
+    onNeedsYouRemindAt: (NeedsYouItem, Long) -> Unit = { _, _ -> },
+    onNeedsYouPickTime: (NeedsYouItem) -> Unit = {},
+    onNeedsYouMakeTask: (NeedsYouItem) -> Unit = {},
+    onNeedsYouTryAgain: (NeedsYouItem) -> Unit = {},
+    onNeedsYouKeep: (NeedsYouItem) -> Unit = {},
 ) {
     val reviewContext by rememberReviewContext()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -172,6 +177,7 @@ fun ReviewScreen(
     var breathing by rememberSaveable { mutableStateOf(false) }
     var earlierExpanded by rememberSaveable { mutableStateOf(false) }
     var sortingOneByOne by rememberSaveable { mutableStateOf(false) }
+    var moreExpanded by rememberSaveable { mutableStateOf(false) }
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
@@ -263,7 +269,8 @@ fun ReviewScreen(
                 .fillMaxSize()
                 .orbitScrollEdgeFade(
                     top = headerClearance,
-                    bottom = OrbitBottomNavigationDefaults.ContentClearance,
+                    bottom = OrbitBottomNavigationDefaults.ScrollFadeHeight + navigationBottomPadding,
+                    bottomFadeLength = OrbitBottomNavigationDefaults.ScrollFadeLength,
                 ),
             contentPadding = PaddingValues(
                 start = 20.dp,
@@ -273,116 +280,136 @@ fun ReviewScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            reviewSectionOrder(reviewContext.period).forEach { section ->
-                when (section) {
-                    ReviewSection.AskLuma -> {
-                        if (breathing) {
-                            item(key = "breathe") { BreathingPanel(onFinished = { breathing = false }) }
-                        }
-                        if (uiState.nothingWaiting) item(key = "all_sorted") { AllSortedCard() }
-                    }
-
-                    ReviewSection.ToSort -> if (uiState.toSort.isNotEmpty()) {
-                        item(key = "to_sort_heading") {
-                            SectionHeader(
-                                title = stringResource(R.string.review_to_sort_title),
-                                large = true,
-                                actionLabel = stringResource(R.string.review_sort_one_by_one),
-                                onAction = { sortingOneByOne = true },
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
-                        }
-                        item(key = "to_sort_list") {
-                            ToSortGroup(
-                                items = uiState.toSort,
-                                showAll = showAllToSort,
-                                timeFormat = timeFormat,
-                                onShowAllChanged = { showAllToSort = it },
-                                onAccept = onAcceptToSort,
-                                onAcceptAll = { onAcceptAllToSort(uiState.toSort) },
-                                onChange = onChangeToSort,
-                                onHideSuggestion = onHideSuggestion,
-                                onLetGo = onLetGo,
-                                onOpen = onOpenToSort,
-                                onSplit = onSplitToSort,
-                            )
-                        }
-                    }
-
-                    ReviewSection.Today -> {
-                        item(key = "today_heading") {
-                            SectionHeader(
-                                title = stringResource(R.string.review_today_title),
-                                large = true,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
-                        }
-                        item(key = "today_list") {
-                            TodayGroup(
-                                items = uiState.dueToday,
-                                showAll = showAllToday,
-                                timeFormat = timeFormat,
-                                onShowAllChanged = { showAllToday = it },
-                                onOpen = onReviewItemSelected,
-                            )
-                        }
-                    }
-
-                    ReviewSection.CarryForward -> if (uiState.carryForwardSuggestions.isNotEmpty()) {
-                        item(key = "carry_list") {
-                            FromEarlierGroup(
-                                suggestions = uiState.carryForwardSuggestions,
-                                expanded = earlierExpanded,
-                                onExpandedChange = { earlierExpanded = it },
-                                onOpen = onReviewItemSelected,
-                                onTomorrow = onCarryForwardTomorrow,
-                                onAllTomorrow = onCarryForwardAllTomorrow,
-                                onChooseDate = onCarryForwardToDate,
-                                onKeepUnscheduled = onKeepCarryForwardUnscheduled,
-                                onComplete = onCompleteCarryForward,
-                            )
-                        }
-                    }
-
-                    ReviewSection.WeeklyLookBack -> {
-                        item(key = "weekly_entry") {
-                            WeeklyLookBackRow(
-                                expanded = weeklyExpanded,
-                                suggested = reviewContext.weeklyReviewAvailable,
-                                onToggle = { weeklyExpanded = !weeklyExpanded },
-                            )
-                        }
-                        if (weeklyExpanded) {
-                            item(key = "weekly_pager") { WeeklyReviewPager(uiState, onWeeklyLookBackVisible) }
-                        }
-                    }
+            if (breathing) {
+                item(key = "breathe") { BreathingPanel(onFinished = { breathing = false }) }
+            }
+            // Needs a decision: only thoughts with one real question. Empty most days.
+            if (uiState.needsYou.isNotEmpty()) {
+                item(key = "needs_you_heading") {
+                    SectionHeader(
+                        title = stringResource(R.string.needs_you_decisions_heading),
+                        large = true,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                item(key = "needs_you_cards") {
+                    NeedsYouGroup(
+                        items = uiState.needsYou,
+                        timeFormat = timeFormat,
+                        now = remember(uiState.needsYou) { System.currentTimeMillis() },
+                        enabled = uiState.pendingSortUndo == null,
+                        onRemindAt = onNeedsYouRemindAt,
+                        onPickTime = onNeedsYouPickTime,
+                        onMakeTask = onNeedsYouMakeTask,
+                        onTurnOn = { turnOnNotifications() },
+                        onTryAgain = onNeedsYouTryAgain,
+                        onKeep = onNeedsYouKeep,
+                    )
+                }
+            } else {
+                item(key = "needs_you_empty") {
+                    NeedsYouEmptyCard(kept = uiState.keptToday, filed = uiState.filedToday)
                 }
             }
 
-            item(key = "open_loops_action") {
-                OpenLoopsAction(
-                    expanded = showOpenLoops,
-                    onClick = { showOpenLoops = !showOpenLoops },
+            // Today: plain rows, a quieter heading, never cards. A task is not a question.
+            item(key = "today_heading") {
+                SectionHeader(
+                    title = stringResource(R.string.needs_you_today_heading),
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
-            if (showOpenLoops) {
-                openLoopsWorkflow(
+            item(key = "today_list") {
+                TodayGroup(
+                    items = uiState.dueToday,
+                    showAll = showAllToday,
+                    timeFormat = timeFormat,
+                    onShowAllChanged = { showAllToday = it },
+                    onOpen = onReviewItemSelected,
+                    previewSize = NeedsYouTodayPreviewSize,
+                )
+            }
+
+            // Everything else is a tool, behind one row.
+            item(key = "more") {
+                NeedsYouMoreRow(expanded = moreExpanded, onToggle = { moreExpanded = !moreExpanded })
+            }
+            if (moreExpanded) {
+                if (uiState.carryForwardSuggestions.isNotEmpty()) {
+                    item(key = "carry_list") {
+                        FromEarlierGroup(
+                            suggestions = uiState.carryForwardSuggestions,
+                            expanded = earlierExpanded,
+                            onExpandedChange = { earlierExpanded = it },
+                            onOpen = onReviewItemSelected,
+                            onTomorrow = onCarryForwardTomorrow,
+                            onAllTomorrow = onCarryForwardAllTomorrow,
+                            onChooseDate = onCarryForwardToDate,
+                            onKeepUnscheduled = onKeepCarryForwardUnscheduled,
+                            onComplete = onCompleteCarryForward,
+                        )
+                    }
+                }
+                if (uiState.toSort.isNotEmpty()) {
+                    item(key = "to_sort_heading") {
+                        SectionHeader(
+                            title = stringResource(R.string.review_to_sort_title),
+                            actionLabel = stringResource(R.string.review_sort_one_by_one),
+                            onAction = { sortingOneByOne = true },
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                    item(key = "to_sort_list") {
+                        ToSortGroup(
+                            items = uiState.toSort,
+                            showAll = showAllToSort,
+                            timeFormat = timeFormat,
+                            onShowAllChanged = { showAllToSort = it },
+                            onAccept = onAcceptToSort,
+                            onAcceptAll = { onAcceptAllToSort(uiState.toSort) },
+                            onChange = onChangeToSort,
+                            onHideSuggestion = onHideSuggestion,
+                            onLetGo = onLetGo,
+                            onOpen = onOpenToSort,
+                            onSplit = onSplitToSort,
+                        )
+                    }
+                }
+                item(key = "weekly_entry") {
+                    WeeklyLookBackRow(
+                        expanded = weeklyExpanded,
+                        suggested = reviewContext.weeklyReviewAvailable,
+                        onToggle = { weeklyExpanded = !weeklyExpanded },
+                    )
+                }
+                if (weeklyExpanded) {
+                    item(key = "weekly_pager") { WeeklyReviewPager(uiState, onWeeklyLookBackVisible) }
+                }
+                item(key = "open_loops_action") {
+                    OpenLoopsAction(
+                        expanded = showOpenLoops,
+                        onClick = { showOpenLoops = !showOpenLoops },
+                    )
+                }
+                if (showOpenLoops) {
+                    openLoopsWorkflow(
+                        uiState = uiState,
+                        onKeepTaskActive = onKeepTaskActive,
+                        onConfirmCapture = onConfirmCapture,
+                        onArchive = onArchive,
+                        onCompleteTask = onCompleteTask,
+                        onDeferTask = onDeferTask,
+                        onDismissCapture = onDismissCapture,
+                        onMakeSmaller = onMakeSmaller,
+                        showAll = showAllOpenLoops,
+                        onShowAllChanged = { showAllOpenLoops = it },
+                    )
+                }
+                supportingReviewSections(
                     uiState = uiState,
-                    onKeepTaskActive = onKeepTaskActive,
-                    onConfirmCapture = onConfirmCapture,
-                    onArchive = onArchive,
-                    onCompleteTask = onCompleteTask,
-                    onDeferTask = onDeferTask,
-                    onDismissCapture = onDismissCapture,
-                    onMakeSmaller = onMakeSmaller,
-                    showAll = showAllOpenLoops,
-                    onShowAllChanged = { showAllOpenLoops = it },
+                    onReviewItemSelected = onReviewItemSelected,
                 )
             }
-            supportingReviewSections(
-                uiState = uiState,
-                onReviewItemSelected = onReviewItemSelected,
-            )
         }
 
         ReviewHeader(

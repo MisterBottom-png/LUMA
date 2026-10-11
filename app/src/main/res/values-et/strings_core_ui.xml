@@ -70,7 +70,7 @@
     <string name="core_situation_what_matters">Mis on oluline?</string>
     <string name="core_situation_what_is_stuck">Mis on takerdunud?</string>
 
-    <string name="core_review_title">Ülevaade</string>
+    <string name="core_review_title">Vajab sind</string>
     <string name="core_review_breathe_in">Hinga sisse</string>
     <string name="core_review_breathe_out">Hinga välja</string>
     <string name="core_review_weekly_title">Nädala ülevaade</string>
@@ -143,4 +143,23 @@
     <string name="core_learning_save_body">Tegid selle paranduse mitu korda: %1$s</string>
     <string name="core_learning_save_confirm">Salvesta eelistus</string>
     <string name="core_learning_not_now">Mitte praegu</string>
+    <!-- The save receipt under the capture box on Home. -->
+    <string name="receipt_saved">Salvestatud.</string>
+    <string name="receipt_saved_note">Salvestatud märkmena.</string>
+    <string name="receipt_saved_task">Salvestatud ülesandena.</string>
+    <string name="receipt_filed_note">Lisatud alasse „%1$s“ märkmena.</string>
+    <string name="receipt_filed_task">Ülesanne: %1$s.</string>
+    <string name="receipt_filed_task_in_space">Lisatud alasse „%1$s“ ülesandena.</string>
+    <string name="receipt_reminder_set">Meeldetuletus on seatud: %1$s.</string>
+    <string name="receipt_reminder_not_armed">Salvestatud, aga meeldetuletus pole veel seatud.</string>
+    <string name="receipt_needs_time">Salvestatud. Mis kell sulle meelde tuletada?</string>
+    <string name="receipt_time_passed">See aeg on juba möödas. Kas valid uue?</string>
+    <string name="receipt_notifications_off">Salvestatud, aga meeldetuletused ei saa heliseda. Teavitused on välja lülitatud.</string>
+    <string name="receipt_not_scheduled">Salvestatud, aga Tallele ei saanud meeldetuletust seada.</string>
+    <string name="receipt_action_view">Vaata</string>
+    <string name="receipt_action_change">Muuda</string>
+    <string name="receipt_action_choose_time">Vali aeg</string>
+    <string name="receipt_action_turn_on">Lülita sisse</string>
+    <string name="receipt_action_try_again">Proovi uuesti</string>
+    <string name="receipt_action_keep">Jäta lihtsalt alles</string>
 </resources>

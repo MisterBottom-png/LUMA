@@ -4,7 +4,7 @@
     <string name="reminder_notification_action_done">Tehtud</string>
     <string name="reminder_notification_action_snooze">Lükka 15 min edasi</string>
     <string name="reminder_notification_missed_body">Jäi vahele. Aeg oli %1$s.</string>
-    <string name="reminder_notification_missed_summary_body">Need ootavad sind ülevaates.</string>
+    <string name="reminder_notification_missed_summary_body">Need ootavad sind vaates „Vajab sind“.</string>
     <plurals name="reminder_notification_missed_summary_title">
         <item quantity="one">%d meeldetuletus jäi vahele</item>
         <item quantity="other">%d meeldetuletust jäi vahele</item>
@@ -20,7 +20,6 @@
     <string name="core_sort_already_sorted">See mõte on juba sorteeritud.</string>
     <string name="core_sort_undone">Tagasi võetud. Mõte ootab jälle sorteerimist.</string>
     <string name="core_sort_undo_failed">Seda ei saanud tagasi võtta. Midagi ei läinud kaotsi; kirjet saab muuta selle alas.</string>
-    <string name="core_home_saved_let_go">Salvestatud. Võid selle meelest lasta.</string>
     <string name="core_home_quick_reminder_question">Kas tuletan meelde %1$s?</string>
     <string name="core_home_quick_reminder_when">Millal Tallele peaks meelde tuletama?</string>
     <string name="core_home_quick_reminder_set">Tuleta meelde</string>
@@ -92,13 +91,9 @@
     <string name="home_capture_hint_dump">Kirjuta kõik välja — Tallele sorteerib hiljem</string>
     <string name="home_capture_hint_small">Ka poolik mõte väärib hoidmist</string>
     <string name="settings_sort_right_after_saving">Sorteeri kohe pärast salvestamist</string>
-    <string name="settings_sort_right_after_saving_body">Ava Tallele soovitus kohe. Kui see on väljas, ootavad mõtted rahulikult jaotises Ülevaade → Sorteerida.</string>
+    <string name="settings_sort_right_after_saving_body">Ava sorteerimise leht pärast iga mõtet. Kui see on sees, ei paiguta Tallele ise midagi.</string>
     <string name="settings_focus_capture">Ava avalehel klaviatuur</string>
     <string name="settings_focus_capture_body">Alusta kirjutamist kohe, kui avaleht avaneb.</string>
-    <string name="settings_reminder_delivery_title">Meeldetuletuste kohaletoimetamine</string>
-    <string name="settings_reminder_delivery_ready">Meeldetuletused saabuvad õigel ajal.</string>
-    <string name="settings_reminder_delivery_may_be_late">Meeldetuletused võivad mõne minuti hilineda. Täpse aja jaoks luba „Äratused ja meeldetuletused”.</string>
-    <string name="settings_reminder_delivery_blocked">Märguanded on välja lülitatud, seega meeldetuletused sinuni ei jõua. Sinu meeldetuletused on endiselt salvestatud.</string>
     <string name="settings_glass_effect">Klaasiefekt</string>
     <string name="settings_glass_effect_strong">Tugev</string>
     <string name="settings_glass_effect_soft">Pehme</string>
@@ -107,8 +102,8 @@
     <string name="spaces_name_taken_archived">„%1$s” on arhiveeritud. Kas taastad selle, selle asemel et teise teha?</string>
     <string name="spaces_name_taken_hidden">„%1$s” on peidetud. Kas näitad seda uuesti, selle asemel et teise teha?</string>
     <plurals name="spaces_to_sort_waiting">
-        <item quantity="one">%1$d mõte ootab ülevaates</item>
-        <item quantity="other">%1$d mõtet ootab ülevaates</item>
+        <item quantity="one">%1$d mõte ootab sorteerimist</item>
+        <item quantity="other">%1$d mõtet ootab sorteerimist</item>
     </plurals>
     <string name="shortcut_new_thought_short">Uus mõte</string>
     <string name="shortcut_new_thought_long">Kirjuta uus mõte</string>
@@ -144,6 +139,7 @@
         <item quantity="other">Täna pole midagi uut. Varasemast ootab %d, kui oled valmis.</item>
     </plurals>
     <string name="item_discard_title">Loobud muudatustest?</string>
+    <string name="item_detail_more">Veel</string>
     <string name="item_discard_body">Pealkirja ja märkmete muudatused lähevad kaduma.</string>
     <string name="item_discard_confirm">Ära salvesta</string>
     <string name="item_keep_editing">Jätka muutmist</string>

@@ -7,7 +7,7 @@
     <string name="settings_manual_dimming">Ручное затемнение</string>
     <string name="navigation_home">Главная</string>
     <string name="navigation_spaces">Пространства</string>
-    <string name="navigation_review">Обзор</string>
+    <string name="navigation_review">Ждёт вас</string>
     <string name="navigation_settings">Настройки</string>
 
     <string name="settings_title">Настройки</string>
@@ -41,6 +41,10 @@
     <string name="settings_status_key_not_saved">не сохранён</string>
     <string name="settings_status_last_export">Последний экспорт готов</string>
     <string name="settings_export_json">Экспорт JSON</string>
+    <string name="settings_create_backup">Создать резервную копию</string>
+    <string name="settings_create_backup_note">Сохраняется одним файлом .json туда, куда вы выберете.</string>
+    <string name="settings_restore_backup">Восстановить из копии</string>
+    <string name="settings_restore_backup_note">Восстановление заменит данные на этом телефоне. Ничего не изменится, пока вы не подтвердите.</string>
 
     <string name="settings_your_name">Ваше имя</string>
     <string name="settings_name_supporting">Отображается в приветствии</string>

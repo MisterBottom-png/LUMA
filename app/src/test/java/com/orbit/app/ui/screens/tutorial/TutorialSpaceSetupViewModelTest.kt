@@ -2,7 +2,9 @@ package com.orbit.app.ui.screens.tutorial
 
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.repository.SpaceRepository
+import com.orbit.app.data.local.StarterSpaces
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
@@ -12,10 +14,9 @@ import org.junit.Test
 
 class TutorialSpaceSetupViewModelTest {
     @Test
-    fun emptyFirstTimeInstall_canSaveSelectedTemplateAndCustomSpace() {
+    fun withNoSpacesAtAll_theGuideCanStillSaveSelectedTemplateAndCustomSpace() {
         val repository = FakeSpaceRepository()
         val viewModel = TutorialSpaceSetupViewModel(
-            isReplay = false,
             spaceRepository = repository,
             observationDispatcher = Dispatchers.Unconfined,
             workerDispatcher = Dispatchers.Unconfined,
@@ -34,11 +35,10 @@ class TutorialSpaceSetupViewModelTest {
     }
 
     @Test
-    fun replayAndExistingSpaces_neverOfferOrCreateSetupSpaces() {
+    fun existingSpaces_neverOfferOrCreateSetupSpaces() {
         val existing = SpaceEntity(name = "Existing", icon = "folder", colorAccent = "#000000", sortOrder = 0)
         val repository = FakeSpaceRepository(initial = listOf(existing))
         val viewModel = TutorialSpaceSetupViewModel(
-            isReplay = true,
             spaceRepository = repository,
             observationDispatcher = Dispatchers.Unconfined,
             workerDispatcher = Dispatchers.Unconfined,
@@ -55,9 +55,42 @@ class TutorialSpaceSetupViewModelTest {
     }
 
     @Test
+    fun firstLaunch_seedsEveryStarterSpaceWithoutAsking() {
+        val repository = FakeSpaceRepository()
+
+        val added = runBlocking { seedStarterSpacesSilently(repository, now = 5L) }
+
+        assertEquals(StarterSpaces.templates.size, added)
+        assertEquals(StarterSpaces.templates.map { it.storedName }, repository.spaces.value.map { it.name })
+        assertEquals(StarterSpaces.templates.indices.toList(), repository.spaces.value.map { it.sortOrder })
+    }
+
+    @Test
+    fun seeding_neverAddsToSpacesSomeoneAlreadyHas() {
+        val existing = SpaceEntity(name = "Garden", icon = "folder", colorAccent = "#000000", sortOrder = 0)
+        val repository = FakeSpaceRepository(initial = listOf(existing))
+
+        val added = runBlocking { seedStarterSpacesSilently(repository) }
+
+        assertEquals(0, added)
+        assertEquals(listOf(existing), repository.spaces.value)
+    }
+
+    @Test
+    fun seedingTwice_addsTheStarterSpacesOnce() {
+        val repository = FakeSpaceRepository()
+
+        runBlocking {
+            seedStarterSpacesSilently(repository)
+            seedStarterSpacesSilently(repository)
+        }
+
+        assertEquals(StarterSpaces.templates.size, repository.spaces.value.size)
+    }
+
+    @Test
     fun blankAndDuplicateCustomNames_areIgnored() {
         val viewModel = TutorialSpaceSetupViewModel(
-            isReplay = false,
             spaceRepository = FakeSpaceRepository(),
             observationDispatcher = Dispatchers.Unconfined,
             workerDispatcher = Dispatchers.Unconfined,

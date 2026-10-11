@@ -39,7 +39,7 @@
     <string name="review_one_space">Space</string>
     <string name="review_one_when">When</string>
     <string name="review_one_skip">Skip for now</string>
-    <string name="review_one_back">Back to Review</string>
+    <string name="review_one_back">Back to Needs you</string>
     <string name="review_one_done_body">Nothing else is waiting. You can let the rest of the day be.</string>
     <string name="review_one_skipped_body">The thoughts you skipped wait in To sort.</string>
     <string name="settings_section_reminders">Reminders</string>
@@ -48,6 +48,13 @@
     <string name="settings_section_about">About</string>
     <string name="settings_turn_on">Turn on</string>
     <string name="settings_allow">Allow</string>
+    <string name="reminder_health_ok">Nothing is blocking reminders.</string>
+    <string name="reminder_health_notifications_off">Notifications are off, so reminders can’t ring.</string>
+    <string name="reminder_health_channel_off">The Reminders sound is off.</string>
+    <string name="reminder_health_battery">This phone sometimes stops apps in the background. If a reminder is ever missed, this is the first thing to check.</string>
+    <string name="reminder_health_late">Reminders may be a few minutes late.</string>
+    <string name="reminder_health_samsung_steps">Battery › Background usage limits › Never sleeping apps › add Tallele</string>
+    <string name="reminder_health_action_check">Check</string>
     <string name="settings_add_name">Add your name</string>
     <string name="settings_backup_title">Backup and restore</string>
     <string name="settings_data_footer">Your items are kept on this phone. A backup file keeps a copy somewhere else.</string>
@@ -85,9 +92,17 @@
     <string name="split_one_thought">Tallele found only one thought here.</string>
     <string name="home_voice_next_hint">Tap the mic again for the next thought.</string>
     <string name="home_voice_next">Say the next thought</string>
+    <string name="voice_cloud_notice">Voice may use Google’s servers on this phone.</string>
+    <string name="voice_continue">Continue</string>
+    <string name="home_voice_listening">Listening…</string>
+    <string name="voice_nothing_heard">Nothing was heard. Try again.</string>
+    <string name="voice_unavailable">Voice isn’t available on this phone right now.</string>
     <string name="brain_overview_back">Back to the list</string>
     <string name="spaces_preview_placeholder">Your new Space</string>
     <string name="spaces_colour">Color</string>
+    <string name="spaces_color_and_icon">Color and icon</string>
+    <string name="expand_state_open">Expanded</string>
+    <string name="expand_state_closed">Collapsed</string>
     <string name="spaces_icon_travel">Travel</string>
     <string name="search_filter_all">All</string>
     <string name="search_group_to_sort">Still to sort</string>
@@ -97,10 +112,13 @@
     <string name="search_group_archived">Archived</string>
     <string name="search_look_in_space">Look inside a Space</string>
     <string name="search_stays_on_phone">Search stays on this phone.</string>
-    <string name="tutorial_write_title">Write it down. Sort it later.</string>
+    <string name="search_recent">Recently saved</string>
+    <string name="search_no_matches">No matches for “%1$s”.</string>
+    <string name="search_include_archived">Search archived too</string>
+    <string name="tutorial_write_title">Write it down. Tallele takes it from here.</string>
     <string name="tutorial_write_body">Put any thought in, the way it comes. You don’t need to pick a type, a date or a place first.</string>
-    <string name="tutorial_suggest_title">Tallele suggests. You decide.</string>
-    <string name="tutorial_suggest_body">It offers a type, a time and a Space. Nothing becomes a task or reminder until you say yes.</string>
+    <string name="tutorial_suggest_title">Tallele files what’s clear and asks only when it must.</string>
+    <string name="tutorial_suggest_body">It turns a clear thought into a note, task or reminder, and you can change it any time. When the time or type is unclear, it asks you first.</string>
     <string name="tutorial_spaces_pick_title">Pick your Spaces</string>
     <string name="tutorial_spaces_pick_body">A Space keeps one part of life together. Choose a few now; you can change them any time.</string>
     <string name="tutorial_private_title">Private by default</string>
@@ -108,6 +126,14 @@
     <string name="tutorial_private_1">Your thoughts are kept on this phone.</string>
     <string name="tutorial_private_2">Gemini helps only if you turn it on.</string>
     <string name="tutorial_private_3">Notifications are asked for with your first reminder.</string>
+    <!-- First run: Home teaches the app; the guide is for replay from Settings. -->
+    <string name="home_first_line_above">Write anything. Tallele keeps it safe and sorts what it can.</string>
+    <string name="home_first_line_below">Everything stays on this phone unless you turn on Gemini or use voice.</string>
+    <string name="home_first_receipt_tip_filed">Tallele filed this for you. Tap Change if it got it wrong.</string>
+    <!-- %1$s is the name of the Spaces tile that lists saved thoughts. -->
+    <string name="home_first_receipt_tip_kept">Tallele kept this. You’ll find it in %1$s and in Search.</string>
+    <string name="home_first_receipt_tip_reminder">The reminder is set. Tap Change to move it.</string>
+    <string name="notification_priming">So this reminder can ring at %1$s, Tallele needs to show notifications.</string>
     <string name="tutorial_continue">Continue</string>
     <string name="tutorial_demo_thought">call the dentist tomorrow at 9</string>
     <string name="tutorial_demo_other_1">ideas for the garden</string>
@@ -122,4 +148,29 @@
     <plurals name="brain_overview_save"><item quantity="one">Save %1$d</item><item quantity="other">Save %1$d</item></plurals>
     <plurals name="split_offer"><item quantity="one">Looks like %1$d thought</item><item quantity="other">Looks like %1$d thoughts</item></plurals>
     <plurals name="search_result_count"><item quantity="one">%1$d result</item><item quantity="other">%1$d results</item></plurals>
+    <string name="settings_reminders_advanced">Advanced</string>
+    <string name="needs_you_decisions_heading">Needs a decision</string>
+    <string name="needs_you_today_heading">Today</string>
+    <string name="needs_you_empty">Nothing needs you right now.</string>
+    <string name="needs_you_empty_detail">Today Tallele kept %1$d and filed %2$d.</string>
+    <string name="needs_you_more">More</string>
+    <string name="needs_you_q_time">When should this remind you?</string>
+    <string name="needs_you_q_time_passed">This time has already passed.</string>
+    <string name="needs_you_q_type">Save as a task, or just keep it?</string>
+    <string name="needs_you_q_notifications">Reminders can’t ring while notifications are off.</string>
+    <string name="needs_you_q_not_scheduled">Tallele couldn’t set this reminder.</string>
+    <string name="needs_you_today_at">Today %1$s</string>
+    <string name="needs_you_tomorrow_at">Tomorrow %1$s</string>
+    <string name="needs_you_pick_time">Pick a time</string>
+    <string name="needs_you_pick_new_time">Pick a new time</string>
+    <string name="needs_you_make_task">Make it a task</string>
+    <string name="needs_you_attention">Something didn’t work</string>
+    <plurals name="needs_you_summary">
+        <item quantity="one">%1$d to decide</item>
+        <item quantity="other">%1$d to decide</item>
+    </plurals>
+    <string name="settings_look_title">Look</string>
+    <string name="settings_look_subtitle">Theme, color, background and glass</string>
+    <string name="space_capture_title">Add to %1$s</string>
+    <string name="space_capture_hint">A thought for this Space</string>
 </resources>

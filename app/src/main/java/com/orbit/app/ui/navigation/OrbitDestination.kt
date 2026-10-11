@@ -10,7 +10,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.annotation.StringRes
 import androidx.navigation.NavController
 import com.orbit.app.R
-import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.calendar.CalendarEntryId
 import com.orbit.app.domain.calendar.CalendarItemType
 import com.orbit.app.ui.screens.review.ReviewItem
@@ -52,12 +51,11 @@ object FirstTimeTutorialDestination {
     fun route(isReplay: Boolean): String = "tutorial?$ReplayArgument=$isReplay"
 }
 
-internal fun initialOrbitRoute(settings: AppSettings): String =
-    if (settings.hasCompletedFirstTimeTutorial) {
-        OrbitDestination.Home.route
-    } else {
-        FirstTimeTutorialDestination.route(isReplay = false)
-    }
+/**
+ * Every launch, the first one included, opens on Home: a new user learns the app from the
+ * first receipt, not from a guide. The guide stays for Settings › "First-time guide".
+ */
+internal fun initialOrbitRoute(): String = OrbitDestination.Home.route
 
 object ReminderDestination {
     const val ReminderIdArgument = "reminderId"

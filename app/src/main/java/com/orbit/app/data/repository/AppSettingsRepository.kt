@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.orbit.app.domain.model.AppAccentColor
@@ -98,6 +99,12 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 settings.hasCompletedFirstTimeTutorial
             preferences[Keys.SORT_RIGHT_AFTER_SAVING] = settings.sortRightAfterSaving
             preferences[Keys.FOCUS_CAPTURE_ON_OPEN] = settings.focusCaptureOnOpen
+            preferences[Keys.HAS_SEEN_VOICE_CLOUD_NOTICE] = settings.hasSeenVoiceCloudNotice
+            settings.lastReceiptCaptureId?.let { preferences[Keys.LAST_RECEIPT_CAPTURE_ID] = it }
+                ?: preferences.remove(Keys.LAST_RECEIPT_CAPTURE_ID)
+            preferences[Keys.LAST_RECEIPT_DISMISSED] = settings.lastReceiptDismissed
+            preferences[Keys.HAS_SEEN_FIRST_RECEIPT_TIP] = settings.hasSeenFirstReceiptTip
+            preferences[Keys.HAS_ASKED_FOR_NOTIFICATIONS] = settings.hasAskedForNotifications
         }
     }
 
@@ -122,7 +129,9 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 ?: defaults.timeFormatMode,
             backgroundPreset = preferences[Keys.BACKGROUND_PRESET]
                 ?.let(::backgroundPresetFromStoredValue)
-                ?.let { if (it == BackgroundPreset.SoftDawn && isLegacyDefaultAppearance(preferences)) defaults.backgroundPreset else it }
+                // Old installs on the old default already show Ink & Paper; the new default
+                // (Violet Mist) is for new installs only.
+                ?.let { if (it == BackgroundPreset.SoftDawn && isLegacyDefaultAppearance(preferences)) BackgroundPreset.InkPaper else it }
                 ?: defaults.backgroundPreset,
             customBackgroundUri = preferences[Keys.CUSTOM_BACKGROUND_URI],
             backgroundBlur = preferences[Keys.BACKGROUND_BLUR]
@@ -182,6 +191,17 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 ?: defaults.sortRightAfterSaving,
             focusCaptureOnOpen = preferences[Keys.FOCUS_CAPTURE_ON_OPEN]
                 ?: defaults.focusCaptureOnOpen,
+            hasSeenVoiceCloudNotice = preferences[Keys.HAS_SEEN_VOICE_CLOUD_NOTICE]
+                ?: defaults.hasSeenVoiceCloudNotice,
+            lastReceiptCaptureId = preferences[Keys.LAST_RECEIPT_CAPTURE_ID]?.takeIf { it > 0L },
+            lastReceiptDismissed = preferences[Keys.LAST_RECEIPT_DISMISSED]
+                ?: defaults.lastReceiptDismissed,
+            // Someone who already used the app before this tip existed does not get it now.
+            hasSeenFirstReceiptTip = preferences[Keys.HAS_SEEN_FIRST_RECEIPT_TIP]
+                ?: preferences[Keys.HAS_COMPLETED_FIRST_TIME_TUTORIAL]
+                ?: defaults.hasSeenFirstReceiptTip,
+            hasAskedForNotifications = preferences[Keys.HAS_ASKED_FOR_NOTIFICATIONS]
+                ?: defaults.hasAskedForNotifications,
         )
     }
 
@@ -241,5 +261,10 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
             booleanPreferencesKey("has_completed_first_time_tutorial")
         val SORT_RIGHT_AFTER_SAVING = booleanPreferencesKey("sort_right_after_saving")
         val FOCUS_CAPTURE_ON_OPEN = booleanPreferencesKey("focus_capture_on_open")
+        val HAS_SEEN_VOICE_CLOUD_NOTICE = booleanPreferencesKey("has_seen_voice_cloud_notice")
+        val LAST_RECEIPT_CAPTURE_ID = longPreferencesKey("last_receipt_capture_id")
+        val LAST_RECEIPT_DISMISSED = booleanPreferencesKey("last_receipt_dismissed")
+        val HAS_SEEN_FIRST_RECEIPT_TIP = booleanPreferencesKey("has_seen_first_receipt_tip")
+        val HAS_ASKED_FOR_NOTIFICATIONS = booleanPreferencesKey("has_asked_for_notifications")
     }
 }

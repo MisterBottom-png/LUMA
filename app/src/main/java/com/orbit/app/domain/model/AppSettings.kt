@@ -92,7 +92,11 @@ data class AppSettings(
     val userName: String = PlaceholderUserName,
     val themeMode: SettingsThemeMode = SettingsThemeMode.Auto,
     val timeFormatMode: SettingsTimeFormatMode = SettingsTimeFormatMode.Device,
-    val backgroundPreset: BackgroundPreset = BackgroundPreset.InkPaper,
+    /**
+     * Violet Mist for new installs: glass needs colour behind it. Existing installs keep
+     * the preset they have stored.
+     */
+    val backgroundPreset: BackgroundPreset = BackgroundPreset.VioletMist,
     val customBackgroundUri: String? = null,
     val backgroundBlur: BackgroundBlur = BackgroundBlur.Soft,
     val backgroundDim: Float = 0.12f,
@@ -119,6 +123,22 @@ data class AppSettings(
     val sortRightAfterSaving: Boolean = false,
     /** Places the cursor in the Home capture box when Home opens. */
     val focusCaptureOnOpen: Boolean = false,
+    /** The once-only notice that the phone's speech screen may use Google's servers. */
+    val hasSeenVoiceCloudNotice: Boolean = false,
+    /**
+     * The thought the save receipt on Home is about. Kept here, not in the screen's saved
+     * state, so the receipt is still right after a force-stop, a reboot or a removed task.
+     */
+    val lastReceiptCaptureId: Long? = null,
+    /** True once the user swiped the receipt away or opened its item; the next save shows a new one. */
+    val lastReceiptDismissed: Boolean = false,
+    /**
+     * The one-time tip under the first receipt has been read (the next save or closing that
+     * receipt counts). Installs that finished the old guide count as having seen it.
+     */
+    val hasSeenFirstReceiptTip: Boolean = false,
+    /** Home already asked Android once to show notifications, so a reminder from Home can ring. */
+    val hasAskedForNotifications: Boolean = false,
 )
 
 val AppSettings.hasCurrentGeminiConsent: Boolean

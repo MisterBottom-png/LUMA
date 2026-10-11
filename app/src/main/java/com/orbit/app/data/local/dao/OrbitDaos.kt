@@ -38,6 +38,9 @@ interface CaptureDao {
     @Query("SELECT * FROM captures WHERE id = :id")
     suspend fun getById(id: Long): CaptureEntity?
 
+    @Query("SELECT * FROM captures WHERE id = :id")
+    fun observeById(id: Long): Flow<CaptureEntity?>
+
     @Insert
     suspend fun insert(entity: CaptureEntity): Long
 
@@ -479,6 +482,24 @@ interface ReminderDao {
             "WHERE id = :id",
     )
     suspend fun markHandled(id: Long, notificationTime: Long)
+
+    /**
+     * The earliest notification time after [now] that has not been shown yet, or null.
+     * Settings uses it to decide whether "reminders can't ring" is urgent (red) or not.
+     */
+    @Query(
+        """
+        SELECT MIN(COALESCE(snoozedUntil, dueAt - (notificationOffsetMinutes * 60000))) FROM reminders
+        WHERE completedAt IS NULL
+          AND notificationEnabled = 1
+          AND COALESCE(snoozedUntil, dueAt - (notificationOffsetMinutes * 60000)) > :now
+          AND (
+            deliveredNotificationAt IS NULL OR
+            deliveredNotificationAt != COALESCE(snoozedUntil, dueAt - (notificationOffsetMinutes * 60000))
+          )
+        """,
+    )
+    suspend fun nextUndeliveredNotificationAt(now: Long): Long?
 }
 
 @Dao

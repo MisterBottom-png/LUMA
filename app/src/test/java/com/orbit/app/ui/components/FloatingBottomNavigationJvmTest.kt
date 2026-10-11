@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -53,7 +56,7 @@ class FloatingBottomNavigationJvmTest {
         composeRule.onNodeWithText("Calendar").assertIsSelected().assertHeightIsAtLeast(48.dp)
         composeRule.onNodeWithText("Settings").assertDoesNotExist()
 
-        composeRule.onNodeWithText("Review").performClick()
+        composeRule.onNodeWithText("Needs you").performClick()
         assertEquals(OrbitDestination.Review, selected)
     }
 
@@ -63,5 +66,32 @@ class FloatingBottomNavigationJvmTest {
         assertTrue(isBottomBarDestinationSelected("spaces/unfiled", OrbitDestination.Spaces))
         assertTrue(isBottomBarDestinationSelected("spaces", OrbitDestination.Spaces))
         org.junit.Assert.assertFalse(isBottomBarDestinationSelected("spaces/{spaceId}", OrbitDestination.Home))
+    }
+
+    @Test
+    fun needsYouShowsADotOnlyWhenSomethingFailed_neverACount() {
+        var failed by mutableStateOf(false)
+        composeRule.setContent {
+            MaterialTheme {
+                Box(Modifier.width(360.dp)) {
+                    FloatingBottomNavigation(
+                        selectedRoute = OrbitDestination.Home.route,
+                        onDestinationSelected = {},
+                        alertDestinations = if (failed) setOf(OrbitDestination.Review) else emptySet(),
+                    )
+                }
+            }
+        }
+        val alert = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Something didn’t work")
+        composeRule.onAllNodes(alert).assertCountEquals(0)
+
+        failed = true
+        composeRule.waitForIdle()
+        composeRule.onAllNodes(alert).assertCountEquals(1)
+        // A dot, not a number: no tab label gains a count.
+        composeRule.onNodeWithText("Needs you").assertExists()
+        composeRule.onAllNodes(SemanticsMatcher("has a digit") { node ->
+            node.config.getOrElseNullable(SemanticsProperties.Text) { null }?.any { text -> text.text.any(Char::isDigit) } == true
+        }).assertCountEquals(0)
     }
 }

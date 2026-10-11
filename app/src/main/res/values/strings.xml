@@ -4,7 +4,7 @@
 
     <string name="navigation_home">Home</string>
     <string name="navigation_spaces">Spaces</string>
-    <string name="navigation_review">Review</string>
+    <string name="navigation_review">Needs you</string>
     <string name="navigation_settings">Settings</string>
 
     <string name="settings_title">Settings</string>
@@ -41,6 +41,10 @@
     <string name="settings_status_key_not_saved">not saved</string>
     <string name="settings_status_last_export">Last export ready</string>
     <string name="settings_export_json">Export JSON</string>
+    <string name="settings_create_backup">Create backup</string>
+    <string name="settings_create_backup_note">Saved as one .json file, wherever you choose.</string>
+    <string name="settings_restore_backup">Restore backup</string>
+    <string name="settings_restore_backup_note">Restoring replaces what is on this phone. Nothing changes until you confirm.</string>
 
     <string name="settings_your_name">Your name</string>
     <string name="settings_name_supporting">Shown in your greeting</string>

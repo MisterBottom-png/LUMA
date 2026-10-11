@@ -1,6 +1,13 @@
 package com.orbit.app.ui.navigation
 
 import java.time.LocalDate
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.produceState
+import com.orbit.app.ui.screens.spaces.SpaceCaptureSheet
+import com.orbit.app.ui.screens.review.needsYouSomethingFailed
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -49,6 +56,9 @@ import com.orbit.app.ui.components.GlassRenderingPolicy
 import com.orbit.app.ui.components.OrbitBackground
 import com.orbit.app.ui.screens.calendar.CalendarScreen
 import com.orbit.app.ui.screens.calendar.CalendarViewModel
+import com.orbit.app.ui.screens.home.CaptureReceiptReader
+import com.orbit.app.ui.screens.home.ReceiptItemType
+import com.orbit.app.ui.screens.home.rearmReceiptReminder
 import com.orbit.app.ui.screens.home.HomeScreen
 import com.orbit.app.ui.screens.home.SpaceCaptureTarget
 import com.orbit.app.ui.screens.home.HomeWeekViewModel
@@ -67,6 +77,7 @@ import com.orbit.app.ui.screens.spaces.SpacesScreen
 import com.orbit.app.ui.screens.spaces.SpacesViewModel
 import com.orbit.app.ui.screens.tutorial.FirstTimeTutorialScreen
 import com.orbit.app.ui.screens.tutorial.TutorialSpaceSetupViewModel
+import com.orbit.app.ui.screens.tutorial.seedStarterSpacesSilently
 import com.orbit.app.OrbitContainer
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.ui.screens.home.HomeCaptureViewModel
@@ -99,7 +110,18 @@ fun OrbitApp(
     var showSituationAi by rememberSaveable { mutableStateOf(false) }
     var situationAiQuestion by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
+    // A Space's "+" writes the thought over the Space; the user stays where they are.
+    var spaceCaptureId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var spaceCaptureSaving by remember { mutableStateOf(false) }
+    var spaceCaptureFailed by remember { mutableStateOf(false) }
+    val spaceCaptureScope = rememberCoroutineScope()
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
+    // Needs you gets a dot only when something failed; never a count.
+    val needsYouFailed by remember(container) {
+        container.captureRepository.observeAll()
+            .map(::needsYouSomethingFailed)
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
     val contentMaxWidth = portraitContentMaxWidth(LocalConfiguration.current.screenWidthDp.dp)
     val imeVisible = with(LocalDensity.current) {
         WindowInsets.ime.getBottom(this) > 0
@@ -109,6 +131,13 @@ fun OrbitApp(
         selectedRoute = selectedRoute,
         appearanceSubsectionOpen = settingsSubsectionOpen,
     )
+
+    // A first launch opens straight on Home with the starter Spaces already there.
+    LaunchedEffect(Unit) {
+        if (!settings.hasCompletedFirstTimeTutorial) {
+            runCatching { seedStarterSpacesSilently(container.spaceRepository) }
+        }
+    }
 
     LaunchedEffect(reminderToOpen) {
         reminderToOpen?.let { reminderId ->
@@ -169,7 +198,7 @@ fun OrbitApp(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = initialOrbitRoute(settings),
+                startDestination = initialOrbitRoute(),
                 modifier = Modifier
                     .widthIn(max = contentMaxWidth)
                     .fillMaxSize()
@@ -192,7 +221,7 @@ fun OrbitApp(
                         ?.getBoolean(FirstTimeTutorialDestination.ReplayArgument)
                         ?: false
                     val tutorialSpaceSetupViewModel: TutorialSpaceSetupViewModel = viewModel(
-                        factory = TutorialSpaceSetupViewModel.Factory(isReplay, container),
+                        factory = TutorialSpaceSetupViewModel.Factory(container),
                     )
                     val tutorialSpaceSetupState by tutorialSpaceSetupViewModel.uiState
                         .collectAsStateWithLifecycle()
@@ -226,8 +255,24 @@ fun OrbitApp(
                         factory = HomeCaptureViewModel.Factory(
                             captureInbox = container.captureInbox,
                             appSettingsRepository = container.appSettingsRepository,
-                            quickReminder = container.captureResolution::createQuickReminder,
                             savedStateHandle = entry.savedStateHandle,
+                            receipts = CaptureReceiptReader(
+                                captureRepository = container.captureRepository,
+                                noteRepository = container.noteRepository,
+                                taskRepository = container.taskRepository,
+                                reminderRepository = container.reminderRepository,
+                                spaceRepository = container.spaceRepository,
+                            )::observe,
+                            retryReminder = { captureId, reminderId ->
+                                rearmReceiptReminder(
+                                    reminderRepository = container.reminderRepository,
+                                    outcomes = container.reminderSaveOutcomes,
+                                    resolution = container.captureResolution,
+                                    captureId = captureId,
+                                    reminderId = reminderId,
+                                )
+                            },
+                            keepThought = container.captureResolution::keep,
                         ),
                     )
                     val homeSortViewModel: CaptureSortViewModel = viewModel(
@@ -308,6 +353,14 @@ fun OrbitApp(
                         },
                         focusCaptureOnOpen = settings.focusCaptureOnOpen,
                         focusRequest = focusCaptureRequest,
+                        firstRun = !settings.hasCompletedFirstTimeTutorial,
+                        voiceCloudNoticeSeen = settings.hasSeenVoiceCloudNotice,
+                        onVoiceCloudNoticeSeen = {
+                            onSettingsChanged(settings.copy(hasSeenVoiceCloudNotice = true))
+                        },
+                        onOpenReceiptTarget = { target ->
+                            navController.navigate(ItemDetailDestination.route(target.type.toItemDetailType(), target.id))
+                        },
                     )
                 }
                 composable(OrbitDestination.Spaces.route) {
@@ -350,7 +403,7 @@ fun OrbitApp(
                         },
                         onOpenToday = { navController.navigateToCalendar(LocalDate.now()) },
                         onToggleDone = spacesViewModel::toggleDone,
-                        onAddThought = { spaceId -> navController.returnHomeWithSpaceCapture(spaceId) },
+                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
                     )
                 }
                 composable(SpaceDetailDestination.UnfiledRoute) {
@@ -376,7 +429,7 @@ fun OrbitApp(
                         onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
-                        onAddThought = { spaceId -> navController.returnHomeWithSpaceCapture(spaceId) },
+                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
                     )
                 }
                 composable(
@@ -408,7 +461,7 @@ fun OrbitApp(
                         onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
-                        onAddThought = { spaceId -> navController.returnHomeWithSpaceCapture(spaceId) },
+                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
                     )
                 }
                 composable(OrbitDestination.Review.route) { entry ->
@@ -473,6 +526,20 @@ fun OrbitApp(
                                 snackbarHostState = snackbarHostState,
                             )
                         },
+                        onNeedsYouRemindAt = reviewViewModel::remindAt,
+                        // A reminder that exists gets its new time on its own screen; a thought
+                        // still saved opens the sort sheet on the reminder setup.
+                        onNeedsYouPickTime = { item ->
+                            val reminderId = item.reminderId
+                            if (reminderId != null) {
+                                navController.navigate(ItemDetailDestination.route(ItemDetailType.Reminder, reminderId))
+                            } else {
+                                reviewSortViewModel.open(item.captureId, startWithReminderSetup = true)
+                            }
+                        },
+                        onNeedsYouMakeTask = reviewViewModel::makeTask,
+                        onNeedsYouTryAgain = reviewViewModel::retryReminder,
+                        onNeedsYouKeep = reviewViewModel::keepThought,
                     )
                 }
                 composable(OrbitDestination.Settings.route) {
@@ -663,6 +730,7 @@ fun OrbitApp(
             ) {
                 FloatingBottomNavigation(
                     selectedRoute = selectedRoute,
+                    alertDestinations = if (needsYouFailed) setOf(OrbitDestination.Review) else emptySet(),
                     onDestinationSelected = { destination ->
                         // Home is the root of every tab: going back to it is a pop that saves the
                         // tab being left (its tab keeps its place). Navigating to Home with
@@ -683,6 +751,38 @@ fun OrbitApp(
                 )
             }
 
+            spaceCaptureId?.let { spaceId ->
+                val spaceName by produceState(initialValue = "", spaceId) {
+                    value = container.spaceRepository.getById(spaceId)?.name.orEmpty()
+                }
+                SpaceCaptureSheet(
+                    spaceName = if (spaceName.isEmpty()) "" else com.orbit.app.ui.localization.localizedSpaceName(spaceName),
+                    saving = spaceCaptureSaving,
+                    saveFailed = spaceCaptureFailed,
+                    onSave = { text ->
+                        // The sheet closes only once the thought is stored; on failure the
+                        // text stays in it and can be saved again.
+                        spaceCaptureSaving = true
+                        spaceCaptureFailed = false
+                        spaceCaptureScope.launch {
+                            val saved = try {
+                                container.captureInbox.save(text, spaceId = spaceId)
+                                true
+                            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                                throw cancellation
+                            } catch (_: Exception) {
+                                false
+                            }
+                            spaceCaptureSaving = false
+                            if (saved) spaceCaptureId = null else spaceCaptureFailed = true
+                        }
+                    },
+                    onDismiss = {
+                        spaceCaptureId = null
+                        spaceCaptureFailed = false
+                    },
+                )
+            }
             if (showSituationAi) {
                 val situationViewModel: SituationAiViewModel = viewModel(
                     factory = SituationAiViewModel.Factory(container),
@@ -826,6 +926,13 @@ private fun NavController.replaceCurrentItemDetail(
         popUpTo(entry.destination.id) { inclusive = true }
         launchSingleTop = true
     }
+}
+
+private fun ReceiptItemType.toItemDetailType(): ItemDetailType = when (this) {
+    ReceiptItemType.Capture -> ItemDetailType.Capture
+    ReceiptItemType.Note -> ItemDetailType.Note
+    ReceiptItemType.Task -> ItemDetailType.Task
+    ReceiptItemType.Reminder -> ItemDetailType.Reminder
 }
 
 internal fun glassRenderingPolicyForRoute(selectedRoute: String?): GlassRenderingPolicy =

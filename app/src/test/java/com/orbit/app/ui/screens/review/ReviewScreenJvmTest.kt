@@ -18,6 +18,8 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import com.orbit.app.testing.JvmComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -84,9 +86,9 @@ class ReviewScreenJvmTest {
     @Test
     fun constrainedWidthAndLargeTextKeepReviewPaneAndHeadingAvailable() {
         setReview(ReviewUiState(), fontScale = 1.6f)
-        composeRule.onNode(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Review")).assertExists()
-        composeRule.onNode(isHeading() and hasText("Review")).assertExists()
-        composeRule.onNodeWithText("All sorted").assertExists()
+        composeRule.onNode(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Needs you")).assertExists()
+        composeRule.onNode(isHeading() and hasText("Needs you")).assertExists()
+        composeRule.onNodeWithText("Nothing needs you right now.").assertExists()
     }
 
     @Test
@@ -101,6 +103,7 @@ class ReviewScreenJvmTest {
         )
         var accepted: ToSortItem? = null
         setReview(ReviewUiState(toSort = listOf(item)), onAccept = { accepted = it })
+        openMore()
 
         // The suggestion is one small "Save" button; TalkBack hears what it saves.
         composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasContentDescription("Make it a task"))
@@ -120,7 +123,9 @@ class ReviewScreenJvmTest {
         val second = first.copy(captureId = 2, text = "garden ideas", suggestedType = SuggestedItemType.Note)
         var accepted: ToSortItem? = null
         setReview(ReviewUiState(toSort = listOf(first, second)), onAccept = { accepted = it })
+        openMore()
 
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Sort one by one"))
         composeRule.onNodeWithText("Sort one by one").performClick()
         composeRule.onNodeWithText("1 of 2").assertExists()
         composeRule.onNodeWithText("Make it a task").performClick()
@@ -144,6 +149,7 @@ class ReviewScreenJvmTest {
         )
         var changed: ToSortItem? = null
         setReview(ReviewUiState(toSort = listOf(item)), onChange = { changed = it })
+        openMore()
 
         composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Pick a time"))
         composeRule.onNodeWithText("Pick a time").performClick()
@@ -246,9 +252,68 @@ class ReviewScreenJvmTest {
         var askCount = 0
         setReview(ReviewUiState(), onAsk = { asked = it; askCount += 1 })
 
-        composeRule.onNodeWithText("Ask").performClick()
+        // Ask lives in the header's one overflow menu.
+        composeRule.onNodeWithContentDescription("More actions").performClick()
         composeRule.onNodeWithText("Ask your own…").performClick()
         assertEquals(1, askCount)
         assertNull(asked)
+    }
+
+    /** To sort, the weekly look back and earlier tasks are tools behind one "More" row. */
+    private fun openMore() {
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("More"))
+        composeRule.onNodeWithText("More").performClick()
+    }
+
+    @Test
+    fun eachNeedsYouCardAsksOneThingAndKeepItAnswersIt() {
+        val noTime = NeedsYouItem(captureId = 1, text = "remind me about the car", reason = CaptureOutcomeReason.TimeUnclear, createdAt = 0)
+        val blocked = NeedsYouItem(
+            captureId = 2,
+            text = "call the bank",
+            reason = CaptureOutcomeReason.NotificationsOff,
+            createdAt = 0,
+            reminderId = 20,
+        )
+        var kept: NeedsYouItem? = null
+        var picked: NeedsYouItem? = null
+        composeRule.setContent {
+            MaterialTheme {
+                Box(Modifier.width(360.dp).height(720.dp)) {
+                    ReviewScreen(
+                        uiState = ReviewUiState(needsYou = listOf(noTime, blocked)),
+                        timeFormat = OrbitTimeFormat(uses24HourClock = true),
+                        onReviewItemSelected = {},
+                        onKeepTaskActive = {},
+                        onConfirmCapture = {},
+                        onArchive = {},
+                        onCompleteTask = {},
+                        onDeferTask = {},
+                        onDismissCapture = {},
+                        onMakeSmaller = {},
+                        onUndoTaskMutation = {},
+                        onTaskUndoExpired = {},
+                        onCarryForwardTomorrow = {},
+                        onCarryForwardToDate = { _, _ -> },
+                        onKeepCarryForwardUnscheduled = {},
+                        onCompleteCarryForward = {},
+                        onWeeklyLookBackVisible = {},
+                        onNeedsYouPickTime = { picked = it },
+                        onNeedsYouKeep = { kept = it },
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("Needs a decision").assertExists()
+        composeRule.onNodeWithText("When should this remind you?").assertExists()
+        composeRule.onNodeWithText("Reminders can’t ring while notifications are off.").assertExists()
+        composeRule.onNodeWithText("Nothing needs you right now.").assertDoesNotExist()
+        composeRule.onNodeWithText("Pick a time").performClick()
+        assertEquals(1L, picked?.captureId)
+        // The second card sits lower: bring today's plan under it into view first.
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Today"))
+        composeRule.onAllNodesWithText("Just keep it")[1].performClick()
+        assertEquals(2L, kept?.captureId)
     }
 }

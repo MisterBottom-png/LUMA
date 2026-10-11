@@ -58,10 +58,10 @@ class ReviewScreenAccessibilityTest {
         }
 
         composeRule.onNode(
-            SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Review"),
+            SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Needs you"),
         ).assertExists()
         // Review has a heading per section; the screen title must be one of them.
-        composeRule.onNode(isHeading() and hasText("Review")).assertExists()
+        composeRule.onNode(isHeading() and hasText("Needs you")).assertExists()
     }
 
     @Test

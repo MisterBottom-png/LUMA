@@ -39,7 +39,7 @@
     <string name="review_one_space">Ruum</string>
     <string name="review_one_when">Millal</string>
     <string name="review_one_skip">Jäta praegu vahele</string>
-    <string name="review_one_back">Tagasi ülevaatesse</string>
+    <string name="review_one_back">Tagasi vaatesse „Vajab sind“</string>
     <string name="review_one_done_body">Muud midagi ei oota. Ülejäänud päev võib rahulikult minna.</string>
     <string name="review_one_skipped_body">Vahele jäetud mõtted ootavad sorteerimist.</string>
     <string name="settings_section_reminders">Meeldetuletused</string>
@@ -48,6 +48,13 @@
     <string name="settings_section_about">Rakendusest</string>
     <string name="settings_turn_on">Lülita sisse</string>
     <string name="settings_allow">Luba</string>
+    <string name="reminder_health_ok">Miski ei takista meeldetuletusi.</string>
+    <string name="reminder_health_notifications_off">Märguanded on välja lülitatud, seega meeldetuletused ei saa heliseda.</string>
+    <string name="reminder_health_channel_off">Meeldetuletuste heli on välja lülitatud.</string>
+    <string name="reminder_health_battery">See telefon peatab mõnikord taustal töötavaid rakendusi. Kui mõni meeldetuletus jääb kunagi tulemata, kontrolli kõigepealt seda.</string>
+    <string name="reminder_health_late">Meeldetuletused võivad mõne minuti hilineda.</string>
+    <string name="reminder_health_samsung_steps">Aku › Taustakasutuse piirangud › Rakendused, mis ei lähe kunagi unerežiimi › lisa Tallele</string>
+    <string name="reminder_health_action_check">Kontrolli</string>
     <string name="settings_add_name">Lisa oma nimi</string>
     <string name="settings_backup_title">Varundus ja taastamine</string>
     <string name="settings_data_footer">Sinu kirjed on selles telefonis. Varukoopia fail hoiab koopiat ka mujal.</string>
@@ -85,9 +92,17 @@
     <string name="split_one_thought">Tallele leidis siit ainult ühe mõtte.</string>
     <string name="home_voice_next_hint">Järgmise mõtte jaoks puuduta uuesti mikrofoni.</string>
     <string name="home_voice_next">Ütle järgmine mõte</string>
+    <string name="voice_cloud_notice">Kõnesisestus võib selles telefonis kasutada Google’i servereid.</string>
+    <string name="voice_continue">Jätka</string>
+    <string name="home_voice_listening">Kuulan…</string>
+    <string name="voice_nothing_heard">Midagi ei kuuldud. Proovi uuesti.</string>
+    <string name="voice_unavailable">Kõnesisestus pole selles telefonis praegu saadaval.</string>
     <string name="brain_overview_back">Tagasi loendisse</string>
     <string name="spaces_preview_placeholder">Sinu uus ruum</string>
     <string name="spaces_colour">Värv</string>
+    <string name="spaces_color_and_icon">Värv ja ikoon</string>
+    <string name="expand_state_open">Laiendatud</string>
+    <string name="expand_state_closed">Ahendatud</string>
     <string name="spaces_icon_travel">Reisimine</string>
     <string name="search_filter_all">Kõik</string>
     <string name="search_group_to_sort">Veel sorteerimata</string>
@@ -97,10 +112,13 @@
     <string name="search_group_archived">Arhiveeritud</string>
     <string name="search_look_in_space">Vaata ruumi sisse</string>
     <string name="search_stays_on_phone">Otsing jääb sellesse telefoni.</string>
-    <string name="tutorial_write_title">Kirjuta üles. Sorteeri hiljem.</string>
+    <string name="search_recent">Hiljuti salvestatud</string>
+    <string name="search_no_matches">„%1$s“ kohta vasteid pole.</string>
+    <string name="search_include_archived">Otsi ka arhiivist</string>
+    <string name="tutorial_write_title">Kirjuta üles. Edasi hoolitseb Tallele.</string>
     <string name="tutorial_write_body">Kirjuta iga mõte üles nii, nagu see tuleb. Liiki, kuupäeva ega kohta ei pea enne valima.</string>
-    <string name="tutorial_suggest_title">Tallele soovitab. Sina otsustad.</string>
-    <string name="tutorial_suggest_body">See pakub liiki, aega ja ruumi. Midagi ei saa ülesandeks ega meeldetuletuseks enne, kui ütled jah.</string>
+    <string name="tutorial_suggest_title">Tallele sorteerib selge ise ja küsib ainult siis, kui vaja.</string>
+    <string name="tutorial_suggest_body">Selgest mõttest saab märge, ülesanne või meeldetuletus ja sa saad seda alati muuta. Kui aeg või liik on ebaselge, küsib see enne sinult.</string>
     <string name="tutorial_spaces_pick_title">Vali oma ruumid</string>
     <string name="tutorial_spaces_pick_body">Ruum hoiab üht eluosa koos. Vali praegu mõned; neid saab alati muuta.</string>
     <string name="tutorial_private_title">Vaikimisi privaatne</string>
@@ -108,6 +126,12 @@
     <string name="tutorial_private_1">Sinu mõtted hoitakse selles telefonis.</string>
     <string name="tutorial_private_2">Gemini aitab ainult siis, kui selle sisse lülitad.</string>
     <string name="tutorial_private_3">Teavitusi küsitakse esimese meeldetuletuse juures.</string>
+    <string name="home_first_line_above">Kirjuta mida iganes. Tallele hoiab selle alles ja sorteerib, mida oskab.</string>
+    <string name="home_first_line_below">Kõik jääb sellesse telefoni, kui sa just ei lülita sisse Geminit ega kasuta häält.</string>
+    <string name="home_first_receipt_tip_filed">Tallele sorteeris selle sinu eest. Kui midagi läks valesti, puuduta „Muuda“.</string>
+    <string name="home_first_receipt_tip_kept">Tallele hoidis selle alles. Leiad selle jaotisest „%1$s“ ja otsingust.</string>
+    <string name="home_first_receipt_tip_reminder">Meeldetuletus on seatud. Aja muutmiseks puuduta „Muuda“.</string>
+    <string name="notification_priming">Et see meeldetuletus saaks kell %1$s heliseda, peab Tallele saama teavitusi näidata.</string>
     <string name="tutorial_continue">Jätka</string>
     <string name="tutorial_demo_thought">helista homme kell 9 hambaarstile</string>
     <string name="tutorial_demo_other_1">ideed aia jaoks</string>
@@ -122,4 +146,29 @@
     <plurals name="brain_overview_save"><item quantity="one">Salvesta %1$d</item><item quantity="other">Salvesta %1$d</item></plurals>
     <plurals name="split_offer"><item quantity="one">Paistab olevat %1$d mõte</item><item quantity="other">Paistab olevat %1$d mõtet</item></plurals>
     <plurals name="search_result_count"><item quantity="one">%1$d tulemus</item><item quantity="other">%1$d tulemust</item></plurals>
+    <string name="settings_reminders_advanced">Täpsemalt</string>
+    <string name="needs_you_decisions_heading">Vajab otsust</string>
+    <string name="needs_you_today_heading">Täna</string>
+    <string name="needs_you_empty">Praegu ei vaja miski sind.</string>
+    <string name="needs_you_empty_detail">Täna jättis Tallele alles %1$d ja paigutas %2$d.</string>
+    <string name="needs_you_more">Veel</string>
+    <string name="needs_you_q_time">Millal sulle sellest meelde tuletada?</string>
+    <string name="needs_you_q_time_passed">See aeg on juba möödas.</string>
+    <string name="needs_you_q_type">Kas salvestada ülesandena või lihtsalt alles jätta?</string>
+    <string name="needs_you_q_notifications">Meeldetuletused ei saa heliseda, kui teavitused on väljas.</string>
+    <string name="needs_you_q_not_scheduled">Tallele ei saanud seda meeldetuletust seada.</string>
+    <string name="needs_you_today_at">Täna %1$s</string>
+    <string name="needs_you_tomorrow_at">Homme %1$s</string>
+    <string name="needs_you_pick_time">Vali aeg</string>
+    <string name="needs_you_pick_new_time">Vali uus aeg</string>
+    <string name="needs_you_make_task">Tee sellest ülesanne</string>
+    <string name="needs_you_attention">Midagi ei õnnestunud</string>
+    <plurals name="needs_you_summary">
+        <item quantity="one">%1$d otsustada</item>
+        <item quantity="other">%1$d otsustada</item>
+    </plurals>
+    <string name="settings_look_title">Välimus</string>
+    <string name="settings_look_subtitle">Teema, värv, taust ja klaas</string>
+    <string name="space_capture_title">Lisa ruumi „%1$s“</string>
+    <string name="space_capture_hint">Mõte selle ruumi jaoks</string>
 </resources>

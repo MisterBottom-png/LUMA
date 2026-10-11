@@ -39,7 +39,7 @@
     <string name="review_one_space">Пространство</string>
     <string name="review_one_when">Когда</string>
     <string name="review_one_skip">Пропустить пока</string>
-    <string name="review_one_back">Вернуться к обзору</string>
+    <string name="review_one_back">Вернуться в «Ждёт вас»</string>
     <string name="review_one_done_body">Больше ничего не ждёт. Остаток дня можно провести спокойно.</string>
     <string name="review_one_skipped_body">Пропущенные мысли ждут в разделе «Разобрать».</string>
     <string name="settings_section_reminders">Напоминания</string>
@@ -48,6 +48,13 @@
     <string name="settings_section_about">О приложении</string>
     <string name="settings_turn_on">Включить</string>
     <string name="settings_allow">Разрешить</string>
+    <string name="reminder_health_ok">Напоминаниям ничего не мешает.</string>
+    <string name="reminder_health_notifications_off">Уведомления выключены, поэтому напоминания не смогут сработать.</string>
+    <string name="reminder_health_channel_off">Звук напоминаний выключен.</string>
+    <string name="reminder_health_battery">Этот телефон иногда останавливает приложения в фоне. Если напоминание когда-нибудь не придёт, сначала проверьте это.</string>
+    <string name="reminder_health_late">Напоминания могут приходить с опозданием на несколько минут.</string>
+    <string name="reminder_health_samsung_steps">Батарея › Ограничения фонового использования › Приложения без спящего режима › добавьте Tallele</string>
+    <string name="reminder_health_action_check">Проверить</string>
     <string name="settings_add_name">Добавьте своё имя</string>
     <string name="settings_backup_title">Резервная копия</string>
     <string name="settings_data_footer">Ваши записи хранятся на этом телефоне. Файл резервной копии хранит копию в другом месте.</string>
@@ -85,9 +92,17 @@
     <string name="split_one_thought">Tallele нашла здесь только одну мысль.</string>
     <string name="home_voice_next_hint">Нажмите на микрофон ещё раз для следующей мысли.</string>
     <string name="home_voice_next">Сказать следующую мысль</string>
+    <string name="voice_cloud_notice">Голосовой ввод на этом телефоне может использовать серверы Google.</string>
+    <string name="voice_continue">Продолжить</string>
+    <string name="home_voice_listening">Слушаю…</string>
+    <string name="voice_nothing_heard">Ничего не слышно. Попробуйте ещё раз.</string>
+    <string name="voice_unavailable">Голосовой ввод сейчас недоступен на этом телефоне.</string>
     <string name="brain_overview_back">Назад к списку</string>
     <string name="spaces_preview_placeholder">Ваше новое пространство</string>
     <string name="spaces_colour">Цвет</string>
+    <string name="spaces_color_and_icon">Цвет и значок</string>
+    <string name="expand_state_open">Развёрнуто</string>
+    <string name="expand_state_closed">Свёрнуто</string>
     <string name="spaces_icon_travel">Путешествия</string>
     <string name="search_filter_all">Все</string>
     <string name="search_group_to_sort">Ещё не разобрано</string>
@@ -97,10 +112,13 @@
     <string name="search_group_archived">В архиве</string>
     <string name="search_look_in_space">Заглянуть в пространство</string>
     <string name="search_stays_on_phone">Поиск не покидает этот телефон.</string>
-    <string name="tutorial_write_title">Запишите. Разберёте потом.</string>
+    <string name="search_recent">Недавно сохранённые</string>
+    <string name="search_no_matches">Совпадений для «%1$s» нет.</string>
+    <string name="search_include_archived">Искать и в архиве</string>
+    <string name="tutorial_write_title">Запишите. Остальное Tallele возьмёт на себя.</string>
     <string name="tutorial_write_body">Записывайте любую мысль как есть. Тип, дату или место заранее выбирать не нужно.</string>
-    <string name="tutorial_suggest_title">Tallele предлагает. Решаете вы.</string>
-    <string name="tutorial_suggest_body">Она предлагает тип, время и пространство. Ничто не станет задачей или напоминанием, пока вы не согласитесь.</string>
+    <string name="tutorial_suggest_title">Tallele сама раскладывает понятное и спрашивает, только когда нужно.</string>
+    <string name="tutorial_suggest_body">Понятная мысль становится заметкой, задачей или напоминанием, и это всегда можно изменить. Если время или тип неясны, она сначала спросит вас.</string>
     <string name="tutorial_spaces_pick_title">Выберите пространства</string>
     <string name="tutorial_spaces_pick_body">Пространство объединяет одну часть жизни. Выберите несколько сейчас — изменить их можно в любое время.</string>
     <string name="tutorial_private_title">Приватно по умолчанию</string>
@@ -108,6 +126,12 @@
     <string name="tutorial_private_1">Ваши мысли хранятся на этом телефоне.</string>
     <string name="tutorial_private_2">Gemini помогает, только если вы его включите.</string>
     <string name="tutorial_private_3">Разрешение на уведомления запрашивается при первом напоминании.</string>
+    <string name="home_first_line_above">Пишите что угодно. Tallele надёжно сохранит это и разложит, что сможет.</string>
+    <string name="home_first_line_below">Всё остаётся на этом телефоне, если вы не включите Gemini и не будете пользоваться голосовым вводом.</string>
+    <string name="home_first_receipt_tip_filed">Tallele разложила это за вас. Если что-то не так, нажмите «Изменить».</string>
+    <string name="home_first_receipt_tip_kept">Tallele сохранила это. Найти можно в разделе «%1$s» и в поиске.</string>
+    <string name="home_first_receipt_tip_reminder">Напоминание установлено. Чтобы перенести его, нажмите «Изменить».</string>
+    <string name="notification_priming">Чтобы это напоминание сработало в %1$s, Tallele нужно разрешение на уведомления.</string>
     <string name="tutorial_continue">Продолжить</string>
     <string name="tutorial_demo_thought">позвонить стоматологу завтра в 9</string>
     <string name="tutorial_demo_other_1">идеи для сада</string>
@@ -122,4 +146,31 @@
     <plurals name="brain_overview_save"><item quantity="one">Сохранить %1$d</item><item quantity="few">Сохранить %1$d</item><item quantity="many">Сохранить %1$d</item><item quantity="other">Сохранить %1$d</item></plurals>
     <plurals name="split_offer"><item quantity="one">Похоже на %1$d мысль</item><item quantity="few">Похоже на %1$d мысли</item><item quantity="many">Похоже на %1$d мыслей</item><item quantity="other">Похоже на %1$d мысли</item></plurals>
     <plurals name="search_result_count"><item quantity="one">%1$d результат</item><item quantity="few">%1$d результата</item><item quantity="many">%1$d результатов</item><item quantity="other">%1$d результата</item></plurals>
+    <string name="settings_reminders_advanced">Дополнительно</string>
+    <string name="needs_you_decisions_heading">Нужно решение</string>
+    <string name="needs_you_today_heading">Сегодня</string>
+    <string name="needs_you_empty">Сейчас ничего не ждёт вашего решения.</string>
+    <string name="needs_you_empty_detail">Сегодня Tallele сохранил %1$d и разложил %2$d.</string>
+    <string name="needs_you_more">Ещё</string>
+    <string name="needs_you_q_time">Когда вам об этом напомнить?</string>
+    <string name="needs_you_q_time_passed">Это время уже прошло.</string>
+    <string name="needs_you_q_type">Сохранить как задачу или просто оставить?</string>
+    <string name="needs_you_q_notifications">Напоминания не сработают, пока уведомления выключены.</string>
+    <string name="needs_you_q_not_scheduled">Tallele не удалось поставить это напоминание.</string>
+    <string name="needs_you_today_at">Сегодня в %1$s</string>
+    <string name="needs_you_tomorrow_at">Завтра в %1$s</string>
+    <string name="needs_you_pick_time">Выбрать время</string>
+    <string name="needs_you_pick_new_time">Выбрать новое время</string>
+    <string name="needs_you_make_task">Сделать задачей</string>
+    <string name="needs_you_attention">Что-то не получилось</string>
+    <plurals name="needs_you_summary">
+        <item quantity="one">%1$d ждёт решения</item>
+        <item quantity="few">%1$d ждут решения</item>
+        <item quantity="many">%1$d ждут решения</item>
+        <item quantity="other">%1$d ждут решения</item>
+    </plurals>
+    <string name="settings_look_title">Внешний вид</string>
+    <string name="settings_look_subtitle">Тема, цвет, фон и стекло</string>
+    <string name="space_capture_title">Добавить в «%1$s»</string>
+    <string name="space_capture_hint">Мысль для этого пространства</string>
 </resources>

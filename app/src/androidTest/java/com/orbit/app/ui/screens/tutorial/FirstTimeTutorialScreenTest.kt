@@ -28,11 +28,11 @@ class FirstTimeTutorialScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Write it down. Sort it later.").assertIsDisplayed()
+        composeRule.onNodeWithText("Write it down. Tallele takes it from here.").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Step 1 of 4").assertExists()
         composeRule.onNodeWithText("Back").assertDoesNotExist()
         composeRule.onNodeWithText("Continue").performClick()
-        composeRule.onNodeWithText("Tallele suggests. You decide.").assertIsDisplayed()
+        composeRule.onNodeWithText("Tallele files what’s clear and asks only when it must.").assertIsDisplayed()
     }
 
     @Test
@@ -47,10 +47,10 @@ class FirstTimeTutorialScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Write it down. Sort it later.")
+        composeRule.onNodeWithText("Write it down. Tallele takes it from here.")
             .performTouchInput { swipeLeft() }
 
-        composeRule.onNodeWithText("Tallele suggests. You decide.").assertIsDisplayed()
+        composeRule.onNodeWithText("Tallele files what’s clear and asks only when it must.").assertIsDisplayed()
     }
 
     @Test

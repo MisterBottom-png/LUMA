@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
@@ -107,7 +108,6 @@ internal fun SettingsHome(
     onOpenFirstTimeGuide: () -> Unit,
     onOpen: (SettingsDestination) -> Unit,
 ) {
-    var showResetConfirmation by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier = Modifier.padding(top = 12.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
@@ -123,72 +123,18 @@ internal fun SettingsHome(
         // Reminders come first: whether they can reach you matters more than how things look.
         RemindersGroup(settings = settings, onSettingsChanged = onSettingsChanged)
 
-        SettingsGroupBlock(title = stringResource(R.string.settings_appearance_title)) {
-            ControlBlock(icon = Icons.Filled.Contrast, title = stringResource(R.string.settings_theme)) {
-                ChoiceRow(
-                    choices = SettingsThemeMode.entries,
-                    selected = settings.themeMode,
-                    label = { stringResource(it.labelRes()) },
-                    onSelected = { onSettingsChanged(settings.copy(themeMode = it)) },
-                )
-            }
-            GroupDivider(startInset = 64.dp)
-            ControlBlock(
-                icon = Icons.Filled.Tune,
-                title = stringResource(R.string.settings_overall_color),
-                value = stringResource(settings.accentColor.labelRes()),
-                indentContent = false,
-            ) {
-                AccentSwatches(
-                    selected = settings.accentColor,
-                    onSelected = { onSettingsChanged(settings.copy(accentColor = it)) },
-                )
-            }
-            GroupDivider(startInset = 64.dp)
+        // Look is one row: theme, colour, background and glass are one tap away.
+        SettingsGroupBlock(title = null) {
             SettingsLinkRow(
-                title = stringResource(R.string.settings_text_color),
-                value = stringResource(settings.textColor.labelRes()),
-                icon = Icons.Filled.FormatColorText,
-                iconColor = SettingsHues.Look,
-                onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Colors)) },
-            )
-            GroupDivider(startInset = 64.dp)
-            SettingsLinkRow(
-                title = stringResource(R.string.settings_background_title),
+                title = stringResource(R.string.settings_look_title),
                 value = if (settings.customBackgroundUri != null) {
                     stringResource(R.string.settings_custom_image)
                 } else {
                     stringResource(settings.backgroundPreset.labelRes())
                 },
-                leading = {
-                    if (settings.customBackgroundUri != null) {
-                        TintedIconChip(icon = Icons.Filled.Image, color = SettingsHues.Look)
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(
-                                    Brush.linearGradient(presetPreviewColors(settings.backgroundPreset)),
-                                    RoundedCornerShape(12.dp),
-                                )
-                                .border(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
-                                    RoundedCornerShape(12.dp),
-                                ),
-                        )
-                    }
-                },
-                onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Background)) },
-            )
-            GroupDivider(startInset = 64.dp)
-            // One Glass page: three presets, with the finer controls under Advanced.
-            SettingsLinkRow(
-                title = stringResource(R.string.settings_glass_title),
-                value = stringResource(GlassPreset.of(settings)?.titleRes ?: R.string.settings_glass_custom),
-                icon = Icons.Filled.Tune,
+                icon = Icons.Filled.Palette,
                 iconColor = SettingsHues.Look,
-                onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Glass)) },
+                onClick = { onOpen(SettingsDestination.Appearance(AppearanceMenuSection.Look)) },
             )
         }
 
@@ -261,6 +207,89 @@ internal fun SettingsHome(
                 onClick = null,
             )
         }
+    }
+}
+
+/**
+ * Settings › Look: theme and colour set in place; text colour, background and glass one
+ * tap further. Resetting the look is the quiet last line here, with a confirmation.
+ */
+@Composable
+internal fun AppearanceLookSection(
+    settings: AppSettings,
+    onSettingsChanged: (AppSettings) -> Unit,
+    onOpen: (AppearanceMenuSection) -> Unit,
+) {
+    var showResetConfirmation by rememberSaveable { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        SettingsGroupBlock(title = null) {
+            ControlBlock(icon = Icons.Filled.Contrast, title = stringResource(R.string.settings_theme)) {
+                ChoiceRow(
+                    choices = SettingsThemeMode.entries,
+                    selected = settings.themeMode,
+                    label = { stringResource(it.labelRes()) },
+                    onSelected = { onSettingsChanged(settings.copy(themeMode = it)) },
+                )
+            }
+            GroupDivider(startInset = 64.dp)
+            ControlBlock(
+                icon = Icons.Filled.Tune,
+                title = stringResource(R.string.settings_overall_color),
+                value = stringResource(settings.accentColor.labelRes()),
+                indentContent = false,
+            ) {
+                AccentSwatches(
+                    selected = settings.accentColor,
+                    onSelected = { onSettingsChanged(settings.copy(accentColor = it)) },
+                )
+            }
+            GroupDivider(startInset = 64.dp)
+            SettingsLinkRow(
+                title = stringResource(R.string.settings_text_color),
+                value = stringResource(settings.textColor.labelRes()),
+                icon = Icons.Filled.FormatColorText,
+                iconColor = SettingsHues.Look,
+                onClick = { onOpen(AppearanceMenuSection.Colors) },
+            )
+            GroupDivider(startInset = 64.dp)
+            SettingsLinkRow(
+                title = stringResource(R.string.settings_background_title),
+                value = if (settings.customBackgroundUri != null) {
+                    stringResource(R.string.settings_custom_image)
+                } else {
+                    stringResource(settings.backgroundPreset.labelRes())
+                },
+                leading = {
+                    if (settings.customBackgroundUri != null) {
+                        TintedIconChip(icon = Icons.Filled.Image, color = SettingsHues.Look)
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(
+                                    Brush.linearGradient(presetPreviewColors(settings.backgroundPreset)),
+                                    RoundedCornerShape(12.dp),
+                                )
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+                                    RoundedCornerShape(12.dp),
+                                ),
+                        )
+                    }
+                },
+                onClick = { onOpen(AppearanceMenuSection.Background) },
+            )
+            GroupDivider(startInset = 64.dp)
+            // One Glass page: three presets, with the finer controls under Advanced.
+            SettingsLinkRow(
+                title = stringResource(R.string.settings_glass_title),
+                value = stringResource(GlassPreset.of(settings)?.titleRes ?: R.string.settings_glass_custom),
+                icon = Icons.Filled.Tune,
+                iconColor = SettingsHues.Look,
+                onClick = { onOpen(AppearanceMenuSection.Glass) },
+            )
+        }
 
         // A rarely used action: quiet text at the very end, with a confirmation.
         TextButton(
@@ -296,7 +325,7 @@ internal fun SettingsHome(
     }
 }
 
-/** Reminder status with a direct fix, plus the two capture switches. */
+/** Reminder status with a direct fix, and Advanced with the two behaviour switches. */
 @Composable
 internal fun RemindersGroup(
     settings: AppSettings,
@@ -305,23 +334,11 @@ internal fun RemindersGroup(
     SettingsGroupBlock(title = stringResource(R.string.settings_section_reminders)) {
         ReminderStatusRow(icon = Icons.Filled.Notifications, iconColor = SettingsHues.Reminders)
         GroupDivider(startInset = 64.dp)
-        Box(modifier = Modifier.padding(start = 64.dp, end = 16.dp)) {
-            SettingsSwitchRow(
-                title = stringResource(R.string.settings_sort_right_after_saving),
-                body = stringResource(R.string.settings_sort_right_after_saving_body),
-                checked = settings.sortRightAfterSaving,
-                onCheckedChange = { onSettingsChanged(settings.copy(sortRightAfterSaving = it)) },
-            )
-        }
-        GroupDivider(startInset = 64.dp)
-        Box(modifier = Modifier.padding(start = 64.dp, end = 16.dp)) {
-            SettingsSwitchRow(
-                title = stringResource(R.string.settings_focus_capture),
-                body = stringResource(R.string.settings_focus_capture_body),
-                checked = settings.focusCaptureOnOpen,
-                onCheckedChange = { onSettingsChanged(settings.copy(focusCaptureOnOpen = it)) },
-            )
-        }
+        ReminderAdvancedSettings(
+            settings = settings,
+            onSettingsChanged = onSettingsChanged,
+            modifier = Modifier.padding(start = 64.dp, end = 16.dp),
+        )
     }
 }
 

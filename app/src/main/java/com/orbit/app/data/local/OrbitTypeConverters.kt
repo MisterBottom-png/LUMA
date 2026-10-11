@@ -5,6 +5,8 @@ import com.orbit.app.data.local.entity.AiSuggestionOutcome
 import com.orbit.app.data.local.entity.AiSuggestionSurface
 import com.orbit.app.data.local.entity.BrainDumpItemOutcome
 import com.orbit.app.data.local.entity.BrainDumpReminderStatus
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureSource
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.LearnedRuleCategory
@@ -31,6 +33,18 @@ class OrbitTypeConverters {
 
     @TypeConverter
     fun stringToCaptureStatus(value: String): CaptureStatus = CaptureStatus.valueOf(value)
+
+    @TypeConverter
+    fun captureOutcomeToString(value: CaptureOutcome): String = value.name
+
+    @TypeConverter
+    fun stringToCaptureOutcome(value: String): CaptureOutcome = CaptureOutcome.valueOf(value)
+
+    @TypeConverter
+    fun captureOutcomeReasonToString(value: CaptureOutcomeReason): String = value.name
+
+    @TypeConverter
+    fun stringToCaptureOutcomeReason(value: String): CaptureOutcomeReason = CaptureOutcomeReason.valueOf(value)
 
     @TypeConverter
     fun captureSourceToString(value: CaptureSource): String = value.name

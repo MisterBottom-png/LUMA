@@ -29,9 +29,12 @@ enum class AskLumaPrompt(val labelRes: Int) {
     AnythingUrgent(R.string.review_ask_urgent),
 }
 
-/** Shown only when nothing at all is waiting. */
+/**
+ * Needs you is honestly empty most days: one calm line, and what Tallele did with today's
+ * thoughts, so nothing has to be checked.
+ */
 @Composable
-internal fun AllSortedCard() {
+internal fun NeedsYouEmptyCard(kept: Int, filed: Int) {
     SoftGlassSurface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -39,17 +42,18 @@ internal fun AllSortedCard() {
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = stringResource(R.string.review_all_sorted_title),
+                text = stringResource(R.string.needs_you_empty),
                 modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(
-                text = stringResource(R.string.review_all_sorted_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (kept + filed > 0) {
+                Text(
+                    text = stringResource(R.string.needs_you_empty_detail, kept, filed),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
-

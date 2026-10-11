@@ -79,7 +79,7 @@
     <string name="core_situation_what_is_stuck">What is stuck?</string>
 
     <!-- Review -->
-    <string name="core_review_title">Review</string>
+    <string name="core_review_title">Needs you</string>
     <string name="core_review_breathe_in">Breathe in</string>
     <string name="core_review_breathe_out">Breathe out</string>
     <string name="core_review_weekly_title">Weekly review</string>
@@ -152,4 +152,23 @@
     <string name="core_learning_save_body">You made this correction more than once: %1$s</string>
     <string name="core_learning_save_confirm">Save preference</string>
     <string name="core_learning_not_now">Not now</string>
+    <!-- The save receipt under the capture box on Home. -->
+    <string name="receipt_saved">Saved.</string>
+    <string name="receipt_saved_note">Saved as a note.</string>
+    <string name="receipt_saved_task">Saved as a task.</string>
+    <string name="receipt_filed_note">Filed in %1$s as a note.</string>
+    <string name="receipt_filed_task">Task for %1$s.</string>
+    <string name="receipt_filed_task_in_space">Filed in %1$s as a task.</string>
+    <string name="receipt_reminder_set">Reminder set for %1$s.</string>
+    <string name="receipt_reminder_not_armed">Saved, but the reminder isn’t set yet.</string>
+    <string name="receipt_needs_time">Saved. What time should it remind you?</string>
+    <string name="receipt_time_passed">That time has already passed. Pick a new one?</string>
+    <string name="receipt_notifications_off">Saved, but reminders can’t ring. Notifications are off.</string>
+    <string name="receipt_not_scheduled">Saved, but Tallele couldn’t set the reminder.</string>
+    <string name="receipt_action_view">View</string>
+    <string name="receipt_action_change">Change</string>
+    <string name="receipt_action_choose_time">Choose time</string>
+    <string name="receipt_action_turn_on">Turn on</string>
+    <string name="receipt_action_try_again">Try again</string>
+    <string name="receipt_action_keep">Just keep it</string>
 </resources>

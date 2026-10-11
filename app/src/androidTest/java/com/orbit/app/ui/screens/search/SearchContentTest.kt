@@ -104,7 +104,7 @@ class SearchContentTest {
             }
         }
 
-        composeRule.onNodeWithText("Nothing found here yet.").assertIsDisplayed()
+        composeRule.onNodeWithText("No matches for “missing”.").assertIsDisplayed()
         composeRule.onNodeWithText("Clear search").performClick()
 
         composeRule.runOnIdle {

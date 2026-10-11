@@ -182,6 +182,7 @@ class ItemDetailViewModel(
                         container.reminderRepository.update(
                             it.copy(dueAt = timed.epochMillis, updatedAt = System.currentTimeMillis()),
                         )
+                        syncThoughtWithReminder(it.id)
                         it.dueAt
                     }
                 }.onSuccess { previousDueAt ->
@@ -370,6 +371,8 @@ class ItemDetailViewModel(
                                     CaptureStatus.Processed
                                 },
                                 updatedAt = now,
+                                // The user touched it: no automatic decision may follow.
+                                decidedAt = it.decidedAt ?: now,
                             ),
                         )
                     }
@@ -541,6 +544,29 @@ class ItemDetailViewModel(
         }
     }
 
+    /**
+     * A reminder made from a thought got a new time: the thought's stored outcome follows
+     * (a missed time that now lies ahead is a set reminder again, or says why it cannot ring).
+     */
+    private suspend fun syncThoughtWithReminder(reminderId: Long) {
+        val reminder = container.reminderRepository.getById(reminderId) ?: return
+        val captureId = reminder.linkedCaptureId ?: return
+        container.captureResolution.recordReminderOutcome(
+            captureId = captureId,
+            reminderId = reminderId,
+            outcome = container.reminderSaveOutcomes.of(reminderId),
+        )
+    }
+
+    private fun linkedCaptureOutcomes() = com.orbit.app.domain.capture.LinkedCaptureOutcomes(
+        captureRepository = container.captureRepository,
+        transaction = com.orbit.app.domain.usecase.RoomCaptureFinalizationTransaction(container.database),
+        canNotify = {
+            com.orbit.app.reminders.ReminderCapabilities.notificationsAllowed(container.applicationContext) &&
+                com.orbit.app.reminders.ReminderCapabilities.reminderChannelEnabled(container.applicationContext)
+        },
+    )
+
     /** Undo for a reminder's new time. */
     fun undoReminderTime(operationId: Long) {
         val (pendingId, previousDueAt) = reminderTimeUndo ?: return
@@ -549,7 +575,16 @@ class ItemDetailViewModel(
         viewModelScope.launch {
             runCatching {
                 container.reminderRepository.getById(itemId)?.let {
-                    container.reminderRepository.update(it.copy(dueAt = previousDueAt, updatedAt = System.currentTimeMillis()))
+                    val now = System.currentTimeMillis()
+                    container.reminderRepository.update(it.copy(dueAt = previousDueAt, updatedAt = now))
+                    if (previousDueAt < now) {
+                        // Back to a time that has passed: the thought needs a new time again.
+                        container.reminderRepository.getById(it.id)?.let { restored ->
+                            linkedCaptureOutcomes().missed(restored, now)
+                        }
+                    } else {
+                        syncThoughtWithReminder(it.id)
+                    }
                 }
             }.onSuccess { load(message = localized(R.string.core_item_detail_schedule_restored)) }
                 .onFailure { load(message = localized(R.string.core_item_detail_schedule_restore_failed)) }

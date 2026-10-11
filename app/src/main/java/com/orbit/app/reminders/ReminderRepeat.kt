@@ -7,6 +7,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 
 /** How a reminder repeats. */
 enum class ReminderRepeat(val storageToken: String) {
@@ -88,6 +89,32 @@ object ReminderRepeats {
             if (candidate > now && candidate > reminder.dueAt) return candidate
         }
         return null
+    }
+
+    /**
+     * After a time-zone change: the pending occurrence of a repeating reminder moved to
+     * its chosen time of day in [zoneId], or null when nothing should move. One-off
+     * reminders are instants and never move. The new time is the chosen time on the day
+     * closest to the stored instant, so the calendar day stays the same for any shift
+     * under 12 hours. An occurrence that was snoozed, already shown, or would land in
+     * the past keeps its instant, so a zone change can neither ring it twice nor turn
+     * it into a missed reminder.
+     */
+    fun reanchoredToZone(reminder: ReminderEntity, now: Long, zoneId: ZoneId): ReminderEntity? {
+        if (reminder.completedAt != null || reminder.snoozedUntil != null) return null
+        val spec = RepeatSpec.parse(reminder.repeatRule) ?: return null
+        val time = spec.timeOfDay ?: return null
+        val shownAt = reminder.notificationTimeMillis()
+        if (shownAt != null && reminder.deliveredNotificationAt == shownAt) return null
+        val date = Instant.ofEpochMilli(reminder.dueAt).atZone(zoneId).toLocalDate()
+        val anchored = listOf(date.minusDays(1), date, date.plusDays(1))
+            .map { it.atTime(time).atZone(zoneId).toInstant().toEpochMilli() }
+            .minWith(compareBy<Long> { abs(it - reminder.dueAt) }.thenByDescending { it })
+        if (anchored == reminder.dueAt) return null
+        val moved = reminder.copy(dueAt = anchored)
+        val movedNotification = moved.notificationTimeMillis() ?: return null
+        if (movedNotification < now - ReminderDeliveryPolicy.CreationGraceMillis) return null
+        return moved
     }
 
     /**
