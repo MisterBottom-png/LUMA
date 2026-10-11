@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -29,19 +31,24 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
 import com.orbit.app.domain.ai.AiSourceItem
@@ -61,9 +68,16 @@ fun SituationAiSheet(
     onSourceSelected: (AiSourceItem) -> Unit,
     onAskQueryChanged: (String) -> Unit,
     onAskLuma: () -> Unit,
+    onSearch: (String) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val sheetPaneTitle = stringResource(R.string.core_situation_title)
+    val listState = rememberLazyListState()
+    val answer = uiState.askAnswer
+    // A new answer is scrolled into view; it sits right after the overview card.
+    LaunchedEffect(answer) {
+        if (answer != null && uiState.analysis != null) listState.animateScrollToItem(AnswerItemIndex)
+    }
     LumaModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -76,7 +90,8 @@ fun SituationAiSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .imePadding(),
         ) {
             SheetHeader(
                 onDismiss = onDismiss,
@@ -87,6 +102,7 @@ fun SituationAiSheet(
                 ),
             )
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
@@ -123,6 +139,7 @@ fun SituationAiSheet(
                             AskLumaAnswer(
                                 answer = answer,
                                 onSourceSelected = onSourceSelected,
+                                onSearch = onSearch,
                             )
                         }
                     }
@@ -184,6 +201,17 @@ private fun AskLumaSection(
             },
             minLines = 1,
             maxLines = 3,
+            supportingText = {
+                Text(
+                    text = stringResource(
+                        R.string.ask_characters_used,
+                        query.length,
+                        SituationAiViewModel.MaxAskQueryLength,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.End,
+                )
+            },
             shape = OrbitShapes.Standard,
             colors = TextFieldDefaults.colors(
                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -232,8 +260,11 @@ private fun AskLumaSection(
 private fun AskLumaAnswer(
     answer: SourceLinkedAnswer,
     onSourceSelected: (AiSourceItem) -> Unit,
+    onSearch: (String) -> Unit,
 ) {
     Surface(
+        // TalkBack reads a new answer without the user having to find it.
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         shape = OrbitShapes.Standard,
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
@@ -265,10 +296,17 @@ private fun AskLumaAnswer(
                     onSourceSelected = onSourceSelected,
                 )
             }
+            answer.searchQuery?.takeIf { it.isNotBlank() }?.let { query ->
+                TextButton(onClick = { onSearch(query) }) {
+                    Text(stringResource(R.string.ask_search_for, query))
+                }
+            }
         }
     }
 }
 
+
+private const val AnswerItemIndex = 1
 
 internal data class AskComposerState(
     val sendEnabled: Boolean,

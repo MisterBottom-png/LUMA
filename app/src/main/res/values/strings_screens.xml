@@ -18,11 +18,11 @@
     <string name="calendar_show_day">Show the day</string>
     <string name="calendar_show_month">Show the month</string>
     <string name="calendar_today_prefix">Today · %1$s</string>
-    <string name="calendar_free_until">Free until %1$s</string>
+    <string name="calendar_free_until">Nothing planned until %1$s</string>
     <string name="calendar_now">Now, %1$s</string>
     <string name="calendar_nothing_planned">Nothing planned</string>
-    <string name="calendar_free_day">A free day. Add something only if you want to.</string>
-    <string name="calendar_free_day_short">Nothing planned. A free day.</string>
+    <string name="calendar_free_day">Nothing planned. Add something only if you want to.</string>
+    <string name="calendar_free_day_short">Nothing planned.</string>
     <string name="calendar_add_to_day">Add to this day</string>
     <string name="review_ask_button">Ask</string>
     <string name="review_summary_to_sort">%1$d to sort</string>
@@ -87,10 +87,10 @@
     <string name="home_voice_next">Say the next thought</string>
     <string name="brain_overview_back">Back to the list</string>
     <string name="spaces_preview_placeholder">Your new Space</string>
-    <string name="spaces_colour">Colour</string>
+    <string name="spaces_colour">Color</string>
     <string name="spaces_icon_travel">Travel</string>
     <string name="search_filter_all">All</string>
-    <string name="search_group_to_sort">To sort</string>
+    <string name="search_group_to_sort">Still to sort</string>
     <string name="search_group_tasks">Tasks</string>
     <string name="search_group_reminders">Reminders</string>
     <string name="search_group_notes">Notes</string>

@@ -7,6 +7,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.WbSunny
@@ -185,6 +187,7 @@ fun SpacesScreen(
     onOpenToSort: () -> Unit = {},
     onOpenToday: () -> Unit = {},
     onToggleDone: (SpaceItemReference) -> Unit = {},
+    onAddThought: ((Long) -> Unit)? = null,
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
     var editingSpace by remember { mutableStateOf<SpaceEntity?>(null) }
@@ -247,6 +250,10 @@ fun SpacesScreen(
                 hasMoveFailure = uiState.moveFailure != null,
                 onRetryMove = onRetryMove,
                 onItemSelected = onItemSelected,
+                onEditSpace = { editingSpace = it },
+                onHideSpace = onHideSpace,
+                onArchiveSpace = onArchiveSpace,
+                onAddThought = onAddThought,
             )
         }
     }
@@ -561,41 +568,71 @@ private fun SpaceRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            RowChevron()
+            // A visible way in to the same menu as the long press, anchored beside this row.
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(
+                        Icons.Rounded.MoreVert,
+                        contentDescription = optionsLabel,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                LumaMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                ) {
+                    LumaMenuItem(
+                        text = { Text(stringResource(R.string.core_edit)) },
+                        leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
+                        onClick = { menuExpanded = false; onEdit() },
+                    )
+                    LumaMenuItem(
+                        text = { Text(stringResource(R.string.core_spaces_move_up)) },
+                        leadingIcon = { Icon(Icons.Rounded.ArrowUpward, contentDescription = null) },
+                        enabled = canMoveUp,
+                        onClick = { menuExpanded = false; onMoveUp() },
+                    )
+                    LumaMenuItem(
+                        text = { Text(stringResource(R.string.core_spaces_move_down)) },
+                        leadingIcon = { Icon(Icons.Rounded.ArrowDownward, contentDescription = null) },
+                        enabled = canMoveDown,
+                        onClick = { menuExpanded = false; onMoveDown() },
+                    )
+                    LumaMenuGap()
+                    HideAndArchiveItems(
+                        onHide = { menuExpanded = false; onHide() },
+                        onArchive = { menuExpanded = false; onArchive() },
+                    )
+                }
+            }
         }
-        LumaMenu(
-            expanded = menuExpanded,
-            onDismissRequest = { menuExpanded = false },
-        ) {
-            LumaMenuItem(
-                text = { Text(stringResource(R.string.core_edit)) },
-                leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
-                onClick = { menuExpanded = false; onEdit() },
-            )
-            LumaMenuItem(
-                text = { Text(stringResource(R.string.core_spaces_move_up)) },
-                leadingIcon = { Icon(Icons.Rounded.ArrowUpward, contentDescription = null) },
-                enabled = canMoveUp,
-                onClick = { menuExpanded = false; onMoveUp() },
-            )
-            LumaMenuItem(
-                text = { Text(stringResource(R.string.core_spaces_move_down)) },
-                leadingIcon = { Icon(Icons.Rounded.ArrowDownward, contentDescription = null) },
-                enabled = canMoveDown,
-                onClick = { menuExpanded = false; onMoveDown() },
-            )
-            LumaMenuGap()
-            LumaMenuItem(
-                text = { Text(stringResource(R.string.core_hide)) },
-                leadingIcon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
-                onClick = { menuExpanded = false; onHide() },
-            )
-            LumaMenuItem(
-                text = { Text(stringResource(R.string.core_archive)) },
-                leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
-                onClick = { menuExpanded = false; onArchive() },
-            )
-        }
+    }
+}
+
+/** Hide and Archive, each with a line that says how they differ. */
+@Composable
+private fun HideAndArchiveItems(onHide: () -> Unit, onArchive: () -> Unit) {
+    LumaMenuItem(
+        text = { MenuItemWithHint(stringResource(R.string.core_hide), stringResource(R.string.spaces_hide_hint)) },
+        leadingIcon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
+        onClick = onHide,
+    )
+    LumaMenuItem(
+        text = { MenuItemWithHint(stringResource(R.string.core_archive), stringResource(R.string.spaces_archive_hint)) },
+        leadingIcon = { Icon(Icons.Rounded.Archive, contentDescription = null) },
+        onClick = onArchive,
+    )
+}
+
+@Composable
+private fun MenuItemWithHint(title: String, hint: String) {
+    Column(modifier = Modifier.padding(vertical = 6.dp).widthIn(max = 240.dp)) {
+        Text(title)
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -757,6 +794,10 @@ private fun SpaceDetail(
     hasMoveFailure: Boolean,
     onRetryMove: () -> Unit,
     onItemSelected: (SpaceItemReference) -> Unit,
+    onEditSpace: (SpaceEntity) -> Unit = {},
+    onHideSpace: (Long) -> Unit = {},
+    onArchiveSpace: (Long) -> Unit = {},
+    onAddThought: ((Long) -> Unit)? = null,
 ) {
     // Items ticked on this visit stay where they were (shown as done), so the list does not
     // jump under the finger; they move to "done" the next time the Space opens.
@@ -913,12 +954,48 @@ private fun SpaceDetail(
                 .onSizeChanged { headerHeightPx = it.height }
                 .padding(start = 8.dp, top = statusTopPadding + 12.dp, end = 20.dp),
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = stringResource(R.string.core_spaces_back),
-                    tint = MaterialTheme.colorScheme.onBackground,
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.core_spaces_back),
+                        tint = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                if (space != null) {
+                    if (onAddThought != null) {
+                        IconButton(onClick = { onAddThought(space.id) }) {
+                            Icon(
+                                Icons.Rounded.Add,
+                                contentDescription = stringResource(R.string.spaces_add_thought, localizedSpaceName(space.name)),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                            )
+                        }
+                    }
+                    var headerMenuOpen by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { headerMenuOpen = true }) {
+                            Icon(
+                                Icons.Rounded.MoreVert,
+                                contentDescription = stringResource(R.string.core_spaces_options),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                            )
+                        }
+                        LumaMenu(expanded = headerMenuOpen, onDismissRequest = { headerMenuOpen = false }) {
+                            LumaMenuItem(
+                                text = { Text(stringResource(R.string.core_edit)) },
+                                leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
+                                onClick = { headerMenuOpen = false; onEditSpace(space) },
+                            )
+                            LumaMenuGap()
+                            HideAndArchiveItems(
+                                onHide = { headerMenuOpen = false; onHideSpace(space.id); onBack() },
+                                onArchive = { headerMenuOpen = false; onArchiveSpace(space.id); onBack() },
+                            )
+                        }
+                    }
+                }
             }
             Row(
                 modifier = Modifier.padding(start = 12.dp, top = 6.dp),

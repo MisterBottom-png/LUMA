@@ -130,12 +130,12 @@ class MultilingualTimePhraseTest {
         val ru = interpretTaskDueDate("сдать отчёт через 3 дня", now, zone, Locale.forLanguageTag("ru"))
         assertEquals(
             java.time.LocalDate.of(2026, 7, 17),
-            Instant.ofEpochMilli(requireNotNull(ru).epochMillis).atZone(zone).toLocalDate(),
+            java.time.LocalDate.ofEpochDay(requireNotNull(ru).dateEpochDay),
         )
         val et = interpretTaskDueDate("saada arve reedel", now, zone, Locale.forLanguageTag("et"))
         assertEquals(
             java.time.LocalDate.of(2026, 7, 17),
-            Instant.ofEpochMilli(requireNotNull(et).epochMillis).atZone(zone).toLocalDate(),
+            java.time.LocalDate.ofEpochDay(requireNotNull(et).dateEpochDay),
         )
         assertNull(interpretTaskDueDate("buy sun cream", now, zone))
     }

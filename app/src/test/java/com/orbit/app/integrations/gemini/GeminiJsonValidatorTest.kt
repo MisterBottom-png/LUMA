@@ -229,6 +229,8 @@ class GeminiJsonValidatorTest {
         val task = checkNotNull(result).last()
         assertEquals(SuggestedItemType.Task, task.suggestedType)
         assertEquals(expectedTask.suggestedReminderAt, task.suggestedReminderAt)
+        assertEquals(expectedTask.taskDateEpochDay, task.taskDateEpochDay)
+        assertNotNull(task.taskDateEpochDay)
     }
 
     @Test

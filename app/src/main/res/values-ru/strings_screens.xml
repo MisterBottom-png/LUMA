@@ -18,11 +18,11 @@
     <string name="calendar_show_day">Показать день</string>
     <string name="calendar_show_month">Показать месяц</string>
     <string name="calendar_today_prefix">Сегодня · %1$s</string>
-    <string name="calendar_free_until">Свободно до %1$s</string>
+    <string name="calendar_free_until">Ничего не запланировано до %1$s</string>
     <string name="calendar_now">Сейчас, %1$s</string>
     <string name="calendar_nothing_planned">Ничего не запланировано</string>
-    <string name="calendar_free_day">Свободный день. Добавьте что-нибудь, только если хотите.</string>
-    <string name="calendar_free_day_short">Ничего не запланировано. Свободный день.</string>
+    <string name="calendar_free_day">Ничего не запланировано. Добавьте что-нибудь, только если хотите.</string>
+    <string name="calendar_free_day_short">Ничего не запланировано.</string>
     <string name="calendar_add_to_day">Добавить на этот день</string>
     <string name="review_ask_button">Спросить</string>
     <string name="review_summary_to_sort">Разобрать: %1$d</string>
@@ -90,7 +90,7 @@
     <string name="spaces_colour">Цвет</string>
     <string name="spaces_icon_travel">Путешествия</string>
     <string name="search_filter_all">Все</string>
-    <string name="search_group_to_sort">Разобрать</string>
+    <string name="search_group_to_sort">Ещё не разобрано</string>
     <string name="search_group_tasks">Задачи</string>
     <string name="search_group_reminders">Напоминания</string>
     <string name="search_group_notes">Заметки</string>

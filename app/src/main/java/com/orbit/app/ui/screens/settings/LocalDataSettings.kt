@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import com.orbit.app.ui.components.OutlinedButton
@@ -58,7 +62,7 @@ internal fun LocalDataSettingsSection(
                 Button(
                     onClick = {
                         showExportWarning = false
-                        exportPicker.launch("luma-export.json")
+                        exportPicker.launch(ExportFileName)
                     },
                 ) {
                     Text(stringResource(R.string.settings_export_choose_location))
@@ -94,7 +98,15 @@ internal fun LocalDataSettingsSection(
                 )
             },
             confirmButton = {
-                Button(onClick = onConfirmRestore, enabled = !localDataTools.isRestoring) {
+                Button(
+                    onClick = onConfirmRestore,
+                    enabled = !localDataTools.isRestoring,
+                    // Replacing data is destructive: it is shown in the error colour.
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+                ) {
                     Text(
                         stringResource(
                             if (localDataTools.isRestoring) {
@@ -151,13 +163,14 @@ internal fun LocalDataSettingsSection(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            localDataTools.errorMessage?.let { message ->
-                Text(
-                    text = message.localizedText(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+            Text(
+                text = localDataTools.lastExportAt?.let { at ->
+                    stringResource(R.string.settings_last_export, formatExportDate(at))
+                } ?: stringResource(R.string.settings_never_exported),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            LocalDataMessages(localDataTools, LocalDataArea.Export)
             Text(
                 text = stringResource(R.string.settings_restore_explanation),
                 style = MaterialTheme.typography.bodySmall,
@@ -178,13 +191,7 @@ internal fun LocalDataSettingsSection(
                     ),
                 )
             }
-            localDataTools.restoreMessage?.let { message ->
-                Text(
-                    text = message.localizedText(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+            LocalDataMessages(localDataTools, LocalDataArea.Restore)
             if (localDataTools.canRetryReminderSetup) {
                 OutlinedButton(
                     onClick = onRetryReminderSetup,
@@ -215,6 +222,7 @@ internal fun LocalDataSettingsSection(
                     ),
                 )
             }
+            LocalDataMessages(localDataTools, LocalDataArea.Reset)
         }
     }
     if (showResetConfirmation) {
@@ -229,6 +237,10 @@ internal fun LocalDataSettingsSection(
                         showResetConfirmation = false
                         onResetAllData()
                     },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
                 ) {
                     Text(stringResource(R.string.settings_reset_data_confirm))
                 }
@@ -240,6 +252,36 @@ internal fun LocalDataSettingsSection(
             },
         )
     }
+}
+
+internal const val ExportFileName = "tallele-export.json"
+
+/** The messages that belong next to one button: errors in the error colour, results calmly. */
+@Composable
+private fun LocalDataMessages(state: LocalDataToolsUiState, area: LocalDataArea) {
+    state.errorMessage?.takeIf { it.area() == area }?.let { message ->
+        Text(
+            text = message.localizedText(),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    state.restoreMessage?.takeIf { it.area() == area }?.let { message ->
+        Text(
+            text = message.localizedText(),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+@Composable
+private fun formatExportDate(at: Long): String {
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    return java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        .format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG).withLocale(locale))
 }
 
 @Composable

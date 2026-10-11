@@ -35,4 +35,15 @@ class SearchFilterTest {
         assertEquals(listOf(0 to 6, 20 to 26), marked.spanStyles.map { it.start to it.end })
         assertTrue("Garden".withMatch("g", Color.Red).spanStyles.isEmpty())
     }
+
+    @Test
+    fun unsortedThoughtsAreTheirOwnGroupAfterFinishedItems() {
+        val thought = result(ItemDetailType.Capture, LocalSearchStatus.Note)
+        val note = result(ItemDetailType.Note, LocalSearchStatus.Note)
+        val archived = result(ItemDetailType.Note, LocalSearchStatus.Archived)
+
+        assertEquals(SearchGroup.ToSort, thought.groupKey())
+        val order = listOf(thought, archived, note).map { it.groupKey() }.sortedBy { it.ordinal }
+        assertEquals(listOf(SearchGroup.Notes, SearchGroup.ToSort, SearchGroup.Archived), order)
+    }
 }
