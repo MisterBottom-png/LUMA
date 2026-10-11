@@ -56,6 +56,9 @@ import org.robolectric.annotation.GraphicsMode
  * judged without a device. Runs only when LUMA_SCREENS_DIR is set (the "Screens" workflow);
  * ordinary unit-test runs skip it.
  *
+ * Robolectric cannot draw Haze's blur shader, so the capture box, bottom bar and sheets show
+ * no real blur in these PNGs; they are not the real glass look (check that on a phone).
+ *
  * Each theme must run in its own test JVM: the app's database and settings store are
  * process-wide singletons, so a second tour in the same JVM starts with the first tour's
  * data (no first-run guide, duplicate Spaces). The Screens workflow runs them one by one.

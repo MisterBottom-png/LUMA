@@ -92,7 +92,11 @@ data class AppSettings(
     val userName: String = PlaceholderUserName,
     val themeMode: SettingsThemeMode = SettingsThemeMode.Auto,
     val timeFormatMode: SettingsTimeFormatMode = SettingsTimeFormatMode.Device,
-    val backgroundPreset: BackgroundPreset = BackgroundPreset.InkPaper,
+    /**
+     * Violet Mist for new installs: glass needs colour behind it. Existing installs keep
+     * the preset they have stored.
+     */
+    val backgroundPreset: BackgroundPreset = BackgroundPreset.VioletMist,
     val customBackgroundUri: String? = null,
     val backgroundBlur: BackgroundBlur = BackgroundBlur.Soft,
     val backgroundDim: Float = 0.12f,

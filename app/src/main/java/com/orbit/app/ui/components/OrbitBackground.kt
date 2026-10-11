@@ -283,7 +283,7 @@ private fun PresetBackground(
                 )
                 // Two very soft light pools. Glass needs gentle variation behind it to read
                 // as glass; on a flat fill it reads as grey.
-                val accentAlpha = if (isDark) 0.16f else 0.10f
+                val accentAlpha = presetAccentPoolAlpha(isDark)
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(accent.copy(alpha = accentAlpha), Color.Transparent),
@@ -293,7 +293,7 @@ private fun PresetBackground(
                 )
                 drawRect(
                     brush = Brush.radialGradient(
-                        colors = listOf(palette.bloom.copy(alpha = if (isDark) 0.20f else 0.55f), Color.Transparent),
+                        colors = listOf(palette.bloom.copy(alpha = presetBloomAlpha(isDark)), Color.Transparent),
                         center = Offset(size.width * 0.05f, size.height * 0.78f),
                         radius = size.maxDimension * 0.55f,
                     ),
@@ -338,13 +338,19 @@ private fun calculateSampleSize(width: Int, height: Int): Int {
     return sampleSize
 }
 
-private data class BackgroundPalette(
+/** Strongest the accent light pool gets, at its centre. */
+internal fun presetAccentPoolAlpha(isDark: Boolean): Float = if (isDark) 0.16f else 0.10f
+
+/** Strongest the bloom light pool gets, at its centre. */
+internal fun presetBloomAlpha(isDark: Boolean): Float = if (isDark) 0.20f else 0.55f
+
+internal data class BackgroundPalette(
     val baseColors: List<Color>,
     /** A second, warmer or cooler light pool that keeps the page from looking flat. */
     val bloom: Color,
 )
 
-private fun backgroundPalette(
+internal fun backgroundPalette(
     preset: BackgroundPreset,
     isDark: Boolean,
 ): BackgroundPalette = when (preset) {

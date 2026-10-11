@@ -122,7 +122,9 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 ?: defaults.timeFormatMode,
             backgroundPreset = preferences[Keys.BACKGROUND_PRESET]
                 ?.let(::backgroundPresetFromStoredValue)
-                ?.let { if (it == BackgroundPreset.SoftDawn && isLegacyDefaultAppearance(preferences)) defaults.backgroundPreset else it }
+                // Old installs on the old default already show Ink & Paper; the new default
+                // (Violet Mist) is for new installs only.
+                ?.let { if (it == BackgroundPreset.SoftDawn && isLegacyDefaultAppearance(preferences)) BackgroundPreset.InkPaper else it }
                 ?: defaults.backgroundPreset,
             customBackgroundUri = preferences[Keys.CUSTOM_BACKGROUND_URI],
             backgroundBlur = preferences[Keys.BACKGROUND_BLUR]
