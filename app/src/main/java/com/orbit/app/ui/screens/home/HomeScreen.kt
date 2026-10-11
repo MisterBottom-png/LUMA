@@ -149,8 +149,10 @@ fun HomeScreen(
     onVoiceCloudNoticeSeen: () -> Unit = {},
     /** Opens what the save receipt is about: the item the thought became, or the thought. */
     onOpenReceiptTarget: (ReceiptTarget) -> Unit = {},
-    /** A new user before their first thought: Home explains itself in two lines. */
+    /** A new user before their first thought: one line under the box says where saves go. */
     firstRun: Boolean = false,
+    /** Saving here sends the thought to Gemini (AppSettings.homeSavesUseGemini). */
+    firstRunSavesUseGemini: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val receipt by viewModel.receipt.collectAsStateWithLifecycle()
@@ -386,9 +388,6 @@ fun HomeScreen(
             }
 
             Spacer(modifier = Modifier.height(if (imeVisible) OrbitSpacing.Large else HomeCaptureGap))
-            if (firstRun) {
-                FirstRunLine(R.string.home_first_line_above, Modifier.padding(bottom = 12.dp))
-            }
 
             BoxWithConstraints(
                 modifier = Modifier
@@ -453,7 +452,10 @@ fun HomeScreen(
             }
 
             if (firstRun) {
-                FirstRunLine(R.string.home_first_line_below, Modifier.padding(top = 12.dp))
+                FirstRunLine(
+                    if (firstRunSavesUseGemini) R.string.home_first_line_gemini else R.string.home_first_line_local,
+                    Modifier.padding(top = 12.dp),
+                )
             }
             // Home's one question sits in place of the receipt, never next to it.
             SaveReceipt(
@@ -500,7 +502,7 @@ fun HomeScreen(
     )
 }
 
-/** One of Home's two first-run lines; gone after the first thought is saved. */
+/** Home's first-run line under the box; gone after the first thought is saved. */
 @Composable
 private fun FirstRunLine(@StringRes textRes: Int, modifier: Modifier = Modifier) {
     Text(
@@ -1145,8 +1147,8 @@ private val HomeDayMinTouch = 48.dp
 private val HomeWeekMarginBleed = 16.dp
 private val HomeWeekCardScaledContentGrowth = 112.dp
 private val HomeCaptureGap = 28.dp
-/** Home's two first-run lines, about two short lines of text each, plus their gaps. */
-private val FirstRunLinesHeight = 104.dp
+/** Home's first-run line, up to two short lines of text, plus its gap. */
+private val FirstRunLinesHeight = 52.dp
 private val CalendarCaptureContextBannerActionMinimumHeight = 48.dp
 private val CalendarCaptureContextBannerBodyLineHeight = 22.dp
 /** The empty box with the keyboard closed: two placeholder lines and the 56 dp button. */

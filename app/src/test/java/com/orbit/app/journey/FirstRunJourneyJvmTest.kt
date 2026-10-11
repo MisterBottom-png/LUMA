@@ -37,7 +37,7 @@ import org.robolectric.annotation.Config
 
 /**
  * A new install, end to end: the app opens on Home at once with no guide and no dialog,
- * Home explains itself in two lines, the starter Spaces are there without a question,
+ * Home says in one line where a saved thought goes, the starter Spaces are there without a question,
  * and the first saved thought ends first run and shows the one-time tip.
  */
 @RunWith(AndroidJUnit4::class)
@@ -77,8 +77,9 @@ class FirstRunJourneyJvmTest {
             assertEquals("no guide to skip", 0, count("Skip"))
             compose.onAllNodes(isDialog()).assertCountEquals(0)
             compose.onNodeWithContentDescription("Capture text").assertExists()
-            assertEquals(1, count(LineAbove))
-            assertEquals(1, count(LineBelow))
+            // A new install keeps everything local, and Home says so in one line.
+            assertEquals(1, count(LocalLine))
+            assertEquals(0, count(GeminiLine))
 
             // The starter Spaces were added without asking.
             awaitUntil { starterSpaceNames(container).size == StarterSpaces.templates.size }
@@ -88,7 +89,7 @@ class FirstRunJourneyJvmTest {
             compose.onNodeWithContentDescription("Capture text").performTextInput("parking code 4826")
             compose.onNodeWithContentDescription("Save thought").performClick()
             awaitUntil { runBlocking { container.appSettingsRepository.settings.first().hasCompletedFirstTimeTutorial } }
-            awaitUntil { count(LineAbove) == 0 && count(LineBelow) == 0 }
+            awaitUntil { count(LocalLine) == 0 }
             // The tip under the first receipt says what happened to this thought.
             awaitUntil { count(KeptTip) + count(FiledTip) == 1 }
             assertTrue(count("Skip") == 0)
@@ -119,8 +120,8 @@ class FirstRunJourneyJvmTest {
     }
 
     private companion object {
-        const val LineAbove = "Write anything. Tallele keeps it safe and sorts what it can."
-        const val LineBelow = "Everything stays on this phone unless you turn on Gemini or use voice."
+        const val LocalLine = "Saved only on this phone."
+        const val GeminiLine = "Gemini is on: what you save here is sent to Gemini to sort."
         const val KeptTip = "Tallele kept this. You’ll find it in To sort and in Search."
         const val FiledTip = "Tallele filed this for you. Tap Change if it got it wrong."
     }

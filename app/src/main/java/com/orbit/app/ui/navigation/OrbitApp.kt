@@ -79,6 +79,7 @@ import com.orbit.app.ui.screens.tutorial.TutorialSpaceSetupViewModel
 import com.orbit.app.ui.screens.tutorial.seedStarterSpacesSilently
 import com.orbit.app.OrbitContainer
 import com.orbit.app.domain.model.AppSettings
+import com.orbit.app.domain.model.homeSavesUseGemini
 import com.orbit.app.ui.screens.home.HomeCaptureViewModel
 import com.orbit.app.ui.screens.home.CaptureSortViewModel
 import com.orbit.app.ui.screens.home.CaptureSortHost
@@ -316,6 +317,21 @@ fun OrbitApp(
                             entry.savedStateHandle[BrainDumpResumeContext.CaptureIdKey] = null
                         }
                     }
+                    // The first-run line under the box must say where a save goes. Until the
+                    // key is read, assume Gemini when the switches say so: never claim
+                    // "only on this phone" for a save that would leave it.
+                    val firstRun = !settings.hasCompletedFirstTimeTutorial
+                    val homeSavesCouldUseGemini = settings.homeSavesUseGemini(hasGeminiKey = true)
+                    val firstRunSavesUseGemini by produceState(
+                        initialValue = homeSavesCouldUseGemini,
+                        firstRun,
+                        homeSavesCouldUseGemini,
+                    ) {
+                        value = firstRun && homeSavesCouldUseGemini &&
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                container.geminiApiKeyStore.hasKey()
+                            }
+                    }
                     HomeScreen(
                         viewModel = homeViewModel,
                         sortViewModel = homeSortViewModel,
@@ -346,7 +362,8 @@ fun OrbitApp(
                         },
                         focusCaptureOnOpen = settings.focusCaptureOnOpen,
                         focusRequest = focusCaptureRequest,
-                        firstRun = !settings.hasCompletedFirstTimeTutorial,
+                        firstRun = firstRun,
+                        firstRunSavesUseGemini = firstRunSavesUseGemini,
                         voiceCloudNoticeSeen = settings.hasSeenVoiceCloudNotice,
                         onVoiceCloudNoticeSeen = {
                             onSettingsChanged(settings.copy(hasSeenVoiceCloudNotice = true))

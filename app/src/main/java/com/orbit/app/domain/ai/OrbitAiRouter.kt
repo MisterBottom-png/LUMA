@@ -6,8 +6,8 @@ import com.orbit.app.domain.analyzer.CaptureAnalyzer
 import com.orbit.app.domain.analyzer.LocalReviewAnalyzer
 import com.orbit.app.domain.analyzer.localGuidanceLocale
 import com.orbit.app.domain.analyzer.ReminderTimeStatus
-import com.orbit.app.domain.model.AiMode
 import com.orbit.app.domain.model.AppSettings
+import com.orbit.app.domain.model.geminiOnFor
 import com.orbit.app.integrations.gemini.GeminiApiClient
 import com.orbit.app.integrations.gemini.GeminiApiError
 import com.orbit.app.integrations.gemini.GeminiApiResult
@@ -400,8 +400,7 @@ class OrbitAiRouter(
             ),
         )
 
-    private fun AppSettings.canUseGemini(featureEnabled: Boolean): Boolean =
-        aiMode == AiMode.GeminiApi && featureEnabled
+    private fun AppSettings.canUseGemini(featureEnabled: Boolean): Boolean = geminiOnFor(featureEnabled)
 
     private companion object {
         const val MaxGeminiBrainDumpItems = 60
