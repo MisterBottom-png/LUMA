@@ -2,6 +2,8 @@ package com.orbit.app.domain.capture
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.orbit.app.data.local.OrbitDatabase
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
@@ -366,5 +368,111 @@ class CaptureInboxRoomTest {
             else -> database.taskDao().getById(accepted.itemId)?.spaceId
         }
         assertEquals(household, spaceOfItem)
+    }
+
+    @Test
+    fun aSavedThoughtStartsAsSavedAndUndecided() = runBlocking {
+        val id = inbox().save("an idea for the garden")
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureOutcome.Saved, capture.outcome)
+        assertEquals(CaptureOutcomeReason.None, capture.outcomeReason)
+        assertNull(capture.outcomeAt)
+        assertNull(capture.decidedAt)
+
+        // Analysis alone decides nothing.
+        inbox().analyze(id)
+        assertEquals(CaptureOutcome.Saved, database.captureDao().getById(id)?.outcome)
+        assertNull(database.captureDao().getById(id)?.decidedAt)
+    }
+
+    @Test
+    fun acceptingAsATaskStoresFiledAndUndoStoresSavedAgain() = runBlocking {
+        val inbox = inbox()
+        val id = inbox.save("Send the quarterly report to the team")
+        inbox.analyze(id)
+        val resolution = resolution()
+
+        val accepted = requireNotNull(resolution.acceptSuggestion(id))
+        val filed = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureOutcome.Filed, filed.outcome)
+        assertEquals(CaptureOutcomeReason.None, filed.outcomeReason)
+        assertNotNull(filed.outcomeAt)
+        assertNotNull(filed.decidedAt)
+
+        resolution.undo(id, accepted.itemType, accepted.itemId)
+        val undone = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, undone.status)
+        assertEquals(CaptureOutcome.Saved, undone.outcome)
+        assertEquals(CaptureOutcomeReason.None, undone.outcomeReason)
+        assertEquals(now, undone.outcomeAt)
+        assertEquals("Undo is a decision, so nothing files it again", now, undone.decidedAt)
+    }
+
+    @Test
+    fun acceptingAReminderThatCanRingStoresReminderSet() = runBlocking {
+        val inbox = inbox()
+        val id = inbox.save("remind me tomorrow at 9:00 to water plants")
+        inbox.analyze(id)
+        val resolution = resolution()
+
+        val accepted = requireNotNull(resolution.acceptSuggestion(id))
+        assertEquals(SuggestedItemType.Reminder, accepted.itemType)
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureOutcome.ReminderSet, capture.outcome)
+        assertEquals(CaptureOutcomeReason.None, capture.outcomeReason)
+        assertNotNull(database.reminderDao().getById(accepted.itemId)?.notificationWorkId)
+
+        resolution.undo(id, accepted.itemType, accepted.itemId)
+        assertEquals(CaptureOutcome.Saved, database.captureDao().getById(id)?.outcome)
+        assertNull(database.reminderDao().getById(accepted.itemId))
+    }
+
+    @Test
+    fun aLateAnalysisAfterUndoLeavesTheThoughtSaved() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        // The user sorts it by hand, then takes it back, while analysis is still running.
+        val noteId = confirm().saveNote(captureId = id, spaceId = null, title = "Quarterly report")
+        assertEquals(CaptureOutcome.Filed, database.captureDao().getById(id)?.outcome)
+        resolution().undo(id, SuggestedItemType.Note, noteId)
+        slow.release.complete(Unit)
+        withTimeout(5_000) { result.await() }
+
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, capture.status)
+        assertEquals(CaptureOutcome.Saved, capture.outcome)
+        assertEquals(CaptureOutcomeReason.None, capture.outcomeReason)
+        assertEquals(now, capture.decidedAt)
+        assertTrue(database.noteDao().observeAll().first().isEmpty())
+        assertTrue(database.taskDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun aLateAnalysisNeverMovesAFiledThoughtBackToSaved() = runBlocking {
+        val slow = SlowAnalysis()
+        val inbox = inbox(beforeResult = slow.hook)
+        val id = inbox.save("Send the quarterly report to the team")
+        val result = async { inbox.analyze(id) }
+        withTimeout(5_000) { slow.started.await() }
+
+        confirm().saveNote(captureId = id, spaceId = null, title = "Quarterly report")
+        slow.release.complete(Unit)
+
+        assertNull(withTimeout(5_000) { result.await() })
+        assertEquals(CaptureOutcome.Filed, database.captureDao().getById(id)?.outcome)
+    }
+
+    @Test
+    fun archivingStampsTheDecisionAndKeepsTheOutcome() = runBlocking {
+        val id = inbox().save("old thought")
+        resolution().archive(id)
+        val archived = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Archived, archived.status)
+        assertEquals(CaptureOutcome.Saved, archived.outcome)
+        assertEquals(now, archived.decidedAt)
     }
 }

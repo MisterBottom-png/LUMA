@@ -1,6 +1,8 @@
 package com.orbit.app.ui.screens.review
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
@@ -47,6 +49,9 @@ data class ToSortItem(
     val fromGemini: Boolean = false,
     /** "Looks like N thoughts": a one-line thought the user may choose to split. */
     val possibleThoughts: Int = 0,
+    /** The thought's stored outcome (Room v11), so screens can filter on it. */
+    val outcome: CaptureOutcome = CaptureOutcome.Saved,
+    val outcomeReason: CaptureOutcomeReason = CaptureOutcomeReason.None,
 )
 
 /** How long a fresh capture may show "LUMA is looking at it" before offering manual sorting. */
@@ -74,6 +79,8 @@ internal fun buildToSort(
                 createdAt = capture.createdAt,
                 state = ToSortState.BrainDump,
                 brainDumpPending = brainDumpPending[capture.id] ?: 0,
+                outcome = capture.outcome,
+                outcomeReason = capture.outcomeReason,
             )
             suggestion == null || suggestion.dismissed -> ToSortItem(
                 captureId = capture.id,
@@ -84,6 +91,8 @@ internal fun buildToSort(
                 } else {
                     ToSortState.NoSuggestion
                 },
+                outcome = capture.outcome,
+                outcomeReason = capture.outcomeReason,
             )
             else -> {
                 val reminderAt = suggestion.reminderTime()?.takeIf { it > now }
@@ -103,6 +112,8 @@ internal fun buildToSort(
                     taskDateEpochDay = suggestion.taskDateEpochDay(),
                     lowConfidence = lowConfidence,
                     fromGemini = suggestion.analyzerSource == CaptureAnalyzerSource.Gemini.name,
+                    outcome = capture.outcome,
+                    outcomeReason = capture.outcomeReason,
                 )
             }
         }

@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.orbit.app.data.export.deriveItemTitle
 import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
@@ -44,10 +46,11 @@ class ConfirmCaptureActionUseCase(
         title: String,
         scheduledDateEpochDay: Long? = null,
         labelNames: List<String> = emptyList(),
+        onlyIfUndecided: Boolean = false,
     ): Long =
         finalizationMutex.withLock {
             transaction.run {
-                val capture = requireInboxCapture(captureId)
+                val capture = requireInboxCapture(captureId, onlyIfUndecided)
                 val noteId = noteRepository.insert(
                     NoteEntity(
                         title = title.ifBlank { capture.rawText.toNoteTitle() },
@@ -61,7 +64,7 @@ class ConfirmCaptureActionUseCase(
                         noteId,
                         labelNames.map { labelRepository.findOrCreate(it).id }.toSet(),
                     )
-                    markProcessed(capture, noteId)
+                    markProcessed(capture, noteId, CaptureOutcome.Filed)
                 } catch (exception: Exception) {
                     noteRepository.deleteById(noteId)
                     throw exception
@@ -78,9 +81,10 @@ class ConfirmCaptureActionUseCase(
         scheduledDateEpochDay: Long? = null,
         status: TaskStatus = TaskStatus.Open,
         labelNames: List<String> = emptyList(),
+        onlyIfUndecided: Boolean = false,
     ): Long = finalizationMutex.withLock {
         transaction.run {
-            val capture = requireInboxCapture(captureId)
+            val capture = requireInboxCapture(captureId, onlyIfUndecided)
             val taskTitle = title.trim().ifBlank { capture.rawText.toNoteTitle() }
             val taskId = taskRepository.insert(
                 TaskEntity(
@@ -97,7 +101,7 @@ class ConfirmCaptureActionUseCase(
                     taskId,
                     labelNames.map { labelRepository.findOrCreate(it).id }.toSet(),
                 )
-                markProcessed(capture, taskId)
+                markProcessed(capture, taskId, CaptureOutcome.Filed)
             } catch (exception: Exception) {
                 taskRepository.deleteById(taskId)
                 throw exception
@@ -113,9 +117,10 @@ class ConfirmCaptureActionUseCase(
         dueAt: Long,
         linkedTaskId: Long? = null,
         labelNames: List<String> = emptyList(),
+        onlyIfUndecided: Boolean = false,
     ): Long = finalizationMutex.withLock {
         val reminderId = transaction.run {
-            val capture = requireInboxCapture(captureId)
+            val capture = requireInboxCapture(captureId, onlyIfUndecided)
             val reminderId = reminderRepository.insertUnscheduled(
                 ReminderEntity(
                     title = title.trim().ifBlank { capture.rawText.toNoteTitle() },
@@ -130,7 +135,9 @@ class ConfirmCaptureActionUseCase(
                     reminderId,
                     labelNames.map { labelRepository.findOrCreate(it).id }.toSet(),
                 )
-                markProcessed(capture, reminderId)
+                // "A reminder row exists and is open"; whether it can ring is recorded
+                // after scheduling (see CaptureResolution.recordReminderOutcome).
+                markProcessed(capture, reminderId, CaptureOutcome.ReminderSet)
             } catch (exception: Exception) {
                 reminderRepository.deleteById(reminderId)
                 throw exception
@@ -179,22 +186,39 @@ class ConfirmCaptureActionUseCase(
         }
     }
 
-    private suspend fun requireInboxCapture(captureId: Long): CaptureEntity {
+    /**
+     * [onlyIfUndecided] is set by automatic filing: a thought the user already decided
+     * about (Undo, archive, ...) is refused here, inside the same transaction.
+     */
+    private suspend fun requireInboxCapture(captureId: Long, onlyIfUndecided: Boolean = false): CaptureEntity {
         val capture = requireNotNull(captureRepository.getById(captureId)) {
             "Capture $captureId no longer exists"
         }
         check(capture.status == CaptureStatus.Inbox) {
             "Capture $captureId has already been processed"
         }
+        check(!onlyIfUndecided || capture.decidedAt == null) {
+            "Capture $captureId has already been decided"
+        }
         return capture
     }
 
-    private suspend fun markProcessed(capture: CaptureEntity, linkedItemId: Long) {
+    /**
+     * Written in the same transaction as the new item, so the thought's stored outcome
+     * can never disagree with what exists. Sorting is a decision: [CaptureEntity.decidedAt]
+     * is stamped, so a pending automatic decision can no longer touch this thought.
+     */
+    private suspend fun markProcessed(capture: CaptureEntity, linkedItemId: Long, outcome: CaptureOutcome) {
+        val timestamp = System.currentTimeMillis()
         captureRepository.update(
             capture.copy(
                 status = CaptureStatus.Processed,
                 linkedItemId = linkedItemId,
-                updatedAt = System.currentTimeMillis(),
+                updatedAt = timestamp,
+                outcome = outcome,
+                outcomeReason = CaptureOutcomeReason.None,
+                outcomeAt = timestamp,
+                decidedAt = capture.decidedAt ?: timestamp,
             ),
         )
     }

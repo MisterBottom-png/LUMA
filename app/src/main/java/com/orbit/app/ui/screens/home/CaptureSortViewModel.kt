@@ -462,6 +462,7 @@ class CaptureSortViewModel(
                 labelNames = labelNames,
             )
             val outcome = reminderOutcomeReporter.report(reminderId)
+            captureResolution.recordReminderOutcome(suggestion.captureId, reminderId, outcome)
             ConfirmedActionResult(
                 decision = CaptureSuggestionLearningDecision(
                     surface = AiSuggestionSurface.Capture,
