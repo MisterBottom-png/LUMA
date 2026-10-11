@@ -20,7 +20,6 @@
     <string name="core_sort_already_sorted">See mõte on juba sorteeritud.</string>
     <string name="core_sort_undone">Tagasi võetud. Mõte ootab jälle sorteerimist.</string>
     <string name="core_sort_undo_failed">Seda ei saanud tagasi võtta. Midagi ei läinud kaotsi; kirjet saab muuta selle alas.</string>
-    <string name="core_home_saved_let_go">Salvestatud. Võid selle meelest lasta.</string>
     <string name="core_home_quick_reminder_question">Kas tuletan meelde %1$s?</string>
     <string name="core_home_quick_reminder_when">Millal Tallele peaks meelde tuletama?</string>
     <string name="core_home_quick_reminder_set">Tuleta meelde</string>

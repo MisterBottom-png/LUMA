@@ -115,10 +115,10 @@
     <string name="search_recent">Hiljuti salvestatud</string>
     <string name="search_no_matches">„%1$s“ kohta vasteid pole.</string>
     <string name="search_include_archived">Otsi ka arhiivist</string>
-    <string name="tutorial_write_title">Kirjuta üles. Sorteeri hiljem.</string>
+    <string name="tutorial_write_title">Kirjuta üles. Edasi hoolitseb Tallele.</string>
     <string name="tutorial_write_body">Kirjuta iga mõte üles nii, nagu see tuleb. Liiki, kuupäeva ega kohta ei pea enne valima.</string>
-    <string name="tutorial_suggest_title">Tallele soovitab. Sina otsustad.</string>
-    <string name="tutorial_suggest_body">See pakub liiki, aega ja ruumi. Midagi ei saa ülesandeks ega meeldetuletuseks enne, kui ütled jah.</string>
+    <string name="tutorial_suggest_title">Tallele sorteerib selge ise ja küsib ainult siis, kui vaja.</string>
+    <string name="tutorial_suggest_body">Selgest mõttest saab märge, ülesanne või meeldetuletus ja sa saad seda alati muuta. Kui aeg või liik on ebaselge, küsib see enne sinult.</string>
     <string name="tutorial_spaces_pick_title">Vali oma ruumid</string>
     <string name="tutorial_spaces_pick_body">Ruum hoiab üht eluosa koos. Vali praegu mõned; neid saab alati muuta.</string>
     <string name="tutorial_private_title">Vaikimisi privaatne</string>
@@ -126,6 +126,12 @@
     <string name="tutorial_private_1">Sinu mõtted hoitakse selles telefonis.</string>
     <string name="tutorial_private_2">Gemini aitab ainult siis, kui selle sisse lülitad.</string>
     <string name="tutorial_private_3">Teavitusi küsitakse esimese meeldetuletuse juures.</string>
+    <string name="home_first_line_above">Kirjuta mida iganes. Tallele hoiab selle alles ja sorteerib, mida oskab.</string>
+    <string name="home_first_line_below">Kõik jääb sellesse telefoni, kui sa just ei lülita sisse Geminit ega kasuta häält.</string>
+    <string name="home_first_receipt_tip_filed">Tallele sorteeris selle sinu eest. Kui midagi läks valesti, puuduta „Muuda“.</string>
+    <string name="home_first_receipt_tip_kept">Tallele hoidis selle alles. Leiad selle jaotisest „%1$s“ ja otsingust.</string>
+    <string name="home_first_receipt_tip_reminder">Meeldetuletus on seatud. Aja muutmiseks puuduta „Muuda“.</string>
+    <string name="notification_priming">Et see meeldetuletus saaks kell %1$s heliseda, peab Tallele saama teavitusi näidata.</string>
     <string name="tutorial_continue">Jätka</string>
     <string name="tutorial_demo_thought">helista homme kell 9 hambaarstile</string>
     <string name="tutorial_demo_other_1">ideed aia jaoks</string>

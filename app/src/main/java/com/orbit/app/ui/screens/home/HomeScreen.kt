@@ -117,6 +117,13 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.flow.collect
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(
@@ -139,9 +146,13 @@ fun HomeScreen(
     onVoiceCloudNoticeSeen: () -> Unit = {},
     /** Opens what the save receipt is about: the item the thought became, or the thought. */
     onOpenReceiptTarget: (ReceiptTarget) -> Unit = {},
+    /** A new user before their first thought: Home explains itself in two lines. */
+    firstRun: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val receipt by viewModel.receipt.collectAsStateWithLifecycle()
+    val firstReceiptTip by viewModel.firstReceiptTip.collectAsStateWithLifecycle()
+    val notificationPriming by viewModel.notificationPriming.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val navigationBottomPadding = with(LocalDensity.current) {
@@ -266,6 +277,25 @@ fun HomeScreen(
         }
     }
 
+    // Notifications are asked for when a reminder from Home first needs them, never on
+    // opening the app: one line says why, then Android asks.
+    val primingReceipt = notificationPriming?.takeIf {
+        uiState.quickReminder == null && needsNotificationPermission(context)
+    }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+        viewModel::notificationPermissionAnswered,
+    )
+    var notificationsAskedFor by rememberSaveable { mutableStateOf<Long?>(null) }
+    LaunchedEffect(primingReceipt?.captureId) {
+        val captureId = primingReceipt?.captureId ?: return@LaunchedEffect
+        if (notificationsAskedFor == captureId) return@LaunchedEffect
+        // Long enough to read the line before Android's dialog covers the screen.
+        delay(NotificationPrimingReadMillis)
+        notificationsAskedFor = captureId
+        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
     LaunchedEffect(uiState.sortRequest) {
         uiState.sortRequest?.let { request ->
             sortViewModel.open(request.captureId, request.startWithReminderSetup)
@@ -292,6 +322,7 @@ fun HomeScreen(
                 fontScale = fontScale,
                 imeVisible = imeVisible,
                 hasCalendarCaptureContext = calendarDateContext != null,
+                hasFirstRunLines = firstRun,
             )
             val scrollState = rememberScrollState()
             LaunchedEffect(imeVisible, requiresVerticalScroll, scrollState) {
@@ -356,6 +387,9 @@ fun HomeScreen(
             }
 
             Spacer(modifier = Modifier.height(if (imeVisible) OrbitSpacing.Large else HomeCaptureGap))
+            if (firstRun) {
+                FirstRunLine(R.string.home_first_line_above, Modifier.padding(bottom = 12.dp))
+            }
 
             BoxWithConstraints(
                 modifier = Modifier
@@ -418,6 +452,9 @@ fun HomeScreen(
                 }
             }
 
+            if (firstRun) {
+                FirstRunLine(R.string.home_first_line_below, Modifier.padding(top = 12.dp))
+            }
             // Home's one question sits in place of the receipt, never next to it.
             val question = uiState.quickReminder
             SaveReceipt(
@@ -428,6 +465,13 @@ fun HomeScreen(
                 onDismiss = viewModel::dismissReceipt,
                 isWorking = uiState.isSettingReminder,
             )
+            if (question == null && receipt != null) {
+                if (primingReceipt != null) {
+                    NotificationPrimingLine(primingReceipt, timeFormat)
+                } else {
+                    FirstReceiptTipLine(firstReceiptTip)
+                }
+            }
             question?.let {
                 QuickReminderCard(
                     question = it,
@@ -456,6 +500,27 @@ fun HomeScreen(
         snackbarHostState = snackbarHostState,
     )
 }
+
+/** One of Home's two first-run lines; gone after the first thought is saved. */
+@Composable
+private fun FirstRunLine(@StringRes textRes: Int, modifier: Modifier = Modifier) {
+    Text(
+        text = stringResource(textRes),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** Android 13+ asks before an app may show notifications; older phones allow them at install. */
+private fun needsNotificationPermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+        PackageManager.PERMISSION_GRANTED
+
+private const val NotificationPrimingReadMillis = 1_200L
 
 @Composable
 private fun CalendarCaptureContextBanner(
@@ -1034,6 +1099,8 @@ private val HomeDayMinTouch = 48.dp
 private val HomeWeekMarginBleed = 16.dp
 private val HomeWeekCardScaledContentGrowth = 112.dp
 private val HomeCaptureGap = 28.dp
+/** Home's two first-run lines, about two short lines of text each, plus their gaps. */
+private val FirstRunLinesHeight = 104.dp
 private val CalendarCaptureContextBannerActionMinimumHeight = 48.dp
 private val CalendarCaptureContextBannerBodyLineHeight = 22.dp
 private val CaptureCardExpandedHeight = 244.dp
@@ -1054,8 +1121,10 @@ private fun homeMinimumContentHeightFor(
     fontScale: Float,
     imeVisible: Boolean,
     hasCalendarCaptureContext: Boolean,
+    hasFirstRunLines: Boolean = false,
 ): Dp =
-    26.dp +
+    (if (hasFirstRunLines) FirstRunLinesHeight * fontScale else 0.dp) +
+        26.dp +
         maxOf(48.dp, 40.dp * fontScale) +
         OrbitSpacing.Large +
         homeWeekCardHeightFor(fontScale) +

@@ -35,6 +35,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.ui.components.GlassSurfaceStyle
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.localization.localizedSpaceName
@@ -95,6 +97,59 @@ internal fun SaveReceipt(
 
 private class LastShownReceipt {
     var receipt: CaptureReceipt? = null
+}
+
+/** The one-time tip under a new user's first receipt; its words follow what really happened. */
+internal enum class FirstReceiptTip { Filed, Kept, Reminder }
+
+/** No tip when the receipt is a question (the question is the tip) or a reminder is not set. */
+internal fun firstReceiptTipFor(receipt: CaptureReceipt): FirstReceiptTip? = when (receipt.outcome) {
+    CaptureOutcome.Saved -> FirstReceiptTip.Kept
+    CaptureOutcome.Filed -> FirstReceiptTip.Filed
+    CaptureOutcome.ReminderSet ->
+        FirstReceiptTip.Reminder.takeIf { receipt.reminderArmed && receipt.reminderAt != null }
+    CaptureOutcome.NeedsYou -> null
+}
+
+/** A reminder this receipt is about can only ring once Android shows notifications. */
+internal fun CaptureReceipt.wantsNotifications(): Boolean = reminderAt != null && when (outcome) {
+    CaptureOutcome.ReminderSet -> true
+    CaptureOutcome.NeedsYou -> reason == CaptureOutcomeReason.NotificationsOff
+    CaptureOutcome.Saved, CaptureOutcome.Filed -> false
+}
+
+@Composable
+internal fun FirstReceiptTipLine(tip: FirstReceiptTip?, modifier: Modifier = Modifier) {
+    tip ?: return
+    val text = when (tip) {
+        FirstReceiptTip.Filed -> stringResource(R.string.home_first_receipt_tip_filed)
+        FirstReceiptTip.Kept -> stringResource(
+            R.string.home_first_receipt_tip_kept,
+            stringResource(R.string.review_to_sort_title),
+        )
+        FirstReceiptTip.Reminder -> stringResource(R.string.home_first_receipt_tip_reminder)
+    }
+    ReceiptHintText(text, modifier)
+}
+
+/** One line before Android's own notification question, so the question makes sense. */
+@Composable
+internal fun NotificationPrimingLine(receipt: CaptureReceipt, timeFormat: OrbitTimeFormat, modifier: Modifier = Modifier) {
+    val at = receipt.reminderAt ?: return
+    ReceiptHintText(stringResource(R.string.notification_priming, timeFormat.formatTime(at)), modifier)
+}
+
+@Composable
+private fun ReceiptHintText(text: String, modifier: Modifier) {
+    Text(
+        text = text,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 18.dp, end = 18.dp, top = 10.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

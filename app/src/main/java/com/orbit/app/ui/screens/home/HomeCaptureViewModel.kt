@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.orbit.app.R
+import com.orbit.app.data.local.entity.CaptureOutcome
 import com.orbit.app.data.repository.AppSettingsRepository
 import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.capture.CaptureInbox
@@ -149,6 +150,30 @@ class HomeCaptureViewModel(
     /** True when the awaited thought was added for a Calendar day. */
     private var awaitingForCalendarDay = false
 
+    /**
+     * The one-time tip under the first receipt, matching what really happened to the
+     * thought; null once it has been read or when the receipt is itself a question.
+     */
+    internal val firstReceiptTip: StateFlow<FirstReceiptTip?> = combine(
+        receipt,
+        appSettingsRepository.settings.map { it.hasSeenFirstReceiptTip }.distinctUntilChanged(),
+    ) { current, seen ->
+        current?.takeUnless { seen }?.let(::firstReceiptTipFor)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
+     * A reminder from a thought saved just now that cannot ring until Android shows
+     * notifications: Home says why in one line, then asks Android once. Never for a
+     * receipt that was only restored on opening the app.
+     */
+    val notificationPriming: StateFlow<CaptureReceipt?> = combine(
+        receipt,
+        receiptGate,
+        appSettingsRepository.settings.map { it.hasAskedForNotifications }.distinctUntilChanged(),
+    ) { current, gate, asked ->
+        current?.takeIf { !asked && gate is ReceiptGate.Expect && it.wantsNotifications() }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     init {
         viewModelScope.launch {
             captureInbox.events.collect { event ->
@@ -184,6 +209,8 @@ class HomeCaptureViewModel(
         if (rawText.isBlank() || _uiState.value.isProcessing) return false
         val safeContext = calendarDateContextEpochDay
             ?.let { runCatching { LocalDate.ofEpochDay(it).toEpochDay() }.getOrNull() }
+        // A tip that was on screen has been read once the next thought is sent.
+        val tipWasShown = firstReceiptTip.value != null
         _uiState.update(HomeCaptureUiState::beginCaptureSaving)
         receiptGate.value = ReceiptGate.Saving
         viewModelScope.launch {
@@ -211,7 +238,10 @@ class HomeCaptureViewModel(
                 )
             }
             // The thought is safe; now remember which one the receipt is about.
-            storeReceipt { it.copy(lastReceiptCaptureId = id, lastReceiptDismissed = false) }
+            storeReceipt {
+                it.copy(lastReceiptCaptureId = id, lastReceiptDismissed = false)
+                    .afterFirstSave(tipWasShown)
+            }
         }
         return true
     }
@@ -219,11 +249,30 @@ class HomeCaptureViewModel(
     /** Swiped away, or its item opened: the receipt stays hidden until the next save. */
     fun dismissReceipt() {
         val captureId = receipt.value?.captureId ?: return
+        val tipWasShown = firstReceiptTip.value != null
         viewModelScope.launch {
             storeReceipt { settings ->
-                if (settings.lastReceiptCaptureId == captureId) settings.copy(lastReceiptDismissed = true) else settings
+                val dismissed = if (settings.lastReceiptCaptureId == captureId) {
+                    settings.copy(lastReceiptDismissed = true)
+                } else {
+                    settings
+                }
+                if (tipWasShown) dismissed.copy(hasSeenFirstReceiptTip = true) else dismissed
             }
         }
+    }
+
+    /**
+     * Android answered the notification request. Asked once, whatever the answer; when
+     * allowed, a reminder that could not ring is armed again so the receipt turns into
+     * "Reminder set".
+     */
+    fun notificationPermissionAnswered(granted: Boolean) {
+        val primed = notificationPriming.value
+        viewModelScope.launch {
+            storeReceipt { it.copy(hasAskedForNotifications = true) }
+        }
+        if (granted && primed != null && primed.outcome == CaptureOutcome.NeedsYou) retryReceiptReminder()
     }
 
     /** "Choose time" for a thought that is still saved: the sort sheet opens on the reminder setup. */
@@ -358,6 +407,15 @@ class HomeCaptureViewModel(
         const val DraftTextKey = "homeCaptureDraft"
     }
 }
+
+/**
+ * After a thought is saved: Home's first-run lines are done, and a first-receipt tip
+ * that was on screen counts as read.
+ */
+internal fun AppSettings.afterFirstSave(tipWasShown: Boolean): AppSettings = copy(
+    hasCompletedFirstTimeTutorial = true,
+    hasSeenFirstReceiptTip = hasSeenFirstReceiptTip || tipWasShown,
+)
 
 internal enum class AfterSaving { OpenSortSheet, AskForTime, Nothing }
 

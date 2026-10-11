@@ -64,9 +64,9 @@ class TabJourneyJvmTest {
 
     @Test
     fun firstLaunch_tabsAndSettingsFromHome() {
-        compose.waitUntil(10_000) { count("Skip") > 0 }
-        compose.onNodeWithText("Skip").performClick()
-        compose.waitForIdle()
+        // A first launch opens straight on Home; there is no guide to skip.
+        compose.waitUntil(10_000) { onHome() }
+        assertEquals(0, count("Skip"))
 
         // A fresh install has no name yet: the greeting must not read "…, user".
         assertEquals(0, compose.onAllNodesWithText("user", substring = true).fetchSemanticsNodes().size)
@@ -84,10 +84,7 @@ class TabJourneyJvmTest {
 
     @Test
     fun homeTabLeavesCalendarWhetherCalendarWasOpenedFromTheTabOrFromADay() {
-        // The guide shows only on a first launch in this process.
-        compose.waitUntil(10_000) { count("Skip") > 0 || onHome() }
-        if (count("Skip") > 0) compose.onNodeWithText("Skip").performClick()
-        compose.waitForIdle()
+        compose.waitUntil(10_000) { onHome() }
 
         // From the Calendar tab.
         tapTab("Calendar")
@@ -113,9 +110,7 @@ class TabJourneyJvmTest {
 
     @Test
     fun aTabKeepsItsPlaceWhenLeftThroughTheHomeTab() {
-        compose.waitUntil(10_000) { count("Skip") > 0 || onHome() }
-        if (count("Skip") > 0) compose.onNodeWithText("Skip").performClick()
-        compose.waitForIdle()
+        compose.waitUntil(10_000) { onHome() }
 
         tapTab("Calendar")
         compose.onNodeWithContentDescription("Show the month").performClick()

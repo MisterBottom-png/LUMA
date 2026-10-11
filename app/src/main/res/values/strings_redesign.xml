@@ -20,7 +20,6 @@
     <string name="core_sort_already_sorted">This thought has already been sorted.</string>
     <string name="core_sort_undone">Undone. The thought is back in To sort.</string>
     <string name="core_sort_undo_failed">That could not be undone. Nothing was lost; you can change the item in its Space.</string>
-    <string name="core_home_saved_let_go">Saved. You can let it go.</string>
     <string name="core_home_quick_reminder_question">Remind you %1$s?</string>
     <string name="core_home_quick_reminder_when">When should Tallele remind you?</string>
     <string name="core_home_quick_reminder_set">Remind me</string>

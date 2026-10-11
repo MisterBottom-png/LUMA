@@ -22,7 +22,6 @@
     <string name="core_sort_already_sorted">Эта мысль уже разобрана.</string>
     <string name="core_sort_undone">Отменено. Мысль снова ждёт разбора.</string>
     <string name="core_sort_undo_failed">Не удалось отменить. Ничего не потеряно; запись можно изменить в её пространстве.</string>
-    <string name="core_home_saved_let_go">Сохранено. Можно отпустить эту мысль.</string>
     <string name="core_home_quick_reminder_question">Напомнить %1$s?</string>
     <string name="core_home_quick_reminder_when">Когда Tallele должна напомнить?</string>
     <string name="core_home_quick_reminder_set">Напомнить</string>

@@ -20,6 +20,10 @@ object StarterSpaces {
         StarterSpaceTemplate("learning", "Learning", "school", "#7B8CB8"),
     )
 
+    /** Every starter Space, in template order: what a new install gets without being asked. */
+    fun all(now: Long = System.currentTimeMillis()): List<SpaceEntity> =
+        templates.mapIndexed { index, template -> spaceFor(template, sortOrder = index, now = now) }
+
     fun spaceFor(
         template: StarterSpaceTemplate,
         name: String = template.storedName,

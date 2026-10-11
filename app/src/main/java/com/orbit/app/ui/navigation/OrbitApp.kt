@@ -70,6 +70,7 @@ import com.orbit.app.ui.screens.spaces.SpacesScreen
 import com.orbit.app.ui.screens.spaces.SpacesViewModel
 import com.orbit.app.ui.screens.tutorial.FirstTimeTutorialScreen
 import com.orbit.app.ui.screens.tutorial.TutorialSpaceSetupViewModel
+import com.orbit.app.ui.screens.tutorial.seedStarterSpacesSilently
 import com.orbit.app.OrbitContainer
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.ui.screens.home.HomeCaptureViewModel
@@ -112,6 +113,13 @@ fun OrbitApp(
         selectedRoute = selectedRoute,
         appearanceSubsectionOpen = settingsSubsectionOpen,
     )
+
+    // A first launch opens straight on Home with the starter Spaces already there.
+    LaunchedEffect(Unit) {
+        if (!settings.hasCompletedFirstTimeTutorial) {
+            runCatching { seedStarterSpacesSilently(container.spaceRepository) }
+        }
+    }
 
     LaunchedEffect(reminderToOpen) {
         reminderToOpen?.let { reminderId ->
@@ -172,7 +180,7 @@ fun OrbitApp(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = initialOrbitRoute(settings),
+                startDestination = initialOrbitRoute(),
                 modifier = Modifier
                     .widthIn(max = contentMaxWidth)
                     .fillMaxSize()
@@ -195,7 +203,7 @@ fun OrbitApp(
                         ?.getBoolean(FirstTimeTutorialDestination.ReplayArgument)
                         ?: false
                     val tutorialSpaceSetupViewModel: TutorialSpaceSetupViewModel = viewModel(
-                        factory = TutorialSpaceSetupViewModel.Factory(isReplay, container),
+                        factory = TutorialSpaceSetupViewModel.Factory(container),
                     )
                     val tutorialSpaceSetupState by tutorialSpaceSetupViewModel.uiState
                         .collectAsStateWithLifecycle()
@@ -327,6 +335,7 @@ fun OrbitApp(
                         },
                         focusCaptureOnOpen = settings.focusCaptureOnOpen,
                         focusRequest = focusCaptureRequest,
+                        firstRun = !settings.hasCompletedFirstTimeTutorial,
                         voiceCloudNoticeSeen = settings.hasSeenVoiceCloudNotice,
                         onVoiceCloudNoticeSeen = {
                             onSettingsChanged(settings.copy(hasSeenVoiceCloudNotice = true))
