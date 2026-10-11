@@ -57,7 +57,7 @@ class TabJourneyJvmTest {
         val bar = nodes.fetchSemanticsNodes().withIndex().maxBy { it.value.boundsInRoot.bottom }.index
         nodes[bar].performClick()
         compose.waitForIdle()
-        listOf("Home", "Spaces", "Calendar", "Review").forEach { tab ->
+        listOf("Home", "Spaces", "Calendar", "Needs you").forEach { tab ->
             assertTrue("tab $tab missing after opening $label", count(tab) >= 1)
         }
     }
@@ -71,7 +71,7 @@ class TabJourneyJvmTest {
         // A fresh install has no name yet: the greeting must not read "…, user".
         assertEquals(0, compose.onAllNodesWithText("user", substring = true).fetchSemanticsNodes().size)
 
-        listOf("Spaces", "Calendar", "Review", "Home").forEach(::tapTab)
+        listOf("Spaces", "Calendar", "Needs you", "Home").forEach(::tapTab)
         compose.onNodeWithText("Ask Tallele").assertDoesNotExist()
 
         compose.onNodeWithContentDescription("Open settings").performClick()

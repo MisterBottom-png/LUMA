@@ -6,6 +6,9 @@ import com.orbit.app.domain.analyzer.CaptureAnalysis
 import com.orbit.app.domain.analyzer.CaptureConfidence
 import com.orbit.app.domain.analyzer.ReminderTimeStatus
 import com.orbit.app.domain.analyzer.confidenceLevel
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneId
 
 /**
  * What Tallele does with an analysed thought: file it ([Act]), ask one question
@@ -59,3 +62,20 @@ fun decide(analysis: CaptureAnalysis, hasSpace: Boolean, now: Long): CaptureDeci
         SuggestedItemType.MondayItem -> CaptureDecision.Keep
     }
 }
+
+/** The two quick answers to "When should this remind you?" in Needs you; later a setting. */
+val QuickEveningTime: LocalTime = LocalTime.of(18, 0)
+val QuickMorningTime: LocalTime = LocalTime.of(9, 0)
+
+/**
+ * The quick times offered for a thought without a time, as instants: today 18:00 while it
+ * is still ahead (at least [MinimumLeadMillis] away), and tomorrow 09:00.
+ */
+fun quickReminderTimes(now: Long, zoneId: ZoneId): List<Long> {
+    val today = Instant.ofEpochMilli(now).atZone(zoneId).toLocalDate()
+    val evening = today.atTime(QuickEveningTime).atZone(zoneId).toInstant().toEpochMilli()
+    val morning = today.plusDays(1).atTime(QuickMorningTime).atZone(zoneId).toInstant().toEpochMilli()
+    return listOfNotNull(evening.takeIf { it - now >= MinimumLeadMillis }, morning)
+}
+
+private const val MinimumLeadMillis: Long = 15L * 60_000L

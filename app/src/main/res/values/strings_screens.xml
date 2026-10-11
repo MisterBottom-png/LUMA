@@ -39,7 +39,7 @@
     <string name="review_one_space">Space</string>
     <string name="review_one_when">When</string>
     <string name="review_one_skip">Skip for now</string>
-    <string name="review_one_back">Back to Review</string>
+    <string name="review_one_back">Back to Needs you</string>
     <string name="review_one_done_body">Nothing else is waiting. You can let the rest of the day be.</string>
     <string name="review_one_skipped_body">The thoughts you skipped wait in To sort.</string>
     <string name="settings_section_reminders">Reminders</string>
@@ -149,4 +149,24 @@
     <plurals name="split_offer"><item quantity="one">Looks like %1$d thought</item><item quantity="other">Looks like %1$d thoughts</item></plurals>
     <plurals name="search_result_count"><item quantity="one">%1$d result</item><item quantity="other">%1$d results</item></plurals>
     <string name="settings_reminders_advanced">Advanced</string>
+    <string name="needs_you_decisions_heading">Needs a decision</string>
+    <string name="needs_you_today_heading">Today</string>
+    <string name="needs_you_empty">Nothing needs you right now.</string>
+    <string name="needs_you_empty_detail">Today Tallele kept %1$d and filed %2$d.</string>
+    <string name="needs_you_more">More</string>
+    <string name="needs_you_q_time">When should this remind you?</string>
+    <string name="needs_you_q_time_passed">This time has already passed.</string>
+    <string name="needs_you_q_type">Save as a task, or just keep it?</string>
+    <string name="needs_you_q_notifications">Reminders can’t ring while notifications are off.</string>
+    <string name="needs_you_q_not_scheduled">Tallele couldn’t set this reminder.</string>
+    <string name="needs_you_today_at">Today %1$s</string>
+    <string name="needs_you_tomorrow_at">Tomorrow %1$s</string>
+    <string name="needs_you_pick_time">Pick a time</string>
+    <string name="needs_you_pick_new_time">Pick a new time</string>
+    <string name="needs_you_make_task">Make it a task</string>
+    <string name="needs_you_attention">Something didn’t work</string>
+    <plurals name="needs_you_summary">
+        <item quantity="one">%1$d to decide</item>
+        <item quantity="other">%1$d to decide</item>
+    </plurals>
 </resources>

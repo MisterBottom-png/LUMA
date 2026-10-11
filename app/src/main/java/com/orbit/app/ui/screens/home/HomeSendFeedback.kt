@@ -7,14 +7,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
@@ -38,6 +34,8 @@ import com.orbit.app.R
 import com.orbit.app.data.local.entity.CaptureOutcome
 import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.ui.components.GlassSurfaceStyle
+import com.orbit.app.ui.components.OneQuestionAnswer
+import com.orbit.app.ui.components.OneQuestionCard
 import com.orbit.app.ui.components.SoftGlassSurface
 import com.orbit.app.ui.localization.localizedSpaceName
 import com.orbit.app.ui.time.OrbitTimeFormat
@@ -217,7 +215,6 @@ internal fun receiptText(line: ReceiptLine, timeFormat: OrbitTimeFormat): String
  * reminder, but its time is missing or already past. "Just keep it" keeps the thought
  * saved, in Later and in Search, and nothing rings for it.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun QuickReminderCard(
     question: QuickReminderQuestion,
@@ -225,43 +222,20 @@ internal fun QuickReminderCard(
     onPickTime: () -> Unit,
     onKeep: () -> Unit,
 ) {
-    SoftGlassSurface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        shape = RoundedCornerShape(24.dp),
-        style = GlassSurfaceStyle.Standard,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = stringResource(
-                    if (question.reason == CaptureOutcomeReason.TimePassed) {
-                        R.string.receipt_time_passed
-                    } else {
-                        R.string.receipt_needs_time
-                    },
-                ),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = question.title,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onPickTime, enabled = !isWorking) {
-                    Text(stringResource(R.string.core_home_quick_reminder_pick))
-                }
-                TextButton(onClick = onKeep, enabled = !isWorking) {
-                    Text(stringResource(R.string.receipt_action_keep))
-                }
-            }
-        }
-    }
+    OneQuestionCard(
+        question = stringResource(
+            if (question.reason == CaptureOutcomeReason.TimePassed) {
+                R.string.receipt_time_passed
+            } else {
+                R.string.receipt_needs_time
+            },
+        ),
+        detail = question.title,
+        answers = listOf(
+            OneQuestionAnswer(stringResource(R.string.core_home_quick_reminder_pick), onPickTime),
+            OneQuestionAnswer(stringResource(R.string.receipt_action_keep), onKeep),
+        ),
+        modifier = Modifier.padding(top = 16.dp),
+        enabled = !isWorking,
+    )
 }

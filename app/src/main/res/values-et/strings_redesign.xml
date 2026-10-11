@@ -4,7 +4,7 @@
     <string name="reminder_notification_action_done">Tehtud</string>
     <string name="reminder_notification_action_snooze">Lükka 15 min edasi</string>
     <string name="reminder_notification_missed_body">Jäi vahele. Aeg oli %1$s.</string>
-    <string name="reminder_notification_missed_summary_body">Need ootavad sind ülevaates.</string>
+    <string name="reminder_notification_missed_summary_body">Need ootavad sind vaates „Vajab sind“.</string>
     <plurals name="reminder_notification_missed_summary_title">
         <item quantity="one">%d meeldetuletus jäi vahele</item>
         <item quantity="other">%d meeldetuletust jäi vahele</item>
@@ -102,8 +102,8 @@
     <string name="spaces_name_taken_archived">„%1$s” on arhiveeritud. Kas taastad selle, selle asemel et teise teha?</string>
     <string name="spaces_name_taken_hidden">„%1$s” on peidetud. Kas näitad seda uuesti, selle asemel et teise teha?</string>
     <plurals name="spaces_to_sort_waiting">
-        <item quantity="one">%1$d mõte ootab ülevaates</item>
-        <item quantity="other">%1$d mõtet ootab ülevaates</item>
+        <item quantity="one">%1$d mõte ootab sorteerimist</item>
+        <item quantity="other">%1$d mõtet ootab sorteerimist</item>
     </plurals>
     <string name="shortcut_new_thought_short">Uus mõte</string>
     <string name="shortcut_new_thought_long">Kirjuta uus mõte</string>

@@ -4,7 +4,7 @@
     <string name="reminder_notification_action_done">Done</string>
     <string name="reminder_notification_action_snooze">Snooze 15 min</string>
     <string name="reminder_notification_missed_body">Missed earlier. It was due %1$s.</string>
-    <string name="reminder_notification_missed_summary_body">They are waiting for you in Review.</string>
+    <string name="reminder_notification_missed_summary_body">They are waiting for you in Needs you.</string>
     <plurals name="reminder_notification_missed_summary_title">
         <item quantity="one">%d reminder was missed</item>
         <item quantity="other">%d reminders were missed</item>
@@ -102,8 +102,8 @@
     <string name="spaces_name_taken_archived">“%1$s” is archived. Restore it instead of making a second one?</string>
     <string name="spaces_name_taken_hidden">“%1$s” is hidden. Show it again instead of making a second one?</string>
     <plurals name="spaces_to_sort_waiting">
-        <item quantity="one">%1$d thought is waiting in Review</item>
-        <item quantity="other">%1$d thoughts are waiting in Review</item>
+        <item quantity="one">%1$d thought is waiting to be sorted</item>
+        <item quantity="other">%1$d thoughts are waiting to be sorted</item>
     </plurals>
     <string name="shortcut_new_thought_short">New thought</string>
     <string name="shortcut_new_thought_long">Write a new thought</string>

@@ -340,7 +340,8 @@ private fun SpacesOverview(
                 .fillMaxSize()
                 .orbitScrollEdgeFade(
                     top = headerClearance,
-                    bottom = OrbitBottomNavigationDefaults.ContentClearance,
+                    bottom = OrbitBottomNavigationDefaults.ScrollFadeHeight + navigationBottomPadding,
+                    bottomFadeLength = OrbitBottomNavigationDefaults.ScrollFadeLength,
                 ),
             contentPadding = PaddingValues(
                 start = 20.dp,
@@ -830,7 +831,8 @@ private fun SpaceDetail(
                 .fillMaxSize()
                 .orbitScrollEdgeFade(
                     top = headerClearance,
-                    bottom = OrbitBottomNavigationDefaults.ContentClearance,
+                    bottom = OrbitBottomNavigationDefaults.ScrollFadeHeight + navigationBottomPadding,
+                    bottomFadeLength = OrbitBottomNavigationDefaults.ScrollFadeLength,
                 ),
             contentPadding = PaddingValues(
                 start = 20.dp,

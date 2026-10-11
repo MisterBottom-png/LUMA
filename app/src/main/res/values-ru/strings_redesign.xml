@@ -4,7 +4,7 @@
     <string name="reminder_notification_action_done">Готово</string>
     <string name="reminder_notification_action_snooze">Отложить на 15 мин</string>
     <string name="reminder_notification_missed_body">Пропущено. Срок был %1$s.</string>
-    <string name="reminder_notification_missed_summary_body">Они ждут вас в обзоре.</string>
+    <string name="reminder_notification_missed_summary_body">Они ждут вас в разделе «Ждёт вас».</string>
     <plurals name="reminder_notification_missed_summary_title">
         <item quantity="one">%d напоминание пропущено</item>
         <item quantity="few">%d напоминания пропущено</item>
@@ -108,10 +108,10 @@
     <string name="spaces_name_taken_archived">Пространство «%1$s» в архиве. Восстановить его вместо создания второго?</string>
     <string name="spaces_name_taken_hidden">Пространство «%1$s» скрыто. Показать его снова вместо создания второго?</string>
     <plurals name="spaces_to_sort_waiting">
-        <item quantity="one">%1$d мысль ждёт в обзоре</item>
-        <item quantity="few">%1$d мысли ждут в обзоре</item>
-        <item quantity="many">%1$d мыслей ждут в обзоре</item>
-        <item quantity="other">%1$d мысли ждут в обзоре</item>
+        <item quantity="one">%1$d мысль ждёт разбора</item>
+        <item quantity="few">%1$d мысли ждут разбора</item>
+        <item quantity="many">%1$d мыслей ждут разбора</item>
+        <item quantity="other">%1$d мысли ждут разбора</item>
     </plurals>
     <string name="shortcut_new_thought_short">Новая мысль</string>
     <string name="shortcut_new_thought_long">Записать новую мысль</string>

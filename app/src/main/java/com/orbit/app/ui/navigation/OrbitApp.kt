@@ -1,6 +1,9 @@
 package com.orbit.app.ui.navigation
 
 import java.time.LocalDate
+import com.orbit.app.ui.screens.review.needsYouSomethingFailed
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -104,6 +107,12 @@ fun OrbitApp(
     var situationAiQuestion by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
+    // Needs you gets a dot only when something failed; never a count.
+    val needsYouFailed by remember(container) {
+        container.captureRepository.observeAll()
+            .map(::needsYouSomethingFailed)
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
     val contentMaxWidth = portraitContentMaxWidth(LocalConfiguration.current.screenWidthDp.dp)
     val imeVisible = with(LocalDensity.current) {
         WindowInsets.ime.getBottom(this) > 0
@@ -508,6 +517,20 @@ fun OrbitApp(
                                 snackbarHostState = snackbarHostState,
                             )
                         },
+                        onNeedsYouRemindAt = reviewViewModel::remindAt,
+                        // A reminder that exists gets its new time on its own screen; a thought
+                        // still saved opens the sort sheet on the reminder setup.
+                        onNeedsYouPickTime = { item ->
+                            val reminderId = item.reminderId
+                            if (reminderId != null) {
+                                navController.navigate(ItemDetailDestination.route(ItemDetailType.Reminder, reminderId))
+                            } else {
+                                reviewSortViewModel.open(item.captureId, startWithReminderSetup = true)
+                            }
+                        },
+                        onNeedsYouMakeTask = reviewViewModel::makeTask,
+                        onNeedsYouTryAgain = reviewViewModel::retryReminder,
+                        onNeedsYouKeep = reviewViewModel::keepThought,
                     )
                 }
                 composable(OrbitDestination.Settings.route) {
@@ -698,6 +721,7 @@ fun OrbitApp(
             ) {
                 FloatingBottomNavigation(
                     selectedRoute = selectedRoute,
+                    alertDestinations = if (needsYouFailed) setOf(OrbitDestination.Review) else emptySet(),
                     onDestinationSelected = { destination ->
                         // Home is the root of every tab: going back to it is a pop that saves the
                         // tab being left (its tab keeps its place). Navigating to Home with

@@ -35,13 +35,7 @@ import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.PlainTooltip
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +65,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.orbit.app.R
+import com.orbit.app.domain.capture.quickReminderTimes
+import com.orbit.app.ui.components.OneQuestionCard
+import com.orbit.app.ui.components.OneQuestionAnswer
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
+import androidx.compose.runtime.key
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.MoreVert
 import com.orbit.app.ui.components.GroupDivider
 import com.orbit.app.ui.components.GroupedCard
 import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
@@ -100,9 +102,11 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
  * clear end.
  */
 
-/** Title row: Review, a breath button and an Ask button whose questions open as a menu. */
+/**
+ * Title row: the title, the short summary and one overflow menu. Ask and the calm breath
+ * live in that menu, so the screen leads with what needs the user.
+ */
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 internal fun ReviewHeader(
     title: String,
     summary: String,
@@ -110,7 +114,7 @@ internal fun ReviewHeader(
     onBreathe: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var askOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -121,50 +125,29 @@ internal fun ReviewHeader(
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            // The leaf says what it does when held, as well as to TalkBack.
-            TooltipBox(
-                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                tooltip = { PlainTooltip { Text(stringResource(R.string.review_breathe_start)) } },
-                state = rememberTooltipState(),
-            ) {
-                IconButton(onClick = onBreathe) {
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
                     Icon(
-                        imageVector = Icons.Rounded.Spa,
-                        contentDescription = stringResource(R.string.review_breathe_start),
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = stringResource(R.string.core_review_more_actions),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-            Box {
-                FilledTonalButton(
-                    onClick = { askOpen = true },
-                    contentPadding = PaddingValues(start = 12.dp, end = 16.dp),
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.review_ask_button), style = MaterialTheme.typography.labelLarge)
-                }
-                LumaMenu(expanded = askOpen, onDismissRequest = { askOpen = false }) {
+                LumaMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     LumaMenuItem(
                         text = { Text(stringResource(R.string.review_ask_own), fontWeight = FontWeight.SemiBold) },
-                        onClick = { askOpen = false; onAsk(null) },
+                        onClick = { menuOpen = false; onAsk(null) },
                     )
-                    LumaMenuGap()
                     AskLumaPrompt.entries.forEach { prompt ->
                         LumaMenuItem(
-                            text = {
-                                Text(stringResource(prompt.labelRes))
-                            },
-                            onClick = { askOpen = false; onAsk(prompt) },
+                            text = { Text(stringResource(prompt.labelRes)) },
+                            onClick = { menuOpen = false; onAsk(prompt) },
                         )
                     }
                     LumaMenuGap()
-                    Text(
-                        text = stringResource(R.string.review_ask_subtitle),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    LumaMenuItem(
+                        text = { Text(stringResource(R.string.review_breathe_start)) },
+                        onClick = { menuOpen = false; onBreathe() },
                     )
                 }
             }
@@ -181,13 +164,101 @@ internal fun ReviewHeader(
 @Composable
 internal fun reviewSummary(uiState: ReviewUiState): String {
     val parts = buildList {
-        if (uiState.toSort.isNotEmpty()) add(stringResource(R.string.review_summary_to_sort, uiState.toSort.size))
-        if (uiState.dueToday.isNotEmpty()) add(stringResource(R.string.review_summary_today, uiState.dueToday.size))
-        if (uiState.carryForwardSuggestions.isNotEmpty()) {
-            add(stringResource(R.string.review_summary_earlier, uiState.carryForwardSuggestions.size))
+        if (uiState.needsYou.isNotEmpty()) {
+            add(pluralStringResource(R.plurals.needs_you_summary, uiState.needsYou.size, uiState.needsYou.size))
         }
+        if (uiState.dueToday.isNotEmpty()) add(stringResource(R.string.review_summary_today, uiState.dueToday.size))
     }
     return if (parts.isEmpty()) stringResource(R.string.review_summary_nothing) else parts.joinToString(" · ")
+}
+
+/**
+ * Needs a decision: one card per thought, each asking one thing. Every card ends with
+ * "Just keep it", which leaves the thought saved and removes the card.
+ */
+@Composable
+internal fun NeedsYouGroup(
+    items: List<NeedsYouItem>,
+    timeFormat: OrbitTimeFormat,
+    now: Long,
+    enabled: Boolean,
+    onRemindAt: (NeedsYouItem, Long) -> Unit,
+    onPickTime: (NeedsYouItem) -> Unit,
+    onMakeTask: (NeedsYouItem) -> Unit,
+    onTurnOn: (NeedsYouItem) -> Unit,
+    onTryAgain: (NeedsYouItem) -> Unit,
+    onKeep: (NeedsYouItem) -> Unit,
+) {
+    val zone = remember { ZoneId.systemDefault() }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        items.forEach { item ->
+            key(item.captureId) {
+                val keep = OneQuestionAnswer(stringResource(R.string.receipt_action_keep)) { onKeep(item) }
+                val (question, answers) = when (item.reason) {
+                    CaptureOutcomeReason.TimeUnclear -> {
+                        val quick = quickReminderTimes(now, zone).map { at ->
+                            val sameDay = Instant.ofEpochMilli(at).atZone(zone).toLocalDate() ==
+                                Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+                            OneQuestionAnswer(
+                                stringResource(
+                                    if (sameDay) R.string.needs_you_today_at else R.string.needs_you_tomorrow_at,
+                                    timeFormat.formatTime(at),
+                                ),
+                            ) { onRemindAt(item, at) }
+                        }
+                        stringResource(R.string.needs_you_q_time) to quick + listOf(
+                            OneQuestionAnswer(stringResource(R.string.needs_you_pick_time)) { onPickTime(item) },
+                            keep,
+                        )
+                    }
+                    CaptureOutcomeReason.TimePassed -> stringResource(R.string.needs_you_q_time_passed) to listOf(
+                        OneQuestionAnswer(stringResource(R.string.needs_you_pick_new_time)) { onPickTime(item) },
+                        keep,
+                    )
+                    CaptureOutcomeReason.NotificationsOff -> stringResource(R.string.needs_you_q_notifications) to listOf(
+                        OneQuestionAnswer(stringResource(R.string.receipt_action_turn_on)) { onTurnOn(item) },
+                        keep,
+                    )
+                    CaptureOutcomeReason.NotScheduled -> stringResource(R.string.needs_you_q_not_scheduled) to listOf(
+                        OneQuestionAnswer(stringResource(R.string.receipt_action_try_again)) { onTryAgain(item) },
+                        keep,
+                    )
+                    CaptureOutcomeReason.TypeUnclear, CaptureOutcomeReason.None ->
+                        stringResource(R.string.needs_you_q_type) to listOf(
+                            OneQuestionAnswer(stringResource(R.string.needs_you_make_task)) { onMakeTask(item) },
+                            keep,
+                        )
+                }
+                OneQuestionCard(question = question, detail = item.text, answers = answers, enabled = enabled)
+            }
+        }
+    }
+}
+
+/** One quiet row that opens the tools: earlier tasks, To sort, the weekly look back and open loops. */
+@Composable
+internal fun NeedsYouMoreRow(expanded: Boolean, onToggle: () -> Unit) {
+    GroupedCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .heightIn(min = 56.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.needs_you_more),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
+        }
+    }
 }
 
 /** A short breath: the circle grows for two seconds and settles for three, then the panel closes. */
@@ -305,9 +376,10 @@ internal fun TodayGroup(
     timeFormat: OrbitTimeFormat,
     onShowAllChanged: (Boolean) -> Unit,
     onOpen: (ReviewItem) -> Unit,
+    previewSize: Int = ReviewSectionPreviewSize,
 ) {
     val anyTime = stringResource(R.string.core_calendar_any_time)
-    val visible = if (showAll) items else items.take(ReviewSectionPreviewSize)
+    val visible = if (showAll) items else items.take(previewSize)
     GroupedCard {
         if (items.isEmpty()) {
             Text(
@@ -326,7 +398,7 @@ internal fun TodayGroup(
                 onClick = { onOpen(item) },
             )
         }
-        if (items.size > ReviewSectionPreviewSize) {
+        if (items.size > previewSize) {
             GroupDivider(startInset = 0.dp)
             TextButton(
                 onClick = { onShowAllChanged(!showAll) },
@@ -336,7 +408,7 @@ internal fun TodayGroup(
                     text = if (showAll) {
                         stringResource(R.string.review_show_fewer)
                     } else {
-                        stringResource(R.string.review_show_more, items.size - ReviewSectionPreviewSize)
+                        stringResource(R.string.review_show_more, items.size - previewSize)
                     },
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

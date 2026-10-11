@@ -39,7 +39,7 @@
     <string name="review_one_space">Пространство</string>
     <string name="review_one_when">Когда</string>
     <string name="review_one_skip">Пропустить пока</string>
-    <string name="review_one_back">Вернуться к обзору</string>
+    <string name="review_one_back">Вернуться в «Ждёт вас»</string>
     <string name="review_one_done_body">Больше ничего не ждёт. Остаток дня можно провести спокойно.</string>
     <string name="review_one_skipped_body">Пропущенные мысли ждут в разделе «Разобрать».</string>
     <string name="settings_section_reminders">Напоминания</string>
@@ -147,4 +147,26 @@
     <plurals name="split_offer"><item quantity="one">Похоже на %1$d мысль</item><item quantity="few">Похоже на %1$d мысли</item><item quantity="many">Похоже на %1$d мыслей</item><item quantity="other">Похоже на %1$d мысли</item></plurals>
     <plurals name="search_result_count"><item quantity="one">%1$d результат</item><item quantity="few">%1$d результата</item><item quantity="many">%1$d результатов</item><item quantity="other">%1$d результата</item></plurals>
     <string name="settings_reminders_advanced">Дополнительно</string>
+    <string name="needs_you_decisions_heading">Нужно решение</string>
+    <string name="needs_you_today_heading">Сегодня</string>
+    <string name="needs_you_empty">Сейчас ничего не ждёт вашего решения.</string>
+    <string name="needs_you_empty_detail">Сегодня Tallele сохранил %1$d и разложил %2$d.</string>
+    <string name="needs_you_more">Ещё</string>
+    <string name="needs_you_q_time">Когда вам об этом напомнить?</string>
+    <string name="needs_you_q_time_passed">Это время уже прошло.</string>
+    <string name="needs_you_q_type">Сохранить как задачу или просто оставить?</string>
+    <string name="needs_you_q_notifications">Напоминания не сработают, пока уведомления выключены.</string>
+    <string name="needs_you_q_not_scheduled">Tallele не удалось поставить это напоминание.</string>
+    <string name="needs_you_today_at">Сегодня в %1$s</string>
+    <string name="needs_you_tomorrow_at">Завтра в %1$s</string>
+    <string name="needs_you_pick_time">Выбрать время</string>
+    <string name="needs_you_pick_new_time">Выбрать новое время</string>
+    <string name="needs_you_make_task">Сделать задачей</string>
+    <string name="needs_you_attention">Что-то не получилось</string>
+    <plurals name="needs_you_summary">
+        <item quantity="one">%1$d ждёт решения</item>
+        <item quantity="few">%1$d ждут решения</item>
+        <item quantity="many">%1$d ждут решения</item>
+        <item quantity="other">%1$d ждут решения</item>
+    </plurals>
 </resources>

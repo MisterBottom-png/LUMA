@@ -1,6 +1,7 @@
 package com.orbit.app.ui.screens.review
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.CaptureSuggestionEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
@@ -71,9 +72,14 @@ class ReviewToSortAndLayoutTest {
     }
 
     @Test
-    fun allSortedIsOnlyClaimedWhenNothingWaits() {
+    fun nothingWaitsWhenNoQuestionIsOpenAndNothingIsDueToday() {
         assertTrue(ReviewUiState().nothingWaiting)
-        assertFalse(ReviewUiState(toSort = listOf(ToSortItem(1, "x", 0, ToSortState.Analyzing))).nothingWaiting)
+        // A saved thought is not a question: it never makes Needs you look busy.
+        assertTrue(ReviewUiState(toSort = listOf(ToSortItem(1, "x", 0, ToSortState.Analyzing))).nothingWaiting)
+        val question = NeedsYouItem(captureId = 2, text = "remind me", reason = CaptureOutcomeReason.TimeUnclear, createdAt = 0)
+        assertFalse(ReviewUiState(needsYou = listOf(question)).nothingWaiting)
+        assertFalse(ReviewUiState(needsYou = listOf(question)).somethingFailed)
+        assertTrue(ReviewUiState(needsYou = listOf(question.copy(reason = CaptureOutcomeReason.NotificationsOff))).somethingFailed)
     }
 
     private fun capture(id: Long, createdAt: Long, status: CaptureStatus = CaptureStatus.Inbox) =

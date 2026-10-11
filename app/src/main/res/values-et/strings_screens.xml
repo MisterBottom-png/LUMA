@@ -39,7 +39,7 @@
     <string name="review_one_space">Ruum</string>
     <string name="review_one_when">Millal</string>
     <string name="review_one_skip">Jäta praegu vahele</string>
-    <string name="review_one_back">Tagasi ülevaatesse</string>
+    <string name="review_one_back">Tagasi vaatesse „Vajab sind“</string>
     <string name="review_one_done_body">Muud midagi ei oota. Ülejäänud päev võib rahulikult minna.</string>
     <string name="review_one_skipped_body">Vahele jäetud mõtted ootavad sorteerimist.</string>
     <string name="settings_section_reminders">Meeldetuletused</string>
@@ -147,4 +147,24 @@
     <plurals name="split_offer"><item quantity="one">Paistab olevat %1$d mõte</item><item quantity="other">Paistab olevat %1$d mõtet</item></plurals>
     <plurals name="search_result_count"><item quantity="one">%1$d tulemus</item><item quantity="other">%1$d tulemust</item></plurals>
     <string name="settings_reminders_advanced">Täpsemalt</string>
+    <string name="needs_you_decisions_heading">Vajab otsust</string>
+    <string name="needs_you_today_heading">Täna</string>
+    <string name="needs_you_empty">Praegu ei vaja miski sind.</string>
+    <string name="needs_you_empty_detail">Täna jättis Tallele alles %1$d ja paigutas %2$d.</string>
+    <string name="needs_you_more">Veel</string>
+    <string name="needs_you_q_time">Millal sulle sellest meelde tuletada?</string>
+    <string name="needs_you_q_time_passed">See aeg on juba möödas.</string>
+    <string name="needs_you_q_type">Kas salvestada ülesandena või lihtsalt alles jätta?</string>
+    <string name="needs_you_q_notifications">Meeldetuletused ei saa heliseda, kui teavitused on väljas.</string>
+    <string name="needs_you_q_not_scheduled">Tallele ei saanud seda meeldetuletust seada.</string>
+    <string name="needs_you_today_at">Täna %1$s</string>
+    <string name="needs_you_tomorrow_at">Homme %1$s</string>
+    <string name="needs_you_pick_time">Vali aeg</string>
+    <string name="needs_you_pick_new_time">Vali uus aeg</string>
+    <string name="needs_you_make_task">Tee sellest ülesanne</string>
+    <string name="needs_you_attention">Midagi ei õnnestunud</string>
+    <plurals name="needs_you_summary">
+        <item quantity="one">%1$d otsustada</item>
+        <item quantity="other">%1$d otsustada</item>
+    </plurals>
 </resources>

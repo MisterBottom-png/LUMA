@@ -5,6 +5,7 @@ import com.orbit.app.data.local.entity.CaptureOutcome
 import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.CaptureSuggestionEntity
+import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
 import com.orbit.app.domain.analyzer.CaptureAnalyzerSource
 import com.orbit.app.domain.analyzer.ReminderTimeStatus
@@ -118,3 +119,69 @@ internal fun buildToSort(
             }
         }
     }
+
+/** A thought that needs one answer from the user: its stored outcome is `NeedsYou`. */
+data class NeedsYouItem(
+    val captureId: Long,
+    val text: String,
+    val reason: CaptureOutcomeReason,
+    val createdAt: Long,
+    /** The reminder this thought became, when one exists (notifications off, not set, missed). */
+    val reminderId: Long? = null,
+    /** What a reminder or task made from the card is called: Tallele's title, else the thought. */
+    val title: String = text,
+    val suggestedSpaceName: String? = null,
+    val taskDateEpochDay: Long? = null,
+) {
+    /** Something did not work (a reminder missed its time, or cannot ring): the tab may show a dot. */
+    val somethingFailed: Boolean
+        get() = reason == CaptureOutcomeReason.TimePassed || reason == CaptureOutcomeReason.NotificationsOff
+}
+
+/**
+ * Needs you: every thought whose stored outcome is `NeedsYou`, newest first. A plain
+ * saved or filed thought never appears here; it is browsable in Spaces and Search.
+ */
+internal fun buildNeedsYou(
+    captures: List<CaptureEntity>,
+    suggestions: Map<Long, CaptureSuggestionEntity>,
+    reminders: List<ReminderEntity>,
+): List<NeedsYouItem> {
+    val remindersByCapture = reminders.filter { it.linkedCaptureId != null }.associateBy { it.linkedCaptureId }
+    return captures
+        .filter { it.outcome == CaptureOutcome.NeedsYou && it.status != CaptureStatus.Archived }
+        .sortedByDescending { it.outcomeAt ?: it.updatedAt }
+        .map { capture ->
+            val suggestion = suggestions[capture.id]
+            val reminder = remindersByCapture[capture.id]
+                ?.takeIf { capture.status == CaptureStatus.Processed && it.id == capture.linkedItemId }
+            NeedsYouItem(
+                captureId = capture.id,
+                text = capture.rawText,
+                reason = capture.outcomeReason,
+                createdAt = capture.createdAt,
+                reminderId = reminder?.id,
+                title = reminder?.title ?: suggestion?.suggestedTitle?.takeIf(String::isNotBlank) ?: capture.rawText,
+                suggestedSpaceName = suggestion?.suggestedSpaceName,
+                taskDateEpochDay = suggestion?.taskDateEpochDay(),
+            )
+        }
+}
+
+/** "Today Tallele kept N and filed M": thoughts saved today, by what happened to them. */
+internal data class SavedTodayCounts(val kept: Int, val filed: Int)
+
+internal fun savedTodayCounts(captures: List<CaptureEntity>, startOfToday: Long, startOfTomorrow: Long): SavedTodayCounts {
+    val today = captures.filter { it.createdAt in startOfToday until startOfTomorrow && it.status != CaptureStatus.Archived }
+    return SavedTodayCounts(
+        kept = today.count { it.outcome == CaptureOutcome.Saved },
+        filed = today.count { it.outcome == CaptureOutcome.Filed || it.outcome == CaptureOutcome.ReminderSet },
+    )
+}
+
+/** The Needs you tab shows a dot only when something failed (a missed time, notifications off). */
+internal fun needsYouSomethingFailed(captures: List<CaptureEntity>): Boolean = captures.any { capture ->
+    capture.outcome == CaptureOutcome.NeedsYou &&
+        capture.status != CaptureStatus.Archived &&
+        (capture.outcomeReason == CaptureOutcomeReason.TimePassed || capture.outcomeReason == CaptureOutcomeReason.NotificationsOff)
+}

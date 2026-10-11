@@ -40,3 +40,6 @@ internal fun isWeeklyLookBackSuggested(now: LocalDateTime): Boolean =
 
 /** How many rows a section shows before "Show more". */
 internal const val ReviewSectionPreviewSize = 5
+
+/** Needs you keeps today's plan short: three rows, then "Show more". */
+internal const val NeedsYouTodayPreviewSize = 3

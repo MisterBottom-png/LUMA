@@ -33,6 +33,9 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.longClick
 import com.orbit.app.OrbitApplication
 import com.orbit.app.data.local.StarterSpaces
+import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureOutcome
+import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.TaskEntity
@@ -164,6 +167,69 @@ abstract class ScreenTour(private val theme: String) {
         compose.waitForIdle()
     }
 
+    /**
+     * Step 6: Needs you empty, then with two questions (one time question, one missed time),
+     * then with More open. Both questions are answered with "Just keep it" afterwards.
+     */
+    private fun needsYouScreens() {
+        val container = (compose.activity.application as OrbitApplication).container
+        tapTab("Needs you")
+        step("needs you empty") { compose.waitUntil(10_000) { count("Nothing needs you right now.") > 0 } }
+        shot("review-needs-you-empty")
+        step("two questions") {
+            runBlocking {
+                val now = System.currentTimeMillis()
+                container.captureRepository.insert(
+                    CaptureEntity(
+                        rawText = "Remind me about the car insurance",
+                        outcome = CaptureOutcome.NeedsYou,
+                        outcomeReason = CaptureOutcomeReason.TimeUnclear,
+                        outcomeAt = now,
+                        decidedAt = now,
+                    ),
+                )
+                container.captureRepository.insert(
+                    CaptureEntity(
+                        rawText = "Call the plumber at 8:00",
+                        outcome = CaptureOutcome.NeedsYou,
+                        outcomeReason = CaptureOutcomeReason.TimePassed,
+                        outcomeAt = now - 1,
+                        decidedAt = now,
+                    ),
+                )
+            }
+            compose.waitUntil(10_000) { count("When should this remind you?") > 0 && count("This time has already passed.") > 0 }
+        }
+        shot("review-needs-you-two-cards")
+        openNeedsYouMore()
+        step("show the tools") {
+            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Look back at your week"))
+        }
+        shot("review-more-expanded")
+        step("close more") {
+            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("More"))
+            compose.onNodeWithText("More").performClick()
+            compose.waitForIdle()
+        }
+        step("keep both") {
+            repeat(2) { answered ->
+                compose.onAllNodesWithText("Just keep it")[0].performClick()
+                compose.waitUntil(10_000) { count("Just keep it") <= 1 - answered }
+            }
+            compose.waitUntil(10_000) { count("Nothing needs you right now.") > 0 }
+        }
+    }
+
+    /** Needs you keeps To sort, earlier tasks and the look back behind one "More" row. */
+    private fun openNeedsYouMore() = step("needs you more") {
+        val opened = count("Look back at your week") + count("Close the look back") > 0
+        if (!opened) {
+            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("More"))
+            compose.onNodeWithText("More").performClick()
+            compose.waitForIdle()
+        }
+    }
+
     private fun capture(text: String) = step("capture $text") {
         compose.onNodeWithContentDescription("Capture text").performTextInput(text)
         compose.waitForIdle()
@@ -229,7 +295,7 @@ abstract class ScreenTour(private val theme: String) {
         step("month") { compose.onNodeWithContentDescription("Show the month").performClick(); compose.waitForIdle() }
         shot("$prefix-calendar-month")
         step("day") { compose.onNodeWithContentDescription("Show the day").performClick(); compose.waitForIdle() }
-        tapTab("Review")
+        tapTab("Needs you")
         shot("$prefix-review")
         scrollDown("review")
         shot("$prefix-review-scrolled")
@@ -274,7 +340,12 @@ abstract class ScreenTour(private val theme: String) {
         shot("$prefix-search-results")
         back()
         back()
-        tapTab("Review")
+        tapTab("Needs you")
+        openNeedsYouMore()
+        step("find the thought") {
+            // Scroll past To sort to the look-back row, so the thought sits clear of the bar.
+            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Look back at your week"))
+        }
         step("review menu") { compose.onAllNodesWithText("Renew passport")[0].performTouchInput { longClick() }; compose.waitForIdle() }
         shot("$prefix-review-menu")
         step("change sheet") {
@@ -372,9 +443,9 @@ abstract class ScreenTour(private val theme: String) {
         shot("$prefix-item-task-more")
         back()
         back()
-        tapTab("Review")
+        tapTab("Needs you")
         step("ask") {
-            compose.onNodeWithText("Ask").performClick()
+            compose.onNodeWithContentDescription("More actions").performClick()
             compose.waitForIdle()
             compose.onNodeWithText("Is anything actually urgent?").performClick()
             compose.waitUntil(10_000) { count("Local answer") > 0 }
@@ -484,7 +555,11 @@ abstract class ScreenTour(private val theme: String) {
     private fun brainDump(prefix: String) {
         tapTab("Home")
         capture("Call the bank about the card\nBuy dog food\nShopping:\n- milk\n- eggs\nBook the dentist next week")
-        tapTab("Review")
+        tapTab("Needs you")
+        openNeedsYouMore()
+        step("find the dump") {
+            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Look back at your week"))
+        }
         step("open dump") {
             compose.onAllNodesWithText("Call the bank", substring = true)[0].performScrollTo().performClick()
             compose.waitUntil(10_000) { count("Finish later") > 0 }
@@ -515,6 +590,7 @@ abstract class ScreenTour(private val theme: String) {
         shot("00-first-receipt-tip")
         listOf("Ideas for the garden", "Buy milk and coffee").forEach(::capture)
         shot("01-home")
+        needsYouScreens()
 
         mainScreens("a")
         extraScreens("x")

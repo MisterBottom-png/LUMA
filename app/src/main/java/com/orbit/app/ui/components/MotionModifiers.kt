@@ -54,6 +54,11 @@ fun Modifier.orbitScrollEdgeFade(
     bottom: Dp = 0.dp,
     /** How much of [top] fades in; the rest is fully hidden. Unset keeps the last fifth. */
     topFadeLength: Dp = Dp.Unspecified,
+    /**
+     * How much of [bottom] fades out; below that, content is fully hidden. Unset fades
+     * across all of [bottom].
+     */
+    bottomFadeLength: Dp = Dp.Unspecified,
 ): Modifier {
     if (top <= 0.dp && bottom <= 0.dp) return this
 
@@ -86,9 +91,18 @@ fun Modifier.orbitScrollEdgeFade(
 
         val bottomPx = bottom.toPx().coerceAtMost(size.height)
         if (bottomPx > 0f) {
+            val visibleUntil = if (bottomFadeLength.isSpecified) {
+                (bottomFadeLength.toPx() / bottomPx).coerceIn(0f, 1f)
+            } else {
+                1f
+            }
             drawRect(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color.Black, Color.Transparent),
+                    colorStops = arrayOf(
+                        0f to Color.Black,
+                        visibleUntil to Color.Transparent,
+                        1f to Color.Transparent,
+                    ),
                     startY = size.height - bottomPx,
                     endY = size.height,
                 ),
