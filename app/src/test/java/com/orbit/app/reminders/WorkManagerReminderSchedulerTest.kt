@@ -2,6 +2,8 @@ package com.orbit.app.reminders
 
 import android.app.AlarmManager
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.WorkInfo
@@ -17,6 +19,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(AndroidJUnit4::class)
@@ -46,6 +49,32 @@ class WorkManagerReminderSchedulerTest {
         val alarm = shadowOf(alarmManager).scheduledAlarms.single()
         assertEquals(now + 3_600_000L, alarm.triggerAtMs)
         assertEquals(ShadowAlarmManager.WINDOW_EXACT, alarm.windowLengthMs)
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.UPSIDE_DOWN_CAKE])
+    fun aFreshApi34InstallArmsAnExactWakeUpAlarmWithoutAskingForAnything() {
+        // USE_EXACT_ALARM is granted at install on Android 13+ and cannot be revoked,
+        // so Android reports exact alarms as allowed before the user opens any setting.
+        val requested = context.packageManager
+            .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+            .requestedPermissions
+            .orEmpty()
+        assertTrue("android.permission.USE_EXACT_ALARM" in requested)
+        assertTrue("android.permission.SCHEDULE_EXACT_ALARM" in requested)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        assertTrue(ReminderCapabilities.canScheduleExactAlarms(context))
+        val scheduler = WorkManagerReminderScheduler(context) { now }
+
+        val token = scheduler.schedule(reminder(dueAt = now + 3_600_000L))
+
+        assertNotNull(token)
+        val alarm = requireNotNull(shadowOf(alarmManager).peekNextScheduledAlarm())
+        assertEquals(AlarmManager.RTC_WAKEUP, alarm.type)
+        assertEquals(ShadowAlarmManager.WINDOW_EXACT, alarm.windowLengthMs)
+        assertEquals(now + 3_600_000L, alarm.triggerAtMs)
+        assertTrue(alarm.isAllowWhileIdle)
+        assertEquals(1, shadowOf(alarmManager).scheduledAlarms.size)
     }
 
     @Test

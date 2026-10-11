@@ -12,11 +12,13 @@ import com.orbit.app.data.local.dao.ReminderDao
 import com.orbit.app.data.repository.RoomCaptureRepository
 import com.orbit.app.domain.capture.LinkedCaptureOutcomes
 import com.orbit.app.domain.usecase.RoomCaptureFinalizationTransaction
+import java.time.ZoneId
 
 /**
- * Re-establishes reminder delivery after a restart, an app update, a force-stop or
- * a change of the exact-alarm permission. Future reminders are scheduled again;
- * reminders that were missed meanwhile are surfaced once (see [ReminderDeliveryPolicy]).
+ * Re-establishes reminder delivery after a restart, an app update, a force-stop,
+ * a change of the exact-alarm permission, or a change of clock or time zone. Future
+ * reminders are scheduled again; reminders that were missed meanwhile are surfaced
+ * once (see [ReminderDeliveryPolicy]).
  *
  * The class name is persisted by WorkManager and must not change.
  */
@@ -90,6 +92,7 @@ internal suspend fun reconcileReminders(
     deliverSummary: suspend (List<Pair<Long, Long>>) -> ReminderDeliveryOutcome,
     /** Updates the thought a reminder came from; null leaves thoughts untouched. */
     linkedCaptures: LinkedCaptureOutcomes? = null,
+    zoneId: ZoneId = ZoneId.systemDefault(),
 ): ReminderReconcileResult {
     var scheduled = 0
     var delivered = 0
@@ -97,7 +100,11 @@ internal suspend fun reconcileReminders(
     var failures = 0
     val recent = mutableListOf<Pair<Long, Long>>()
     val missed = mutableListOf<Pair<Long, Long>>()
-    dao.getAll().forEach { reminder ->
+    dao.getAll().forEach { stored ->
+        // A repeating reminder rings at its chosen local time, also after a zone change.
+        val reminder = ReminderRepeats.reanchoredToZone(stored, now, zoneId)
+            ?.also { dao.update(it) }
+            ?: stored
         when (val action = ReminderDeliveryPolicy.reconcile(reminder, now)) {
             ReconcileAction.None -> {
                 if (!reminder.shouldScheduleNotification() && reminder.notificationWorkId != null) {

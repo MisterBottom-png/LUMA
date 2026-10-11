@@ -334,6 +334,111 @@ class ReminderSchedulingTest {
         assertEquals(3_600_000L, recreatedRepository.getById(id)?.dueAt)
     }
 
+    @Test
+    fun afterTimeZoneChangedADailyNineOClockRepeatIsReArmedAtNineInTheNewZone() = runBlocking {
+        val tallinn = ZoneId.of("Europe/Tallinn")
+        val london = ZoneId.of("Europe/London")
+        val nineInTallinn = at(LocalDate.of(2026, 7, 15), 9, tallinn)
+        val now = at(LocalDate.of(2026, 7, 14), 20, tallinn)
+        val dao = FakeReminderDao()
+        val scheduler = FakeReminderScheduler()
+        val daily = dao.insert(
+            ReminderEntity(
+                title = "Stretch",
+                dueAt = nineInTallinn,
+                repeatRule = RepeatSpec.forReminder(ReminderRepeat.Daily, nineInTallinn, tallinn).toStorage(),
+                notificationWorkId = "work-before-the-trip",
+                updatedAt = 55L,
+            ),
+        )
+        val oneOff = dao.insert(
+            ReminderEntity(title = "Check in", dueAt = nineInTallinn, notificationWorkId = "work-one-off"),
+        )
+
+        // The phone is now in London; ACTION_TIMEZONE_CHANGED queued this reconciliation.
+        reconcileReminders(dao, scheduler, now, noDelivery, noSummary, zoneId = london)
+
+        val nineInLondon = at(LocalDate.of(2026, 7, 15), 9, london)
+        val moved = requireNotNull(dao.getById(daily))
+        assertEquals(nineInLondon, moved.dueAt)
+        assertEquals(LocalTime.of(9, 0), Instant.ofEpochMilli(moved.dueAt).atZone(london).toLocalTime())
+        assertEquals(55L, moved.updatedAt)
+        assertTrue(daily in scheduler.cancelledIds)
+        assertEquals(
+            listOf(daily to nineInLondon, oneOff to nineInTallinn),
+            scheduler.scheduled.map { it.id to it.notificationTimeMillis() }.sortedBy { it.first },
+        )
+        // A one-off reminder is an instant: a new zone does not move it.
+        assertEquals(nineInTallinn, dao.getById(oneOff)?.dueAt)
+
+        // A second reconciliation in the same zone (e.g. the next app start) moves nothing.
+        reconcileReminders(dao, scheduler, now, noDelivery, noSummary, zoneId = london)
+        assertEquals(nineInLondon, dao.getById(daily)?.dueAt)
+    }
+
+    @Test
+    fun aTimeZoneChangeNeverMovesARepeatIntoThePast() = runBlocking {
+        val tallinn = ZoneId.of("Europe/Tallinn")
+        val tokyo = ZoneId.of("Asia/Tokyo")
+        // 09:00 in Tallinn is 15:00 in Tokyo; it is 12:00 in Tokyo now, so 09:00 there has passed.
+        val nineInTallinn = at(LocalDate.of(2026, 7, 15), 9, tallinn)
+        val now = at(LocalDate.of(2026, 7, 15), 12, tokyo)
+        val dao = FakeReminderDao()
+        val scheduler = FakeReminderScheduler()
+        val daily = dao.insert(
+            ReminderEntity(
+                title = "Stretch",
+                dueAt = nineInTallinn,
+                repeatRule = RepeatSpec.forReminder(ReminderRepeat.Daily, nineInTallinn, tallinn).toStorage(),
+                notificationWorkId = "work-before-the-trip",
+            ),
+        )
+
+        reconcileReminders(dao, scheduler, now, noDelivery, noSummary, zoneId = tokyo)
+
+        // It keeps its instant and rings once, instead of turning into a missed reminder.
+        assertEquals(nineInTallinn, dao.getById(daily)?.dueAt)
+        assertEquals(listOf(nineInTallinn), scheduler.scheduledNotificationTimes)
+    }
+
+    @Test
+    fun aClockMovedForwardPastAReminderDeliversItOnceAsMissed() = runBlocking {
+        val now = 1_800_000_000_000L
+        val hour = 3_600_000L
+        val dao = FakeReminderDao()
+        val scheduler = FakeReminderScheduler()
+        val id = RoomReminderRepository(dao, scheduler).insert(
+            ReminderEntity(title = "Take the bread out", dueAt = now + hour),
+        )
+        val delivered = mutableListOf<Triple<Long, Long, Boolean>>()
+        val deliver: suspend (Long, Long, Boolean) -> ReminderDeliveryOutcome = { reminderId, time, missed ->
+            delivered += Triple(reminderId, time, missed)
+            if (dao.claimDelivery(reminderId, time) == 1) {
+                ReminderDeliveryOutcome.Shown
+            } else {
+                ReminderDeliveryOutcome.AlreadyHandled
+            }
+        }
+
+        // The clock is set three hours forward (ACTION_TIME_CHANGED), past the reminder.
+        val later = now + 3 * hour
+        reconcileReminders(dao, scheduler, later, deliver, noSummary)
+        // The app start after that reconciles again; nothing rings a second time.
+        reconcileReminders(dao, scheduler, later, deliver, noSummary)
+
+        assertEquals(listOf(Triple(id, now + hour, true)), delivered)
+        assertEquals(now + hour, dao.getById(id)?.deliveredNotificationAt)
+    }
+
+    private val noDelivery: suspend (Long, Long, Boolean) -> ReminderDeliveryOutcome =
+        { _, _, _ -> error("nothing should be delivered") }
+
+    private val noSummary: suspend (List<Pair<Long, Long>>) -> ReminderDeliveryOutcome =
+        { error("no missed summary expected") }
+
+    private fun at(date: LocalDate, hour: Int, zone: ZoneId): Long =
+        date.atTime(LocalTime.of(hour, 0)).atZone(zone).toInstant().toEpochMilli()
+
     private fun reminder() = ReminderEntity(
         title = "Local reminder",
         dueAt = 3_600_000L,
