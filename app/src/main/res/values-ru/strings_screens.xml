@@ -128,6 +128,7 @@
     <!-- Under the capture box before the first save: where a thought saved on Home goes. -->
     <string name="home_first_line_local">Сохраняется только на этом телефоне.</string>
     <string name="home_first_line_gemini">Gemini включён: то, что вы сохраняете здесь, отправляется в Gemini для сортировки.</string>
+    <string name="home_first_line_gemini_brain_dump">Gemini включён для разбора мыслей: список мыслей, сохранённый здесь, отправляется в Gemini для сортировки.</string>
     <string name="home_first_receipt_tip_filed">Tallele разложила это за вас. Если что-то не так, нажмите «Изменить».</string>
     <string name="home_first_receipt_tip_kept">Tallele сохранила это. Найти можно в разделе «%1$s» и в поиске.</string>
     <string name="home_first_receipt_tip_reminder">Напоминание установлено. Чтобы перенести его, нажмите «Изменить».</string>

@@ -40,6 +40,17 @@ class AppSettingsGeminiTest {
     }
 
     @Test
+    fun brainDumpSwitchAlone_sendsOnlyBrainDumps() {
+        val brainDumpOnly = AppSettings(aiMode = AiMode.GeminiApi, useGeminiForBrainDump = true)
+        val both = brainDumpOnly.copy(useGeminiForCapture = true)
+
+        assertTrue(brainDumpOnly.homeSavesUseGeminiOnlyForBrainDumps(hasGeminiKey = true))
+        assertFalse(both.homeSavesUseGeminiOnlyForBrainDumps(hasGeminiKey = true))
+        assertFalse(brainDumpOnly.homeSavesUseGeminiOnlyForBrainDumps(hasGeminiKey = false))
+        assertFalse(AppSettings().homeSavesUseGeminiOnlyForBrainDumps(hasGeminiKey = true))
+    }
+
+    @Test
     fun withoutASavedKey_homeSavesStayOnThePhone() {
         val settings = AppSettings(
             aiMode = AiMode.GeminiApi,
@@ -82,7 +93,11 @@ class AppSettingsGeminiTest {
 
                         router.analyzeCapture(rawText = "Buy milk tomorrow", settings = settings)
                         val case = "mode=$mode capture=$capture brainDump=$brainDump key=$hasKey"
-                        if (!settings.homeSavesUseGemini(hasGeminiKey = hasKey)) {
+                        // A single thought stays local both when the line says so and when
+                        // only Brain Dumps go to Gemini.
+                        if (!settings.homeSavesUseGemini(hasGeminiKey = hasKey) ||
+                            settings.homeSavesUseGeminiOnlyForBrainDumps(hasGeminiKey = hasKey)
+                        ) {
                             assertEquals(case, 0, client.requests)
                         }
                         // Capture sorting sends every save, not only Brain Dumps.

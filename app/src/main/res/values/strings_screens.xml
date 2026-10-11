@@ -129,6 +129,7 @@
     <!-- Under the capture box before the first save: where a thought saved on Home goes. -->
     <string name="home_first_line_local">Saved only on this phone.</string>
     <string name="home_first_line_gemini">Gemini is on: what you save here is sent to Gemini to sort.</string>
+    <string name="home_first_line_gemini_brain_dump">Gemini is on for Brain Dump: a list of thoughts saved here is sent to Gemini to sort.</string>
     <string name="home_first_receipt_tip_filed">Tallele filed this for you. Tap Change if it got it wrong.</string>
     <!-- %1$s is the name of the Spaces tile that lists saved thoughts. -->
     <string name="home_first_receipt_tip_kept">Tallele kept this. You’ll find it in %1$s and in Search.</string>

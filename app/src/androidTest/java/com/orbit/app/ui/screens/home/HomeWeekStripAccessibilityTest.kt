@@ -15,8 +15,6 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertTouchHeightIsAtLeast
-import androidx.compose.ui.test.assertTouchWidthIsAtLeast
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -32,6 +30,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.orbit.app.R
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -95,9 +94,10 @@ class HomeWeekStripAccessibilityTest {
 
         runCustomAction(string(R.string.core_home_show_next_week))
 
-        composeRule.onNode(todayButton)
-            .assertTouchHeightIsAtLeast(48.dp)
-            .assertTouchWidthIsAtLeast(48.dp)
+        val touchBounds = composeRule.onNode(todayButton).fetchSemanticsNode().touchBoundsInRoot
+        val minimumTouch = with(composeRule.density) { 48.dp.toPx() }
+        assertTrue("touch height ${touchBounds.height}", touchBounds.height >= minimumTouch - 0.5f)
+        assertTrue("touch width ${touchBounds.width}", touchBounds.width >= minimumTouch - 0.5f)
         composeRule.onAllNodes(hasCustomAction(backToThisWeek)).assertCountEquals(1)
 
         composeRule.onNode(todayButton).performClick()

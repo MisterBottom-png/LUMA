@@ -80,6 +80,7 @@ import com.orbit.app.ui.screens.tutorial.seedStarterSpacesSilently
 import com.orbit.app.OrbitContainer
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.model.homeSavesUseGemini
+import com.orbit.app.domain.model.homeSavesUseGeminiOnlyForBrainDumps
 import com.orbit.app.ui.screens.home.HomeCaptureViewModel
 import com.orbit.app.ui.screens.home.CaptureSortViewModel
 import com.orbit.app.ui.screens.home.CaptureSortHost
@@ -322,12 +323,12 @@ fun OrbitApp(
                     // "only on this phone" for a save that would leave it.
                     val firstRun = !settings.hasCompletedFirstTimeTutorial
                     val homeSavesCouldUseGemini = settings.homeSavesUseGemini(hasGeminiKey = true)
-                    val firstRunSavesUseGemini by produceState(
-                        initialValue = homeSavesCouldUseGemini,
+                    val hasGeminiKey by produceState(
+                        initialValue = true,
                         firstRun,
                         homeSavesCouldUseGemini,
                     ) {
-                        value = firstRun && homeSavesCouldUseGemini &&
+                        value = !(firstRun && homeSavesCouldUseGemini) ||
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 container.geminiApiKeyStore.hasKey()
                             }
@@ -363,7 +364,8 @@ fun OrbitApp(
                         focusCaptureOnOpen = settings.focusCaptureOnOpen,
                         focusRequest = focusCaptureRequest,
                         firstRun = firstRun,
-                        firstRunSavesUseGemini = firstRunSavesUseGemini,
+                        firstRunSavesUseGemini = settings.homeSavesUseGemini(hasGeminiKey),
+                        firstRunGeminiOnlyForBrainDumps = settings.homeSavesUseGeminiOnlyForBrainDumps(hasGeminiKey),
                         voiceCloudNoticeSeen = settings.hasSeenVoiceCloudNotice,
                         onVoiceCloudNoticeSeen = {
                             onSettingsChanged(settings.copy(hasSeenVoiceCloudNotice = true))

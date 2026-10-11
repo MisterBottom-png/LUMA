@@ -153,6 +153,8 @@ fun HomeScreen(
     firstRun: Boolean = false,
     /** Saving here sends the thought to Gemini (AppSettings.homeSavesUseGemini). */
     firstRunSavesUseGemini: Boolean = false,
+    /** Only Brain Dump sorting uses Gemini: a single thought stays on the phone. */
+    firstRunGeminiOnlyForBrainDumps: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val receipt by viewModel.receipt.collectAsStateWithLifecycle()
@@ -453,7 +455,11 @@ fun HomeScreen(
 
             if (firstRun) {
                 FirstRunLine(
-                    if (firstRunSavesUseGemini) R.string.home_first_line_gemini else R.string.home_first_line_local,
+                    when {
+                        !firstRunSavesUseGemini -> R.string.home_first_line_local
+                        firstRunGeminiOnlyForBrainDumps -> R.string.home_first_line_gemini_brain_dump
+                        else -> R.string.home_first_line_gemini
+                    },
                     Modifier.padding(top = 12.dp),
                 )
             }

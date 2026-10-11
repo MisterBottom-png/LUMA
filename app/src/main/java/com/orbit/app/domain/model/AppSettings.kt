@@ -156,6 +156,13 @@ fun AppSettings.geminiOnFor(featureEnabled: Boolean): Boolean =
 fun AppSettings.homeSavesUseGemini(hasGeminiKey: Boolean): Boolean =
     hasGeminiKey && (geminiOnFor(useGeminiForCapture) || geminiOnFor(useGeminiForBrainDump))
 
+/**
+ * Only Brain Dump sorting is on: the router sends a save only when it reads as a list of
+ * thoughts, and a single thought stays on the phone.
+ */
+fun AppSettings.homeSavesUseGeminiOnlyForBrainDumps(hasGeminiKey: Boolean): Boolean =
+    homeSavesUseGemini(hasGeminiKey) && !geminiOnFor(useGeminiForCapture)
+
 val AppSettings.hasCurrentGeminiConsent: Boolean
     get() = geminiConsentVersion >= GeminiConsent.CurrentVersion
 
