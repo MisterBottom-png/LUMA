@@ -96,7 +96,7 @@ Paths are relative to `app/src/main/java/com/orbit/app/`.
 
 | Screen | Main elements | Tests / Screen tour | Coverage / gaps |
 | --- | --- | --- | --- |
-| Needs you | Header menu (Ask, Breathe), summary, question cards, Today, More (From earlier, To sort, one-by-one, weekly look back, open loops) | ReviewScreenJvmTest, ReviewNeedsYouTest, ReviewViewModelTest, ReviewToSortAndLayoutTest, tour shots | B4, B9, B10, B15, N005, N025, N026. A test locks B4 in. |
+| Needs you | Header menu (Breathe and the Ask sheet), summary, question cards, Today, More (From earlier, To sort, one-by-one, weekly look back, open loops) | ReviewScreenJvmTest, ReviewNeedsYouTest, ReviewViewModelTest, ReviewToSortAndLayoutTest, tour shots | B4, B9, B10, B15, N005, N025, N026. A test locks B4 in. |
 | Spaces list / detail / editor / move | Count tiles, Space rows + menus, hidden section, detail list with tick and move, editor sheet, move dialog | SpacesTransformationsTest, SpaceItemMoveActionsTest, SpaceEditorJvmTest | B8, L4, L8, N028 (unlabelled swatches). |
 | Search | Bar, filter pills, Space shortcuts, recent, results, "Search archived too" | SearchContentJvmTest, SearchFilterTest, Search*InstrumentedTest | F01, F05, review §6 Search items. |
 | Item detail | Fields, sheets (type, schedule, status, repeat, notification, Space), Make smaller, dialogs | ItemDetailFieldsTest, ItemArchiveUndoTest, ItemTypeChangeUndoTest | F07, F14, B3, B5, B14, L7, N027. |
