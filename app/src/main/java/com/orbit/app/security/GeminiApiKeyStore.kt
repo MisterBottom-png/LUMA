@@ -40,22 +40,37 @@ class AndroidKeystoreGeminiApiKeyStore(context: Context) : GeminiApiKeyStore {
     override suspend fun getKey(): String? {
         val ciphertext = preferences.getString(CiphertextKey, null) ?: return null
         val iv = preferences.getString(IvKey, null) ?: return null
-        return runCatching {
+        return try {
+            // Decrypting never creates a new key: a missing key means the stored one is lost.
+            val secretKey = existingSecretKey() ?: throw KeyLostException()
             val cipher = Cipher.getInstance(Transformation)
             cipher.init(
                 Cipher.DECRYPT_MODE,
-                getOrCreateSecretKey(),
+                secretKey,
                 GCMParameterSpec(GcmTagBits, Base64.decode(iv, Base64.NO_WRAP)),
             )
             String(
                 cipher.doFinal(Base64.decode(ciphertext, Base64.NO_WRAP)),
                 StandardCharsets.UTF_8,
             )
-        }.getOrElse {
-            deleteKey()
+        } catch (failure: Exception) {
+            // N011: only a key that can never be read again is removed. A passing Keystore
+            // error (busy, locked) leaves it in place for the next try.
+            if (failure.isPermanentKeyLoss()) deleteKey()
             null
         }
     }
+
+    private fun Exception.isPermanentKeyLoss(): Boolean =
+        this is KeyLostException ||
+            this is android.security.keystore.KeyPermanentlyInvalidatedException ||
+            this is javax.crypto.AEADBadTagException ||
+            this is IllegalArgumentException
+
+    private class KeyLostException : Exception()
+
+    private fun existingSecretKey(): SecretKey? =
+        KeyStore.getInstance(AndroidKeyStore).apply { load(null) }.getKey(KeyAlias, null) as? SecretKey
 
     override suspend fun hasKey(): Boolean = getKey() != null
 

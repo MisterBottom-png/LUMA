@@ -84,34 +84,50 @@ class HttpGeminiApiClient : GeminiApiClient {
 
         runCatching {
             val connection = URL(endpointFor(modelId)).openConnection() as HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.connectTimeout = TimeoutMillis
-            connection.readTimeout = TimeoutMillis
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-            // The key travels in the header instead of the URL so it cannot leak
-            // into request logs or proxies.
-            connection.setRequestProperty("x-goog-api-key", cleanKey)
-            connection.outputStream.use { output ->
-                output.write(requestBody(prompt, maxOutputTokens).toByteArray(Charsets.UTF_8))
-            }
+            // N041: the connection is closed on every path, and a reply is read only up to a bound.
+            try {
+                connection.requestMethod = "POST"
+                connection.connectTimeout = TimeoutMillis
+                connection.readTimeout = TimeoutMillis
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json")
+                // The key travels in the header instead of the URL so it cannot leak
+                // into request logs or proxies.
+                connection.setRequestProperty("x-goog-api-key", cleanKey)
+                connection.outputStream.use { output ->
+                    output.write(requestBody(prompt, maxOutputTokens).toByteArray(Charsets.UTF_8))
+                }
 
-            val statusCode = connection.responseCode
-            val responseText = if (statusCode in 200..299) {
-                connection.inputStream.bufferedReader().use { it.readText() }
-            } else {
-                connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            }
-            connection.disconnect()
+                val statusCode = connection.responseCode
+                val responseText = if (statusCode in 200..299) {
+                    connection.inputStream.readBounded()
+                } else {
+                    connection.errorStream?.readBounded().orEmpty()
+                }
 
-            if (statusCode !in 200..299) {
-                return@withContext GeminiApiResult.Failure(geminiError(geminiErrorKindFor(statusCode, responseText)))
-            }
+                if (statusCode !in 200..299) {
+                    return@withContext GeminiApiResult.Failure(geminiError(geminiErrorKindFor(statusCode, responseText)))
+                }
 
-            parseResponse(responseText, modelId)
+                parseResponse(responseText, modelId)
+            } finally {
+                connection.disconnect()
+            }
         }.getOrElse { exception ->
             GeminiApiResult.Failure(errorForException(exception))
         }
+    }
+
+    /** Reads at most [MaxResponseChars]; a larger reply is cut and then fails to parse as an error. */
+    private fun java.io.InputStream.readBounded(): String = bufferedReader(Charsets.UTF_8).use { reader ->
+        val buffer = CharArray(8 * 1024)
+        val text = StringBuilder()
+        while (text.length < MaxResponseChars) {
+            val read = reader.read(buffer, 0, minOf(buffer.size, MaxResponseChars - text.length))
+            if (read < 0) break
+            text.appendRange(buffer, 0, read)
+        }
+        text.toString()
     }
 
     private fun endpointFor(modelId: String): String {
@@ -175,6 +191,8 @@ class HttpGeminiApiClient : GeminiApiClient {
     private companion object {
         const val BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models"
         const val TimeoutMillis = 15_000
+        /** About 2 MB of text; a Gemini reply for Tallele is a few kilobytes. */
+        const val MaxResponseChars = 1_000_000
     }
 }
 

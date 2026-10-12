@@ -15,6 +15,14 @@ val hasReleaseSigning = releaseStoreFile.isPresent &&
     System.getenv("LUMA_RELEASE_STORE_PASSWORD") != null &&
     System.getenv("LUMA_RELEASE_KEY_PASSWORD") != null
 
+// N043: a build meant for people's phones asks for this, so a missing key fails loudly
+// instead of producing an unsigned release.
+if (providers.gradleProperty("luma.requireReleaseSigning").orNull == "true" && !hasReleaseSigning) {
+    throw GradleException(
+        "Release signing is required but LUMA_RELEASE_STORE_FILE, LUMA_RELEASE_KEY_ALIAS or the passwords are missing.",
+    )
+}
+
 android {
     namespace = "com.orbit.app"
     compileSdk = 36

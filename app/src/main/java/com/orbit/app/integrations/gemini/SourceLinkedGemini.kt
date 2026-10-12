@@ -60,7 +60,9 @@ object SourceLinkedPromptBuilders {
 
     private fun List<AiSourceItem>.toPromptContext(): String =
         joinToString(separator = "\n") { item ->
-            "- ${item.sourceId} | ${item.type.routeName} | ${item.spaceName ?: "Inbox"} | ${item.status} | ${item.title}: ${item.snippet}"
+            // N040: a short part of each item is enough for a summary; whole bodies stay on the phone.
+            "- ${item.sourceId} | ${item.type.routeName} | ${item.spaceName ?: "Inbox"} | ${item.status} | " +
+                "${item.title.take(MaxTitleChars)}: ${item.snippet.take(MaxSnippetChars)}"
         }
 
     private fun String.toLearningProfileSection(): String =
@@ -78,6 +80,9 @@ object SourceLinkedPromptBuilders {
             "output value in the source or dominant language and preserve meaningful language " +
             "switches. Translate only when the user's current request explicitly asks for translation. " +
             "Keep JSON keys exactly as specified."
+
+    private const val MaxTitleChars = 120
+    private const val MaxSnippetChars = 280
 }
 
 object SourceLinkedGeminiValidator {

@@ -112,7 +112,7 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
         dataStore.edit { preferences -> preferences.clear() }
     }
 
-    private fun toAppSettings(preferences: Preferences): AppSettings {
+    internal fun toAppSettings(preferences: Preferences): AppSettings {
         val defaults = AppSettings()
         val geminiConsentVersion = preferences[Keys.GEMINI_CONSENT_VERSION]
             ?: defaults.geminiConsentVersion
@@ -148,11 +148,14 @@ class DataStoreAppSettingsRepository(context: Context) : AppSettingsRepository {
                 ?: defaults.glassPreference,
             glassEffect = preferences[Keys.GLASS_EFFECT]
                 ?.let { runCatching { GlassEffect.valueOf(it) }.getOrNull() }
+                // C7: only Glass and Solid remain; Soft glass becomes Glass.
+                ?.let { if (it == GlassEffect.Soft) GlassEffect.Strong else it }
                 ?: defaults.glassEffect,
             accentColor = preferences[Keys.ACCENT_COLOR]
                 ?.let { runCatching { AppAccentColor.valueOf(it) }.getOrNull() }
-                ?.let { if (it == AppAccentColor.LumaViolet && isLegacyDefaultAppearance(preferences)) defaults.accentColor else it }
-                ?: defaults.accentColor,
+                ?.let { if (it == AppAccentColor.LumaViolet && isLegacyDefaultAppearance(preferences)) AppAccentColor.InkPaper else it }
+                // C7: violet is for new installs; one set up before it keeps Ink & Paper.
+                ?: if (preferences[Keys.HAS_COMPLETED_FIRST_TIME_TUTORIAL] == true) AppAccentColor.InkPaper else defaults.accentColor,
             paletteMode = preferences[Keys.PALETTE_MODE]
                 ?.let { runCatching { AppearancePaletteMode.valueOf(it) }.getOrNull() }
                 ?: defaults.paletteMode,

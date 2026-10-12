@@ -108,7 +108,8 @@ data class AppSettings(
     val backgroundDimmingMode: BackgroundDimmingMode = BackgroundDimmingMode.Adaptive,
     val glassPreference: GlassPreference = GlassPreference.Standard,
     val glassEffect: GlassEffect = GlassEffect.Strong,
-    val accentColor: AppAccentColor = AppAccentColor.InkPaper,
+    /** Tallele violet for new installs (review §11); earlier installs keep what they had (C7). */
+    val accentColor: AppAccentColor = AppAccentColor.LumaViolet,
     val paletteMode: AppearancePaletteMode = AppearancePaletteMode.Standard,
     val textColor: AppTextColor = AppTextColor.Neutral,
     val staleLoopDays: Int = 7,
@@ -151,7 +152,8 @@ data class AppSettings(
  * every feature; a saved API key is also needed, and the router reads it when it sends.
  */
 fun AppSettings.geminiOnFor(featureEnabled: Boolean): Boolean =
-    aiMode == AiMode.GeminiApi && featureEnabled
+    // N047: without the current consent nothing goes to Gemini, on any path.
+    aiMode == AiMode.GeminiApi && featureEnabled && hasCurrentGeminiConsent
 
 /**
  * True exactly when a thought saved from Home would be sent to Gemini: Home's save runs
@@ -193,4 +195,4 @@ fun AppSettings.withDefaultAppearance(): AppSettings {
  * Gemini on, and Gemini chosen. Local suggestions never read them.
  */
 val AppSettings.learnedRulesReachGemini: Boolean
-    get() = enableLocalAiLearning && shareLocalLearningWithGemini && aiMode == AiMode.GeminiApi
+    get() = enableLocalAiLearning && shareLocalLearningWithGemini && aiMode == AiMode.GeminiApi && hasCurrentGeminiConsent

@@ -183,8 +183,17 @@ object ReminderNotifier {
             reminder.notes.isNotBlank() -> reminder.notes
             else -> context.getString(R.string.reminder_notification_open_luma)
         }
+        // N009: on a locked screen that hides private content, only "Tallele reminder" shows.
+        val publicVersion = NotificationCompat.Builder(context, ReminderNotifications.CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_luma_notification)
+            .setContentTitle(context.getString(R.string.reminder_notification_fallback_title))
+            .setContentText(context.getString(R.string.reminder_notification_open_luma))
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .build()
         return NotificationCompat.Builder(context, ReminderNotifications.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_luma_notification)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

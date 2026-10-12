@@ -28,20 +28,20 @@ class AppSettingsGeminiTest {
 
     @Test
     fun geminiWithBothSwitchesOff_keepsHomeSavesOnThePhone() {
-        val settings = AppSettings(aiMode = AiMode.GeminiApi)
+        val settings = AppSettings(aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion)
 
         assertFalse(settings.homeSavesUseGemini(hasGeminiKey = true))
     }
 
     @Test
     fun geminiWithEitherSwitchOn_sendsHomeSaves() {
-        assertTrue(AppSettings(aiMode = AiMode.GeminiApi, useGeminiForCapture = true).homeSavesUseGemini(hasGeminiKey = true))
-        assertTrue(AppSettings(aiMode = AiMode.GeminiApi, useGeminiForBrainDump = true).homeSavesUseGemini(hasGeminiKey = true))
+        assertTrue(AppSettings(aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion, useGeminiForCapture = true).homeSavesUseGemini(hasGeminiKey = true))
+        assertTrue(AppSettings(aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion, useGeminiForBrainDump = true).homeSavesUseGemini(hasGeminiKey = true))
     }
 
     @Test
     fun brainDumpSwitchAlone_sendsOnlyBrainDumps() {
-        val brainDumpOnly = AppSettings(aiMode = AiMode.GeminiApi, useGeminiForBrainDump = true)
+        val brainDumpOnly = AppSettings(aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion, useGeminiForBrainDump = true)
         val both = brainDumpOnly.copy(useGeminiForCapture = true)
 
         assertTrue(brainDumpOnly.homeSavesUseGeminiOnlyForBrainDumps(hasGeminiKey = true))
@@ -53,7 +53,7 @@ class AppSettingsGeminiTest {
     @Test
     fun withoutASavedKey_homeSavesStayOnThePhone() {
         val settings = AppSettings(
-            aiMode = AiMode.GeminiApi,
+            aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion,
             useGeminiForCapture = true,
             useGeminiForBrainDump = true,
         )
@@ -64,7 +64,7 @@ class AppSettingsGeminiTest {
     @Test
     fun otherGeminiSwitches_doNotSendHomeSaves() {
         val settings = AppSettings(
-            aiMode = AiMode.GeminiApi,
+            aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion,
             useGeminiForMakeSmaller = true,
             useGeminiForSituation = true,
             useGeminiForReview = true,
@@ -83,6 +83,7 @@ class AppSettingsGeminiTest {
                             aiMode = mode,
                             useGeminiForCapture = capture,
                             useGeminiForBrainDump = brainDump,
+                            geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion,
                         )
                         val client = CountingGeminiClient()
                         val router = OrbitAiRouter(
@@ -132,5 +133,21 @@ class AppSettingsGeminiTest {
         override suspend fun getKey(): String? = if (hasKey) "test-key" else null
         override suspend fun hasKey(): Boolean = hasKey
         override suspend fun deleteKey() = Unit
+    }
+
+    @Test
+    fun withoutCurrentConsentNothingIsSent() = runBlocking {
+        // N047: the consent gate holds on the call path too, not only when settings are read.
+        val client = CountingGeminiClient()
+        val router = OrbitAiRouter(
+            localCaptureAnalyzer = LocalRulesCaptureAnalyzer(),
+            geminiApiClient = client,
+            geminiApiKeyStore = KeyStore(true),
+        )
+        router.analyzeCapture(
+            rawText = "Buy milk tomorrow",
+            settings = AppSettings(aiMode = AiMode.GeminiApi, useGeminiForCapture = true, geminiConsentVersion = 1),
+        )
+        assertEquals(0, client.requests)
     }
 }

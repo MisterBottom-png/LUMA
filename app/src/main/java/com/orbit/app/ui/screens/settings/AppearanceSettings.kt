@@ -480,7 +480,7 @@ private fun AppearanceGlassSection(
     AppearanceCard {
         SettingsGroup(title = stringResource(R.string.settings_glass_effect)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GlassEffect.entries.forEach { choice ->
+                GlassEffect.entries.filter { it != GlassEffect.Soft }.forEach { choice ->
                     FilterChip(
                         selected = settings.glassEffect == choice,
                         onClick = { onSettingsChanged(settings.copy(glassEffect = choice)) },
@@ -553,7 +553,7 @@ private fun AppearanceGlassSection(
     }
 }
 
-/** Three ready-made looks that set the glass effect and surface opacity together. */
+/** Glass or Solid (review §11); they set the glass effect and surface opacity together. */
 internal enum class GlassPreset(
     @param:StringRes val titleRes: Int,
     @param:StringRes val hintRes: Int,
@@ -561,7 +561,6 @@ internal enum class GlassPreset(
     val opacity: GlassPreference,
 ) {
     Clear(R.string.settings_glass_preset_clear, R.string.settings_glass_preset_clear_hint, GlassEffect.Strong, GlassPreference.Standard),
-    Soft(R.string.settings_glass_preset_soft, R.string.settings_glass_preset_soft_hint, GlassEffect.Soft, GlassPreference.Standard),
     Solid(R.string.settings_glass_preset_solid, R.string.settings_glass_preset_solid_hint, GlassEffect.Off, GlassPreference.Prominent),
     ;
 

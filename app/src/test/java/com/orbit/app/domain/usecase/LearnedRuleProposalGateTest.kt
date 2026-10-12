@@ -46,7 +46,7 @@ class LearnedRuleProposalGateTest {
 
     @Test
     fun noOfferWhenTheRuleWouldNotReachGemini() = runBlocking {
-        val learningOnly = AppSettings(enableLocalAiLearning = true, shareLocalLearningWithGemini = false, aiMode = AiMode.GeminiApi)
+        val learningOnly = AppSettings(enableLocalAiLearning = true, shareLocalLearningWithGemini = false, aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion)
         val sharingButLocal = AppSettings(enableLocalAiLearning = true, shareLocalLearningWithGemini = true, aiMode = AiMode.LocalOnly)
         assertFalse(learningOnly.learnedRulesReachGemini)
         assertFalse(sharingButLocal.learnedRulesReachGemini)
@@ -56,7 +56,7 @@ class LearnedRuleProposalGateTest {
 
     @Test
     fun offeredWhenLearningSharingAndGeminiAreOn() = runBlocking {
-        val all = AppSettings(enableLocalAiLearning = true, shareLocalLearningWithGemini = true, aiMode = AiMode.GeminiApi)
+        val all = AppSettings(enableLocalAiLearning = true, shareLocalLearningWithGemini = true, aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion)
         assertTrue(all.learnedRulesReachGemini)
         assertNotNull(useCase(all).proposalAfterCorrection())
     }
@@ -75,7 +75,7 @@ class LearnedRuleProposalGateTest {
             override fun decline(key: String) { declined += key }
             override fun clear() = declined.clear()
         }
-        val all = AppSettings(enableLocalAiLearning = true, shareLocalLearningWithGemini = true, aiMode = AiMode.GeminiApi)
+        val all = AppSettings(enableLocalAiLearning = true, shareLocalLearningWithGemini = true, aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion)
         val useCase = ProposeLearnedRuleUseCase(
             correctionHistoryRepository = RoomAiCorrectionHistoryRepository(database.aiCorrectionHistoryDao()),
             learnedRuleRepository = RoomLearnedRuleRepository(database.learnedRuleDao()),

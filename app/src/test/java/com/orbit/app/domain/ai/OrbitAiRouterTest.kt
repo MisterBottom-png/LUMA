@@ -57,7 +57,7 @@ class OrbitAiRouterTest {
         val result = router.analyzeCapture(
             rawText = "Reminder test set for 1600 today",
             settings = AppSettings(
-                aiMode = AiMode.GeminiApi,
+                aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion,
                 geminiFastModelId = FastModel,
                 useGeminiForCapture = true,
             ),
@@ -100,7 +100,7 @@ class OrbitAiRouterTest {
         val result = router.analyzeCapture(
             rawText = "Reminder set for 2460 today",
             settings = AppSettings(
-                aiMode = AiMode.GeminiApi,
+                aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion,
                 geminiFastModelId = FastModel,
                 useGeminiForCapture = true,
             ),
@@ -147,7 +147,7 @@ class OrbitAiRouterTest {
         router.analyzeCapture(
             rawText = "Ask manager about budget",
             settings = AppSettings(
-                aiMode = AiMode.GeminiApi,
+                aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion,
                 geminiFastModelId = FastModel,
                 useGeminiForCapture = true,
             ),
@@ -174,7 +174,7 @@ class OrbitAiRouterTest {
         val result = router.makeSmaller(
             text = "fix money situation",
             settings = AppSettings(
-                aiMode = AiMode.GeminiApi,
+                aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion,
                 geminiFastModelId = FastModel,
                 geminiReasoningModelId = ReasoningModel,
                 useGeminiForMakeSmaller = true,
@@ -203,7 +203,7 @@ class OrbitAiRouterTest {
         val result = router.analyzeCapture(
             rawText = "Review the draft tomorrow",
             settings = AppSettings(
-                aiMode = AiMode.GeminiApi,
+                aiMode = AiMode.GeminiApi, geminiConsentVersion = com.orbit.app.domain.model.GeminiConsent.CurrentVersion,
                 geminiFastModelId = FastModel,
                 useGeminiForCapture = true,
             ),

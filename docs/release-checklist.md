@@ -4,13 +4,14 @@
 
 - [ ] Confirm version code and version name.
 - [ ] Supply `LUMA_RELEASE_STORE_FILE`, `LUMA_RELEASE_STORE_PASSWORD`, `LUMA_RELEASE_KEY_ALIAS`, and `LUMA_RELEASE_KEY_PASSWORD` only in the secure signing environment.
-- [ ] Run `:app:assembleRelease :app:bundleRelease :app:lintRelease` using JDK 17 or newer.
+- [ ] Run `:app:assembleRelease :app:bundleRelease :app:lintRelease -Pluma.requireReleaseSigning=true` using JDK 17 or newer. The property makes a missing key fail the build instead of producing an unsigned release (audit N043).
 - [ ] Run `scripts/verify-release.ps1 -RequireBaselineProfiles`.
 - [ ] Run strict workplace privacy check.
 
 ## Device evidence
 
 - [ ] Verify the named API 36 AVD and run `:app:connectedDebugAndroidTest`.
+- [ ] Also run it on one older Android version the app supports (for example API 30 or 33). CI tests only API 36 (audit N043).
 - [ ] Generate the baseline profile with `:app:generateBaselineProfile`.
 - [ ] Install and launch the non-debug benchmark candidate.
 - [ ] Confirm portrait remains locked through rotation attempts.
@@ -20,6 +21,7 @@
 
 - [x] **Application ID and name (decided 2026-10-09).** The product is **Tallele** with application ID `com.tallele.app`; the Kotlin namespace stays `com.orbit.app`. The release verifier pins `com.tallele.app` (`-ExpectedPackageName`) and checks the app's own classes against `-CodeNamespace com.orbit.app`.
 - [ ] Phones with a build installed as `com.orbit.app` get Tallele as a separate app: move data with Settings > Local data > Export, then Restore in Tallele. Uninstall the old build afterwards.
+- [ ] **Distribution channel (open decision D2, audit N010).** `USE_EXACT_ALARM` is declared; Google Play allows it only for alarm and calendar apps. Private or sideloaded installs can keep it. For Play, remove it, keep `SCHEDULE_EXACT_ALARM`, and rely on the existing "may be late" health check. The direct battery-optimisation request has the same Play restriction.
 - [x] **Not now (decided 2026-10-10):**
   - Home-screen widget. It would need an exported, unprotected `AppWidgetProvider` receiver, which widens the release export allowlist.
   - Encrypted and automatic backups. Backups stay manual (Export / Restore).
