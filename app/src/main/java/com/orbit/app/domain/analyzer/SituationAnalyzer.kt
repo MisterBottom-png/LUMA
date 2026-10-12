@@ -199,6 +199,26 @@ class LocalRulesSituationAnalyzer(
                         )
                     }
                 }
+                // F06/N015: a task with only a day (every automatically filed dated task) counts too.
+                if (task.dueAt == null) {
+                    task.scheduledDateEpochDay?.let { epochDay ->
+                        val zone = ZoneId.systemDefault()
+                        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toEpochDay()
+                        val day = java.time.LocalDate.ofEpochDay(epochDay)
+                        val startOfDay = day.atStartOfDay(zone).toInstant().toEpochMilli()
+                        val dayText = day.format(
+                            DateTimeFormatter.ofPattern(com.orbit.app.domain.model.LocalizedDatePatterns.forLocale(locale).date, locale),
+                        )
+                        when {
+                            epochDay < today -> add(
+                                SituationItem(0, startOfDay, "task:${task.id}", guidance.overdueTask(task.title.trim().shorten(guidance), dayText)),
+                            )
+                            epochDay == today -> add(
+                                SituationItem(1, startOfDay, "task:${task.id}", guidance.dueSoonTask(task.title.trim().shorten(guidance), dayText)),
+                            )
+                        }
+                    }
+                }
             }
         }
         return candidates.sortedWith(compareBy(SituationItem::rank, SituationItem::timestamp))

@@ -120,6 +120,17 @@ class LocalRulesSituationAnalyzerTest {
         assertTrue(result.clearNoiseSuggestion.startsWith("Начните"))
     }
 
+    @Test
+    fun `a task with only a day counts`() {
+        // N015: automatically filed tasks keep only a day.
+        val today = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val result = analyzer.analyze(
+            snapshot(tasks = listOf(TaskEntity(id = 7, title = "Pay the rent", scheduledDateEpochDay = today.toEpochDay()))),
+        )
+        assertTrue("task:7" in result.sourceItemIds)
+        assertTrue(result.whatMatters.any { it.startsWith("Due soon: Pay the rent") && !it.contains(":00") })
+    }
+
     private fun snapshot(
         captures: List<CaptureEntity> = emptyList(),
         notes: List<NoteEntity> = emptyList(),

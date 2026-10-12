@@ -119,21 +119,16 @@ internal data class ItemDetailFields(
 )
 
 /**
- * Only what fits the kind of item: a note has no status or reminder, and shows its date
- * only when it already has one (so it can still be moved or cleared); a task keeps its
- * date and status one tap away under "More"; a reminder shows its time and alert.
+ * Only what fits the kind of item: a note has no status or reminder, and its date row
+ * reads "Add date" until it has one (F14); a task keeps its date and status one tap
+ * away under "More"; a reminder shows its time and alert.
  */
 internal fun itemDetailFields(
     type: ItemDetailType,
     hasNotificationSettings: Boolean,
-    noteIsScheduled: Boolean = false,
 ): ItemDetailFields = when (type) {
     ItemDetailType.Note -> ItemDetailFields(
-        shown = if (noteIsScheduled) {
-            listOf(ItemDetailField.Type, ItemDetailField.Schedule, ItemDetailField.Space)
-        } else {
-            listOf(ItemDetailField.Type, ItemDetailField.Space)
-        },
+        shown = listOf(ItemDetailField.Type, ItemDetailField.Schedule, ItemDetailField.Space),
     )
     ItemDetailType.Task -> ItemDetailFields(
         shown = listOf(ItemDetailField.Type, ItemDetailField.Space),
@@ -413,7 +408,6 @@ private fun ItemDetailContent(
                             val fields = itemDetailFields(
                                 type = state.type,
                                 hasNotificationSettings = state.notificationEnabled != null,
-                                noteIsScheduled = state.scheduledDateEpochDay != null || state.scheduledAt != null,
                             )
                             val detailRow: @Composable (ItemDetailField) -> Unit = { field ->
                                 when (field) {
@@ -899,6 +893,7 @@ private fun scheduleLabel(state: ItemDetailUiState, timeFormat: OrbitTimeFormat)
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(LocalConfiguration.current.locales[0]),
     )
     state.scheduledAt != null -> timeFormat.formatDateTime(state.scheduledAt)
+    state.type == ItemDetailType.Note -> stringResource(R.string.item_add_date)
     else -> stringResource(R.string.core_item_detail_not_scheduled)
 }
 

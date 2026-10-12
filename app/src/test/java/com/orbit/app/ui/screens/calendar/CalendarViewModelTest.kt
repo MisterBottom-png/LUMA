@@ -122,6 +122,27 @@ class CalendarViewModelTest {
     }
 
     @Test
+    fun todayFollowsTheClockAcrossMidnight() {
+        // F12: Calendar's "today" moved only when the screen was created.
+        var date = today
+        val ticks = kotlinx.coroutines.flow.MutableSharedFlow<Long>(extraBufferCapacity = 1)
+        val viewModel = CalendarViewModel(
+            savedStateHandle = SavedStateHandle(),
+            todayProvider = { date },
+            fixedZoneId = ZoneId.of("UTC"),
+            observationDispatcher = Dispatchers.Unconfined,
+            clockTicks = ticks,
+        )
+        assertEquals(today, viewModel.uiState.value.today)
+
+        date = today.plusDays(1)
+        ticks.tryEmit(0L)
+        assertEquals(today.plusDays(1), viewModel.uiState.value.today)
+        // The day the user is looking at does not jump.
+        assertEquals(today, viewModel.uiState.value.selectedDate)
+    }
+
+    @Test
     fun calendarProjection_updatesMonthItemDatesInLocalZone() {
         val zoneId = ZoneId.of("Europe/Tallinn")
         val entries = MutableStateFlow(
@@ -138,7 +159,7 @@ class CalendarViewModelTest {
             savedStateHandle = SavedStateHandle(),
             todayProvider = { today },
             calendarRepository = FakeCalendarRepository(entries),
-            zoneId = zoneId,
+            fixedZoneId = zoneId,
             observationDispatcher = Dispatchers.Unconfined,
         )
 
@@ -162,7 +183,7 @@ class CalendarViewModelTest {
             savedStateHandle = SavedStateHandle(),
             todayProvider = { today },
             calendarRepository = FakeCalendarRepository(entries),
-            zoneId = ZoneId.of("UTC"),
+            fixedZoneId = ZoneId.of("UTC"),
             observationDispatcher = Dispatchers.Unconfined,
         )
 

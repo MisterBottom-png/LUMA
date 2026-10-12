@@ -162,4 +162,34 @@ class LocalAiRetrieverTest {
         assertEquals(emptyList<AiSourceItem>(), retriever.retrieve("Where is my card?", corpus))
         assertEquals(listOf("note:1"), retriever.retrieve("What were my travel plans?", corpus).map { it.sourceId })
     }
+
+    @Test
+    fun dateOnlyAndEarlierTodayItemsCountForTodayAndOverdue() {
+        // F06: automatically filed tasks keep only a day; they must still answer "today" and "overdue".
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.of(2026, 7, 14)
+        val now = today.atTime(15, 0).atZone(zone).toInstant().toEpochMilli()
+        val corpus = SearchCorpus(
+            captures = emptyList(),
+            notes = emptyList(),
+            tasks = listOf(
+                TaskEntity(id = 1, title = "Pay the rent", scheduledDateEpochDay = today.toEpochDay()),
+                TaskEntity(id = 2, title = "Return the library books", scheduledDateEpochDay = today.minusDays(2).toEpochDay()),
+                TaskEntity(id = 3, title = "Call the bank", dueAt = today.atTime(9, 0).atZone(zone).toInstant().toEpochMilli()),
+                TaskEntity(id = 4, title = "Plan the trip", scheduledDateEpochDay = today.plusDays(20).toEpochDay()),
+            ),
+            reminders = emptyList(),
+            spaces = emptyList(),
+        )
+        val retriever = LocalAiRetriever()
+
+        assertEquals(
+            setOf("task:1", "task:3"),
+            retriever.retrieve("What is due today?", corpus, now = now).map { it.sourceId }.toSet(),
+        )
+        assertEquals(
+            setOf("task:2", "task:3"),
+            retriever.retrieve("What is overdue?", corpus, now = now).map { it.sourceId }.toSet(),
+        )
+    }
 }

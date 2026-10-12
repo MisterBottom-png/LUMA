@@ -16,10 +16,12 @@ import java.time.ZoneId
 import java.time.YearMonth
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -44,9 +46,15 @@ class CalendarViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
     private val todayProvider: () -> LocalDate = { LocalDate.now() },
     private val calendarRepository: CalendarRepository? = null,
-    private val zoneId: ZoneId = ZoneId.systemDefault(),
+    /** Fixed in tests; null reads the phone's zone at use time (N039). */
+    private val fixedZoneId: ZoneId? = null,
     observationDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+    /** The minute clock (F12); null in tests that drive `today` themselves. */
+    clockTicks: Flow<Long>? = null,
 ) : ViewModel() {
+    private val zoneId: ZoneId
+        get() = fixedZoneId ?: ZoneId.systemDefault()
+
     private val today: LocalDate
         get() = todayProvider()
 
@@ -73,14 +81,26 @@ class CalendarViewModel @JvmOverloads constructor(
     )
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
+    // The zone the visible month was loaded for; a zone change reloads it (N039).
+    private val loadedZone = MutableStateFlow(zoneId)
+
     init {
         persist(_uiState.value)
+        clockTicks?.let { ticks ->
+            viewModelScope.launch(observationDispatcher) {
+                // F12: "today" moves at midnight and on return, not only when data changes.
+                ticks.collect {
+                    loadedZone.value = zoneId
+                    val date = today
+                    if (_uiState.value.today != date) _uiState.update { it.copy(today = date) }
+                }
+            }
+        }
         calendarRepository?.let { repository ->
             viewModelScope.launch(observationDispatcher) {
-                _uiState
-                    .map { it.visibleMonth }
+                combine(_uiState.map { it.visibleMonth }, loadedZone) { month, zone -> month to zone }
                     .distinctUntilChanged()
-                    .collectLatest { month ->
+                    .collectLatest { (month, zoneId) ->
                         val range = CalendarDateRange(
                             startDate = month.atDay(1).minusDays(6),
                             endDateExclusive = month.plusMonths(1).atDay(1).plusDays(6),
@@ -210,6 +230,7 @@ class CalendarViewModel @JvmOverloads constructor(
             return CalendarViewModel(
                 savedStateHandle = extras.createSavedStateHandle(),
                 calendarRepository = calendarRepository,
+                clockTicks = com.orbit.app.ui.time.MinuteClock.ticks(),
             ) as T
         }
     }

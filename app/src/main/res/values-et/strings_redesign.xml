@@ -144,6 +144,7 @@
     <string name="item_delete_archivable_body">See kaob jäädavalt. Kui tahad selle lihtsalt silmist ära panna, kasuta arhiveerimist.</string>
     <string name="item_delete_reminder_body">See kaob jäädavalt ega tuleta enam meelde. Meeldetuletusi ei saa arhiveerida.</string>
     <string name="item_notify_me">Teavita mind</string>
+    <string name="item_add_date">Lisa kuupäev</string>
     <string name="item_offsets_need_notifications">Lülita sisse „Teavita mind“, et aega valida.</string>
     <string name="item_making_smaller">Otsin väiksemat sammu…</string>
     <string name="core_list_and_separator">\u0020ja\u0020</string>

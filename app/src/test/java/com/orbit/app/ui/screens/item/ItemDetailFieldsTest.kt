@@ -8,10 +8,11 @@ import org.junit.Test
 /** Each kind of item shows only the details that mean something for it. */
 class ItemDetailFieldsTest {
     @Test
-    fun aNoteShowsItsTypeAndSpace_withNoDateStatusOrReminder() {
+    fun aNoteShowsItsTypeDateAndSpace_withNoStatusOrReminder() {
+        // F14: a note can be given a date ("Add date"), not only keep one it already has.
         val fields = itemDetailFields(ItemDetailType.Note, hasNotificationSettings = false)
 
-        assertEquals(listOf(ItemDetailField.Type, ItemDetailField.Space), fields.shown)
+        assertEquals(listOf(ItemDetailField.Type, ItemDetailField.Schedule, ItemDetailField.Space), fields.shown)
         assertTrue(fields.underMore.isEmpty())
     }
 
@@ -47,12 +48,5 @@ class ItemDetailFieldsTest {
     @Test
     fun aRawThoughtHasNoDetailRows() {
         assertTrue(itemDetailFields(ItemDetailType.Capture, hasNotificationSettings = false).shown.isEmpty())
-    }
-
-    @Test
-    fun aNoteThatHasADateKeepsItsScheduleRow_soTheDateCanBeMovedOrCleared() {
-        val fields = itemDetailFields(ItemDetailType.Note, hasNotificationSettings = false, noteIsScheduled = true)
-
-        assertEquals(listOf(ItemDetailField.Type, ItemDetailField.Schedule, ItemDetailField.Space), fields.shown)
     }
 }

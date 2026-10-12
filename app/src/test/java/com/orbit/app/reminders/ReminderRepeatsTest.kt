@@ -131,4 +131,25 @@ class ReminderRepeatsTest {
         assertEquals(due.plusDays(1), local(daily.dueAt))
         assertEquals(now, daily.updatedAt)
     }
+
+    @Test
+    fun anOldMonthlyTokenKeepsThe31stAfterFebruary() {
+        // N039: "monthly@09:00" from an older version has no chosen day.
+        val tallinn = java.time.ZoneId.of("Europe/Tallinn")
+        fun at(date: java.time.LocalDate) = date.atTime(9, 0).atZone(tallinn).toInstant().toEpochMilli()
+        var reminder = com.orbit.app.data.local.entity.ReminderEntity(
+            title = "Pay the rent",
+            dueAt = at(java.time.LocalDate.of(2027, 1, 31)),
+            repeatRule = "monthly@09:00",
+        )
+        val dates = (1..3).map {
+            reminder = ReminderRepeats.markDone(reminder, reminder.dueAt, tallinn)
+            java.time.Instant.ofEpochMilli(reminder.dueAt).atZone(tallinn).toLocalDate()
+        }
+        assertEquals(
+            listOf(java.time.LocalDate.of(2027, 2, 28), java.time.LocalDate.of(2027, 3, 31), java.time.LocalDate.of(2027, 4, 30)),
+            dates,
+        )
+        assertEquals("monthly@09:00/31", reminder.repeatRule)
+    }
 }

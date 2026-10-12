@@ -144,6 +144,7 @@
     <string name="item_delete_archivable_body">It will be gone for good. To keep it out of sight instead, use Archive.</string>
     <string name="item_delete_reminder_body">It will be gone for good and won’t remind you. Reminders can’t be archived.</string>
     <string name="item_notify_me">Notify me</string>
+    <string name="item_add_date">Add date</string>
     <string name="item_offsets_need_notifications">Turn on “Notify me” to choose when.</string>
     <string name="item_making_smaller">Finding a smaller step…</string>
     <string name="core_list_and_separator">\u0020and\u0020</string>

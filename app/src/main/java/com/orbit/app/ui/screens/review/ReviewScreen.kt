@@ -296,7 +296,7 @@ fun ReviewScreen(
                     NeedsYouGroup(
                         items = uiState.needsYou,
                         timeFormat = timeFormat,
-                        now = remember(uiState.needsYou) { System.currentTimeMillis() },
+                        now = uiState.now.takeIf { it > 0L } ?: System.currentTimeMillis(),
                         enabled = uiState.pendingSortUndo == null,
                         onRemindAt = onNeedsYouRemindAt,
                         onPickTime = onNeedsYouPickTime,
@@ -474,6 +474,7 @@ private fun SortUndoToken.messageRes(): Int = when (this) {
 
 private fun ReviewSortMessage.messageRes(): Int = when (this) {
     ReviewSortMessage.ActionFailed -> R.string.review_sort_failed
+    ReviewSortMessage.TimePassed -> R.string.reminder_time_passed
     ReviewSortMessage.NeedsChoice -> R.string.review_sort_needs_choice
     ReviewSortMessage.Undone -> R.string.core_sort_undone
 }

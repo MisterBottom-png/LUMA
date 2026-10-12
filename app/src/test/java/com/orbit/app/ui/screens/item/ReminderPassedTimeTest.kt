@@ -85,6 +85,13 @@ class ReminderPassedTimeTest {
             store,
             ItemDetailViewModel.Factory(ItemDetailType.Reminder, id, container),
         )[ItemDetailViewModel::class.java]
+        // The page is open (first load done) before the user changes anything.
+        val deadline = System.currentTimeMillis() + 10_000
+        while (viewModel.uiState.value.isLoading) {
+            shadowOf(Looper.getMainLooper()).idle()
+            if (System.currentTimeMillis() > deadline) fail("page did not load")
+            Thread.sleep(10)
+        }
         return id to viewModel
     }
 

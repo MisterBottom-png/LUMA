@@ -141,8 +141,25 @@ object ReminderRepeats {
     }
 
     private fun advance(reminder: ReminderEntity, now: Long, zoneId: ZoneId): ReminderEntity? {
-        val next = nextOccurrence(reminder, now, zoneId) ?: return null
-        return reminder.copy(dueAt = next, snoozedUntil = null)
+        val pinned = withChosenDayPinned(reminder, zoneId)
+        val next = nextOccurrence(pinned, now, zoneId) ?: return null
+        return pinned.copy(dueAt = next, snoozedUntil = null)
+    }
+
+    /**
+     * N039: a monthly token from an older version has no chosen day, so a 31st that moved
+     * to the 28th in February would stay on the 28th. Before moving on, the current
+     * occurrence's day and time are written into the token, so later months keep them.
+     */
+    internal fun withChosenDayPinned(reminder: ReminderEntity, zoneId: ZoneId): ReminderEntity {
+        val spec = RepeatSpec.parse(reminder.repeatRule) ?: return reminder
+        if (spec.rule != ReminderRepeat.Monthly || spec.dayOfMonth != null) return reminder
+        val current = Instant.ofEpochMilli(reminder.dueAt).atZone(zoneId)
+        val pinned = spec.copy(
+            timeOfDay = spec.timeOfDay ?: current.toLocalTime().withSecond(0).withNano(0),
+            dayOfMonth = current.dayOfMonth,
+        )
+        return reminder.copy(repeatRule = pinned.toStorage())
     }
 
     /**
@@ -150,9 +167,10 @@ object ReminderRepeats {
      * active; any other one is completed.
      */
     fun markDone(reminder: ReminderEntity, now: Long, zoneId: ZoneId = ZoneId.systemDefault()): ReminderEntity {
-        val next = nextOccurrence(reminder, now, zoneId)
+        val pinned = withChosenDayPinned(reminder, zoneId)
+        val next = nextOccurrence(pinned, now, zoneId)
             ?: return reminder.copy(completedAt = now, updatedAt = now)
-        return reminder.copy(
+        return pinned.copy(
             dueAt = next,
             completedAt = null,
             deliveredNotificationAt = null,

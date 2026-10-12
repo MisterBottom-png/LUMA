@@ -79,8 +79,9 @@ fun CalendarDayAgendaView(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    val zoneId = remember { ZoneId.systemDefault() }
     val now by currentMinuteInstant()
+    // N039: read at use time, so a zone change shows up at the next minute.
+    val zoneId = remember(now) { ZoneId.systemDefault() }
     val agenda = remember(uiState.entries, uiState.selectedDate, now, zoneId) {
         buildCalendarAgenda(
             buildCalendarDayTimeline(

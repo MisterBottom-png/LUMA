@@ -152,6 +152,7 @@
     <string name="item_delete_archivable_body">Это нельзя будет вернуть. Чтобы просто убрать с глаз, используйте архив.</string>
     <string name="item_delete_reminder_body">Оно исчезнет навсегда и больше не напомнит. Напоминания нельзя архивировать.</string>
     <string name="item_notify_me">Уведомлять меня</string>
+    <string name="item_add_date">Добавить дату</string>
     <string name="item_offsets_need_notifications">Включите «Уведомлять меня», чтобы выбрать время.</string>
     <string name="item_making_smaller">Ищу шаг поменьше…</string>
     <string name="core_list_and_separator">\u0020и\u0020</string>

@@ -30,6 +30,7 @@ import com.orbit.app.domain.usecase.BrainDumpActions
 import com.orbit.app.ui.navigation.ItemDetailType
 import com.orbit.app.ui.screens.item.ItemSchedule
 import com.orbit.app.ui.screens.item.ItemScheduleActions
+import com.orbit.app.ui.time.MinuteClock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -100,6 +101,8 @@ data class CarryForwardSuggestion(
 )
 
 data class ReviewUiState(
+    /** The time this state was built for; follows the minute clock (F12, N005). */
+    val now: Long = 0L,
     val dueToday: List<ReviewItem> = emptyList(),
     val recentInboxCaptures: List<ReviewItem> = emptyList(),
     val morningSuggestion: ReviewSuggestion? = null,
@@ -166,7 +169,7 @@ val SortUndoToken.reminderOutcome: ReminderSaveOutcome?
         else -> null
 }
 
-enum class ReviewSortMessage { ActionFailed, NeedsChoice, Undone }
+enum class ReviewSortMessage { ActionFailed, NeedsChoice, Undone, TimePassed }
 
 internal data class ReviewData(
     val captures: List<CaptureEntity>,
@@ -260,13 +263,13 @@ class ReviewViewModel internal constructor(
     }
 
     val uiState = combine(
-        reviewData,
+        combine(reviewData, MinuteClock.ticks()) { data, now -> data to now },
         smallerAction,
         weeklySummary,
         pendingTaskUndo,
         combine(sortFeedback, pendingChange, weeklyLoading) { sort, change, loading -> Triple(sort, change, loading) },
-    ) { data, smallAction, summary, taskUndo, (feedback, change, loading) ->
-        val state = buildUiState(data, smallAction, summary, taskUndo)
+    ) { (data, now), smallAction, summary, taskUndo, (feedback, change, loading) ->
+        val state = buildUiState(data, smallAction, summary, taskUndo, now)
         state.copy(
             pendingSortUndo = feedback.first,
             sortMessage = feedback.second,
@@ -293,8 +296,13 @@ class ReviewViewModel internal constructor(
     }
 
     /** Needs you: a reminder at a quick time (today 18:00, tomorrow 09:00) for a thought without one. */
-    fun remindAt(item: NeedsYouItem, reminderAt: Long) = answer(item) {
-        container.captureResolution.createQuickReminder(item.captureId, item.title, reminderAt)
+    fun remindAt(item: NeedsYouItem, reminderAt: Long) {
+        // N005: a quick time that passed while the card was open is refused, not saved as missed.
+        if (com.orbit.app.reminders.ReminderTimeCheck.problem(reminderAt, 0L, System.currentTimeMillis()) != null) {
+            sortFeedback.value = null to ReviewSortMessage.TimePassed
+            return
+        }
+        answer(item) { container.captureResolution.createQuickReminder(item.captureId, item.title, reminderAt) }
     }
 
     /** Needs you: "Just keep it". A reminder made for the thought is deleted and its alarm cancelled. */
@@ -667,6 +675,7 @@ class ReviewViewModel internal constructor(
             .sortedBy { it.updatedAt }
 
         return ReviewUiState(
+            now = now,
             dueToday = dueToday,
             recentInboxCaptures = recentInbox,
             morningSuggestion = morningSource
@@ -805,7 +814,7 @@ internal fun weeklyReviewSources(
             .filterNot { it.status == TaskStatus.Archived }
             .filter { inCurrentWeek(it.createdAt) || inCurrentWeek(it.updatedAt) || inCurrentWeek(it.completedAt) }
             .forEach {
-                add(AiSourceItem("task:${it.id}", ItemDetailType.Task, it.id, it.title, it.notes.ifBlank { it.status.name }, it.spaceId?.let(spacesById::get)?.name, it.status.name, it.completedAt ?: it.updatedAt, it.createdAt, it.dueAt))
+                add(AiSourceItem("task:${it.id}", ItemDetailType.Task, it.id, it.title, it.notes.ifBlank { it.status.name }, it.spaceId?.let(spacesById::get)?.name, it.status.name, it.completedAt ?: it.updatedAt, it.createdAt, it.dueAt, it.scheduledDateEpochDay))
             }
         data.reminders
             .filter { inCurrentWeek(it.createdAt) || inCurrentWeek(it.updatedAt) || inCurrentWeek(it.completedAt) }

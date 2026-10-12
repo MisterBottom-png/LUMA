@@ -42,20 +42,19 @@ fun buildCalendarDayTimeline(
         .sortedWith(CalendarEntryTitleOrder)
     val timedGroups = selectedEntries
         .filter { it.schedule is CalendarSchedule.Timed }
-        .groupBy { entry ->
-            val localTime = (entry.schedule as CalendarSchedule.Timed).start.atZone(zoneId).toLocalTime()
-            localTime.hour * MinutesPerHour + localTime.minute
-        }
-        .map { (minuteOfDay, groupedEntries) ->
+        // N039: grouped by the instant's minute, so the two 01:30s of a DST fall-back stay apart.
+        .groupBy { entry -> (entry.schedule as CalendarSchedule.Timed).start.epochSecond.floorDiv(60L) }
+        .map { (_, groupedEntries) ->
+            val localTime = (groupedEntries.first().schedule as CalendarSchedule.Timed).start.atZone(zoneId).toLocalTime()
             CalendarTimedGroup(
-                minuteOfDay = minuteOfDay,
+                minuteOfDay = localTime.hour * MinutesPerHour + localTime.minute,
                 start = groupedEntries
                     .map { (it.schedule as CalendarSchedule.Timed).start }
                     .minOrNull() ?: error("Timed group must contain an entry"),
                 entries = groupedEntries.sortedWith(CalendarEntryTitleOrder),
             )
         }
-        .sortedBy { it.minuteOfDay }
+        .sortedBy { it.start }
 
     val today = now.atZone(zoneId).toLocalDate()
     val currentTimeRow = if (selectedDate == today) {

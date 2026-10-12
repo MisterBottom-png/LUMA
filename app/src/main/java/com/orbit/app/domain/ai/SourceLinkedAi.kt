@@ -20,6 +20,8 @@ data class AiSourceItem(
     val timestamp: Long,
     val createdAt: Long = timestamp,
     val dueAt: Long? = null,
+    /** A task planned for a day without a time (F06): counts as that whole day. */
+    val dueDateEpochDay: Long? = null,
 )
 
 data class SourceLinkedAnswer(
@@ -109,6 +111,7 @@ class LocalAiRetriever {
                         timestamp = it.updatedAt,
                         createdAt = it.createdAt,
                         dueAt = it.dueAt,
+                        dueDateEpochDay = it.scheduledDateEpochDay,
                     )
                 }
             corpus.reminders
@@ -143,11 +146,16 @@ class LocalAiRetriever {
             .map { (item, matches) -> item to item.score(matches, query, intent, now) }
             .sortedWith(
                 compareByDescending<Pair<AiSourceItem, Int>> { it.second }
-                    .thenBy { if (intent.due) it.first.dueAt ?: Long.MAX_VALUE else Long.MIN_VALUE }
+                    .thenBy { if (intent.due) it.first.effectiveDueAt() ?: Long.MAX_VALUE else Long.MIN_VALUE }
                     .thenByDescending { it.first.timestamp },
             )
             .map { it.first.compact() }
             .take(limit)
+    }
+
+    /** The time an item is due; a date-only task is due until the end of its day (F06). */
+    private fun AiSourceItem.effectiveDueAt(): Long? = dueAt ?: dueDateEpochDay?.let {
+        java.time.LocalDate.ofEpochDay(it).plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() - 1
     }
 
     /** Open items, most recently changed first. */
@@ -175,6 +183,7 @@ class LocalAiRetriever {
     }
 
     private fun AiSourceItem.score(matches: Int, query: String, intent: QueryIntent, now: Long): Int {
+        val dueAt = effectiveDueAt()
         val haystack = SearchText.fold(listOf(title, snippet, spaceName.orEmpty()).joinToString(" "))
         val exact = if (query.isNotBlank() && haystack.contains(SearchText.fold(query.trim()))) 6 else 0
         val urgencyScore = when {
@@ -232,21 +241,31 @@ class LocalAiRetriever {
         val isStateQuestion: Boolean
             get() = overdue || due || stuck || recent || completed || attention || types.isNotEmpty()
 
-        fun accepts(item: AiSourceItem, now: Long): Boolean = when {
-            types.isNotEmpty() && item.type !in types -> false
-            completed -> item.status.equals(TaskStatus.Done.name, ignoreCase = true) || item.status.equals("Completed", ignoreCase = true)
-            overdue -> item.dueAt?.let { it < now } == true
-            today -> item.dueAt?.let { dueAt ->
-                dueAt >= now && Instant.ofEpochMilli(dueAt).atZone(ZoneId.systemDefault()).toLocalDate() ==
-                    Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate()
-            } == true
-            soon -> item.dueAt?.let { it in now..(now + TimeUnit.DAYS.toMillis(DueSoonDays)) } == true
-            due -> item.dueAt?.let { it >= now } == true
-            stuck -> item.status.equals("WaitingFor", ignoreCase = true)
-            recent -> item.timestamp >= now - TimeUnit.DAYS.toMillis(RecentDays)
-            attention -> item.dueAt?.let { it <= now + TimeUnit.DAYS.toMillis(DueSoonDays) } == true ||
-                item.status.equals("WaitingFor", ignoreCase = true)
-            else -> true
+        fun accepts(item: AiSourceItem, now: Long): Boolean {
+            // F06: a date-only task counts as its whole day, and anything planned for today
+            // is "today" even when its time already passed (as in Calendar and Needs you).
+            val zone = ZoneId.systemDefault()
+            val currentDay = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toEpochDay()
+            val day = item.dueAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() }
+                ?: item.dueDateEpochDay
+            val timedOnly = item.dueAt != null || day == null
+            return when {
+                types.isNotEmpty() && item.type !in types -> false
+                completed -> item.status.equals(TaskStatus.Done.name, ignoreCase = true) || item.status.equals("Completed", ignoreCase = true)
+                overdue -> if (timedOnly) item.dueAt?.let { it < now } == true else day!! < currentDay
+                today -> day == currentDay
+                soon -> if (timedOnly) {
+                    item.dueAt?.let { it in now..(now + TimeUnit.DAYS.toMillis(DueSoonDays)) } == true
+                } else {
+                    day!! in currentDay..(currentDay + DueSoonDays)
+                }
+                due -> if (timedOnly) item.dueAt?.let { it >= now } == true else day!! >= currentDay
+                stuck -> item.status.equals("WaitingFor", ignoreCase = true)
+                recent -> item.timestamp >= now - TimeUnit.DAYS.toMillis(RecentDays)
+                attention -> day?.let { it <= currentDay + DueSoonDays } == true ||
+                    item.status.equals("WaitingFor", ignoreCase = true)
+                else -> true
+            }
         }
 
         companion object {

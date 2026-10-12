@@ -144,6 +144,23 @@ class CalendarDayTimelineTest {
         assertEquals(listOf("First", "Last"), titles)
     }
 
+    @Test
+    fun theTwoSameClockTimesOfADstFallBackStayApart() {
+        // N039: on 2026-10-25 Tallinn's clocks go from 04:00 back to 03:00; 03:30 happens twice.
+        val day = LocalDate.of(2026, 10, 25)
+        val first = Instant.parse("2026-10-25T00:30:00Z") // 03:30 summer time
+        val second = Instant.parse("2026-10-25T01:30:00Z") // 03:30 winter time
+        val timeline = buildCalendarDayTimeline(
+            entries = listOf(timedAt(2, "Second", second), timedAt(1, "First", first)),
+            selectedDate = day,
+            now = midday.minusSeconds(86_400),
+            zoneId = zoneId,
+        )
+        val groups = timeline.rows.filterIsInstance<CalendarDayRow.TimedItems>().map { it.group }
+        assertEquals(listOf("First", "Second"), groups.map { it.entries.single().title })
+        assertEquals(listOf(3 * 60 + 30, 3 * 60 + 30), groups.map { it.minuteOfDay })
+    }
+
     private fun timeline(entries: List<CalendarEntry>, now: Instant) = buildCalendarDayTimeline(
         entries = entries,
         selectedDate = selectedDate,
