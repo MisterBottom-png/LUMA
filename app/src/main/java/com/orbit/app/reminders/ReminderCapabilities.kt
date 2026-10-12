@@ -109,6 +109,20 @@ object ReminderCapabilities {
         )
     }
 
+    /**
+     * What decides whether a reminder can ring: notifications, the reminder channel and
+     * exact alarms. When this changes while the app is away, reminders are reconciled
+     * on return (review B6).
+     */
+    fun deliveryKey(context: Context): BooleanArray {
+        val appContext = context.applicationContext
+        return booleanArrayOf(
+            notificationsAllowed(appContext),
+            reminderChannelEnabled(appContext),
+            canScheduleExactAlarms(appContext),
+        )
+    }
+
     /** Makers whose own battery managers are known to stop background apps. */
     internal val AggressiveBatteryBrands: Set<String> = setOf(
         "samsung",

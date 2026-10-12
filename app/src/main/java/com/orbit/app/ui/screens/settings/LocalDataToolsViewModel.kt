@@ -15,6 +15,10 @@ import java.io.InputStream
 import com.orbit.app.reminders.ReminderDeliveryPath
 import com.orbit.app.reminders.ReminderNotifier
 import com.orbit.app.reminders.reconcileReminders
+import com.orbit.app.reminders.ReminderCapabilities
+import com.orbit.app.reminders.ReminderDeliveryOutcome
+import com.orbit.app.domain.capture.LinkedCaptureOutcomes
+import com.orbit.app.domain.usecase.RoomCaptureFinalizationTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,7 +43,9 @@ data class LocalDataToolsUiState(
 ) {
     /** A restore finished but reminders could not all be set up on this phone. */
     val canRetryReminderSetup: Boolean
-        get() = (restoreMessage as? LocalDataToolsMessage.RestoreCompleted)?.needsReminderDeviceCheck == true
+        get() = (restoreMessage as? LocalDataToolsMessage.RestoreCompleted)?.needsReminderDeviceCheck == true ||
+            // Still failing: the user can fix settings and try again (review N035).
+            restoreMessage == LocalDataToolsMessage.ReminderSetupStillFailing
 }
 
 sealed interface LocalDataToolsMessage {
@@ -231,23 +237,37 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
         if (_uiState.value.isRetryingReminderSetup) return
         viewModelScope.launch {
             _uiState.update { it.copy(isRetryingReminderSetup = true) }
+            // RS1: success only when every reminder is armed and Android lets them ring;
+            // a notification Android blocked counts as a failure, not as set up.
+            val context = container.applicationContext
             val failures = runCatching {
                 withContext(Dispatchers.IO) {
-                    reconcileReminders(
+                    var blocked = 0
+                    val result = reconcileReminders(
                         dao = container.database.reminderDao(),
                         scheduler = container.reminderScheduler,
                         now = System.currentTimeMillis(),
                         deliver = { id, time, missed ->
                             ReminderNotifier.showReminderNotification(
-                                context = container.applicationContext,
+                                context = context,
                                 reminderId = id,
                                 expectedNotificationTime = time,
                                 deliveredBy = ReminderDeliveryPath.Reconcile,
                                 missed = missed,
-                            )
+                            ).also { if (it == ReminderDeliveryOutcome.Blocked) blocked += 1 }
                         },
-                        deliverSummary = { ReminderNotifier.showMissedSummary(container.applicationContext, it) },
-                    ).failures
+                        deliverSummary = {
+                            ReminderNotifier.showMissedSummary(context, it)
+                                .also { outcome -> if (outcome == ReminderDeliveryOutcome.Blocked) blocked += 1 }
+                        },
+                        // Thoughts waiting on a reminder that is now armed are set reminders again.
+                        linkedCaptures = LinkedCaptureOutcomes(
+                            captureRepository = container.captureRepository,
+                            transaction = RoomCaptureFinalizationTransaction(container.database),
+                            canNotify = { canRing(context) },
+                        ),
+                    )
+                    result.failures + blocked + if (canRing(context)) 0 else 1
                 }
             }.getOrElse { 1 }
             _uiState.update {
@@ -262,6 +282,9 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
             }
         }
     }
+
+    private fun canRing(context: android.content.Context): Boolean =
+        ReminderCapabilities.notificationsAllowed(context) && ReminderCapabilities.reminderChannelEnabled(context)
 
     fun messageShown() {
         _uiState.update { it.copy(errorMessage = null, restoreMessage = null) }

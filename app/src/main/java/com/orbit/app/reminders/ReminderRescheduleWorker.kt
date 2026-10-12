@@ -121,9 +121,16 @@ internal suspend fun reconcileReminders(
             val next = ReminderRepeats.afterOccurrenceShown(reminder, shownTime ?: now, now, zoneId)
             if (next != null) {
                 dao.update(next)
-                val token = runCatching { scheduler.reschedule(next) }.onFailure { failures += 1 }.getOrNull()
+                val result = runCatching { scheduler.reschedule(next) }
+                val token = result.getOrNull()
                 dao.updateNotificationWorkId(next.id, token)
-                if (token != null) scheduled += 1
+                if (token != null) {
+                    scheduled += 1
+                    linkedCaptures?.let { runCatching { it.armed(next, now) } }
+                } else if (result.isFailure || ReminderDeliveryPolicy.scheduleTime(next, now) != null) {
+                    // RS1: it should ring but nothing was armed.
+                    failures += 1
+                }
                 return@forEach
             }
         }
@@ -135,13 +142,14 @@ internal suspend fun reconcileReminders(
                 }
             }
             is ReconcileAction.Schedule -> {
-                val token = runCatching { scheduler.reschedule(reminder) }
-                    .onFailure { failures += 1 }
-                    .getOrNull()
+                // RS1: an error, or no alarm armed although the policy says it should ring, is a failure.
+                val token = runCatching { scheduler.reschedule(reminder) }.getOrNull()
                 dao.updateNotificationWorkId(reminder.id, token)
                 if (token != null) {
                     scheduled += 1
                     linkedCaptures?.let { runCatching { it.armed(reminder, now) } }
+                } else {
+                    failures += 1
                 }
             }
             is ReconcileAction.DeliverNow -> {

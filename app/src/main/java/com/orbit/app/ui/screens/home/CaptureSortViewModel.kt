@@ -131,6 +131,7 @@ class CaptureSortViewModel(
     private val captureAnalyzer: CaptureAnalyzer,
     private val thoughtSplitter: ThoughtSplitter,
     private val reminderSaveOutcomes: ReminderSaveOutcomes,
+    private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     // Resolved on every use so messages follow a language change made while open.
     private val localizedContext: Context
@@ -463,6 +464,11 @@ class CaptureSortViewModel(
         linkedTaskId: Long? = null,
         labelNames: List<String> = emptyList(),
     ) {
+        // B5: a passed time is refused with its reason; the sheet stays open to pick again.
+        if (com.orbit.app.reminders.ReminderTimeCheck.problem(dueAt, 0L, now()) != null) {
+            _uiState.update { it.copy(message = localized(R.string.reminder_time_passed)) }
+            return
+        }
         performConfirmedAction(
             successMessage = localized(R.string.reminder_outcome_saved),
         ) { suggestion ->

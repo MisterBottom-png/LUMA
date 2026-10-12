@@ -13,4 +13,7 @@
     <string name="reminder_offset_about_one_day">Примерно за 1 день</string>
     <string name="reminder_offset_about_custom_minutes">Примерно за %1$d мин.</string>
     <string name="reminder_offset_invalid">Недопустимое смещение уведомления</string>
+    <string name="reminder_time_passed">Это время уже прошло. Выберите более позднее время.</string>
+    <string name="reminder_alert_passed">Уведомление пришлось бы на прошедшее время. Выберите более позднее время или более короткий интервал.</string>
+    <string name="reminder_saved_wont_ring">Сохранено. Это время уже прошло, поэтому напоминание не сработает.</string>
 </resources>

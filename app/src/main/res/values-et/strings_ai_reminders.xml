@@ -13,4 +13,7 @@
     <string name="reminder_offset_about_one_day">Umbes 1 päev varem</string>
     <string name="reminder_offset_about_custom_minutes">Umbes %1$d minutit varem</string>
     <string name="reminder_offset_invalid">Vigane teavituse nihe</string>
+    <string name="reminder_time_passed">See aeg on juba möödas. Vali hilisem aeg.</string>
+    <string name="reminder_alert_passed">Eelteavitus jääks minevikku. Vali hilisem aeg või lühem eelteavitus.</string>
+    <string name="reminder_saved_wont_ring">Salvestatud. See aeg on möödas, seega meeldetuletus ei helise.</string>
 </resources>

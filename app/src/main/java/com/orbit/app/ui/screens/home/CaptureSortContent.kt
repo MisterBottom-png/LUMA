@@ -583,5 +583,8 @@ private fun pickDateTime(
         initial.year,
         initial.monthValue - 1,
         initial.dayOfMonth,
-    ).show()
+    ).apply {
+        // B5: days that have passed cannot be picked; an earlier time today is refused on save.
+        datePicker.minDate = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+    }.show()
 }

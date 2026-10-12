@@ -439,6 +439,21 @@ class ReminderSchedulingTest {
     private fun at(date: LocalDate, hour: Int, zone: ZoneId): Long =
         date.atTime(LocalTime.of(hour, 0)).atZone(zone).toInstant().toEpochMilli()
 
+    @Test
+    fun aReminderThatShouldRingButGetsNoAlarmCountsAsAFailure() = runBlocking {
+        // RS1: "Retry reminder setup" must not report success when nothing was armed.
+        val dao = FakeReminderDao()
+        val now = 1_000_000L
+        dao.insert(ReminderEntity(title = "Water the roses", dueAt = now + 3_600_000L))
+        val noAlarm = object : ReminderScheduler {
+            override fun schedule(reminder: ReminderEntity): String? = null
+            override fun cancel(reminderId: Long) = Unit
+        }
+        val result = reconcileReminders(dao, noAlarm, now, noDelivery, noSummary)
+        assertEquals(1, result.failures)
+        assertEquals(1, reconcileReminders(dao, FakeReminderScheduler(failOnSchedule = true), now, noDelivery, noSummary).failures)
+    }
+
     private fun reminder() = ReminderEntity(
         title = "Local reminder",
         dueAt = 3_600_000L,

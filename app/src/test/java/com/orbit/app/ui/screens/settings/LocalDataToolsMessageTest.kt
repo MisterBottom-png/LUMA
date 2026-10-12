@@ -26,4 +26,10 @@ class LocalDataToolsMessageTest {
             restoreFailureMessage(LocalDataValidationException("Invalid export")),
         )
     }
+
+    @Test
+    fun `the retry button stays while reminder setup is still failing`() {
+        assertEquals(true, LocalDataToolsUiState(restoreMessage = LocalDataToolsMessage.ReminderSetupStillFailing).canRetryReminderSetup)
+        assertEquals(false, LocalDataToolsUiState(restoreMessage = LocalDataToolsMessage.ReminderSetupRestored).canRetryReminderSetup)
+    }
 }

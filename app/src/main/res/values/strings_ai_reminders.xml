@@ -13,4 +13,7 @@
     <string name="reminder_offset_about_one_day">About 1 day before</string>
     <string name="reminder_offset_about_custom_minutes">About %1$d min before</string>
     <string name="reminder_offset_invalid">Invalid notification offset</string>
+    <string name="reminder_time_passed">That time has already passed. Choose a later time.</string>
+    <string name="reminder_alert_passed">The heads-up would be in the past. Choose a later time or a shorter heads-up.</string>
+    <string name="reminder_saved_wont_ring">Saved. This time has passed, so it won’t ring.</string>
 </resources>

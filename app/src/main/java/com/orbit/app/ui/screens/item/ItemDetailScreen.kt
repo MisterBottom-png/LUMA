@@ -715,7 +715,7 @@ private fun ScheduleSheet(
         ListItem(
             headlineContent = { Text(stringResource(R.string.core_item_detail_choose_date_and_time)) },
             modifier = Modifier.clickable {
-                showDateTimePicker(context, initialTime, timeFormat) { onSchedule(ItemSchedule.Timed(it)) }
+                showDateTimePicker(context, initialTime, timeFormat, noPassedDays = timedOnly) { onSchedule(ItemSchedule.Timed(it)) }
             },
         )
         if (!timedOnly) {
@@ -902,14 +902,23 @@ private fun scheduleLabel(state: ItemDetailUiState, timeFormat: OrbitTimeFormat)
     else -> stringResource(R.string.core_item_detail_not_scheduled)
 }
 
-private fun showDateTimePicker(context: Context, initialValue: Long, timeFormat: OrbitTimeFormat, onSelected: (Long) -> Unit) {
+private fun showDateTimePicker(
+    context: Context,
+    initialValue: Long,
+    timeFormat: OrbitTimeFormat,
+    noPassedDays: Boolean,
+    onSelected: (Long) -> Unit,
+) {
     val zone = ZoneId.systemDefault()
     val initial = Instant.ofEpochMilli(initialValue).atZone(zone).toLocalDateTime()
     DatePickerDialog(context, { _, year, month, day ->
         TimePickerDialog(context, { _, hour, minute ->
             onSelected(LocalDateTime.of(year, month + 1, day, hour, minute).atZone(zone).toInstant().toEpochMilli())
         }, initial.hour, initial.minute, timeFormat.uses24HourClock).show()
-    }, initial.year, initial.monthValue - 1, initial.dayOfMonth).show()
+    }, initial.year, initial.monthValue - 1, initial.dayOfMonth).apply {
+        // B5: a reminder cannot be moved to a day that has passed; an earlier time today is refused on save.
+        if (noPassedDays) datePicker.minDate = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+    }.show()
 }
 
 private fun showDateOnlyPicker(context: Context, initial: LocalDate, onSelected: (LocalDate) -> Unit) {

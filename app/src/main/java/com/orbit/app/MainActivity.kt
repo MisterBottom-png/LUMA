@@ -24,6 +24,7 @@ import com.orbit.app.ui.LocalDataViewModel
 import com.orbit.app.ui.navigation.OrbitApp
 import com.orbit.app.ui.theme.OrbitTheme
 import com.orbit.app.reminders.ReminderNotificationWorker
+import com.orbit.app.reminders.ReminderCapabilities
 import com.orbit.app.reminders.ReminderNotifier
 import com.orbit.app.reminders.ReminderRescheduleWorker
 import com.orbit.app.ui.localization.AppLanguage
@@ -34,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     private var openReviewRequested by mutableStateOf(false)
     private var sharedText by mutableStateOf<String?>(null)
     private var newThoughtRequested by mutableStateOf(false)
+    private var deliveryKey: BooleanArray? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_Orbit)
@@ -44,6 +46,9 @@ class MainActivity : AppCompatActivity() {
             readLaunchIntent(intent)
             // Restores alarms lost to a force-stop and surfaces reminders missed meanwhile.
             ReminderRescheduleWorker.enqueue(this)
+            deliveryKey = ReminderCapabilities.deliveryKey(this)
+        } else {
+            deliveryKey = savedInstanceState.getBooleanArray(DeliveryKeyState)
             // Thoughts saved just before LUMA was closed get their suggestion now.
             val container = (application as OrbitApplication).container
             container.applicationScope.launch {
@@ -102,6 +107,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // B6: notifications or exact alarms were turned on or off while LUMA was away.
+        // Reconcile re-arms reminders that can ring again, and only those clear their
+        // "can't ring" state; reminders whose time passed meanwhile are handled as missed.
+        val current = ReminderCapabilities.deliveryKey(this)
+        val previous = deliveryKey
+        if (previous != null && !previous.contentEquals(current)) ReminderRescheduleWorker.enqueue(this)
+        deliveryKey = current
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        deliveryKey?.let { outState.putBooleanArray(DeliveryKeyState, it) }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -139,5 +160,9 @@ class MainActivity : AppCompatActivity() {
             ?.let(LocaleListCompat::forLanguageTags)
             ?: LocaleListCompat.getEmptyLocaleList()
         AppCompatDelegate.setApplicationLocales(locales)
+    }
+
+    private companion object {
+        const val DeliveryKeyState = "reminderDeliveryKey"
     }
 }

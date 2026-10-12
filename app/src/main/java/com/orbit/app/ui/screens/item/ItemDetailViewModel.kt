@@ -18,6 +18,8 @@ import com.orbit.app.data.local.entity.TaskStatus
 import com.orbit.app.domain.ai.AiRouteSource
 import com.orbit.app.domain.analyzer.TinyActionSuggestion
 import com.orbit.app.integrations.gemini.GeminiApiErrorKind
+import com.orbit.app.reminders.ReminderTimeCheck
+import com.orbit.app.reminders.ReminderTimeProblem
 import com.orbit.app.ui.navigation.ItemDetailType
 import com.orbit.app.ui.localization.effectiveAppLocale
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -177,6 +179,14 @@ class ItemDetailViewModel(
         viewModelScope.launch {
             if (currentType == ItemDetailType.Reminder) {
                 val timed = schedule as? ItemSchedule.Timed ?: return@launch
+                // B5: a time that cannot ring is refused with its reason, not "Schedule updated."
+                val problem = runCatching { container.reminderRepository.getById(itemId) }.getOrNull()?.let {
+                    timeProblem(timed.epochMillis, it.copy(dueAt = timed.epochMillis))
+                }
+                if (problem != null) {
+                    load(message = problemMessage(problem))
+                    return@launch
+                }
                 runCatching {
                     container.reminderRepository.getById(itemId)?.let {
                         container.reminderRepository.update(
@@ -219,11 +229,19 @@ class ItemDetailViewModel(
             val now = System.currentTimeMillis()
             runCatching {
                 container.reminderRepository.getById(itemId)?.let {
-                    container.reminderRepository.update(
-                        it.copy(notificationOffsetMinutes = offsetMinutes, updatedAt = now),
-                    )
+                    val changed = it.copy(notificationOffsetMinutes = offsetMinutes, updatedAt = now)
+                    // A heads-up that would already be in the past is refused; an old reminder
+                    // whose own time passed may still change it (it does not ring either way).
+                    val problem = timeProblem(it.dueAt, changed, now)
+                    if (problem == ReminderTimeProblem.AlertPassed) return@runCatching problem
+                    container.reminderRepository.update(changed)
                 }
-            }.onSuccess {
+                null
+            }.onSuccess { problem ->
+                if (problem != null) {
+                    load(message = problemMessage(problem))
+                    return@onSuccess
+                }
                 load(message = localized(R.string.core_item_detail_notification_updated))
             }.onFailure {
                 _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_notification_update_failed)) }
@@ -254,12 +272,17 @@ class ItemDetailViewModel(
             val now = System.currentTimeMillis()
             runCatching {
                 container.reminderRepository.getById(itemId)?.let {
-                    container.reminderRepository.update(
-                        it.copy(notificationEnabled = enabled, updatedAt = now),
-                    )
-                }
-            }.onSuccess {
-                load(message = localized(R.string.core_item_detail_notification_updated))
+                    val changed = it.copy(notificationEnabled = enabled, updatedAt = now)
+                    container.reminderRepository.update(changed)
+                    enabled && changed.completedAt == null && timeProblem(changed.dueAt, changed, now) != null
+                } ?: false
+            }.onSuccess { wontRing ->
+                // B5: turning the notification back on for a passed time says it will not ring.
+                load(
+                    message = localized(
+                        if (wontRing) R.string.reminder_saved_wont_ring else R.string.core_item_detail_notification_updated,
+                    ),
+                )
             }.onFailure {
                 _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_notification_update_failed)) }
             }
@@ -339,6 +362,7 @@ class ItemDetailViewModel(
     fun toggleComplete() {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
+            var reopenedWontRing = false
             runCatching {
                 when (currentType) {
                     ItemDetailType.Task -> container.taskRepository.getById(itemId)?.let {
@@ -353,13 +377,18 @@ class ItemDetailViewModel(
                     }
 
                     ItemDetailType.Reminder -> container.reminderRepository.getById(itemId)?.let {
-                        container.reminderRepository.update(
-                            if (it.completedAt == null) {
-                                com.orbit.app.reminders.ReminderRepeats.markDone(it, now)
-                            } else {
-                                it.copy(completedAt = null, updatedAt = now)
-                            },
-                        )
+                        val reopened = if (it.completedAt == null) {
+                            com.orbit.app.reminders.ReminderRepeats.markDone(it, now)
+                        } else {
+                            it.copy(completedAt = null, updatedAt = now)
+                        }
+                        container.reminderRepository.update(reopened)
+                        // B5: reopening a reminder whose time passed says it will not ring.
+                        if (it.completedAt != null && reopened.notificationEnabled &&
+                            timeProblem(reopened.dueAt, reopened, now) != null
+                        ) {
+                            reopenedWontRing = true
+                        }
                     }
 
                     ItemDetailType.Capture -> container.captureRepository.getById(itemId)?.let {
@@ -380,12 +409,31 @@ class ItemDetailViewModel(
                     ItemDetailType.Note -> Unit
                 }
             }.onSuccess {
-                load(message = localized(R.string.core_item_detail_updated_message))
+                load(
+                    message = localized(
+                        if (reopenedWontRing) R.string.reminder_saved_wont_ring else R.string.core_item_detail_updated_message,
+                    ),
+                )
             }.onFailure {
                 _uiState.update { state -> state.copy(message = localized(R.string.core_item_detail_update_failed)) }
             }
         }
     }
+
+    private fun timeProblem(
+        dueAt: Long,
+        reminder: ReminderEntity,
+        now: Long = System.currentTimeMillis(),
+    ): ReminderTimeProblem? = ReminderTimeCheck.problem(dueAt, reminder.notificationOffsetMinutes, now)
+        // With the notification off only the reminder's own time matters.
+        ?.takeUnless { it == ReminderTimeProblem.AlertPassed && !reminder.notificationEnabled }
+
+    private fun problemMessage(problem: ReminderTimeProblem): String = localized(
+        when (problem) {
+            ReminderTimeProblem.TargetPassed -> R.string.reminder_time_passed
+            ReminderTimeProblem.AlertPassed -> R.string.reminder_alert_passed
+        },
+    )
 
     fun setTaskStatus(status: TaskStatus) {
         if (currentType != ItemDetailType.Task || status == TaskStatus.Archived) return
