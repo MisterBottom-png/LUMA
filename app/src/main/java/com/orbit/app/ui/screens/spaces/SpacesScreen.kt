@@ -88,6 +88,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
@@ -1236,23 +1237,32 @@ internal fun SpaceEditorDialog(
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
         ) {
-            Box(
+            // L4: the title sits between Cancel and an equal space, so it never runs under Cancel.
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp)
                     .heightIn(min = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterStart)) {
+                var cancelWidth by remember { mutableStateOf(0) }
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.onSizeChanged { cancelWidth = it.width },
+                ) {
                     Text(stringResource(R.string.core_cancel))
                 }
                 Text(
                     text = stringResource(if (space == null) R.string.spaces_new_space else R.string.core_spaces_edit),
                     modifier = Modifier
-                        .align(Alignment.Center)
+                        .weight(1f)
                         .semantics { heading() },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 2,
                 )
+                Spacer(Modifier.width(with(LocalDensity.current) { cancelWidth.toDp() }))
             }
 
             // The Space as it will look in the list.
@@ -1338,11 +1348,15 @@ internal fun SpaceEditorDialog(
                     accentChoices.forEach { choice ->
                         val selected = accent == choice
                         val swatch = choice.asColor()
+                        val swatchName = androidx.compose.ui.res.stringArrayResource(R.array.spaces_colour_names)
+                            .getOrElse(accentChoices.indexOf(choice)) { choice }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp)
-                                .selectable(selected = selected, role = Role.RadioButton, onClick = { pickStyle(icon, choice) }),
+                                .selectable(selected = selected, role = Role.RadioButton, onClick = { pickStyle(icon, choice) })
+                                // N028: each colour is named for TalkBack.
+                                .semantics { contentDescription = swatchName },
                             contentAlignment = Alignment.Center,
                         ) {
                             Box(
@@ -1491,7 +1505,12 @@ private fun MoveItemDialog(
                 .calmPressHaptics(),
             shape = OrbitModalDefaults.DialogShape,
         ) {
-            Column(modifier = Modifier.padding(OrbitSpacing.ExtraLarge)) {
+            // L8: with many Spaces or large text the list scrolls instead of running off screen.
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(OrbitSpacing.ExtraLarge),
+            ) {
                 Text(
                     text = stringResource(R.string.core_spaces_move_to),
                     style = MaterialTheme.typography.headlineSmall,

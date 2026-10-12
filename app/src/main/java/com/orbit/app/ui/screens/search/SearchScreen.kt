@@ -391,7 +391,7 @@ private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier
-            .heightIn(min = 40.dp)
+            .heightIn(min = 48.dp)
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
         shape = CircleShape,
         color = if (selected) colors.primaryContainer else colors.surfaceContainerLowest,

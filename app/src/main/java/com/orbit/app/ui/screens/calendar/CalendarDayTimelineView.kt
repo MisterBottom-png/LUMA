@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -226,9 +227,10 @@ private fun CalendarEntryRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // L6: a time is never cut ("9:30 PM" at large text): the column grows instead.
         Text(
             text = timeText,
-            modifier = Modifier.width(76.dp),
+            modifier = Modifier.widthIn(min = 76.dp),
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
@@ -236,6 +238,7 @@ private fun CalendarEntryRow(
             ),
             color = if (isDone) colors.onSurfaceVariant else colors.onSurface,
             maxLines = 1,
+            softWrap = false,
         )
         Column(
             modifier = Modifier
@@ -295,14 +298,16 @@ private fun CalendarNowRow(timeText: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(28.dp)
+            .heightIn(min = 28.dp)
             .padding(horizontal = 16.dp)
             .clearAndSetSemantics { contentDescription = nowLabel },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = timeText,
-            modifier = Modifier.width(76.dp),
+            modifier = Modifier.widthIn(min = 76.dp),
+            maxLines = 1,
+            softWrap = false,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.SemiBold,
                 fontFeatureSettings = "tnum",

@@ -201,4 +201,14 @@
     <string name="space_capture_kept_later">Kept in %1$s under Not sorted yet.</string>
     <string name="space_capture_time_passed">That time has passed. Pick a later one.</string>
     <string name="spaces_added_just_now">Added just now</string>
+    <string-array name="spaces_colour_names">
+        <item>Indigo</item>
+        <item>Violet</item>
+        <item>Blue</item>
+        <item>Orange</item>
+        <item>Green</item>
+        <item>Pink</item>
+        <item>Teal</item>
+        <item>Amber</item>
+    </string-array>
 </resources>

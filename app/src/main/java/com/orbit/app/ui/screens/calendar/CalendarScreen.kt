@@ -145,16 +145,21 @@ fun CalendarScreen(
                     .heightIn(min = 48.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // L1: the month gives way (ellipsis); the year is never split over two lines.
                 Text(
                     text = monthName,
+                    modifier = Modifier.weight(1f, fill = false),
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
                 if (showYear) {
                     Text(
                         text = shownMonth.year.toString(),
                         modifier = Modifier.padding(start = 8.dp, top = 6.dp),
+                        maxLines = 1,
+                        softWrap = false,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Normal,
                             fontFeatureSettings = "tnum",

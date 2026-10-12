@@ -51,6 +51,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.collapse
+import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -246,7 +248,9 @@ internal fun NeedsYouMoreRow(expanded: Boolean, onToggle: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onToggle)
+                // N028: a button that says whether it is open.
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onToggle)
+                .semantics { if (expanded) collapse { onToggle(); true } else expand { onToggle(); true } }
                 .heightIn(min = 56.dp)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -497,7 +501,8 @@ internal fun FromEarlierGroup(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onExpandedChange(!expanded) }
+                .clickable(role = androidx.compose.ui.semantics.Role.Button) { onExpandedChange(!expanded) }
+                .semantics { if (expanded) collapse { onExpandedChange(false); true } else expand { onExpandedChange(true); true } }
                 .heightIn(min = 64.dp)
                 .padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -655,7 +660,9 @@ internal fun WeeklyLookBackRow(expanded: Boolean, suggested: Boolean, onToggle: 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onToggle)
+                // N028: a button that says whether it is open.
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onToggle)
+                .semantics { if (expanded) collapse { onToggle(); true } else expand { onToggle(); true } }
                 .heightIn(min = 56.dp)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -701,7 +708,14 @@ internal fun SortOneByOne(
         save = { it.value.toList() },
         restore = { mutableStateOf(it.toSet()) },
     )) { mutableStateOf(emptySet<Long>()) }
-    val total = rememberSaveable { items.size }
+    // N053: the count follows thoughts that arrive while sorting; it never shrinks.
+    val seen = rememberSaveable(saver = androidx.compose.runtime.saveable.listSaver(
+        save = { it.value.toList() },
+        restore = { mutableStateOf(it.toSet()) },
+    )) { mutableStateOf(items.map { it.captureId }.toSet()) }
+    val newIds = items.map { it.captureId }.filterNot { it in seen.value }
+    if (newIds.isNotEmpty()) seen.value = seen.value + newIds
+    val total = (seen.value + newIds).size
     val waiting = items.filter { it.captureId !in skipped.value }
     val current = waiting.firstOrNull()
     val position = (total - waiting.size + 1).coerceIn(1, total.coerceAtLeast(1))

@@ -105,4 +105,17 @@ class BottomNavigationVisibilityTest {
             ),
         )
     }
+
+    @Test
+    fun sortingOneByOneHidesTheBar() {
+        // N053: the one-by-one view is modal; the tabs behind it can't be tapped.
+        assertFalse(
+            shouldShowFloatingBottomNavigation(
+                imeVisible = false,
+                selectedRoute = OrbitDestination.Review.route,
+                appearanceSubsectionOpen = false,
+                focusedSortOpen = true,
+            ),
+        )
+    }
 }

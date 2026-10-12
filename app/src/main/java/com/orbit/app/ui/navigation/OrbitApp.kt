@@ -112,6 +112,7 @@ fun OrbitApp(
     var showSituationAi by rememberSaveable { mutableStateOf(false) }
     var situationAiQuestion by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
+    var focusedSortOpen by rememberSaveable { mutableStateOf(false) }
     // A Space's "+" writes the thought over the Space; the user stays where they are.
     // The Space "+" sheet: one flow for every Space, drafts kept per Space (review §9.2).
     val spaceCaptureViewModel: com.orbit.app.ui.screens.spaces.SpaceCaptureViewModel = viewModel(
@@ -135,6 +136,7 @@ fun OrbitApp(
         imeVisible = imeVisible,
         selectedRoute = selectedRoute,
         appearanceSubsectionOpen = settingsSubsectionOpen,
+        focusedSortOpen = focusedSortOpen && selectedRoute == OrbitDestination.Review.route,
     )
 
     // A first launch opens straight on Home with the starter Spaces already there.
@@ -557,6 +559,7 @@ fun OrbitApp(
                     }
                     ReviewScreen(
                         uiState = reviewUiState,
+                        onFocusedSortChanged = { focusedSortOpen = it },
                         timeFormat = timeFormat,
                         onReviewItemSelected = { item ->
                             navController.navigate(item.toItemDetailRoute()) {
@@ -1029,7 +1032,8 @@ internal fun shouldShowFloatingBottomNavigation(
     imeVisible: Boolean,
     selectedRoute: String?,
     appearanceSubsectionOpen: Boolean,
-): Boolean = !imeVisible &&
+    focusedSortOpen: Boolean = false,
+): Boolean = !imeVisible && !focusedSortOpen &&
     selectedRoute != FirstTimeTutorialDestination.Route &&
     selectedRoute != OrbitDestination.Settings.route &&
     selectedRoute != SearchDestination.Route &&

@@ -503,6 +503,9 @@ private fun ItemDetailContent(
                 Modifier.weight(1f).padding(start = 4.dp).semantics { heading() },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
+                // L7: beside Cancel and Save the type name stays on one line.
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             if (!state.isLoading && !state.isMissing && state.canEditTitle) {
                 if (isEditing) {

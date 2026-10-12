@@ -45,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.pluralStringResource
@@ -105,6 +106,7 @@ internal object ReviewSchedule {
 @Composable
 fun ReviewScreen(
     uiState: ReviewUiState,
+    onFocusedSortChanged: (Boolean) -> Unit = {},
     timeFormat: OrbitTimeFormat,
     onReviewItemSelected: (ReviewItem) -> Unit,
     onKeepTaskActive: (ReviewLoop) -> Unit,
@@ -177,6 +179,8 @@ fun ReviewScreen(
     var breathing by rememberSaveable { mutableStateOf(false) }
     var earlierExpanded by rememberSaveable { mutableStateOf(false) }
     var sortingOneByOne by rememberSaveable { mutableStateOf(false) }
+    // N053: the tab bar steps aside while one-by-one is open.
+    LaunchedEffect(sortingOneByOne) { onFocusedSortChanged(sortingOneByOne) }
     var moreExpanded by rememberSaveable { mutableStateOf(false) }
     val navigationBottomPadding = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
@@ -267,6 +271,8 @@ fun ReviewScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                // N053: behind the one-by-one view the list is not reachable by TalkBack.
+                .then(if (sortingOneByOne) Modifier.clearAndSetSemantics { } else Modifier)
                 .orbitScrollEdgeFade(
                     top = headerClearance,
                     bottom = OrbitBottomNavigationDefaults.ScrollFadeHeight + navigationBottomPadding,
@@ -420,6 +426,7 @@ fun ReviewScreen(
             onBreathe = { breathing = true },
             modifier = Modifier
                 .onSizeChanged { headerHeightPx = it.height }
+                .then(if (sortingOneByOne) Modifier.clearAndSetSemantics { } else Modifier)
                 .padding(start = 20.dp, top = statusBarTopPadding + 20.dp, end = 12.dp),
         )
         if (sortingOneByOne) {

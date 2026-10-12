@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.orbit.app.R
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -34,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -142,7 +142,6 @@ private fun NavTab(
     val alertDescription = stringResource(R.string.needs_you_attention)
     Column(
         modifier = modifier
-            .semantics { if (alert) stateDescription = alertDescription }
             .heightIn(min = 56.dp)
             .clip(RoundedCornerShape(20.dp))
             .selectable(
@@ -171,12 +170,14 @@ private fun NavTab(
                 modifier = Modifier.size(22.dp),
             )
             if (alert) {
+                // N028: the dot is read after the tab's name, so "Selected" is still announced.
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 3.dp, end = 10.dp)
                         .size(8.dp)
-                        .background(MaterialTheme.colorScheme.error, CircleShape),
+                        .background(MaterialTheme.colorScheme.error, CircleShape)
+                        .semantics { contentDescription = alertDescription },
                 )
             }
         }

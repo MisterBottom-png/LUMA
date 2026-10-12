@@ -82,12 +82,14 @@ class FloatingBottomNavigationJvmTest {
                 }
             }
         }
-        val alert = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Something didn’t work")
-        composeRule.onAllNodes(alert).assertCountEquals(0)
+        // N028: the dot is named inside the tab, so the tab's own "Selected" state stays.
+        val alert = androidx.compose.ui.test.hasContentDescription("Something didn’t work", substring = true)
+        composeRule.onAllNodes(alert, useUnmergedTree = true).assertCountEquals(0)
 
         failed = true
         composeRule.waitForIdle()
-        composeRule.onAllNodes(alert).assertCountEquals(1)
+        composeRule.onAllNodes(alert, useUnmergedTree = true).assertCountEquals(1)
+        composeRule.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)).assertCountEquals(0)
         // A dot, not a number: no tab label gains a count.
         composeRule.onNodeWithText("Needs you").assertExists()
         composeRule.onAllNodes(SemanticsMatcher("has a digit") { node ->

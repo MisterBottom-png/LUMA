@@ -199,4 +199,14 @@
     <string name="space_capture_kept_later">Jäi ruumi „%1$s“ jaotisse „Veel sorteerimata“.</string>
     <string name="space_capture_time_passed">See aeg on möödas. Vali hilisem.</string>
     <string name="spaces_added_just_now">Lisatud just praegu</string>
+    <string-array name="spaces_colour_names">
+        <item>Indigo</item>
+        <item>Violetne</item>
+        <item>Sinine</item>
+        <item>Oranž</item>
+        <item>Roheline</item>
+        <item>Roosa</item>
+        <item>Sinakasroheline</item>
+        <item>Merevaigukollane</item>
+    </string-array>
 </resources>

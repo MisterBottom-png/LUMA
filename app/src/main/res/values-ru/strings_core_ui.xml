@@ -177,4 +177,5 @@
     <string name="sort_one_stays">Останется в «Разобрать»</string>
     <string name="sort_one_more_options">Другие варианты</string>
     <string name="sort_one_edit_text">Изменить текст</string>
+    <string name="core_remove_label">Убрать метку %1$s</string>
 </resources>

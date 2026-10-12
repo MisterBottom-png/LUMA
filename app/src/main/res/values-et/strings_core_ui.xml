@@ -171,4 +171,5 @@
     <string name="sort_one_stays">Jääb sorteerimiseks ootele</string>
     <string name="sort_one_more_options">Rohkem valikuid</string>
     <string name="sort_one_edit_text">Muuda sõnu</string>
+    <string name="core_remove_label">Eemalda silt %1$s</string>
 </resources>

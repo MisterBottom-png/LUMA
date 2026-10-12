@@ -25,7 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.NotificationsNone
@@ -46,6 +46,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -223,7 +228,8 @@ internal fun SortForm(
             shape = RoundedCornerShape(16.dp),
             trailingIcon = {
                 IconButton(onClick = { editingTitle = false }) {
-                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.core_done))
+                    // N028: the icon matches what it does and says ("Done").
+                    Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.core_done))
                 }
             },
         )
@@ -349,6 +355,7 @@ internal fun SortForm(
                     selected = false,
                     enabled = !isPerformingAction,
                     onClick = { onRemoveLabel(label) },
+                    actionDescription = stringResource(R.string.core_remove_label, label),
                 )
             }
         }
@@ -503,13 +510,28 @@ internal fun SortChip(
     label: String,
     selected: Boolean,
     enabled: Boolean,
+    /** Set for a chip that removes something: it is a button with this name (B18). */
+    actionDescription: String? = null,
     onClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier
-            .heightIn(min = 40.dp)
-            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick),
+            // N029: a 48 dp touch target.
+            .heightIn(min = 48.dp)
+            .then(
+                if (actionDescription != null) {
+                    Modifier
+                        .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+                        .clearAndSetSemantics {
+                            contentDescription = actionDescription
+                            role = Role.Button
+                            if (!enabled) disabled()
+                        }
+                } else {
+                    Modifier.selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
+                },
+            ),
         shape = CircleShape,
         color = if (selected) colors.primaryContainer else colors.surfaceContainerLowest,
         contentColor = if (selected) colors.onPrimaryContainer else colors.onSurface,

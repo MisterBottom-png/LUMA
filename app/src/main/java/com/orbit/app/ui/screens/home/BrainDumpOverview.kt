@@ -165,12 +165,13 @@ internal fun BrainDumpOverview(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Row(
+        // L5: at large text or in a long language the two buttons wrap instead of squeezing.
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        androidx.compose.foundation.layout.FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = callbacks.onKeepAsOneNote, enabled = !state.actionInProgress) {
                 Text(

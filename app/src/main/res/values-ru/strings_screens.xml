@@ -203,4 +203,14 @@
     <string name="space_capture_kept_later">Оставлено в «%1$s» в разделе «Ещё не разобрано».</string>
     <string name="space_capture_time_passed">Это время уже прошло. Выберите более позднее.</string>
     <string name="spaces_added_just_now">Добавлено только что</string>
+    <string-array name="spaces_colour_names">
+        <item>Индиго</item>
+        <item>Фиолетовый</item>
+        <item>Синий</item>
+        <item>Оранжевый</item>
+        <item>Зелёный</item>
+        <item>Розовый</item>
+        <item>Бирюзовый</item>
+        <item>Янтарный</item>
+    </string-array>
 </resources>

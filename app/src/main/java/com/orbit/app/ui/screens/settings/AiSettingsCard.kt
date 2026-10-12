@@ -31,6 +31,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -547,9 +551,12 @@ private fun AiSettingsDetailsCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                        // N028: the switch says which rule it turns on or off.
+                        val ruleSwitchLabel = rule.title
                         Switch(
                             checked = rule.enabled,
                             onCheckedChange = { enabled -> onUpdateLearnedRule(rule.copy(enabled = enabled)) },
+                            modifier = Modifier.semantics { contentDescription = ruleSwitchLabel },
                         )
                         TextButton(onClick = { onEditLearnedRule(rule) }) {
                             Text(stringResource(R.string.settings_edit))
@@ -610,19 +617,24 @@ private fun AiFeatureSwitch(
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    // L3/N028: the whole row is one labelled switch; a long label wraps beside it.
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = title,
+            modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             enabled = enabled,
         )
     }
