@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.home
 
+import com.orbit.app.domain.capture.taskStatus
 import com.orbit.app.domain.capture.isTaskLike
 import com.orbit.app.domain.capture.taskDateEpochDay
 import com.orbit.app.domain.capture.reminderTime
@@ -436,6 +437,7 @@ class CaptureSortViewModel(
                 title = title,
                 dueAt = due.at,
                 scheduledDateEpochDay = due.dayEpochDay,
+                status = suggestion.analysis.lifeSignal.taskStatus(),
                 labelNames = labelNames,
             )
             ConfirmedActionResult(
@@ -705,11 +707,8 @@ class CaptureSortViewModel(
 
     /** "Someday" and "Waiting for" are kept as that task status. */
     private fun taskStatusFor(sourceKey: String): TaskStatus =
-        when (_uiState.value.suggestion?.analysis?.brainDumpItems?.firstOrNull { it.id == sourceKey }?.lifeSignal) {
-            CaptureLifeSignal.Someday -> TaskStatus.Someday
-            CaptureLifeSignal.WaitingFor -> TaskStatus.WaitingFor
-            else -> TaskStatus.Open
-        }
+        (_uiState.value.suggestion?.analysis?.brainDumpItems?.firstOrNull { it.id == sourceKey }?.lifeSignal ?: CaptureLifeSignal.None)
+            .taskStatus()
 
     private fun BrainDumpReminderStatus.toDomainStatus() = when (this) {
         BrainDumpReminderStatus.Unspecified -> ReminderTimeStatus.Unspecified

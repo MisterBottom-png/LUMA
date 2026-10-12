@@ -5,7 +5,7 @@
     <string name="settings_export_choose_location">Vali asukoht</string>
     <string name="settings_export_complete">Eksport salvestati sinu valitud asukohta.</string>
     <string name="settings_gemini_consent_title">Kas lubada Gemini päring?</string>
-    <string name="settings_gemini_consent_body">Kui see on lubatud, saadab Tallele Google Gemini API-le sinu valitud teksti ja ainult selle toimingu jaoks vajaliku asjakohase kohaliku konteksti. Sinu API-võti jääb selles seadmes krüptituks. Gemini ei saa sinu andmeid ilma kinnituseta muuta, ajastada, kustutada ega saata. Režiimi Ainult kohalik valimine tühistab selle nõusoleku.</string>
+    <string name="settings_gemini_consent_body">Kui see on lubatud, saadab Tallele Google Gemini API-le mõtted, mille salvestad ajal, mil mõni Gemini lüliti on sees, ja ainult selleks sammuks vajaliku kohaliku konteksti. Sinu API-võti jääb selles seadmes krüptituks. Selged mõtted paigutatakse seejärel ise samade reeglitega nagu telefonis: üks märge, ülesanne või meeldetuletus, mida saad muuta või tagasi võtta. Meeldetuletus pannakse ainult selge tulevase aja jaoks ning „ära…“, „kui…“ või tsitaadis mõtetega ei tehta midagi. Gemini ei kustuta, ei lõpeta ega saada midagi. Kui tahad iga mõtte ise sorteerida, lülita sisse „Sorteeri kohe pärast salvestamist“. Režiimi Ainult kohalik valimine tühistab selle nõusoleku.</string>
     <string name="settings_gemini_consent_confirm">Luba Gemini</string>
     <string name="settings_local_learning_title">Kohalik AI õppimine</string>
     <string name="settings_local_learning_toggle">Kasuta minu parandusi Gemini soovitustes</string>

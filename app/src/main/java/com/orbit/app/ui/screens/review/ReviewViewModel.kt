@@ -1,5 +1,6 @@
 package com.orbit.app.ui.screens.review
 
+import com.orbit.app.domain.capture.taskStatus
 import com.orbit.app.reminders.ReminderSaveOutcome
 import com.orbit.app.reminders.worst
 import androidx.lifecycle.ViewModel
@@ -312,6 +313,9 @@ class ReviewViewModel internal constructor(
             title = item.title,
             dueAt = null,
             scheduledDateEpochDay = item.taskDateEpochDay,
+            status = container.database.captureSuggestionDao().getByCaptureId(item.captureId)
+                ?.taskStatus()
+                ?: TaskStatus.Open,
         )
     }
 

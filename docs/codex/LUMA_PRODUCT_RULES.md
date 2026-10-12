@@ -15,7 +15,10 @@ Do not turn Home into a dense dashboard, analytics view, productivity score, lar
 - Raw thoughts are private source material.
 - AI processing records remain internal.
 - Spaces and Life Feed show clean final user-facing items.
-- Do not show the original raw capture as a separate Space card.
+- A thought that is **not sorted yet** is shown as itself, once: in To sort (Needs you),
+  in Search, and in its chosen Space under a separate "Not sorted yet" section. Once it is
+  filed, only the item it became is shown, carrying the full text. A filed or processed
+  thought is never shown as a separate card.
 - Do not show `Processed` as a user-facing category or card.
 - One capture should not produce duplicate visible items.
 
@@ -25,7 +28,7 @@ Final user-facing types may include tasks, reminders, notes, ideas, someday item
 
 AI may suggest, classify, summarize, explain, and draft.
 
-AI must not silently create, edit, delete, archive, complete, schedule, or send important user data. Important proposed actions require confirmation. Low-confidence output should ask for missing information or route to Review rather than inventing details.
+AI must not silently create, edit, delete, archive, complete, schedule, or send important user data. Important proposed actions require confirmation. The one approved exception is automatic filing of a newly saved, clear thought (see `LUMA_AI_BEHAVIOR_CONTRACT.md`): it is visible (a receipt with Change), undoable, pausable, and never applies to negated, conditional or unclear thoughts. Low-confidence output should ask for missing information or route to Review rather than inventing details.
 
 AI suggestions should be dismissible and should explain their source or reason when practical.
 

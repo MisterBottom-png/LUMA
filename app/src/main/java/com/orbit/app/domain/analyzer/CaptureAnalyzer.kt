@@ -210,7 +210,7 @@ class LocalRulesCaptureAnalyzer(
             reminderTime.status != ReminderTimeStatus.Unspecified
         val explicitReminder = rulePacks.any { pack ->
             pack.explicitReminderSignals.any { signal -> normalized.containsSignal(signal) }
-        }
+        } || EstonianSplitReminder.containsMatchIn(normalized)
         val spaceRule = rulePacks
             .flatMap(CaptureRulePack::spaceRules)
             .map { rule ->
@@ -233,8 +233,11 @@ class LocalRulesCaptureAnalyzer(
             .distinct()
             .ifEmpty { listOf(suggestedSpace) }
 
+        // An explicit "remind me" phrase is a request to do something in every language
+        // ("tuleta meelde" counts like "remind me" and "напомни"), not only where the
+        // word list also happens to call it a task word.
         val signalCount = listOf(
-            taskSuggested,
+            taskSuggested || explicitReminder,
             reminderPossible,
             spaceRule != null,
         ).count { it }
@@ -580,6 +583,14 @@ private fun String.hasReminderSignal(rulePacks: List<CaptureRulePack>): Boolean 
     rulePacks.any { pack ->
         (pack.reminderSignals + pack.explicitReminderSignals).any { signal -> containsSignal(signal) }
     }
+
+/**
+ * Estonian splits "tuleta meelde" around other words ("tuleta mulle homme kell 9 meelde"),
+ * so the phrase is matched with a few words between its two parts.
+ */
+private val EstonianSplitReminder = Regex(
+    "(?<![\\p{L}\\p{N}])tuleta(?:ge)?(?![\\p{L}\\p{N}])[^.!?\\n]{0,60}?(?<![\\p{L}\\p{N}])meelde(?![\\p{L}\\p{N}])",
+)
 
 private fun String.containsSignal(signal: String): Boolean = Regex(
     pattern = "(?<![\\p{L}\\p{N}])${Regex.escape(signal)}(?![\\p{L}\\p{N}])",

@@ -576,13 +576,11 @@ abstract class ScreenTour(private val theme: String) {
         shot("home-question-kept")
     }
 
-    /** Step 5: "Sort right after saving" sits under Settings › Reminders › Advanced. */
+    /** "Sort right after saving" (the pause for automatic filing) sits in Settings › Saving. */
     private fun reminderAdvancedScreens() {
         tapTab("Home")
         step("settings") { compose.onNodeWithContentDescription("Open settings").performClick(); compose.waitForIdle() }
-        step("advanced") {
-            compose.onNodeWithText("Advanced").performScrollTo().performClick()
-            compose.waitForIdle()
+        step("saving") {
             compose.onNodeWithText("Open the keyboard on Home").performScrollTo()
             compose.waitForIdle()
         }

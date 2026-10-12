@@ -154,52 +154,29 @@ internal fun ReminderHealthFix.labelRes(): Int = when (this) {
 }
 
 /**
- * Reminders › Advanced: the two behaviour switches, folded away. "Sort right after saving"
- * turns off automatic filing; "Open the keyboard on Home" only changes how Home opens.
+ * Saving: how a new thought is handled. "Sort right after saving" is also the pause for
+ * automatic filing (local and Gemini), so it sits in plain sight next to saving, not under
+ * reminders (review F11). "Open the keyboard on Home" only changes how Home opens.
  */
 @Composable
-internal fun ReminderAdvancedSettings(
+internal fun SavingSettings(
     settings: AppSettings,
     onSettingsChanged: (AppSettings) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
     Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clickable(role = Role.Button) { expanded = !expanded },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.settings_reminders_advanced),
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { heading() },
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Icon(
-                imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (expanded) {
-            SettingsSwitchRow(
-                title = stringResource(R.string.settings_sort_right_after_saving),
-                body = stringResource(R.string.settings_sort_right_after_saving_body),
-                checked = settings.sortRightAfterSaving,
-                onCheckedChange = { onSettingsChanged(settings.copy(sortRightAfterSaving = it)) },
-            )
-            SettingsSwitchRow(
-                title = stringResource(R.string.settings_focus_capture),
-                body = stringResource(R.string.settings_focus_capture_body),
-                checked = settings.focusCaptureOnOpen,
-                onCheckedChange = { onSettingsChanged(settings.copy(focusCaptureOnOpen = it)) },
-            )
-        }
+        SettingsSwitchRow(
+            title = stringResource(R.string.settings_sort_right_after_saving),
+            body = stringResource(R.string.settings_sort_right_after_saving_body),
+            checked = settings.sortRightAfterSaving,
+            onCheckedChange = { onSettingsChanged(settings.copy(sortRightAfterSaving = it)) },
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.settings_focus_capture),
+            body = stringResource(R.string.settings_focus_capture_body),
+            checked = settings.focusCaptureOnOpen,
+            onCheckedChange = { onSettingsChanged(settings.copy(focusCaptureOnOpen = it)) },
+        )
     }
 }
 

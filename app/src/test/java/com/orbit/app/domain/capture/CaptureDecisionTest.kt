@@ -73,15 +73,15 @@ class CaptureDecisionTest {
         Row("en", "buy milk\ncall the dentist\nremind me tomorrow at 16:00 to pay rent", keep),
         // Estonian
         Row("et", "osta homme piima", task),
-        // Known analyzer gap, not a decision: the local rules score this explicit reminder Medium.
-        Row("et", "tuleta mulle homme meelde", keep),
+        // An explicit reminder counts the same in every language (F02).
+        Row("et", "tuleta mulle homme meelde", ask(TimeUnclear)),
         Row("et", "tuleta meelde auto kohta", ask(TimeUnclear)),
-        // Known analyzer gap, not a decision: the local rules score these explicit reminders Medium.
-        Row("et", "tuleta mulle meelde homme kell 9 lilli kasta", keep),
-        Row("et", "tuleta mulle 1 minuti pärast meelde", keep),
-        Row("et", "tuleta mulle 1 minuti pärast meelde", keep, decidedMinutesLater = 5),
-        Row("et", "tuleta mulle 2 tunni pärast meelde pesu välja võtta", keep),
-        Row("et", "tuleta mulle meelde eile kell 9 lilli kasta", keep),
+        Row("et", "tuleta mulle meelde homme kell 9 lilli kasta", reminder),
+        Row("et", "tuleta mulle 1 minuti pärast meelde", reminder),
+        Row("et", "tuleta mulle 1 minuti pärast meelde", ask(TimePassed), decidedMinutesLater = 5),
+        Row("et", "tuleta mulle 2 tunni pärast meelde pesu välja võtta", reminder),
+        // A reminder for yesterday has no usable time: one question, nothing set.
+        Row("et", "tuleta mulle meelde eile kell 9 lilli kasta", ask(TimeUnclear)),
         Row("et", "meeldetuletus: auto kindlustus järgmisel nädalal", ask(TimeUnclear)),
         Row("et", "maksa üür homme", ask(TimeUnclear)),
         // A weak reminder guess (Medium) is kept quietly.
@@ -104,8 +104,7 @@ class CaptureDecisionTest {
         Row("ru", "напомни мне завтра в 9:00 полить цветы", reminder),
         Row("ru", "напомни мне завтра в 9:00 полить цветы", ask(TimePassed), decidedMinutesLater = 2 * 24 * 60),
         Row("ru", "напомни через 2 часа вынуть бельё", reminder),
-        // Known analyzer gap, not a decision: the local rules score this explicit reminder Medium.
-        Row("ru", "напоминание: страховка машины на следующей неделе", keep),
+        Row("ru", "напоминание: страховка машины на следующей неделе", ask(TimeUnclear)),
         Row("ru", "оплатить аренду завтра", ask(TimeUnclear)),
         // A weak reminder guess (Medium) is kept quietly.
         Row("ru", "стоматолог завтра", keep),
@@ -118,6 +117,18 @@ class CaptureDecisionTest {
         Row("ru", "код парковки 4826", keep),
         Row("ru", "хорошая погода", keep),
         Row("ru", "идея приложения для бюджета", keep, hasSpace = true),
+        // Negated, conditional and quoted thoughts are never acted on (F03), in any language.
+        Row("en", "don't remind me to pay tomorrow at 9", keep),
+        Row("en", "I no longer need to call the bank tomorrow", keep),
+        Row("en", "if it rains remind me tomorrow at 9:00 to close the windows", keep),
+        Row("en", "she said \"remind me tomorrow at 9:00\"", keep),
+        // Not a negation (see IntentGuardTest); the local rules simply see no task word up front.
+        Row("en", "don't forget to buy milk tomorrow", keep),
+        Row("et", "ära tuleta mulle homme kell 9 meelde", keep),
+        Row("et", "kui sajab, tuleta mulle homme kell 9 meelde aknad sulgeda", keep),
+        Row("ru", "не напоминай мне завтра в 9:00", keep),
+        Row("ru", "если пойдёт дождь, напомни завтра в 9:00 закрыть окна", keep),
+        Row("ru", "не забудь купить молоко завтра", task),
     )
 
     @Test

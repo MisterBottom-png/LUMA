@@ -83,6 +83,17 @@ class AutoFilerRoomTest {
             reminderPossible = false,
             confidence = 0.9f,
         ),
+        SomedayShed to CaptureAnalysis(
+            rawText = SomedayShed,
+            suggestedType = SuggestedItemType.Task,
+            suggestedSpaceName = "Home",
+            suggestedTitle = "Repaint the shed",
+            suggestedNextAction = "",
+            relatedTopics = listOf("Home"),
+            reminderPossible = false,
+            lifeSignal = com.orbit.app.domain.analyzer.CaptureLifeSignal.Someday,
+            confidence = 0.9f,
+        ),
         PlumberReminder to CaptureAnalysis(
             rawText = PlumberReminder,
             suggestedType = SuggestedItemType.Reminder,
@@ -315,6 +326,13 @@ class AutoFilerRoomTest {
     }
 
     @Test
+    fun aSomedayTaskStaysSomedayWhenItIsFiled() = runBlocking {
+        val id = analysed(SomedayShed)
+        assertTrue(autoFiler().apply(id))
+        assertEquals(com.orbit.app.data.local.entity.TaskStatus.Someday, database.taskDao().observeAll().first().single().status)
+    }
+
+    @Test
     fun aThoughtAddedFromACalendarDayIsLeftForTheSortSheet() = runBlocking {
         val inbox = inbox()
         val id = inbox.save("Buy milk", contextDateEpochDay = 20_650L)
@@ -407,6 +425,7 @@ class AutoFilerRoomTest {
 
     private companion object {
         const val CabinNote = "Wifi password for the cabin is on the fridge"
+        const val SomedayShed = "Someday repaint the shed"
         const val PlumberReminder = "Call the plumber tomorrow at 9:00"
     }
 }

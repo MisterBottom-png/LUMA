@@ -123,6 +123,15 @@ internal fun SettingsHome(
         // Reminders come first: whether they can reach you matters more than how things look.
         RemindersGroup(settings = settings, onSettingsChanged = onSettingsChanged)
 
+        // Saving: how new thoughts are handled, including the pause for automatic filing.
+        SettingsGroupBlock(title = stringResource(R.string.settings_section_saving)) {
+            SavingSettings(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+
         // Look is one row: theme, colour, background and glass are one tap away.
         SettingsGroupBlock(title = null) {
             SettingsLinkRow(
@@ -325,20 +334,15 @@ internal fun AppearanceLookSection(
     }
 }
 
-/** Reminder status with a direct fix, and Advanced with the two behaviour switches. */
+/** Reminder status with a direct fix. */
 @Composable
+@Suppress("UNUSED_PARAMETER")
 internal fun RemindersGroup(
     settings: AppSettings,
     onSettingsChanged: (AppSettings) -> Unit,
 ) {
     SettingsGroupBlock(title = stringResource(R.string.settings_section_reminders)) {
         ReminderStatusRow(icon = Icons.Filled.Notifications, iconColor = SettingsHues.Reminders)
-        GroupDivider(startInset = 64.dp)
-        ReminderAdvancedSettings(
-            settings = settings,
-            onSettingsChanged = onSettingsChanged,
-            modifier = Modifier.padding(start = 64.dp, end = 16.dp),
-        )
     }
 }
 

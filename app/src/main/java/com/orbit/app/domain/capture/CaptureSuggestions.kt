@@ -45,3 +45,17 @@ fun CaptureSuggestionEntity.labelNames(): List<String> =
 
 fun CaptureSuggestionEntity.reminderStatus(): ReminderTimeStatus =
     runCatching { ReminderTimeStatus.valueOf(reminderTimeStatus) }.getOrDefault(ReminderTimeStatus.Unspecified)
+
+/**
+ * The one rule for what a suggestion's life signal means for a new task (F08): "someday"
+ * and "waiting for" survive acceptance everywhere (automatic filing, one tap, the sheet,
+ * Brain Dump); anything else is an open task.
+ */
+fun CaptureLifeSignal.taskStatus(): com.orbit.app.data.local.entity.TaskStatus = when (this) {
+    CaptureLifeSignal.Someday -> com.orbit.app.data.local.entity.TaskStatus.Someday
+    CaptureLifeSignal.WaitingFor -> com.orbit.app.data.local.entity.TaskStatus.WaitingFor
+    CaptureLifeSignal.None, CaptureLifeSignal.Reflection -> com.orbit.app.data.local.entity.TaskStatus.Open
+}
+
+fun CaptureSuggestionEntity.taskStatus(): com.orbit.app.data.local.entity.TaskStatus =
+    (runCatching { CaptureLifeSignal.valueOf(lifeSignal) }.getOrNull() ?: CaptureLifeSignal.None).taskStatus()

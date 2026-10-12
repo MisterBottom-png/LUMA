@@ -76,7 +76,12 @@ object AiModelDefaults {
 }
 
 object GeminiConsent {
-    const val CurrentVersion = 1
+    /**
+     * 2: the consent says plainly that Gemini suggestions are filed automatically with the
+     * same rules as local ones, and names "Sort right after saving" as the pause (review F11).
+     * Consent given to version 1 no longer counts, so it is asked again.
+     */
+    const val CurrentVersion = 2
 }
 
 /** Stored until the person sets a name in Settings. */

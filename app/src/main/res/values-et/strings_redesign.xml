@@ -83,7 +83,7 @@
     <string name="home_capture_hint_dump">Kirjuta kõik välja — Tallele sorteerib hiljem</string>
     <string name="home_capture_hint_small">Ka poolik mõte väärib hoidmist</string>
     <string name="settings_sort_right_after_saving">Sorteeri kohe pärast salvestamist</string>
-    <string name="settings_sort_right_after_saving_body">Ava sorteerimise leht pärast iga mõtet. Kui see on sees, ei paiguta Tallele ise midagi.</string>
+    <string name="settings_sort_right_after_saving_body">Ava sorteerimisleht pärast iga mõtet ja sorteeri see ise. See peatab automaatse paigutamise: kuni see on sees, ei paiguta Tallele ega Gemini midagi ise.</string>
     <string name="settings_focus_capture">Ava avalehel klaviatuur</string>
     <string name="settings_focus_capture_body">Alusta kirjutamist kohe, kui avaleht avaneb.</string>
     <string name="settings_glass_effect">Klaasiefekt</string>
@@ -196,4 +196,5 @@
     <string name="settings_glass_preset_solid_hint">Lihtsad pinnad, kõige kergem lugeda.</string>
     <string name="settings_glass_custom">Kohandatud</string>
     <string name="settings_glass_advanced">Täpsemalt</string>
+    <string name="settings_section_saving">Salvestamine</string>
 </resources>

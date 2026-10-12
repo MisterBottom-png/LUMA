@@ -34,12 +34,15 @@ sealed interface CaptureDecision {
  *   creates a reminder for it.
  * - A note is filed only into a Space that was found; otherwise it is kept.
  * - A failed analysis or a multi-part Brain Dump is kept for the user to sort.
+ * - A negated, conditional or quoted thought is kept ([IntentGuard]), in every language.
  *
  * @param hasSpace whether the thought has a real Space (chosen by the user or found by analysis).
  * @param now the current time in epoch milliseconds.
  */
 fun decide(analysis: CaptureAnalysis, hasSpace: Boolean, now: Long): CaptureDecision {
     if (analysis.analyzerFailed || analysis.brainDumpItems.isNotEmpty()) return CaptureDecision.Keep
+    // "Don't remind me…", "if it rains…", quoted words: never acted on, whoever analysed it.
+    if (IntentGuard.needsTheUser(analysis.rawText)) return CaptureDecision.Keep
     val high = analysis.confidenceLevel == CaptureConfidence.High
     return when (analysis.suggestedType) {
         SuggestedItemType.Reminder -> when {

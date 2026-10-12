@@ -84,6 +84,8 @@ internal fun interpretReminderTime(
         val target = date.date.atTime(time.time)
         // An explicitly named day whose time already passed is unclear: ask.
         if (target.isBefore(nowLocal)) return needsClarification()
+        // "tomorrow at 5" could be 05:00 or 17:00; early bare hours are asked, never guessed.
+        if (time.ambiguousHalfDay && time.time.hour in 1..EarliestPlainMorningHour - 1) return needsClarification()
         return resolved(target, zoneId, now, packs, today, date.label)
     }
 
@@ -252,11 +254,9 @@ private class TimeExpressionScanner(
         scanPeriodWords()
         scanRelativeDates()
         scanWeekdays()
-        val strongContext = dates.isNotEmpty() || periods.isNotEmpty() ||
-            packs.any { pack -> pack.timeContextSignals.any(text::containsRulePhrase) }
-        scanSeparatedTimes(strongContext)
+        scanSeparatedTimes()
         scanMarkedHours()
-        scanCompactTimes(strongContext)
+        scanCompactTimes()
         return ScanResult(text, dates, times, periods, durations, adjustments, invalidTime)
     }
 
@@ -418,12 +418,15 @@ private class TimeExpressionScanner(
         }
     }
 
-    private fun scanSeparatedTimes(strongContext: Boolean) {
+    private fun scanSeparatedTimes() {
         SeparatedTimeRegex.findAll(text).forEach { match ->
             if (!free(match.range)) return@forEach
             val dot = match.groupValues[2] == "."
             val standalone = text.trim() == match.value
-            if (dot && !strongContext && !standalone && !precededByTimeMarker(match.range.first)) return@forEach
+            // "12.50" is a time after "at / kell / в", right next to a day, or on its own;
+            // "pay 12.50 euros tomorrow" is a price, not 12:50.
+            if (dot && !standalone && !precededByTimeMarker(match.range.first) && !besideADay(match.range)) return@forEach
+            if (followedByAmountWord(match.range.last)) return@forEach
             claim(match.range)
             times += TimeHit(
                 match.groupValues[1].toInt(),
@@ -442,11 +445,15 @@ private class TimeExpressionScanner(
         }
     }
 
-    private fun scanCompactTimes(strongContext: Boolean) {
+    private fun scanCompactTimes() {
         CompactTimeRegex.findAll(text).forEach { match ->
             if (!free(match.range)) return@forEach
             val standalone = text.trim() == match.value
-            if (!strongContext && !standalone) return@forEach
+            // "1600" is a time after "at / kell / в", right next to a day ("1600 today",
+            // "tomorrow 0730") or on its own; "pay 1200 for rent tomorrow", "200 eggs" and
+            // "before 2027" are amounts and years.
+            if (!standalone && !precededByTimeMarker(match.range.first) && !besideADay(match.range)) return@forEach
+            if (followedByAmountWord(match.range.last)) return@forEach
             val hour = match.value.dropLast(2).toInt()
             val minute = match.value.takeLast(2).toInt()
             claim(match.range)
@@ -462,6 +469,16 @@ private class TimeExpressionScanner(
         val before = text.substring(0, index).trimEnd()
         return TimeMarkers.any { marker -> before.endsWith(" $marker") || before == marker }
     }
+
+    /** Only spaces between this number and a day, period or duration already read ("1600 today"). */
+    private fun besideADay(range: IntRange): Boolean = occupied.any { other ->
+        (other.last < range.first && text.substring(other.last + 1, range.first).isBlank()) ||
+            (other.first > range.last && text.substring(range.last + 1, other.first).isBlank())
+    }
+
+    /** A currency, unit or year word right after the number ("12.50 €", "2027 году"). */
+    private fun followedByAmountWord(lastIndex: Int): Boolean =
+        AmountWordRegex.containsMatchIn(text.substring(lastIndex + 1))
 
     private fun followedByMeridiem(lastIndex: Int): Boolean =
         Regex("^\\s*(a\\.?m\\.?|p\\.?m\\.?)").containsMatchIn(text.substring(lastIndex + 1))
@@ -784,6 +801,9 @@ private val AdjustmentRegexes = listOf(
     Regex("(?<![\\p{L}\\p{N}])на\\s+(?:(?<n>$NumberAlternatives)\\s+)?(?<u>минуту|минуты|минут|мин|час|часа|часов|день|дня|дней)\\s+позже(?![\\p{L}\\p{N}])") to 1L,
 )
 
+/** A bare hour below this, with a day but no am/pm, is asked rather than read as the small hours. */
+private const val EarliestPlainMorningHour = 7
+
 private val TimeMarkers = listOf("at", "kell", "kl", "kl.", "в", "к")
 
 private val NumericDateRegex = Regex(
@@ -798,6 +818,12 @@ private val SeparatedTimeRegex = Regex(
 private val MarkedHourRegex = Regex(
     "(?<![\\p{L}\\p{N}])(?:at|kell|kl\\.?|в|к)\\s+([01]?\\d|2[0-3])(?![\\p{L}\\p{N}:.])",
 )
+private val AmountWordRegex = Regex(
+    "^\\s*(?:€|\\$|£|%|eur|euro|eurot|euros|usd|dollars?|kr|krooni|руб|рубл|евро|долл|" +
+        "kg|g\\b|km|m\\b|cm|ml|l\\b|tk|шт|pcs|pieces|year|years|aastal|aasta|год|году|года|г\\.)",
+    RegexOption.IGNORE_CASE,
+)
+
 private val CompactTimeRegex = Regex("(?<![\\p{L}\\p{N}])\\d{3,4}(?![\\p{L}\\p{N}])")
 
 // endregion

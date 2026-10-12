@@ -15,6 +15,7 @@ import com.orbit.app.data.repository.SpaceRepository
 import com.orbit.app.domain.capture.AutoFiler
 import com.orbit.app.domain.capture.CaptureInbox
 import com.orbit.app.domain.capture.CaptureResolution
+import com.orbit.app.domain.capture.taskStatus
 import com.orbit.app.domain.usecase.ConfirmCaptureActionUseCase
 import java.time.DayOfWeek
 import java.time.Instant
@@ -264,7 +265,14 @@ class SpaceCaptureViewModel(
 
     private suspend fun fileAsTask() {
         val captureId = requireNotNull(_uiState.value.captureId)
-        confirmCaptureAction.createTask(captureId, activeSpaceId(), suggestedTitle(captureId), dueAt = null)
+        confirmCaptureAction.createTask(
+            captureId = captureId,
+            spaceId = activeSpaceId(),
+            title = suggestedTitle(captureId),
+            dueAt = null,
+            // "Someday" and "Waiting for" survive here too (F08).
+            status = suggestionDao.getByCaptureId(captureId)?.taskStatus() ?: com.orbit.app.data.local.entity.TaskStatus.Open,
+        )
         finish(captureId)
     }
 

@@ -102,6 +102,7 @@ class CaptureResolution(
                     title = title,
                     dueAt = suggestion.suggestedDueAt,
                     scheduledDateEpochDay = suggestion.taskDateEpochDay().takeIf { suggestion.suggestedDueAt == null },
+                    status = suggestion.taskStatus(),
                     labelNames = labels,
                     onlyIfUndecided = automatic,
                 )

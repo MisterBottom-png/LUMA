@@ -28,13 +28,14 @@ class RemindersGroupJvmTest {
         var settings by mutableStateOf(AppSettings())
         composeRule.setContent {
             MaterialTheme {
-                RemindersGroup(settings = settings, onSettingsChanged = { settings = it })
+                androidx.compose.foundation.layout.Column {
+                    RemindersGroup(settings = settings, onSettingsChanged = { settings = it })
+                    SavingSettings(settings = settings, onSettingsChanged = { settings = it })
+                }
             }
         }
 
-        // Both behaviour switches are folded under Advanced.
-        composeRule.onNodeWithText("Sort right after saving").assertDoesNotExist()
-        composeRule.onNodeWithText("Advanced").performClick()
+        // The pause for automatic filing is in plain sight, next to saving.
         composeRule.onNodeWithText("Sort right after saving").assertIsOff().performClick()
         assertTrue(settings.sortRightAfterSaving)
         // Off until the user asks for it: Home opens calm, without the keyboard.

@@ -21,6 +21,34 @@ class ReminderTimeInterpreterTest {
     }
 
     @Test
+    fun pricesQuantitiesAndYearsAreNeverReadAsClockTimes() {
+        listOf(
+            "pay 12.50 euros tomorrow",
+            "pay 1200 for rent tomorrow",
+            "buy 200 eggs at the store",
+            "remind me to renew the passport before 2027",
+            "напомни продлить паспорт в 2027 году",
+            "maksa homme 12.50 eurot",
+            "купить 300 г сыра завтра",
+        ).forEach { capture ->
+            val result = interpretReminderTime(capture, now, zone)
+            val local = result.epochMillis?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() }
+            // None of these names a time of day: no 12:50, 12:00, 02:00, 20:27 or 03:00 may appear.
+            assertNull("$capture -> $local", local)
+        }
+    }
+
+    @Test
+    fun aBareEarlyHourWithADayIsAskedNotReadAsTheSmallHours() {
+        assertEquals(ReminderTimeStatus.NeedsClarification, interpretReminderTime("remind me tomorrow at 5", now, zone).status)
+        assertEquals(ReminderTimeStatus.NeedsClarification, interpretReminderTime("tuleta homme kell 5 meelde", now, zone).status)
+        // A morning hour is still read as morning, and an explicit 24-hour time is exact.
+        assertLocal("remind me tomorrow at 9", LocalDate.of(2026, 7, 15), LocalTime.of(9, 0))
+        assertLocal("remind me tomorrow at 17:00", LocalDate.of(2026, 7, 15), LocalTime.of(17, 0))
+        assertLocal("remind me tomorrow at 5 pm", LocalDate.of(2026, 7, 15), LocalTime.of(17, 0))
+    }
+
+    @Test
     fun commonClockFormatsResolveToTheSameCanonicalLocalTime() {
         listOf("1600", "16:00", "4 PM", "today at 1600").forEach { capture ->
             assertLocal(capture, LocalDate.of(2026, 7, 14), LocalTime.of(16, 0))

@@ -5,7 +5,7 @@
     <string name="settings_export_choose_location">Choose location</string>
     <string name="settings_export_complete">Export saved to the location you chose.</string>
     <string name="settings_gemini_consent_title">Allow a Gemini request?</string>
-    <string name="settings_gemini_consent_body">When enabled, Tallele sends the text you choose and only the relevant local context needed for that action to the Google Gemini API. Your API key remains encrypted on this device. Gemini cannot change, schedule, delete, or send your data without confirmation. Switching back to Local only revokes this consent.</string>
+    <string name="settings_gemini_consent_body">When enabled, Tallele sends to the Google Gemini API the thoughts you save while a Gemini switch is on, and only the local context needed for that step. Your API key stays encrypted on this device. Clear thoughts are then filed by themselves with the same rules as on the phone: one note, task or reminder, which you can change or undo. A reminder is set only for a clear time in the future, and “don’t…”, “if…” or quoted thoughts are never acted on. Gemini never deletes, completes or sends anything. To sort every thought yourself, turn on “Sort right after saving”. Switching back to Local only revokes this consent.</string>
     <string name="settings_gemini_consent_confirm">Allow Gemini</string>
     <string name="settings_local_learning_title">Local AI learning</string>
     <string name="settings_local_learning_toggle">Use my corrections in Gemini suggestions</string>
