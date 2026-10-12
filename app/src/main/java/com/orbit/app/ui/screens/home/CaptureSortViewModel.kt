@@ -741,6 +741,12 @@ class CaptureSortViewModel(
         _uiState.update { it.copy(learnedRuleProposal = null) }
     }
 
+    /** "Not now": remembered, so the same proposal is not offered again (N016). */
+    fun declineLearnedRuleProposal() {
+        _uiState.value.learnedRuleProposal?.let { proposal -> runCatching { proposeLearnedRule.decline(proposal) } }
+        dismissLearnedRuleProposal()
+    }
+
     private suspend fun recordLearningOutcome(
         context: CaptureSuggestionLearningContext,
         decision: CaptureSuggestionLearningDecision,

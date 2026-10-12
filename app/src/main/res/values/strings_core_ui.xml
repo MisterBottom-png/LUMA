@@ -146,7 +146,7 @@
         <item quantity="other">Needs review: no update for %1$d days.</item>
     </plurals>
     <string name="core_learning_save_title">Save a learning preference?</string>
-    <string name="core_learning_save_body">You made this correction more than once: %1$s</string>
+    <string name="core_learning_save_body_choice">For similar thoughts, use “%2$s” instead of “%1$s”. Tallele asks because you made this change more than once.</string>
     <string name="core_learning_save_confirm">Save preference</string>
     <string name="core_learning_not_now">Not now</string>
     <!-- The save receipt under the capture box on Home. -->
@@ -169,4 +169,15 @@
     <string name="receipt_action_turn_on">Turn on</string>
     <string name="receipt_action_try_again">Try again</string>
     <string name="receipt_action_keep">Just keep it</string>
+    <string name="sort_one_in_to_sort">In To sort · saved %1$s</string>
+    <string name="sort_one_save_like_this">Save it like this?</string>
+    <string name="sort_one_kind_in_space">%1$s in %2$s</string>
+    <string name="sort_one_save_note">Save as a note</string>
+    <string name="sort_one_save_task">Save as a task</string>
+    <string name="sort_one_save_reminder">Set the reminder</string>
+    <string name="sort_one_choose_else">Choose something else</string>
+    <string name="sort_one_unsure">Tallele isn’t sure what this is</string>
+    <string name="sort_one_stays">Stays in To sort</string>
+    <string name="sort_one_more_options">More options</string>
+    <string name="sort_one_edit_text">Edit the words</string>
 </resources>

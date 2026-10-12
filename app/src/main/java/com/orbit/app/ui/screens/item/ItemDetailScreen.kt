@@ -585,7 +585,8 @@ private fun ItemDetailContent(
         )
         DetailSheet.Space -> ChoiceSheet(
             title = stringResource(R.string.core_item_detail_space),
-            choices = listOf(null to stringResource(R.string.core_inbox)) + state.spaces.map { it.id to it.name },
+            choices = listOf(null to stringResource(R.string.core_inbox)) +
+                state.spaces.map { it.id to com.orbit.app.ui.localization.localizedSpaceName(it.name) },
             selected = state.spaceId,
             onDismiss = { openSheet = null },
         ) { openSheet = null; onUpdateSpace(it) }
@@ -883,8 +884,11 @@ private fun TaskStatus.lifeStateLabel() = stringResource(when (this) {
 })
 
 @Composable
-private fun ItemDetailUiState.spaceName(): String = spaceId?.let { id -> spaces.firstOrNull { it.id == id }?.name }
-    ?: stringResource(R.string.core_inbox)
+private fun ItemDetailUiState.spaceName(): String =
+    // B14/N027: a hidden or archived Space still shows its name, in the app's language.
+    (ownSpaceName ?: spaceId?.let { id -> spaces.firstOrNull { it.id == id }?.name })
+        ?.let { com.orbit.app.ui.localization.localizedSpaceName(it) }
+        ?: stringResource(R.string.core_inbox)
 
 @Composable
 private fun scheduleLabel(state: ItemDetailUiState, timeFormat: OrbitTimeFormat): String = when {

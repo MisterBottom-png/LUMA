@@ -257,7 +257,7 @@ internal class BrainDumpFlowCoordinator(
             BrainDumpOverviewRow(
                 sourceKey = item.id,
                 draft = draft,
-                spaceName = spaces.firstOrNull { it.id == draft.spaceId }?.name,
+                spaceName = draft.spaceId?.let { id -> spaces.firstOrNull { it.id == id }?.name },
                 lifeSignal = item.lifeSignal,
                 ticked = ticked[item.id] == true && brainDumpRowCanTick(draft, currentTime),
                 canTick = brainDumpRowCanTick(draft, currentTime),

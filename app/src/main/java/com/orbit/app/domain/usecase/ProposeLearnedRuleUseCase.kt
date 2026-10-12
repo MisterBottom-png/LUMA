@@ -9,9 +9,15 @@ import kotlinx.coroutines.flow.first
 
 data class LearnedRuleProposal(
     val title: String,
+    /** Stored and given to Gemini as written; the question shown is built from [from] and [to]. */
     val ruleText: String,
     val category: LearnedRuleCategory,
     val sourceCorrectionHistoryId: Long,
+    /** What Tallele suggested and what the user chose: a type name or a Space name. */
+    val from: String = "",
+    val to: String = "",
+    /** Identifies the correction pattern, so "Not now" is remembered. */
+    val key: String = "",
 )
 
 /** Converts repeated, non-sensitive correction patterns into an explicit user choice. */
@@ -24,23 +30,29 @@ class ProposeLearnedRuleUseCase(
      * prompts, so with Gemini or sharing off, Tallele does not offer to save one.
      */
     private val rulesAreUsed: suspend () -> Boolean = isLearningEnabled,
+    private val declined: com.orbit.app.data.local.DeclinedRuleMemory = com.orbit.app.data.local.DeclinedRuleMemory.None,
 ) {
     suspend fun proposalAfterCorrection(): LearnedRuleProposal? {
         if (!isLearningEnabled() || !rulesAreUsed()) return null
         val corrections = correctionHistoryRepository.observeAll().first()
-        val candidate = corrections
+        val existing = learnedRuleRepository.observeAll().first()
+        // N016: every repeated pattern is considered, not only the first; one already
+        // saved as a rule, or answered "Not now", is skipped.
+        return corrections
             .asSequence()
             .filter { it.fieldName == TypeField || it.fieldName == SpaceField }
             .groupBy(::key)
-            .values
-            .firstOrNull { it.size >= RepetitionThreshold }
-            ?.maxByOrNull { it.createdAt }
-            ?: return null
-        val proposal = candidate.toProposal() ?: return null
-        val existing = learnedRuleRepository.observeAll().first()
-        return proposal.takeUnless { suggested -> existing.any { rule ->
-            rule.ruleText.equals(suggested.ruleText, ignoreCase = true)
-        } }
+            .entries
+            .filter { (key, group) -> group.size >= RepetitionThreshold && !declined.isDeclined(key) }
+            .mapNotNull { (key, group) -> group.maxByOrNull { it.createdAt }?.toProposal()?.copy(key = key) }
+            .firstOrNull { suggested ->
+                existing.none { rule -> rule.ruleText.equals(suggested.ruleText, ignoreCase = true) }
+            }
+    }
+
+    /** "Not now": this pattern is not offered again. */
+    fun decline(proposal: LearnedRuleProposal) {
+        if (proposal.key.isNotBlank()) declined.decline(proposal.key)
     }
 
     suspend fun save(proposal: LearnedRuleProposal) {
@@ -64,18 +76,24 @@ class ProposeLearnedRuleUseCase(
         val original = originalValue?.trim().orEmpty()
         val corrected = correctedValue.trim()
         if (original.isBlank() || corrected.isBlank()) return null
+        // A Space recorded by its number cannot be put into words for the user.
+        if (fieldName == SpaceField && (original.all(Char::isDigit) || corrected.all(Char::isDigit))) return null
         return when (fieldName) {
             TypeField -> LearnedRuleProposal(
                 title = "Item type preference",
                 ruleText = "Prefer $corrected items instead of $original items when the wording is similar.",
                 category = LearnedRuleCategory.Type,
                 sourceCorrectionHistoryId = id,
+                from = original,
+                to = corrected,
             )
             SpaceField -> LearnedRuleProposal(
                 title = "Space preference",
                 ruleText = "Prefer $corrected instead of $original when the wording is similar.",
                 category = LearnedRuleCategory.Space,
                 sourceCorrectionHistoryId = id,
+                from = original,
+                to = corrected,
             )
             else -> null
         }

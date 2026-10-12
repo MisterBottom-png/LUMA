@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import com.orbit.app.BuildConfig
 import com.orbit.app.R
 import com.orbit.app.domain.model.AiMode
+import com.orbit.app.domain.model.hasCurrentGeminiConsent
 import com.orbit.app.domain.model.AppAccentColor
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.model.SettingsThemeMode
@@ -172,7 +173,10 @@ internal fun SettingsHome(
         ) {
             SettingsLinkRow(
                 title = stringResource(R.string.settings_ai_title),
-                value = if (settings.aiMode == AiMode.GeminiApi && aiSettings.hasKey) {
+                // N049: "Gemini ready" only when Gemini can and will be used for something.
+                value = if (settings.aiMode == AiMode.GeminiApi && aiSettings.hasKey &&
+                    settings.hasCurrentGeminiConsent && settings.geminiFeaturesOn() > 0
+                ) {
                     stringResource(R.string.settings_status_gemini_ready)
                 } else {
                     stringResource(settings.aiMode.labelRes())

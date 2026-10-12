@@ -246,6 +246,11 @@ class OrbitContainer(application: Application) {
         com.orbit.app.data.local.SharedPreferencesLastExportMemory(applicationContext)
     }
 
+    /** Learned-rule proposals answered "Not now". */
+    val declinedRuleMemory: com.orbit.app.data.local.DeclinedRuleMemory by lazy {
+        com.orbit.app.data.local.SharedPreferencesDeclinedRuleMemory(applicationContext)
+    }
+
     /** Hands a type change's Undo to the screen that shows the new type. */
     val pendingTypeChanges = com.orbit.app.ui.screens.item.PendingTypeChanges()
 
@@ -291,6 +296,7 @@ class OrbitContainer(application: Application) {
             learnedRuleRepository = learnedRuleRepository,
             isLearningEnabled = { appSettingsRepository.settings.first().enableLocalAiLearning },
             rulesAreUsed = { appSettingsRepository.settings.first().learnedRulesReachGemini },
+            declined = declinedRuleMemory,
         )
     }
     private val localDataStore: RoomLocalDataRestoreStore by lazy {

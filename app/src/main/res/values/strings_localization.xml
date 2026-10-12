@@ -68,7 +68,7 @@
     <string name="core_spaces_move_item">Move item</string>
     <string name="core_spaces_move_to">Move to</string>
     <string name="core_spaces_move_empty">No other Space is available.</string>
-    <string name="core_spaces_unfiled">Unfiled</string>
+    <string name="core_spaces_unfiled">No Space</string>
     <string name="core_spaces_undo_move">Undo move</string>
     <string name="core_spaces_move_retry">Couldn\'t move item. Retry</string>
     <string name="core_spaces_icon_work">Work icon</string>

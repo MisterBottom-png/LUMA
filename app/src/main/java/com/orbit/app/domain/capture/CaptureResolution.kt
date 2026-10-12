@@ -48,6 +48,19 @@ class CaptureResolution(
         return reminderOutcomes.of(reminderId).also { recordReminderOutcome(captureId, reminderId, it) }
     }
 
+    /** A reminder with the title and Space the user chose (the Needs you one-item sheet, review §9.3). */
+    suspend fun createReminderAs(captureId: Long, title: String, spaceId: Long?, reminderAt: Long): ReminderSaveOutcome {
+        val suggestion = suggestionDao.getByCaptureId(captureId)
+        val reminderId = confirmCaptureAction.createReminder(
+            captureId = captureId,
+            spaceId = activeSpaceId(spaceId),
+            title = title,
+            dueAt = reminderAt,
+            labelNames = suggestion?.labelNames().orEmpty(),
+        )
+        return reminderOutcomes.of(reminderId).also { recordReminderOutcome(captureId, reminderId, it) }
+    }
+
     /**
      * Stores what saving [reminderId] achieved on its thought: `ReminderSet` when it can
      * ring, `NeedsYou` with the reason when it cannot. Every place that turns a thought
@@ -168,8 +181,34 @@ class CaptureResolution(
         val capture = captureRepository.getById(captureId) ?: return
         val linkedId = capture.linkedItemId
         if (capture.status == CaptureStatus.Processed && linkedId != null) {
-            val reminder = reminderRepository.getById(linkedId) ?: return
-            if (capture.isSortedInto(reminder)) undo(captureId, SuggestedItemType.Reminder, linkedId)
+            val reminder = reminderRepository.getById(linkedId)
+            if (reminder != null && capture.isSortedInto(reminder)) {
+                undo(captureId, SuggestedItemType.Reminder, linkedId)
+                return
+            }
+            // N025: the item it pointed at is gone or is not a reminder made from it. The
+            // card must not stay stuck: a filed item stays filed, a lost one is kept.
+            transaction.run {
+                val current = captureRepository.getById(captureId)
+                    ?.takeIf { it.outcome == CaptureOutcome.NeedsYou } ?: return@run
+                val timestamp = now()
+                val itemStillThere = current.suggestedType?.let { itemExists(it, linkedId) } == true
+                captureRepository.update(
+                    if (itemStillThere) {
+                        current.copy(outcome = CaptureOutcome.Filed, outcomeReason = CaptureOutcomeReason.None, outcomeAt = timestamp)
+                    } else {
+                        current.copy(
+                            status = CaptureStatus.Inbox,
+                            linkedItemId = null,
+                            outcome = CaptureOutcome.Saved,
+                            outcomeReason = CaptureOutcomeReason.None,
+                            outcomeAt = timestamp,
+                            updatedAt = timestamp,
+                            decidedAt = timestamp,
+                        )
+                    },
+                )
+            }
             return
         }
         transaction.run {

@@ -82,7 +82,7 @@ import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 
-private val TileShape = RoundedCornerShape(20.dp)
+internal val TileShape = RoundedCornerShape(20.dp)
 private val FieldShape = RoundedCornerShape(20.dp)
 
 /**
@@ -131,9 +131,28 @@ fun SpaceCaptureFlowSheet(
             when (state.step) {
                 SpaceCaptureStep.Write -> WriteStep(state, spaceName, draft, onDraftChange, onSaveAsChange, onSave, onDismiss)
                 SpaceCaptureStep.Looking -> LookingStep(state, spaceName)
-                SpaceCaptureStep.TimeQuestion -> TimeQuestionStep(state, spaceName, timeFormat, zoneId, onRemindAt, onPickTime, onKeepAsTask)
-                SpaceCaptureStep.PickTime -> PickTimeStep(state, timeFormat, now, zoneId, onRemindAt, onBackToTimeQuestion)
-                SpaceCaptureStep.TypeQuestion -> TypeQuestionStep(state, spaceName, onChooseNote, onChooseTask, onChooseReminder, onDecideLater)
+                SpaceCaptureStep.TimeQuestion -> TimeQuestionStep(
+                    header = { SavedHeader(state, spaceName) },
+                    busy = state.busy,
+                    quickTimes = state.quickTimes,
+                    timeFormat = timeFormat,
+                    zoneId = zoneId,
+                    onRemindAt = onRemindAt,
+                    onPickTime = onPickTime,
+                    onKeepAsTask = onKeepAsTask,
+                    footnote = stringResource(R.string.space_capture_time_footnote, spaceName),
+                )
+                SpaceCaptureStep.PickTime -> PickTimeStep(state.thought, state.busy, timeFormat, now, zoneId, onRemindAt, onBackToTimeQuestion)
+                SpaceCaptureStep.TypeQuestion -> TypeQuestionStep(
+                    header = { SavedHeader(state, spaceName) },
+                    busy = state.busy,
+                    canDecideLater = state.captureId != null,
+                    onChooseNote = onChooseNote,
+                    onChooseTask = onChooseTask,
+                    onChooseReminder = onChooseReminder,
+                    onDecideLater = onDecideLater,
+                    footnote = stringResource(R.string.space_capture_type_footnote, spaceName),
+                )
             }
             if (state.failed) {
                 Text(
@@ -276,7 +295,7 @@ private fun SavedHeader(state: SpaceCaptureUiState, spaceName: String) {
 }
 
 @Composable
-private fun ThoughtCard(thought: String, modifier: Modifier = Modifier) {
+internal fun ThoughtCard(thought: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -293,7 +312,7 @@ private fun ThoughtCard(thought: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun StepTitle(text: String, modifier: Modifier = Modifier) {
+internal fun StepTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         modifier = modifier
@@ -322,19 +341,21 @@ private fun LookingStep(state: SpaceCaptureUiState, spaceName: String) {
 }
 
 @Composable
-private fun TimeQuestionStep(
-    state: SpaceCaptureUiState,
-    spaceName: String,
+internal fun TimeQuestionStep(
+    header: @Composable () -> Unit,
+    busy: Boolean,
+    quickTimes: List<SpaceQuickTime>,
     timeFormat: OrbitTimeFormat,
     zoneId: ZoneId,
     onRemindAt: (Long) -> Unit,
     onPickTime: () -> Unit,
     onKeepAsTask: () -> Unit,
+    footnote: String?,
 ) {
-    SavedHeader(state, spaceName)
+    header()
     StepTitle(stringResource(R.string.needs_you_q_time))
     // Quick times first, then "Pick a time", two to a row.
-    val tiles: List<SpaceQuickTime?> = state.quickTimes + listOf(null)
+    val tiles: List<SpaceQuickTime?> = quickTimes + listOf(null)
     tiles.chunked(2).forEach { row ->
         Row(
             modifier = Modifier.padding(bottom = 12.dp),
@@ -342,12 +363,12 @@ private fun TimeQuestionStep(
         ) {
             row.forEach { quick ->
                 if (quick == null) {
-                    PickTimeTile(enabled = !state.busy, onClick = onPickTime, modifier = Modifier.weight(1f))
+                    PickTimeTile(enabled = !busy, onClick = onPickTime, modifier = Modifier.weight(1f))
                 } else {
                     TimeTile(
                         title = quickDayLabel(quick, zoneId),
                         subtitle = timeFormat.formatTime(quick.at),
-                        enabled = !state.busy,
+                        enabled = !busy,
                         onClick = { onRemindAt(quick.at) },
                         modifier = Modifier.weight(1f),
                     )
@@ -357,14 +378,16 @@ private fun TimeQuestionStep(
         }
     }
     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-    TextButton(onClick = onKeepAsTask, enabled = !state.busy, modifier = Modifier.heightIn(min = 48.dp)) {
+    TextButton(onClick = onKeepAsTask, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
         Text(stringResource(R.string.space_capture_keep_as_task), style = MaterialTheme.typography.titleSmall)
     }
-    Text(
-        text = stringResource(R.string.space_capture_time_footnote, spaceName),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    footnote?.let {
+        Text(
+            text = it,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable
@@ -422,8 +445,9 @@ private val QuickClockTimes = listOf(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PickTimeStep(
-    state: SpaceCaptureUiState,
+internal fun PickTimeStep(
+    thought: String,
+    busy: Boolean,
     timeFormat: OrbitTimeFormat,
     now: () -> Long,
     zoneId: ZoneId,
@@ -451,7 +475,7 @@ private fun PickTimeStep(
         )
     }
     Text(
-        text = state.thought,
+        text = thought,
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
@@ -525,7 +549,7 @@ private fun PickTimeStep(
     }
     Button(
         onClick = { onRemindAt(chosenAt) },
-        enabled = isFuture && !state.busy,
+        enabled = isFuture && !busy,
         shape = RoundedCornerShape(28.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -540,7 +564,7 @@ private fun PickTimeStep(
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+internal fun SectionLabel(text: String) {
     Text(
         text = text,
         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
@@ -594,32 +618,36 @@ private fun TimeChip(label: String, selected: Boolean, enabled: Boolean, onClick
 }
 
 @Composable
-private fun TypeQuestionStep(
-    state: SpaceCaptureUiState,
-    spaceName: String,
+internal fun TypeQuestionStep(
+    header: @Composable () -> Unit,
+    busy: Boolean,
+    canDecideLater: Boolean,
     onChooseNote: () -> Unit,
     onChooseTask: () -> Unit,
     onChooseReminder: () -> Unit,
     onDecideLater: () -> Unit,
+    footnote: String,
+    beforeTypes: @Composable () -> Unit = {},
 ) {
-    SavedHeader(state, spaceName)
+    header()
+    beforeTypes()
     StepTitle(stringResource(R.string.space_capture_what))
-    TypeRow(Icons.Rounded.Description, stringResource(R.string.core_note), stringResource(R.string.space_capture_note_hint), !state.busy, onChooseNote)
-    TypeRow(Icons.Rounded.RadioButtonUnchecked, stringResource(R.string.core_task), stringResource(R.string.space_capture_task_hint), !state.busy, onChooseTask)
-    TypeRow(Icons.Rounded.Notifications, stringResource(R.string.core_reminder), stringResource(R.string.space_capture_reminder_hint), !state.busy, onChooseReminder)
+    TypeRow(Icons.Rounded.Description, stringResource(R.string.core_note), stringResource(R.string.space_capture_note_hint), !busy, onChooseNote)
+    TypeRow(Icons.Rounded.RadioButtonUnchecked, stringResource(R.string.core_task), stringResource(R.string.space_capture_task_hint), !busy, onChooseTask)
+    TypeRow(Icons.Rounded.Notifications, stringResource(R.string.core_reminder), stringResource(R.string.space_capture_reminder_hint), !busy, onChooseReminder)
     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-    TextButton(onClick = onDecideLater, enabled = !state.busy && state.captureId != null, modifier = Modifier.heightIn(min = 48.dp)) {
+    TextButton(onClick = onDecideLater, enabled = !busy && canDecideLater, modifier = Modifier.heightIn(min = 48.dp)) {
         Text(stringResource(R.string.space_capture_decide_later), style = MaterialTheme.typography.titleSmall)
     }
     Text(
-        text = stringResource(R.string.space_capture_type_footnote, spaceName),
+        text = footnote,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
 @Composable
-private fun TypeRow(icon: ImageVector, title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit) {
+internal fun TypeRow(icon: ImageVector, title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         enabled = enabled,

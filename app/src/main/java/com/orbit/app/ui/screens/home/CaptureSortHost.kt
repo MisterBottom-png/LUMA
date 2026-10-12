@@ -150,20 +150,31 @@ fun CaptureSortHost(
         AlertDialog(
             onDismissRequest = viewModel::dismissLearnedRuleProposal,
             title = { Text(stringResource(R.string.core_learning_save_title)) },
-            text = { Text(stringResource(R.string.core_learning_save_body, proposal.ruleText)) },
+            // B12: the question is in the app's language, with names the user knows.
+            text = { Text(stringResource(R.string.core_learning_save_body_choice, learnedValueName(proposal.from), learnedValueName(proposal.to))) },
             confirmButton = {
                 Button(onClick = viewModel::saveLearnedRuleProposal) {
                     Text(stringResource(R.string.core_learning_save_confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::dismissLearnedRuleProposal) {
+                TextButton(onClick = viewModel::declineLearnedRuleProposal) {
                     Text(stringResource(R.string.core_learning_not_now))
                 }
             },
         )
     }
 }
+
+/** A learned value as the user sees it: a type in the app's words, or a Space's name. */
+@androidx.compose.runtime.Composable
+private fun learnedValueName(value: String): String =
+    when (SuggestedItemType.entries.firstOrNull { it.name == value }) {
+        SuggestedItemType.Note -> stringResource(R.string.core_note)
+        SuggestedItemType.Task, SuggestedItemType.MondayItem -> stringResource(R.string.core_task)
+        SuggestedItemType.Reminder -> stringResource(R.string.core_reminder)
+        null -> com.orbit.app.ui.localization.localizedSpaceName(value)
+    }
 
 internal fun SuggestedItemType.sortedMessageRes(): Int = when (this) {
     SuggestedItemType.Note -> R.string.core_home_message_note_saved

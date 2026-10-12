@@ -60,4 +60,37 @@ class LearnedRuleProposalGateTest {
         assertTrue(all.learnedRulesReachGemini)
         assertNotNull(useCase(all).proposalAfterCorrection())
     }
+
+    @Test
+    fun theNextPatternIsOfferedAfterNotNow_andTheQuestionNamesTheChoice() = runBlocking {
+        // N016 + B12: "Not now" is remembered and the next repeated correction is offered.
+        repeat(2) {
+            database.aiCorrectionHistoryDao().insert(
+                AiCorrectionHistoryEntity(fieldName = "space", originalValue = "Home", correctedValue = "Work"),
+            )
+        }
+        val declined = mutableSetOf<String>()
+        val memory = object : com.orbit.app.data.local.DeclinedRuleMemory {
+            override fun isDeclined(key: String) = key in declined
+            override fun decline(key: String) { declined += key }
+            override fun clear() = declined.clear()
+        }
+        val all = AppSettings(enableLocalAiLearning = true, shareLocalLearningWithGemini = true, aiMode = AiMode.GeminiApi)
+        val useCase = ProposeLearnedRuleUseCase(
+            correctionHistoryRepository = RoomAiCorrectionHistoryRepository(database.aiCorrectionHistoryDao()),
+            learnedRuleRepository = RoomLearnedRuleRepository(database.learnedRuleDao()),
+            isLearningEnabled = { all.enableLocalAiLearning },
+            rulesAreUsed = { all.learnedRulesReachGemini },
+            declined = memory,
+        )
+
+        val first = requireNotNull(useCase.proposalAfterCorrection())
+        useCase.decline(first)
+        val second = requireNotNull(useCase.proposalAfterCorrection())
+
+        assertTrue(first.key != second.key)
+        assertTrue(setOf(first.from to first.to, second.from to second.to) == setOf("Note" to "Task", "Home" to "Work"))
+        useCase.decline(second)
+        assertNull(useCase.proposalAfterCorrection())
+    }
 }

@@ -209,6 +209,7 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
                         clearPreferences = {
                             container.archivedTaskStatusMemory.clear()
                             container.lastExportMemory.clear()
+                            container.declinedRuleMemory.clear()
                             ReminderCapabilities.clearDeliveryHistory(context)
                         },
                         cancelNotifications = { NotificationManagerCompat.from(context).cancelAll() },

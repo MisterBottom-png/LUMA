@@ -169,7 +169,10 @@ val SortUndoToken.reminderOutcome: ReminderSaveOutcome?
         else -> null
 }
 
-enum class ReviewSortMessage { ActionFailed, NeedsChoice, Undone, TimePassed }
+enum class ReviewSortMessage {
+    ActionFailed, NeedsChoice, Undone, TimePassed, Kept, ReminderSet, TaskMade, ReminderRearmed,
+    NoteSaved, Filed, ReminderNotificationsOff, ReminderNotScheduled,
+}
 
 internal data class ReviewData(
     val captures: List<CaptureEntity>,
@@ -258,6 +261,8 @@ class ReviewViewModel internal constructor(
             reviewData.collect {
                 weeklyDataVersion += 1
                 weeklySummary.value = null
+                // B10: the look back on screen is made again for the new data, not left empty.
+                if (weeklyWanted) loadWeeklySummary()
             }
         }
     }
@@ -302,12 +307,17 @@ class ReviewViewModel internal constructor(
             sortFeedback.value = null to ReviewSortMessage.TimePassed
             return
         }
-        answer(item) { container.captureResolution.createQuickReminder(item.captureId, item.title, reminderAt) }
+        answer(item) {
+            val outcome = container.captureResolution.createQuickReminder(item.captureId, item.title, reminderAt)
+            // Only a reminder that can ring is "set"; otherwise the card says why.
+            ReviewSortMessage.ReminderSet.takeIf { outcome == com.orbit.app.reminders.ReminderSaveOutcome.Saved }
+        }
     }
 
     /** Needs you: "Just keep it". A reminder made for the thought is deleted and its alarm cancelled. */
     fun keepThought(item: NeedsYouItem) = answer(item) {
         container.captureResolution.keep(item.captureId)
+        ReviewSortMessage.Kept
     }
 
     /** Needs you: "Make it a task" for a thought Tallele could not place. */
@@ -325,6 +335,7 @@ class ReviewViewModel internal constructor(
                 ?.taskStatus()
                 ?: TaskStatus.Open,
         )
+        ReviewSortMessage.TaskMade
     }
 
     /** Needs you: "Try again" for a reminder whose alarm could not be set. */
@@ -338,17 +349,21 @@ class ReviewViewModel internal constructor(
                 captureId = item.captureId,
                 reminderId = reminderId,
             )
+            ReviewSortMessage.ReminderRearmed.takeIf {
+                container.reminderSaveOutcomes.of(reminderId) == com.orbit.app.reminders.ReminderSaveOutcome.Saved
+            }
         }
     }
 
     /** Cards being answered: a second tap on the same card waits; other cards stay usable. */
     private val answering = mutableSetOf<Long>()
 
-    private fun answer(item: NeedsYouItem, action: suspend () -> Unit) {
+    private fun answer(item: NeedsYouItem, action: suspend () -> ReviewSortMessage?) {
         if (!answering.add(item.captureId)) return
         viewModelScope.launch {
             try {
-                action()
+                // N025: an answered card says what happened.
+                action()?.let { done -> sortFeedback.value = null to done }
             } catch (cancellation: kotlinx.coroutines.CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
@@ -441,6 +456,11 @@ class ReviewViewModel internal constructor(
      * feedback, so a newer result (for example "Undone") that arrived meanwhile is
      * still shown.
      */
+    /** A message from the one-item sheet (review §9.3), shown like any other sort message. */
+    fun showSortMessage(message: ReviewSortMessage) {
+        sortFeedback.value = null to message
+    }
+
     fun sortFeedbackShown(token: SortUndoToken?, message: ReviewSortMessage?) {
         sortFeedback.compareAndSet(token to message, null to null)
     }
@@ -537,20 +557,27 @@ class ReviewViewModel internal constructor(
         }
     }
 
+    // The look back was opened, so it should show something for the current data.
+    private var weeklyWanted = false
+
     fun loadWeeklySummary() {
+        weeklyWanted = true
         if (weeklySummary.value != null || weeklyLoading.value) return
         weeklyLoading.value = true
         viewModelScope.launch {
+            var outdated = false
             try {
                 val data = reviewData.first()
                 val version = weeklyDataVersion
                 val sources = weeklyReviewSources(data, System.currentTimeMillis(), ZoneId.systemDefault())
                 val summary = container.aiRouter.summarizeReview(sources, data.settings)
-                if (version == weeklyDataVersion) weeklySummary.value = summary
+                if (version == weeklyDataVersion) weeklySummary.value = summary else outdated = true
             } finally {
                 // A failure leaves the calm fallback text, never an endless spinner.
                 weeklyLoading.value = false
             }
+            // B10: the data changed while it was being made: make it once more.
+            if (outdated) loadWeeklySummary()
         }
     }
 

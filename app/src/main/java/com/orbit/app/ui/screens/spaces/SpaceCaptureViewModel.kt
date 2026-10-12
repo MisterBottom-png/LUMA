@@ -288,20 +288,7 @@ class SpaceCaptureViewModel(
         suggestionDao.getByCaptureId(captureId)?.suggestedTitle.orEmpty()
 
     /** Today 18:00 while it is at least 15 minutes ahead, tomorrow 9:00, and the coming Saturday 10:00. */
-    internal fun quickTimes(): List<SpaceQuickTime> {
-        val zone = zoneId()
-        val current = now()
-        val today = Instant.ofEpochMilli(current).atZone(zone).toLocalDate()
-        val evening = today.atTime(LocalTime.of(18, 0)).atZone(zone).toInstant().toEpochMilli()
-        val morning = today.plusDays(1).atTime(LocalTime.of(9, 0)).atZone(zone).toInstant().toEpochMilli()
-        val saturdayDate = today.with(TemporalAdjusters.next(DayOfWeek.SATURDAY))
-        val saturday = saturdayDate.atTime(LocalTime.of(10, 0)).atZone(zone).toInstant().toEpochMilli()
-        return listOfNotNull(
-            SpaceQuickTime(evening, QuickDay.Today).takeIf { evening - current >= MinimumLeadMillis },
-            SpaceQuickTime(morning, QuickDay.Tomorrow),
-            SpaceQuickTime(saturday, if (saturdayDate == today.plusDays(1)) QuickDay.Tomorrow else QuickDay.Weekday),
-        )
-    }
+    internal fun quickTimes(): List<SpaceQuickTime> = quickReminderTimes(now(), zoneId())
 
     /** Built with the saved state of whoever owns it, so drafts survive Android stopping the app. */
     class Factory(private val container: OrbitContainer) : ViewModelProvider.Factory {
@@ -323,8 +310,23 @@ class SpaceCaptureViewModel(
 
     private companion object {
         const val LookingPollMillis = 150L
-        const val MinimumLeadMillis = 15L * 60_000L
 
         fun draftKey(spaceId: Long) = "spaceCaptureDraft_$spaceId"
     }
 }
+
+/** Today 18:00 while it is at least 15 minutes ahead, tomorrow 9:00, and the coming Saturday 10:00. */
+internal fun quickReminderTimes(current: Long, zone: ZoneId): List<SpaceQuickTime> {
+    val today = Instant.ofEpochMilli(current).atZone(zone).toLocalDate()
+    val evening = today.atTime(LocalTime.of(18, 0)).atZone(zone).toInstant().toEpochMilli()
+    val morning = today.plusDays(1).atTime(LocalTime.of(9, 0)).atZone(zone).toInstant().toEpochMilli()
+    val saturdayDate = today.with(TemporalAdjusters.next(DayOfWeek.SATURDAY))
+    val saturday = saturdayDate.atTime(LocalTime.of(10, 0)).atZone(zone).toInstant().toEpochMilli()
+    return listOfNotNull(
+        SpaceQuickTime(evening, QuickDay.Today).takeIf { evening - current >= QuickTimeMinimumLeadMillis },
+        SpaceQuickTime(morning, QuickDay.Tomorrow),
+        SpaceQuickTime(saturday, if (saturdayDate == today.plusDays(1)) QuickDay.Tomorrow else QuickDay.Weekday),
+    )
+}
+
+private const val QuickTimeMinimumLeadMillis = 15L * 60_000L

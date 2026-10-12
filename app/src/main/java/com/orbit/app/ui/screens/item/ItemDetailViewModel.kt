@@ -38,6 +38,8 @@ data class ItemDetailUiState(
     val rawText: String = "",
     val spaceId: Long? = null,
     val spaces: List<SpaceEntity> = emptyList(),
+    /** The item's own Space, also when it is hidden or archived (B14). */
+    val ownSpaceName: String? = null,
     val statusLabel: String = "",
     val createdAt: Long? = null,
     val updatedAt: Long? = null,
@@ -734,8 +736,8 @@ class ItemDetailViewModel(
         reminderTimeUndoOperationId: Long? = null,
     ) {
         viewModelScope.launch {
-            val spaces = container.spaceRepository.observeAll().replaySafeFirst()
-                .filterNot { it.hidden || it.archived }
+            val allSpaces = container.spaceRepository.observeAll().replaySafeFirst()
+            val spaces = allSpaces.filterNot { it.hidden || it.archived }
             val loaded = when (currentType) {
                 ItemDetailType.Note -> {
                     val note = container.noteRepository.getById(itemId)
@@ -773,6 +775,7 @@ class ItemDetailViewModel(
                 }
             }
             _uiState.value = loaded.copy(
+                ownSpaceName = loaded.spaceId?.let { id -> allSpaces.firstOrNull { it.id == id }?.name },
                 convertedToType = convertedToType,
                 saveCompletedAt = saveCompletedAt,
                 typeUndoOperationId = typeUndoOperationId,

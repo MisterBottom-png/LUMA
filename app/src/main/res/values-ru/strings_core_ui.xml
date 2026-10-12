@@ -143,7 +143,7 @@
         <item quantity="other">Нужно просмотреть: нет обновлений %1$d дня.</item>
     </plurals>
     <string name="core_learning_save_title">Сохранить обученное предпочтение?</string>
-    <string name="core_learning_save_body">Вы внесли это исправление несколько раз: %1$s</string>
+    <string name="core_learning_save_body_choice">Для похожих мыслей использовать «%2$s» вместо «%1$s». Tallele спрашивает, потому что вы вносили это изменение несколько раз.</string>
     <string name="core_learning_save_confirm">Сохранить предпочтение</string>
     <string name="core_learning_not_now">Не сейчас</string>
     <!-- The save receipt under the capture box on Home. -->
@@ -166,4 +166,15 @@
     <string name="receipt_action_turn_on">Включить</string>
     <string name="receipt_action_try_again">Повторить</string>
     <string name="receipt_action_keep">Просто сохранить</string>
+    <string name="sort_one_in_to_sort">В «Разобрать» · сохранено %1$s</string>
+    <string name="sort_one_save_like_this">Сохранить так?</string>
+    <string name="sort_one_kind_in_space">%1$s в пространстве «%2$s»</string>
+    <string name="sort_one_save_note">Сохранить как заметку</string>
+    <string name="sort_one_save_task">Сохранить как задачу</string>
+    <string name="sort_one_save_reminder">Поставить напоминание</string>
+    <string name="sort_one_choose_else">Выбрать другое</string>
+    <string name="sort_one_unsure">Tallele не уверено, что это</string>
+    <string name="sort_one_stays">Останется в «Разобрать»</string>
+    <string name="sort_one_more_options">Другие варианты</string>
+    <string name="sort_one_edit_text">Изменить текст</string>
 </resources>

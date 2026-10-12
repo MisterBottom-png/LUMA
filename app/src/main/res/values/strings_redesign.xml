@@ -199,4 +199,13 @@
     <string name="settings_glass_custom">Custom</string>
     <string name="settings_glass_advanced">Advanced</string>
     <string name="settings_section_saving">Saving</string>
+    <string name="settings_remove_key_title">Remove the Gemini key?</string>
+    <string name="settings_remove_key_body">Tallele stops using Gemini until you add a key again. Your items stay as they are.</string>
+    <string name="settings_remove_rule_title">Remove this rule?</string>
+    <string name="settings_remove_rule_body">Tallele will no longer use this rule.</string>
+    <string name="settings_ai_features_none">Off</string>
+    <plurals name="settings_ai_features_on">
+        <item quantity="one">%d on</item>
+        <item quantity="other">%d on</item>
+    </plurals>
 </resources>

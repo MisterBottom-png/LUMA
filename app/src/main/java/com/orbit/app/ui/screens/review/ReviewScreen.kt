@@ -475,6 +475,14 @@ private fun SortUndoToken.messageRes(): Int = when (this) {
 private fun ReviewSortMessage.messageRes(): Int = when (this) {
     ReviewSortMessage.ActionFailed -> R.string.review_sort_failed
     ReviewSortMessage.TimePassed -> R.string.reminder_time_passed
+    ReviewSortMessage.Kept -> R.string.receipt_kept
+    ReviewSortMessage.ReminderSet -> R.string.reminder_outcome_saved
+    ReviewSortMessage.TaskMade -> R.string.core_home_message_task_created
+    ReviewSortMessage.ReminderRearmed -> R.string.settings_reminder_setup_restored
+    ReviewSortMessage.NoteSaved -> R.string.core_home_message_note_saved
+    ReviewSortMessage.Filed -> R.string.core_sort_already_sorted
+    ReviewSortMessage.ReminderNotificationsOff -> R.string.reminder_outcome_notifications_off
+    ReviewSortMessage.ReminderNotScheduled -> R.string.reminder_outcome_not_scheduled
     ReviewSortMessage.NeedsChoice -> R.string.review_sort_needs_choice
     ReviewSortMessage.Undone -> R.string.core_sort_undone
 }

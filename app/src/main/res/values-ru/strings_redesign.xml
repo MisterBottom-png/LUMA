@@ -211,4 +211,15 @@
     <string name="settings_glass_custom">Свои настройки</string>
     <string name="settings_glass_advanced">Дополнительно</string>
     <string name="settings_section_saving">Сохранение</string>
+    <string name="settings_remove_key_title">Удалить ключ Gemini?</string>
+    <string name="settings_remove_key_body">Tallele перестанет использовать Gemini, пока вы не добавите ключ снова. Ваши записи останутся.</string>
+    <string name="settings_remove_rule_title">Удалить это правило?</string>
+    <string name="settings_remove_rule_body">Tallele больше не будет использовать это правило.</string>
+    <string name="settings_ai_features_none">Выключено</string>
+    <plurals name="settings_ai_features_on">
+        <item quantity="one">%d включена</item>
+        <item quantity="few">%d включены</item>
+        <item quantity="many">%d включено</item>
+        <item quantity="other">%d включено</item>
+    </plurals>
 </resources>

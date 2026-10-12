@@ -225,6 +225,33 @@ abstract class ScreenTour(private val theme: String) {
             compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("No questions right now."))
             compose.waitUntil(10_000) { count("No questions right now.") > 0 }
         }
+        sortOneScreens(container)
+    }
+
+    /** Review §9.3: one thought from To sort, sorted in its own small sheet. */
+    private fun sortOneScreens(container: com.orbit.app.OrbitContainer) {
+        var captureId = 0L
+        step("a thought to sort") {
+            runBlocking { captureId = container.captureRepository.insert(CaptureEntity(rawText = "Book the dentist")) }
+            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Book the dentist"))
+            compose.waitUntil(10_000) { count("Sort") > 0 }
+            compose.onAllNodesWithText("Sort")[0].performClick()
+            compose.waitUntil(10_000) { count("What should this be?") > 0 }
+        }
+        shot("review-sort-one-what")
+        step("a reminder asks when") {
+            compose.onNodeWithText("Reminder").performScrollTo().performClick()
+            compose.waitUntil(10_000) { count("When should this remind you?") > 0 }
+        }
+        shot("review-sort-one-when")
+        step("put it away") {
+            compose.onNodeWithContentDescription("Back").performClick()
+            compose.waitUntil(10_000) { count("What should this be?") > 0 }
+            compose.onNodeWithText("Decide later").performScrollTo().performClick()
+            compose.waitUntil(10_000) { count("What should this be?") == 0 }
+            runBlocking { container.captureResolution.archive(captureId) }
+            compose.waitForIdle()
+        }
     }
 
     /** Step 9.6: a Space's "+" writes the thought over the Space, and the Space stays open. */
@@ -416,17 +443,27 @@ abstract class ScreenTour(private val theme: String) {
         step("review menu") { compose.onAllNodesWithText("Renew passport")[0].performTouchInput { longClick() }; compose.waitForIdle() }
         shot("$prefix-review-menu")
         step("change sheet") {
+            // Review §9.3: "Change" opens the one-item sheet.
             compose.onNodeWithText("Change").performClick()
-            compose.waitUntil(10_000) { count("Not now") > 0 }
+            compose.waitUntil(10_000) { count("Save it like this?") > 0 || count("What should this be?") > 0 }
             compose.mainClock.advanceTimeBy(1_000)
             compose.waitForIdle()
         }
         shot("$prefix-review-change")
-        step("as a reminder") { compose.onNodeWithText("Reminder").performClick(); compose.waitForIdle() }
+        step("as a reminder") {
+            if (count("Choose something else") > 0) {
+                compose.onNodeWithText("Choose something else").performScrollTo().performClick()
+                compose.waitUntil(10_000) { count("What should this be?") > 0 }
+            }
+            compose.onNodeWithText("Reminder").performScrollTo().performClick()
+            compose.waitUntil(10_000) { count("When should this remind you?") > 0 }
+        }
         shot("$prefix-review-change-choices")
         step("close sheet") {
-            compose.onNodeWithText("Not now").performScrollTo().performClick()
-            compose.waitUntil(10_000) { count("Not now") == 0 }
+            compose.onNodeWithContentDescription("Back").performClick()
+            compose.waitUntil(10_000) { count("What should this be?") > 0 }
+            compose.onNodeWithText("Decide later").performScrollTo().performClick()
+            compose.waitUntil(10_000) { count("What should this be?") == 0 }
             compose.mainClock.advanceTimeBy(1_000)
             compose.waitForIdle()
         }

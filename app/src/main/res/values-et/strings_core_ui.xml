@@ -137,7 +137,7 @@
         <item quantity="other">Vajab ülevaatamist: %1$d päeva jooksul pole uuendust.</item>
     </plurals>
     <string name="core_learning_save_title">Kas salvestada õpitud eelistus?</string>
-    <string name="core_learning_save_body">Tegid selle paranduse mitu korda: %1$s</string>
+    <string name="core_learning_save_body_choice">Sarnaste mõtete puhul kasuta „%2$s“, mitte „%1$s“. Tallele küsib, sest tegid selle muudatuse mitu korda.</string>
     <string name="core_learning_save_confirm">Salvesta eelistus</string>
     <string name="core_learning_not_now">Mitte praegu</string>
     <!-- The save receipt under the capture box on Home. -->
@@ -160,4 +160,15 @@
     <string name="receipt_action_turn_on">Lülita sisse</string>
     <string name="receipt_action_try_again">Proovi uuesti</string>
     <string name="receipt_action_keep">Jäta lihtsalt alles</string>
+    <string name="sort_one_in_to_sort">Sorteerimiseks · salvestatud %1$s</string>
+    <string name="sort_one_save_like_this">Kas salvestada nii?</string>
+    <string name="sort_one_kind_in_space">%1$s, ruum: %2$s</string>
+    <string name="sort_one_save_note">Salvesta märkmena</string>
+    <string name="sort_one_save_task">Salvesta ülesandena</string>
+    <string name="sort_one_save_reminder">Sea meeldetuletus</string>
+    <string name="sort_one_choose_else">Vali midagi muud</string>
+    <string name="sort_one_unsure">Tallele pole kindel, mis see on</string>
+    <string name="sort_one_stays">Jääb sorteerimiseks ootele</string>
+    <string name="sort_one_more_options">Rohkem valikuid</string>
+    <string name="sort_one_edit_text">Muuda sõnu</string>
 </resources>

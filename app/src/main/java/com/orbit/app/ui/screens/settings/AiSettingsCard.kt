@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -93,6 +94,31 @@ internal fun AiSettingsCard(
     onDeleteLearnedRule: (LearnedRuleEntity) -> Unit,
     onTestGeminiConnection: (String, String) -> Unit,
 ) {
+    // N049: removing the key or a rule is confirmed first.
+    var confirmKeyRemoval by rememberSaveable { mutableStateOf(false) }
+    var ruleToRemove by remember { mutableStateOf<LearnedRuleEntity?>(null) }
+    val removeKey = onDeleteGeminiKey
+    val removeRule = onDeleteLearnedRule
+    @Suppress("NAME_SHADOWING")
+    val onDeleteGeminiKey: () -> Unit = { confirmKeyRemoval = true }
+    @Suppress("NAME_SHADOWING")
+    val onDeleteLearnedRule: (LearnedRuleEntity) -> Unit = { ruleToRemove = it }
+    if (confirmKeyRemoval) {
+        ConfirmRemoval(
+            title = stringResource(R.string.settings_remove_key_title),
+            body = stringResource(R.string.settings_remove_key_body),
+            onConfirm = { confirmKeyRemoval = false; removeKey() },
+            onDismiss = { confirmKeyRemoval = false },
+        )
+    }
+    ruleToRemove?.let { rule ->
+        ConfirmRemoval(
+            title = stringResource(R.string.settings_remove_rule_title),
+            body = stringResource(R.string.settings_remove_rule_body),
+            onConfirm = { ruleToRemove = null; removeRule(rule) },
+            onDismiss = { ruleToRemove = null },
+        )
+    }
     var apiKey by rememberSaveable { mutableStateOf("") }
     var showGeminiConsent by rememberSaveable { mutableStateOf(false) }
     var showClearLearningConfirmation by rememberSaveable { mutableStateOf(false) }
@@ -228,7 +254,14 @@ private fun AiSettingsMenuCard(
                         if (aiSettings.hasKey) R.string.settings_status_key_saved
                         else R.string.settings_status_key_not_saved,
                     )
-                    AiSettingsPage.Features -> stringResource(settings.aiMode.labelRes())
+                    // N049: how many Gemini features are on, not the mode again.
+                    AiSettingsPage.Features -> settings.geminiFeaturesOn().let { count ->
+                        if (count == 0) {
+                            stringResource(R.string.settings_ai_features_none)
+                        } else {
+                            pluralStringResource(R.plurals.settings_ai_features_on, count, count)
+                        }
+                    }
                     AiSettingsPage.LocalLearning -> stringResource(
                         if (settings.enableLocalAiLearning) R.string.settings_selected
                         else R.string.settings_not_selected,
@@ -602,5 +635,26 @@ private fun DisabledHint(text: String) {
         text = text,
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** Gemini features switched on; none count while Gemini is not in use. */
+internal fun AppSettings.geminiFeaturesOn(): Int =
+    if (aiMode != AiMode.GeminiApi) {
+        0
+    } else {
+        listOf(useGeminiForCapture, useGeminiForMakeSmaller, useGeminiForBrainDump, useGeminiForSituation, useGeminiForReview)
+            .count { it }
+    }
+
+@Composable
+private fun ConfirmRemoval(title: String, body: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.calmPressHaptics(),
+        title = { Text(title) },
+        text = { Text(body) },
+        confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.settings_remove)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel)) } },
     )
 }

@@ -515,6 +515,46 @@ fun OrbitApp(
                         factory = CaptureSortViewModel.factory(container, entry.savedStateHandle),
                     )
                     val reviewUiState by reviewViewModel.uiState.collectAsStateWithLifecycle()
+                    // The one-item sheet for a thought in To sort (review §9.3).
+                    val sortOneViewModel: com.orbit.app.ui.screens.review.SortOneViewModel = viewModel(
+                        factory = com.orbit.app.ui.screens.review.SortOneViewModel.Factory(container),
+                    )
+                    val sortOneState by sortOneViewModel.uiState.collectAsStateWithLifecycle()
+                    val sortOneSpaces by remember { container.spaceRepository.observeAll() }
+                        .collectAsStateWithLifecycle(initialValue = emptyList())
+                    LaunchedEffect(sortOneState.finished) {
+                        sortOneState.finished?.let { message ->
+                            reviewViewModel.showSortMessage(message)
+                            sortOneViewModel.finishedShown()
+                        }
+                    }
+                    if (sortOneState.captureId != null) {
+                        com.orbit.app.ui.screens.review.SortOneSheet(
+                            state = sortOneState,
+                            spaces = sortOneSpaces,
+                            timeFormat = timeFormat,
+                            onTitleChange = sortOneViewModel::onTitleChange,
+                            onSelectSpace = sortOneViewModel::selectSpace,
+                            onSaveSuggested = sortOneViewModel::saveSuggested,
+                            onChooseSomethingElse = sortOneViewModel::chooseSomethingElse,
+                            onChooseNote = sortOneViewModel::chooseNote,
+                            onChooseTask = sortOneViewModel::chooseTask,
+                            onChooseReminder = sortOneViewModel::chooseReminder,
+                            onRemindAt = sortOneViewModel::remindAt,
+                            onPickTime = sortOneViewModel::pickTime,
+                            onBackToTime = sortOneViewModel::backToTime,
+                            onBackFromTime = sortOneViewModel::backFromTime,
+                            onKeepAsTask = sortOneViewModel::keepAsTask,
+                            onDecideLater = sortOneViewModel::decideLater,
+                            // Labels, dates and splitting stay one step away in the full sheet.
+                            onMoreOptions = {
+                                val captureId = sortOneState.captureId
+                                sortOneViewModel.dismiss()
+                                captureId?.let(reviewSortViewModel::open)
+                            },
+                            onDismiss = sortOneViewModel::dismiss,
+                        )
+                    }
                     ReviewScreen(
                         uiState = reviewUiState,
                         timeFormat = timeFormat,
@@ -552,7 +592,14 @@ fun OrbitApp(
                             showSituationAi = true
                         },
                         onAcceptToSort = reviewViewModel::acceptSuggestion,
-                        onChangeToSort = { item -> reviewSortViewModel.open(item.captureId) },
+                        onChangeToSort = { item ->
+                            // A Brain Dump continues in its own flow; one thought gets the one-item sheet.
+                            if (item.state == com.orbit.app.ui.screens.review.ToSortState.BrainDump) {
+                                reviewSortViewModel.open(item.captureId)
+                            } else {
+                                sortOneViewModel.open(item)
+                            }
+                        },
                         onSplitToSort = { item -> reviewSortViewModel.splitIntoThoughts(item.captureId) },
                         onOpenToSort = { item ->
                             navController.navigate(ItemDetailDestination.route(ItemDetailType.Capture, item.captureId))

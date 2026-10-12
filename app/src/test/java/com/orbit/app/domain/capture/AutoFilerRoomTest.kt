@@ -259,6 +259,28 @@ class AutoFilerRoomTest {
     }
 
     @Test
+    fun justKeepItNeverStrandsACardWhoseReminderIsGone() = runBlocking {
+        // N025: the reminder was deleted elsewhere; "Just keep it" still answers the card.
+        val captureId = database.captureDao().insert(
+            com.orbit.app.data.local.entity.CaptureEntity(
+                rawText = "Call the plumber",
+                status = CaptureStatus.Processed,
+                linkedItemId = 404,
+                suggestedType = com.orbit.app.data.local.entity.SuggestedItemType.Reminder,
+                outcome = com.orbit.app.data.local.entity.CaptureOutcome.NeedsYou,
+                outcomeReason = com.orbit.app.data.local.entity.CaptureOutcomeReason.TimePassed,
+            ),
+        )
+
+        resolution().keep(captureId)
+
+        val kept = requireNotNull(database.captureDao().getById(captureId))
+        assertEquals(CaptureStatus.Inbox, kept.status)
+        assertEquals(com.orbit.app.data.local.entity.CaptureOutcome.Saved, kept.outcome)
+        assertNull(kept.linkedItemId)
+    }
+
+    @Test
     fun sortRightAfterSavingTurnsAutomaticFilingOff() = runBlocking {
         val id = analysed(CabinNote)
         paused = true

@@ -894,13 +894,16 @@ private fun SortOneByOneCard(item: ToSortItem, timeFormat: OrbitTimeFormat, onCh
                     GroupDivider(startInset = 0.dp)
                     SuggestionLine(
                         stringResource(R.string.review_one_space),
-                        item.suggestedSpaceName?.let { localizedSpaceName(it) } ?: stringResource(R.string.core_spaces_unfiled),
+                        item.suggestedSpaceName?.let { localizedSpaceName(it) } ?: stringResource(R.string.core_inbox),
                         onChange,
                     )
                     GroupDivider(startInset = 0.dp)
                     SuggestionLine(
                         stringResource(R.string.review_one_when),
-                        item.reminderAt?.let { timeFormat.formatWeekdayDateTime(it) } ?: stringResource(R.string.spaces_section_no_date),
+                        // B15: a dated task shows its day, not "No date".
+                        item.reminderAt?.let { timeFormat.formatWeekdayDateTime(it) }
+                            ?: item.taskDateEpochDay?.let { timeFormat.formatDate(java.time.LocalDate.ofEpochDay(it)) }
+                            ?: stringResource(R.string.spaces_section_no_date),
                         onChange,
                     )
                 }

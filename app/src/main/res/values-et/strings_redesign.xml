@@ -199,4 +199,13 @@
     <string name="settings_glass_custom">Kohandatud</string>
     <string name="settings_glass_advanced">Täpsemalt</string>
     <string name="settings_section_saving">Salvestamine</string>
+    <string name="settings_remove_key_title">Kas eemaldada Gemini võti?</string>
+    <string name="settings_remove_key_body">Tallele ei kasuta Geminit enne, kui lisad uue võtme. Sinu kirjed jäävad alles.</string>
+    <string name="settings_remove_rule_title">Kas eemaldada see reegel?</string>
+    <string name="settings_remove_rule_body">Tallele ei kasuta enam seda reeglit.</string>
+    <string name="settings_ai_features_none">Väljas</string>
+    <plurals name="settings_ai_features_on">
+        <item quantity="one">%d sees</item>
+        <item quantity="other">%d sees</item>
+    </plurals>
 </resources>

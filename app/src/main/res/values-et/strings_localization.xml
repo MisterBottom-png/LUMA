@@ -66,7 +66,7 @@
     <string name="core_spaces_move_item">Liiguta üksus</string>
     <string name="core_spaces_move_to">Liiguta kohta</string>
     <string name="core_spaces_move_empty">Muud ruumi pole saadaval.</string>
-    <string name="core_spaces_unfiled">Paigutamata</string>
+    <string name="core_spaces_unfiled">Ruumita</string>
     <string name="core_spaces_undo_move">Võta liigutus tagasi</string>
     <string name="core_spaces_move_retry">Üksust ei saanud liigutada. Proovi uuesti</string>
     <string name="core_spaces_icon_work">Töö ikoon</string>

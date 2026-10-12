@@ -66,7 +66,7 @@
     <string name="core_spaces_move_item">Переместить элемент</string>
     <string name="core_spaces_move_to">Переместить в</string>
     <string name="core_spaces_move_empty">Других пространств нет.</string>
-    <string name="core_spaces_unfiled">Без места</string>
+    <string name="core_spaces_unfiled">Без пространства</string>
     <string name="core_spaces_undo_move">Отменить перемещение</string>
     <string name="core_spaces_move_retry">Не удалось переместить элемент. Повторить</string>
     <string name="core_spaces_icon_work">Значок работы</string>
