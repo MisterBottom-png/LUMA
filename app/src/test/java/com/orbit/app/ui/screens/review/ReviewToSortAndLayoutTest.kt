@@ -58,10 +58,10 @@ class ReviewToSortAndLayoutTest {
     }
 
     @Test
-    fun nothingWaitsWhenNoQuestionIsOpenAndNothingIsDueToday() {
+    fun nothingWaitsOnlyWhenNoQuestionNoTodayItemAndNoKeptThoughtRemain() {
         assertTrue(ReviewUiState().nothingWaiting)
-        // A saved thought is not a question: it never makes Needs you look busy.
-        assertTrue(ReviewUiState(toSort = listOf(ToSortItem(1, "x", 0, ToSortState.Analyzing))).nothingWaiting)
+        // A kept thought counts as waiting (owner decision): Needs you never says "Nothing is waiting" over it.
+        assertFalse(ReviewUiState(toSort = listOf(ToSortItem(1, "x", 0, ToSortState.Analyzing))).nothingWaiting)
         val question = NeedsYouItem(captureId = 2, text = "remind me", reason = CaptureOutcomeReason.TimeUnclear, createdAt = 0)
         assertFalse(ReviewUiState(needsYou = listOf(question)).nothingWaiting)
         assertFalse(ReviewUiState(needsYou = listOf(question)).somethingFailed)

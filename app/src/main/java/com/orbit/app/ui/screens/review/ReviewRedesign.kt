@@ -168,6 +168,10 @@ internal fun reviewSummary(uiState: ReviewUiState): String {
             add(pluralStringResource(R.plurals.needs_you_summary, uiState.needsYou.size, uiState.needsYou.size))
         }
         if (uiState.dueToday.isNotEmpty()) add(stringResource(R.string.review_summary_today, uiState.dueToday.size))
+        // A kept thought counts as waiting: "Nothing is waiting" is never said while To sort has thoughts.
+        if (uiState.toSort.isNotEmpty()) {
+            add(pluralStringResource(R.plurals.needs_you_summary_to_sort, uiState.toSort.size, uiState.toSort.size))
+        }
     }
     return if (parts.isEmpty()) stringResource(R.string.review_summary_nothing) else parts.joinToString(" · ")
 }

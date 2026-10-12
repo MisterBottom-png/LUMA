@@ -88,7 +88,7 @@ class ReviewScreenJvmTest {
         setReview(ReviewUiState(), fontScale = 1.6f)
         composeRule.onNode(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Needs you")).assertExists()
         composeRule.onNode(isHeading() and hasText("Needs you")).assertExists()
-        composeRule.onNodeWithText("Nothing needs you right now.").assertExists()
+        composeRule.onNodeWithText("No questions right now.").assertExists()
     }
 
     @Test
@@ -308,7 +308,7 @@ class ReviewScreenJvmTest {
         composeRule.onNodeWithText("Needs a decision").assertExists()
         composeRule.onNodeWithText("When should this remind you?").assertExists()
         composeRule.onNodeWithText("Reminders can’t ring while notifications are off.").assertExists()
-        composeRule.onNodeWithText("Nothing needs you right now.").assertDoesNotExist()
+        composeRule.onNodeWithText("No questions right now.").assertDoesNotExist()
         composeRule.onNodeWithText("Pick a time").performClick()
         assertEquals(1L, picked?.captureId)
         // The second card sits lower: bring today's plan under it into view first.

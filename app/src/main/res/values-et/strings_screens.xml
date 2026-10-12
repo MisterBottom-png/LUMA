@@ -150,7 +150,7 @@
     <string name="settings_reminders_advanced">Täpsemalt</string>
     <string name="needs_you_decisions_heading">Vajab otsust</string>
     <string name="needs_you_today_heading">Täna</string>
-    <string name="needs_you_empty">Praegu ei vaja miski sind.</string>
+    <string name="needs_you_empty">Praegu küsimusi pole.</string>
     <string name="needs_you_empty_detail">Täna jättis Tallele alles %1$d ja paigutas %2$d.</string>
     <string name="needs_you_more">Veel</string>
     <string name="needs_you_q_time">Millal sulle sellest meelde tuletada?</string>
@@ -164,6 +164,10 @@
     <string name="needs_you_pick_new_time">Vali uus aeg</string>
     <string name="needs_you_make_task">Tee sellest ülesanne</string>
     <string name="needs_you_attention">Midagi ei õnnestunud</string>
+    <plurals name="needs_you_summary_to_sort">
+        <item quantity="one">%1$d sorteerida</item>
+        <item quantity="other">%1$d sorteerida</item>
+    </plurals>
     <plurals name="needs_you_summary">
         <item quantity="one">%1$d otsustada</item>
         <item quantity="other">%1$d otsustada</item>
@@ -172,4 +176,28 @@
     <string name="settings_look_subtitle">Teema, värv, taust ja klaas</string>
     <string name="space_capture_title">Lisa ruumi „%1$s“</string>
     <string name="space_capture_hint">Mõte selle ruumi jaoks</string>
+    <string name="spaces_section_not_sorted">Veel sorteerimata</string>
+    <string name="spaces_not_sorted_action">Sorteeri</string>
+    <string name="space_capture_saved">Salvestatud ruumi „%1$s“. See on seal, kuni sorteerid.</string>
+    <string name="space_capture_save_as">Salvesta kui</string>
+    <string name="space_capture_let_decide">Las Tallele otsustab</string>
+    <string name="space_capture_explain">See läheb kohe ruumi „%1$s“. Kui Tallele pole kindel, mis see on, küsib ta siin.</string>
+    <string name="space_capture_save_to">Salvesta ruumi „%1$s“</string>
+    <string name="space_capture_saved_to">Salvestatud ruumi „%1$s“</string>
+    <string name="space_capture_keep_as_task">Jäta ülesandeks, ilma meeldetuletuseta</string>
+    <string name="space_capture_time_footnote">See on juba ruumis „%1$s“. Kuni sel aega pole, ootab see ka vaates „Vajab sind“.</string>
+    <string name="space_capture_day">Päev</string>
+    <string name="space_capture_time">Kellaaeg</string>
+    <string name="space_capture_another_day">Muu päev…</string>
+    <string name="space_capture_another_time">Muu kellaaeg…</string>
+    <string name="space_capture_remind_me">Tuleta meelde %1$s</string>
+    <string name="space_capture_what">Mis see olema peaks?</string>
+    <string name="space_capture_note_hint">Midagi, mida hoida ja hiljem lugeda</string>
+    <string name="space_capture_task_hint">Midagi teha, märgi tehtuks, kui valmis</string>
+    <string name="space_capture_reminder_hint">Tallele tuletab sulle kindlal ajal meelde</string>
+    <string name="space_capture_decide_later">Otsusta hiljem</string>
+    <string name="space_capture_type_footnote">See jääb ruumi „%1$s“ jaotisse „Veel sorteerimata“ ja ootab vaates „Vajab sind“.</string>
+    <string name="space_capture_kept_later">Jäi ruumi „%1$s“ jaotisse „Veel sorteerimata“.</string>
+    <string name="space_capture_time_passed">See aeg on möödas. Vali hilisem.</string>
+    <string name="spaces_added_just_now">Lisatud just praegu</string>
 </resources>

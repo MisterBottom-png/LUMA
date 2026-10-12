@@ -163,6 +163,7 @@ internal fun CaptureSuggestionSheet(
         },
     )
     val currentBrainDumpCallbacks by rememberUpdatedState(callbacks)
+    val currentlyPerforming by rememberUpdatedState(isPerformingAction)
     val onBrainDumpDismissRequested: () -> Unit = remember {
         {
             when (currentBrainDumpDismissalDecision) {
@@ -177,8 +178,11 @@ internal fun CaptureSuggestionSheet(
     val brainDumpSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
         confirmValueChange = { target ->
-            if (!currentIsBrainDump || target != SheetValue.Hidden) {
+            if (target != SheetValue.Hidden) {
                 true
+            } else if (!currentIsBrainDump) {
+                // A save is running: the sheet stays until it ends, so no invisible sheet is left.
+                !currentlyPerforming
             } else if (brainDumpSheetAllowsHidden(requireNotNull(currentBrainDumpDismissalDecision))) {
                 true
             } else {

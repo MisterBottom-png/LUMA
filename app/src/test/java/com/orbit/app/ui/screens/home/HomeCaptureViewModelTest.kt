@@ -173,12 +173,13 @@ class HomeCaptureViewModelTest {
         awaitUntil { runBlocking { app.database.captureSuggestionDao().getByCaptureId(captureId) } != null }
 
         // ...and the new one, restored from the saved state, still opens it.
-        val after = app.viewModel(SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) }))
+        val restored = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) })
+        val after = app.viewModel(restored)
         awaitUntil { after.uiState.value.sortRequest != null }
         assertEquals(captureId, after.uiState.value.sortRequest?.captureId)
         after.sortRequestHandled()
-        // Opened once only.
-        val third = app.viewModel(SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) }))
+        // Opened once only: a later restore from that saved state asks nothing.
+        val third = app.viewModel(SavedStateHandle(restored.keys().associateWith { restored.get<Any>(it) }))
         shadowOf(Looper.getMainLooper()).idle()
         Thread.sleep(200)
         shadowOf(Looper.getMainLooper()).idle()

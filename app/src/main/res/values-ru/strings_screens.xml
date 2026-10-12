@@ -150,7 +150,7 @@
     <string name="settings_reminders_advanced">Дополнительно</string>
     <string name="needs_you_decisions_heading">Нужно решение</string>
     <string name="needs_you_today_heading">Сегодня</string>
-    <string name="needs_you_empty">Сейчас ничего не ждёт вашего решения.</string>
+    <string name="needs_you_empty">Сейчас вопросов нет.</string>
     <string name="needs_you_empty_detail">Сегодня Tallele сохранил %1$d и разложил %2$d.</string>
     <string name="needs_you_more">Ещё</string>
     <string name="needs_you_q_time">Когда вам об этом напомнить?</string>
@@ -164,6 +164,12 @@
     <string name="needs_you_pick_new_time">Выбрать новое время</string>
     <string name="needs_you_make_task">Сделать задачей</string>
     <string name="needs_you_attention">Что-то не получилось</string>
+    <plurals name="needs_you_summary_to_sort">
+        <item quantity="one">%1$d ждёт разбора</item>
+        <item quantity="few">%1$d ждут разбора</item>
+        <item quantity="many">%1$d ждут разбора</item>
+        <item quantity="other">%1$d ждут разбора</item>
+    </plurals>
     <plurals name="needs_you_summary">
         <item quantity="one">%1$d ждёт решения</item>
         <item quantity="few">%1$d ждут решения</item>
@@ -174,4 +180,28 @@
     <string name="settings_look_subtitle">Тема, цвет, фон и стекло</string>
     <string name="space_capture_title">Добавить в «%1$s»</string>
     <string name="space_capture_hint">Мысль для этого пространства</string>
+    <string name="spaces_section_not_sorted">Ещё не разобрано</string>
+    <string name="spaces_not_sorted_action">Разобрать</string>
+    <string name="space_capture_saved">Сохранено в «%1$s». Мысль будет там, пока вы её не разберёте.</string>
+    <string name="space_capture_save_as">Сохранить как</string>
+    <string name="space_capture_let_decide">Пусть решит Tallele</string>
+    <string name="space_capture_explain">Мысль сразу попадёт в «%1$s». Если Tallele не уверен, что это, он спросит здесь.</string>
+    <string name="space_capture_save_to">Сохранить в «%1$s»</string>
+    <string name="space_capture_saved_to">Сохранено в «%1$s»</string>
+    <string name="space_capture_keep_as_task">Оставить задачей, без напоминания</string>
+    <string name="space_capture_time_footnote">Мысль уже в «%1$s». Пока у неё нет времени, она также ждёт в «Ждёт вас».</string>
+    <string name="space_capture_day">День</string>
+    <string name="space_capture_time">Время</string>
+    <string name="space_capture_another_day">Другой день…</string>
+    <string name="space_capture_another_time">Другое время…</string>
+    <string name="space_capture_remind_me">Напомнить %1$s</string>
+    <string name="space_capture_what">Чем это должно быть?</string>
+    <string name="space_capture_note_hint">То, что нужно сохранить и прочитать позже</string>
+    <string name="space_capture_task_hint">Дело, которое отмечаете, когда сделано</string>
+    <string name="space_capture_reminder_hint">Tallele напомнит вам в нужное время</string>
+    <string name="space_capture_decide_later">Решить позже</string>
+    <string name="space_capture_type_footnote">Мысль останется в «%1$s» в разделе «Ещё не разобрано» и будет ждать в «Ждёт вас».</string>
+    <string name="space_capture_kept_later">Оставлено в «%1$s» в разделе «Ещё не разобрано».</string>
+    <string name="space_capture_time_passed">Это время уже прошло. Выберите более позднее.</string>
+    <string name="spaces_added_just_now">Добавлено только что</string>
 </resources>

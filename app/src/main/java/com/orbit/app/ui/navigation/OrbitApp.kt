@@ -1,10 +1,8 @@
 package com.orbit.app.ui.navigation
 
-import java.time.LocalDate
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.produceState
-import com.orbit.app.ui.screens.spaces.SpaceCaptureSheet
 import com.orbit.app.ui.screens.review.needsYouSomethingFailed
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -24,6 +22,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
@@ -52,6 +51,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.orbit.app.ui.components.FloatingBottomNavigation
+import com.orbit.app.ui.components.OrbitBottomNavigationDefaults
 import com.orbit.app.ui.components.GlassRenderingPolicy
 import com.orbit.app.ui.components.OrbitBackground
 import com.orbit.app.ui.screens.calendar.CalendarScreen
@@ -112,10 +112,13 @@ fun OrbitApp(
     var situationAiQuestion by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubsectionOpen by rememberSaveable { mutableStateOf(false) }
     // A Space's "+" writes the thought over the Space; the user stays where they are.
-    var spaceCaptureId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var spaceCaptureSaving by remember { mutableStateOf(false) }
-    var spaceCaptureFailed by remember { mutableStateOf(false) }
-    val spaceCaptureScope = rememberCoroutineScope()
+    // The Space "+" sheet: one flow for every Space, drafts kept per Space (review §9.2).
+    val spaceCaptureViewModel: com.orbit.app.ui.screens.spaces.SpaceCaptureViewModel = viewModel(
+        key = "spaceCapture",
+        factory = com.orbit.app.ui.screens.spaces.SpaceCaptureViewModel.Factory(container),
+    )
+    val spaceCaptureState by spaceCaptureViewModel.uiState.collectAsStateWithLifecycle()
+    val spaceSavedMessages = remember { androidx.compose.material3.SnackbarHostState() }
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
     // Needs you gets a dot only when something failed; never a count.
     val needsYouFailed by remember(container) {
@@ -413,9 +416,9 @@ fun OrbitApp(
                         onItemSelected = { item ->
                             navController.navigate(item.route())
                         },
-                        onOpenToday = { navController.navigateToCalendar(LocalDate.now()) },
                         onToggleDone = spacesViewModel::toggleDone,
-                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
+                        onAddThought = spaceCaptureViewModel::open,
+                        onSortThought = spaceCaptureViewModel::openSort,
                     )
                 }
                 composable(SpaceDetailDestination.UnfiledRoute) {
@@ -441,7 +444,18 @@ fun OrbitApp(
                         onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
-                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
+                        onAddThought = spaceCaptureViewModel::open,
+                        onSortThought = spaceCaptureViewModel::openSort,
+                        onOpenToSort = {
+                            navController.navigate(OrbitDestination.Review.route) {
+                                launchSingleTop = true
+                                restoreState = true
+                                popUpTo(OrbitDestination.Home.route) { saveState = true }
+                            }
+                        },
+                        onOpenThought = { captureId ->
+                            navController.navigate(ItemDetailDestination.route(ItemDetailType.Capture, captureId))
+                        },
                     )
                 }
                 composable(
@@ -473,7 +487,18 @@ fun OrbitApp(
                         onOpenSearch = { navController.navigate(SearchDestination.BaseRoute) },
                         onItemSelected = { item -> navController.navigate(item.route()) },
                         onToggleDone = spacesViewModel::toggleDone,
-                        onAddThought = { spaceId -> spaceCaptureId = spaceId },
+                        onAddThought = spaceCaptureViewModel::open,
+                        onSortThought = spaceCaptureViewModel::openSort,
+                        onOpenToSort = {
+                            navController.navigate(OrbitDestination.Review.route) {
+                                launchSingleTop = true
+                                restoreState = true
+                                popUpTo(OrbitDestination.Home.route) { saveState = true }
+                            }
+                        },
+                        onOpenThought = { captureId ->
+                            navController.navigate(ItemDetailDestination.route(ItemDetailType.Capture, captureId))
+                        },
                     )
                 }
                 composable(OrbitDestination.Review.route) { entry ->
@@ -763,38 +788,58 @@ fun OrbitApp(
                 )
             }
 
-            spaceCaptureId?.let { spaceId ->
+            spaceCaptureState.spaceId?.let { spaceId ->
                 val spaceName by produceState(initialValue = "", spaceId) {
                     value = container.spaceRepository.getById(spaceId)?.name.orEmpty()
                 }
-                SpaceCaptureSheet(
+                val draft by remember(spaceId) { spaceCaptureViewModel.draftFlow(spaceId) }.collectAsStateWithLifecycle()
+                com.orbit.app.ui.screens.spaces.SpaceCaptureFlowSheet(
+                    state = spaceCaptureState,
                     spaceName = if (spaceName.isEmpty()) "" else com.orbit.app.ui.localization.localizedSpaceName(spaceName),
-                    saving = spaceCaptureSaving,
-                    saveFailed = spaceCaptureFailed,
-                    onSave = { text ->
-                        // The sheet closes only once the thought is stored; on failure the
-                        // text stays in it and can be saved again.
-                        spaceCaptureSaving = true
-                        spaceCaptureFailed = false
-                        spaceCaptureScope.launch {
-                            val saved = try {
-                                container.captureInbox.save(text, spaceId = spaceId)
-                                true
-                            } catch (cancellation: kotlinx.coroutines.CancellationException) {
-                                throw cancellation
-                            } catch (_: Exception) {
-                                false
-                            }
-                            spaceCaptureSaving = false
-                            if (saved) spaceCaptureId = null else spaceCaptureFailed = true
-                        }
-                    },
-                    onDismiss = {
-                        spaceCaptureId = null
-                        spaceCaptureFailed = false
-                    },
+                    draft = draft,
+                    timeFormat = timeFormat,
+                    onDraftChange = { spaceCaptureViewModel.onDraftChanged(spaceId, it) },
+                    onSaveAsChange = spaceCaptureViewModel::onSaveAsChanged,
+                    onSave = spaceCaptureViewModel::save,
+                    onDismiss = spaceCaptureViewModel::dismiss,
+                    onRemindAt = spaceCaptureViewModel::remindAt,
+                    onPickTime = spaceCaptureViewModel::pickTime,
+                    onBackToTimeQuestion = spaceCaptureViewModel::backToTimeQuestion,
+                    onKeepAsTask = spaceCaptureViewModel::keepAsTask,
+                    onChooseNote = spaceCaptureViewModel::chooseNote,
+                    onChooseTask = spaceCaptureViewModel::chooseTask,
+                    onChooseReminder = spaceCaptureViewModel::chooseReminder,
+                    onDecideLater = spaceCaptureViewModel::decideLater,
                 )
             }
+            spaceCaptureState.finished?.let { finished ->
+                com.orbit.app.ui.screens.spaces.SpaceCaptureFinishedMessage(
+                    finished = finished,
+                    container = container,
+                    timeFormat = timeFormat,
+                    host = spaceSavedMessages,
+                    onOpen = { target ->
+                        navController.navigate(
+                            ItemDetailDestination.route(
+                                when (target.type) {
+                                    com.orbit.app.ui.screens.home.ReceiptItemType.Note -> ItemDetailType.Note
+                                    com.orbit.app.ui.screens.home.ReceiptItemType.Task -> ItemDetailType.Task
+                                    com.orbit.app.ui.screens.home.ReceiptItemType.Reminder -> ItemDetailType.Reminder
+                                    com.orbit.app.ui.screens.home.ReceiptItemType.Capture -> ItemDetailType.Capture
+                                },
+                                target.id,
+                            ),
+                        )
+                    },
+                    onShown = spaceCaptureViewModel::finishedShown,
+                )
+            }
+            androidx.compose.material3.SnackbarHost(
+                hostState = spaceSavedMessages,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = OrbitBottomNavigationDefaults.ContentClearance),
+            )
             if (showSituationAi) {
                 val situationViewModel: SituationAiViewModel = viewModel(
                     factory = SituationAiViewModel.Factory(container),

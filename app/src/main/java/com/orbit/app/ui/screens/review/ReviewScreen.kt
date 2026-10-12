@@ -330,6 +330,32 @@ fun ReviewScreen(
                 )
             }
 
+            // Kept thoughts wait here in plain sight; they are never folded away (B4).
+            if (uiState.toSort.isNotEmpty()) {
+                item(key = "to_sort_heading") {
+                    SectionHeader(
+                        title = stringResource(R.string.review_to_sort_title),
+                        actionLabel = stringResource(R.string.review_sort_one_by_one),
+                        onAction = { sortingOneByOne = true },
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                item(key = "to_sort_list") {
+                    ToSortGroup(
+                        items = uiState.toSort,
+                        showAll = showAllToSort,
+                        timeFormat = timeFormat,
+                        onShowAllChanged = { showAllToSort = it },
+                        onAccept = onAcceptToSort,
+                        onAcceptAll = { onAcceptAllToSort(uiState.toSort) },
+                        onChange = onChangeToSort,
+                        onHideSuggestion = onHideSuggestion,
+                        onLetGo = onLetGo,
+                        onOpen = onOpenToSort,
+                        onSplit = onSplitToSort,
+                    )
+                }
+            }
             // Everything else is a tool, behind one row.
             item(key = "more") {
                 NeedsYouMoreRow(expanded = moreExpanded, onToggle = { moreExpanded = !moreExpanded })
@@ -347,31 +373,6 @@ fun ReviewScreen(
                             onChooseDate = onCarryForwardToDate,
                             onKeepUnscheduled = onKeepCarryForwardUnscheduled,
                             onComplete = onCompleteCarryForward,
-                        )
-                    }
-                }
-                if (uiState.toSort.isNotEmpty()) {
-                    item(key = "to_sort_heading") {
-                        SectionHeader(
-                            title = stringResource(R.string.review_to_sort_title),
-                            actionLabel = stringResource(R.string.review_sort_one_by_one),
-                            onAction = { sortingOneByOne = true },
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
-                    item(key = "to_sort_list") {
-                        ToSortGroup(
-                            items = uiState.toSort,
-                            showAll = showAllToSort,
-                            timeFormat = timeFormat,
-                            onShowAllChanged = { showAllToSort = it },
-                            onAccept = onAcceptToSort,
-                            onAcceptAll = { onAcceptAllToSort(uiState.toSort) },
-                            onChange = onChangeToSort,
-                            onHideSuggestion = onHideSuggestion,
-                            onLetGo = onLetGo,
-                            onOpen = onOpenToSort,
-                            onSplit = onSplitToSort,
                         )
                     }
                 }

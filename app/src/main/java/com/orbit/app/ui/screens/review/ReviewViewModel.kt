@@ -128,9 +128,9 @@ data class ReviewUiState(
     /** Thoughts saved today that Tallele filed (a note, task or reminder). */
     val filedToday: Int = 0,
 ) {
-    /** Nothing needs a decision and nothing is due today. */
+    /** Nothing needs a decision, nothing is due today and no kept thought waits in To sort. */
     val nothingWaiting: Boolean
-        get() = needsYou.isEmpty() && dueToday.isEmpty()
+        get() = needsYou.isEmpty() && dueToday.isEmpty() && toSort.isEmpty()
 
     /** The tab shows a dot only when something failed, never a count. */
     val somethingFailed: Boolean

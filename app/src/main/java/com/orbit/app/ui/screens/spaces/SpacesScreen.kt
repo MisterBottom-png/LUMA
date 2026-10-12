@@ -187,8 +187,12 @@ fun SpacesScreen(
     onUnfiledSelected: () -> Unit,
     onOpenSearch: () -> Unit,
     onItemSelected: (SpaceItemReference) -> Unit,
+    /** "Sort" on a Space's "Not sorted yet" section: opens To sort in Needs you. */
     onOpenToSort: () -> Unit = {},
-    onOpenToday: () -> Unit = {},
+    /** Opens a thought that is not sorted yet. */
+    onOpenThought: (Long) -> Unit = {},
+    /** "Sort" on a thought under "Not sorted yet": the Space's add sheet asks what it should be. */
+    onSortThought: (spaceId: Long, captureId: Long) -> Unit = { _, _ -> },
     onToggleDone: (SpaceItemReference) -> Unit = {},
     onAddThought: ((Long) -> Unit)? = null,
 ) {
@@ -228,8 +232,6 @@ fun SpacesScreen(
             SpacesOverview(
                 uiState = uiState,
                 timeFormat = timeFormat,
-                onOpenToSort = onOpenToSort,
-                onOpenToday = onOpenToday,
                 onCreate = { showCreateDialog = true },
                 onSelect = { onSpaceSelected(it.id) },
                 onSelectUnfiled = onUnfiledSelected,
@@ -257,6 +259,9 @@ fun SpacesScreen(
                 onHideSpace = onHideSpace,
                 onArchiveSpace = onArchiveSpace,
                 onAddThought = onAddThought,
+                onOpenToSort = onOpenToSort,
+                onOpenThought = onOpenThought,
+                onSortThought = onSortThought,
             )
         }
     }
@@ -308,8 +313,6 @@ internal fun shouldHandleSpaceDetailBack(selectedSpace: SpaceEntity?): Boolean =
 private fun SpacesOverview(
     uiState: SpacesUiState,
     timeFormat: OrbitTimeFormat,
-    onOpenToSort: () -> Unit,
-    onOpenToday: () -> Unit,
     onCreate: () -> Unit,
     onSelect: (SpaceEntity) -> Unit,
     onSelectUnfiled: () -> Unit,
@@ -350,30 +353,10 @@ private fun SpacesOverview(
                 bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
             ),
         ) {
-            item(key = "tiles") {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CountTile(
-                        icon = Icons.Rounded.Inbox,
-                        color = MaterialTheme.colorScheme.primary,
-                        count = uiState.toSortCount,
-                        label = stringResource(R.string.review_to_sort_title),
-                        onClick = onOpenToSort,
-                        modifier = Modifier.weight(1f),
-                    )
-                    CountTile(
-                        icon = Icons.Rounded.WbSunny,
-                        color = TodayTileColor,
-                        count = uiState.todayCount,
-                        label = stringResource(R.string.core_today),
-                        onClick = onOpenToday,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
             item(key = "yours_label") {
                 SectionHeader(
                     title = stringResource(R.string.spaces_section_yours),
-                    modifier = Modifier.padding(top = 26.dp),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
             if (visible.isEmpty() && !uiState.hasUnfiledItems) {
@@ -456,48 +439,46 @@ private fun SpacesOverview(
     }
 }
 
-/** Amber for the Today tile: the only warm colour on the screen, so "today" is found at a glance. */
-private val TodayTileColor = Color(0xFFC98A1B)
-
-/** A fixed bucket above the list: an icon, a large count and a name. */
+/** One thought waiting to be sorted: a dashed ring, its words, when it was added, and Sort. */
 @Composable
-private fun CountTile(
-    icon: ImageVector,
-    color: Color,
-    count: Int,
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SoftGlassSurface(
-        onClick = onClick,
-        modifier = modifier,
-        shape = GroupedListShape,
-        style = GlassSurfaceStyle.Standard,
+private fun NotSortedRow(thought: SpaceThought, now: Long, onOpen: () -> Unit, onSort: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .clickable(onClick = onOpen)
+            .padding(start = 16.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.padding(start = 14.dp, top = 14.dp, end = 16.dp, bottom = 14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TintedIconChip(icon = icon, color = color, size = 34.dp)
-                Spacer(modifier = Modifier.weight(1f))
+        Icon(
+            imageVector = Icons.Rounded.RadioButtonUnchecked,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.outline,
+        )
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 14.dp)) {
+            Text(
+                text = thought.text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (now - thought.createdAt in 0 until JustNowMillis) {
                 Text(
-                    text = count.toString(),
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontSize = 26.sp,
-                        lineHeight = 30.sp,
-                        fontFeatureSettings = "tnum",
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    text = stringResource(R.string.spaces_added_just_now),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(
-                text = label,
-                modifier = Modifier.padding(top = 14.dp),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+        }
+        androidx.compose.material3.FilledTonalButton(onClick = onSort, modifier = Modifier.heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.spaces_not_sorted_action))
         }
     }
 }
+
+private const val JustNowMillis = 2L * 60_000L
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -802,6 +783,9 @@ private fun SpaceDetail(
     onHideSpace: (Long) -> Unit = {},
     onArchiveSpace: (Long) -> Unit = {},
     onAddThought: ((Long) -> Unit)? = null,
+    onOpenToSort: () -> Unit = {},
+    onOpenThought: (Long) -> Unit = {},
+    onSortThought: (spaceId: Long, captureId: Long) -> Unit = { _, _ -> },
 ) {
     // Items ticked on this visit stay where they were (shown as done), so the list does not
     // jump under the finger; they move to "done" the next time the Space opens.
@@ -841,7 +825,7 @@ private fun SpaceDetail(
                 bottom = OrbitBottomNavigationDefaults.ContentClearance + navigationBottomPadding,
             ),
         ) {
-            if (contents.size == 0) {
+            if (contents.size == 0 && contents.notSorted.isEmpty()) {
                 item(key = "quiet") {
                     GroupedCard {
                         Column(modifier = Modifier.padding(20.dp)) {
@@ -872,6 +856,26 @@ private fun SpaceDetail(
                             stringResource(if (hasMoveFailure) R.string.core_spaces_move_retry else R.string.core_spaces_undo_move),
                             style = MaterialTheme.typography.labelLarge,
                         )
+                    }
+                }
+            }
+            // A thought added here stays visible in its Space until it is sorted (owner
+            // decision), apart from finished items so it never reads as a note or task.
+            if (contents.notSorted.isNotEmpty()) {
+                item(key = "not_sorted") {
+                    Column(modifier = Modifier.padding(bottom = 20.dp)) {
+                        SectionHeader(title = stringResource(R.string.spaces_section_not_sorted))
+                        GroupedCard {
+                            contents.notSorted.forEachIndexed { index, thought ->
+                                if (index > 0) GroupDivider()
+                                NotSortedRow(
+                                    thought = thought,
+                                    now = now,
+                                    onOpen = { onOpenThought(thought.captureId) },
+                                    onSort = { space?.id?.let { onSortThought(it, thought.captureId) } },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1036,6 +1040,9 @@ private fun SpaceDetail(
                             stringResource(R.string.spaces_detail_open_count, openCount),
                             agenda.notes.size.takeIf { it > 0 }?.let {
                                 pluralStringResource(R.plurals.spaces_detail_note_count, it, it)
+                            },
+                            contents.notSorted.size.takeIf { it > 0 }?.let {
+                                pluralStringResource(R.plurals.needs_you_summary_to_sort, it, it)
                             },
                         ).joinToString(" · "),
                         style = MaterialTheme.typography.bodyMedium,

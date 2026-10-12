@@ -19,10 +19,15 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+/** A thought added to this Space that is not sorted into a note, task or reminder yet. */
+data class SpaceThought(val captureId: Long, val text: String, val createdAt: Long)
+
 data class SpaceContents(
     val notes: List<NoteEntity> = emptyList(),
     val tasks: List<TaskEntity> = emptyList(),
     val reminders: List<ReminderEntity> = emptyList(),
+    /** Shown in its own "Not sorted yet" section; never mixed with finished items. */
+    val notSorted: List<SpaceThought> = emptyList(),
 ) {
     val size: Int get() = notes.size + tasks.size + reminders.size
 }
@@ -170,6 +175,8 @@ private data class AllSpaceContents(
     val tasks: List<TaskEntity>,
     val reminders: List<ReminderEntity>,
     val toSortCount: Int,
+    /** Thoughts still to sort, by the Space they were added to. */
+    val unsortedBySpace: Map<Long, List<SpaceThought>>,
 )
 
 private data class SpaceMoveFeedback(
@@ -194,7 +201,17 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
         container.reminderRepository.observeAll(),
         container.captureRepository.observeAll(),
     ) { notes, tasks, reminders, captures ->
-        AllSpaceContents(notes, tasks, reminders, captures.count { it.status == CaptureStatus.Inbox })
+        val unsorted = captures.filter { it.status == CaptureStatus.Inbox && it.rawText.isNotBlank() }
+        AllSpaceContents(
+            notes = notes,
+            tasks = tasks,
+            reminders = reminders,
+            toSortCount = unsorted.size,
+            unsortedBySpace = unsorted
+                .filter { it.suggestedSpaceId != null }
+                .sortedByDescending { it.createdAt }
+                .groupBy({ requireNotNull(it.suggestedSpaceId) }) { SpaceThought(it.id, it.rawText.trim(), it.createdAt) },
+        )
     }
     private val moveFeedback = combine(moveUndo, moveFailure) { undo, failure ->
         SpaceMoveFeedback(undo, failure)
@@ -215,6 +232,7 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
                     it.spaceId == selectedId && it.status != TaskStatus.Archived
                 },
                 reminders = contents.reminders.filter { it.spaceId == selectedId },
+                notSorted = selectedId?.let { contents.unsortedBySpace[it] }.orEmpty(),
             )
         } else {
             SpaceContents()

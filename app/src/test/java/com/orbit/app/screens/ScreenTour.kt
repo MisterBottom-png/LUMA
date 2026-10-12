@@ -179,7 +179,7 @@ abstract class ScreenTour(private val theme: String) {
     private fun needsYouScreens() {
         val container = (compose.activity.application as OrbitApplication).container
         tapTab("Needs you")
-        step("needs you empty") { compose.waitUntil(10_000) { count("Nothing needs you right now.") > 0 } }
+        step("needs you empty") { compose.waitUntil(10_000) { count("No questions right now.") > 0 } }
         shot("review-needs-you-empty")
         step("two questions") {
             runBlocking {
@@ -218,10 +218,12 @@ abstract class ScreenTour(private val theme: String) {
         }
         step("keep both") {
             repeat(2) { answered ->
+                compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("Just keep it"))
                 compose.onAllNodesWithText("Just keep it")[0].performClick()
                 compose.waitUntil(10_000) { count("Just keep it") <= 1 - answered }
             }
-            compose.waitUntil(10_000) { count("Nothing needs you right now.") > 0 }
+            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("No questions right now."))
+            compose.waitUntil(10_000) { count("No questions right now.") > 0 }
         }
     }
 
@@ -236,13 +238,25 @@ abstract class ScreenTour(private val theme: String) {
         }
         shot("space-capture-sheet")
         step("save in place") {
-            compose.onNodeWithText("Save thought").performClick()
+            compose.onNodeWithText("Save to Work").performClick()
             compose.waitUntil(10_000) { count("Add to Work") == 0 }
             runBlocking {
                 withTimeout(10_000) {
                     while (container.captureRepository.observeAll().first().none { it.rawText == "Draft the team update" }) delay(50)
                 }
             }
+            // Tallele either filed it, or asks only what is missing.
+            compose.waitUntil(10_000) { count("Saved to Work") == 0 || count("Decide later") > 0 || count("Keep as a task, no reminder") > 0 }
+        }
+        if (count("Decide later") > 0) {
+            shot("space-capture-what")
+            step("decide later") {
+                compose.onNodeWithText("Decide later").performClick()
+                compose.waitUntil(10_000) { count("Decide later") == 0 }
+            }
+            shot("space-not-sorted-yet")
+        }
+        step("back on the Space") {
             // Still on the Work Space, not sent back to Home.
             compose.onNodeWithContentDescription("Add a thought to Work").assertExists()
         }
@@ -251,7 +265,16 @@ abstract class ScreenTour(private val theme: String) {
             runBlocking {
                 container.captureRepository.observeAll().first()
                     .filter { it.rawText == "Draft the team update" }
-                    .forEach { container.captureResolution.archive(it.id) }
+                    .forEach { capture ->
+                        container.captureResolution.archive(capture.id)
+                        // Filed by itself: remove what it became, so later shots stay the same.
+                        capture.linkedItemId?.let { id ->
+                            container.noteRepository.getById(id)?.takeIf { it.title.contains("team update", ignoreCase = true) }
+                                ?.let { container.noteRepository.deleteById(id) }
+                            container.taskRepository.getById(id)?.takeIf { it.title.contains("team update", ignoreCase = true) }
+                                ?.let { container.taskRepository.deleteById(id) }
+                        }
+                    }
             }
             compose.waitForIdle()
         }
@@ -259,9 +282,12 @@ abstract class ScreenTour(private val theme: String) {
 
     /** Needs you keeps To sort, earlier tasks and the look back behind one "More" row. */
     private fun openNeedsYouMore() = step("needs you more") {
-        val opened = count("Look back at your week") + count("Close the look back") > 0
+        // The tools sit below To sort; only open "More" if they aren't there already.
+        val list = compose.onAllNodes(hasScrollToNodeAction())[0]
+        val opened = runCatching { list.performScrollToNode(hasText("Look back at your week")) }.isSuccess ||
+            runCatching { list.performScrollToNode(hasText("Close the look back")) }.isSuccess
         if (!opened) {
-            compose.onAllNodes(hasScrollToNodeAction())[0].performScrollToNode(hasText("More"))
+            list.performScrollToNode(hasText("More"))
             compose.onNodeWithText("More").performClick()
             compose.waitForIdle()
         }
@@ -444,7 +470,8 @@ abstract class ScreenTour(private val theme: String) {
         shot("$prefix-search-recent")
         step("one letter") {
             compose.onNode(hasSetTextAction()).performTextInput("g")
-            compose.waitUntil(10_000) { count("2 results") > 0 }
+            // Notes, tasks and thoughts still to sort all match one letter.
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("results", substring = true).fetchSemanticsNodes().isNotEmpty() }
         }
         shot("$prefix-search-one-letter")
         step("no match") {

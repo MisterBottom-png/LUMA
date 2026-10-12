@@ -99,7 +99,9 @@ class ReviewNeedsYouTest {
         viewModel.keepThought(asking.needsYou.single())
 
         val answered = state { it.needsYou.isEmpty() }
-        assertTrue(answered.nothingWaiting)
+        // No question is left, but the kept thoughts still wait in To sort.
+        assertFalse(answered.nothingWaiting)
+        assertTrue(answered.toSort.any { it.captureId == askId })
         val kept = requireNotNull(container.captureRepository.getById(askId))
         assertEquals(CaptureOutcome.Saved, kept.outcome)
         assertEquals(CaptureStatus.Inbox, kept.status)
