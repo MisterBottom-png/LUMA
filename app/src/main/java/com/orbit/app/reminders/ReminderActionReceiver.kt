@@ -26,7 +26,8 @@ class ReminderActionReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val now = System.currentTimeMillis()
-                handleReminderAction(repository(context), action, reminderId, now)
+                val shownAt = intent.getLongExtra(ReminderNotificationWorker.KEY_NOTIFICATION_TIME, 0L).takeIf { it > 0L }
+                handleReminderAction(repository(context), action, reminderId, now, shownAt)
                 NotificationManagerCompat.from(context)
                     .cancel(reminderNotificationRequestCode(reminderId))
             } finally {
@@ -81,11 +82,17 @@ internal suspend fun handleReminderAction(
     action: String,
     reminderId: Long,
     now: Long,
+    /** The notification time of the notification the action came from, when known. */
+    shownAt: Long? = null,
 ) {
     val reminder = repository.getById(reminderId) ?: return
     if (reminder.completedAt != null) return
+    // A repeating reminder already moved on when this occurrence was shown: Done on the
+    // old notification is about that occurrence only and must not skip the next one.
+    val alreadyMovedOn = reminder.repeat != null && shownAt != null &&
+        reminder.notificationTimeMillis() != shownAt
     when (action) {
-        ReminderActionReceiver.ACTION_DONE -> repository.update(ReminderRepeats.markDone(reminder, now))
+        ReminderActionReceiver.ACTION_DONE -> if (!alreadyMovedOn) repository.update(ReminderRepeats.markDone(reminder, now))
         ReminderActionReceiver.ACTION_SNOOZE -> repository.update(
             reminder.copy(snoozedUntil = now + ReminderActionReceiver.SnoozeMillis),
         )

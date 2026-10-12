@@ -165,6 +165,73 @@ class ReminderDeliveryRoomTest {
     }
 
     @Test
+    fun anIgnoredRepeatStillRingsItsSecondAndThirdOccurrence() = runBlocking {
+        val dao = database.reminderDao()
+        val first = now + minute
+        val id = repository.insert(reminder(dueAt = first).copy(repeatRule = ReminderRepeat.Daily.storageToken))
+
+        // Each occurrence is claimed (shown) and then ignored: nobody taps Done.
+        var occurrence = first
+        repeat(3) { index ->
+            now = occurrence + 1_000
+            assertEquals("occurrence ${index + 1} is deliverable", 1, dao.claimDelivery(id, occurrence))
+            ReminderNotifier.armNextOccurrence(dao, scheduler, id, shownAt = occurrence, now = now)
+            val moved = requireNotNull(dao.getById(id))
+            assertEquals(occurrence + day, moved.dueAt)
+            assertEquals(id to moved.dueAt, scheduler.scheduled.last())
+            occurrence = moved.dueAt
+        }
+    }
+
+    @Test
+    fun doneOnAnOldNotificationDoesNotSkipTheNextOccurrence() = runBlocking {
+        val dao = database.reminderDao()
+        val first = now - minute
+        val id = repository.insert(reminder(dueAt = first).copy(repeatRule = ReminderRepeat.Daily.storageToken))
+        dao.claimDelivery(id, first)
+        ReminderNotifier.armNextOccurrence(dao, scheduler, id, shownAt = first, now = now)
+        val next = requireNotNull(dao.getById(id)).dueAt
+
+        handleReminderAction(repository, ReminderActionReceiver.ACTION_DONE, id, now, shownAt = first)
+
+        assertEquals(next, requireNotNull(dao.getById(id)).dueAt)
+    }
+
+    @Test
+    fun aSnoozedRingKeepsTheNextOccurrence() = runBlocking {
+        val dao = database.reminderDao()
+        val first = now - minute
+        val id = repository.insert(reminder(dueAt = first).copy(repeatRule = ReminderRepeat.Daily.storageToken))
+        dao.claimDelivery(id, first)
+        ReminderNotifier.armNextOccurrence(dao, scheduler, id, shownAt = first, now = now)
+        val next = requireNotNull(dao.getById(id)).dueAt
+        // Snooze on the shown notification, then the snoozed ring.
+        handleReminderAction(repository, ReminderActionReceiver.ACTION_SNOOZE, id, now, shownAt = first)
+        val snoozedUntil = requireNotNull(requireNotNull(dao.getById(id)).snoozedUntil)
+        now = snoozedUntil + 1_000
+        dao.claimDelivery(id, snoozedUntil)
+        ReminderNotifier.armNextOccurrence(dao, scheduler, id, shownAt = snoozedUntil, now = now)
+
+        val after = requireNotNull(dao.getById(id))
+        assertEquals(next, after.dueAt)
+        assertNull(after.snoozedUntil)
+    }
+
+    @Test
+    fun aRepeatShownJustBeforeTheAppStoppedMovesOnAtTheNextStart() = runBlocking {
+        val dao = database.reminderDao()
+        val due = now - 5 * minute
+        val id = dao.insert(reminder(dueAt = due).copy(repeatRule = ReminderRepeat.Daily.storageToken, notificationWorkId = "w"))
+        dao.claimDelivery(id, due) // shown, then the process died before it could move on
+
+        reconcileReminders(dao, scheduler, now, deliver = { _, _, _ -> ReminderDeliveryOutcome.Shown }, deliverSummary = { ReminderDeliveryOutcome.Shown })
+
+        val moved = requireNotNull(dao.getById(id))
+        assertEquals(due + day, moved.dueAt)
+        assertEquals(id to moved.dueAt, scheduler.scheduled.last())
+    }
+
+    @Test
     fun doneActionCompletesAndCancels() = runBlocking {
         val id = repository.insert(reminder(dueAt = now - minute))
         handleReminderAction(repository, ReminderActionReceiver.ACTION_DONE, id, now)

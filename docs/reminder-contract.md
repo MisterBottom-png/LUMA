@@ -1,6 +1,6 @@
 # Reminder contract
 
-An event time, reminder target time, and notification offset are separate values. All user-facing times retain 24-hour behavior. Reminders are scheduled locally and receivers are not exported.
+An event time, reminder target time, and notification offset are separate values. User-facing times follow the time-format setting: by default the phone's own 12/24-hour choice, with 24-hour available to force (see `docs/audit/tallele-2026-10/03-contract-conflicts.md`, C8). Reminders are scheduled locally and receivers are not exported.
 
 The app asks for notification permission where required and handles denial without presenting a false success state. Date and timezone uncertainty is surfaced for user confirmation rather than guessed.
 
@@ -8,7 +8,7 @@ The app asks for notification permission where required and handles denial witho
 
 - Each reminder has one notification time: `snoozedUntil` if set, otherwise target time minus offset. `ReminderDeliveryPolicy` is the single place that decides whether that time is armed, delivered now (missed while the phone was off), or treated as already handled.
 - Exact alarms are used when Android allows them (`SCHEDULE_EXACT_ALARM`); otherwise an inexact alarm. A WorkManager job is always queued as a backup path. Whichever path runs first claims the delivery with one atomic SQL update, so a reminder is shown once.
-- Reboot, app update, exact-alarm permission change and app launch run a reconcile pass. Alarms are absolute instants, so a time-zone change does not move them. Reminders missed while the phone was off are shown once (a summary notification when more than three were missed); historical reminders are never re-fired after a migration or restore.
+- Reboot, app update, exact-alarm permission change and app launch run a reconcile pass. One-off alarms are absolute instants, so a time-zone change does not move them; a repeating reminder keeps its chosen local time of day and is re-anchored to it. Reminders missed while the phone was off are shown once (a summary notification when more than three were missed); historical reminders are never re-fired after a migration or restore.
 - Editing title, Space or labels never re-arms a reminder; only a change of timing, enablement or completion does. A time in the past is never scheduled.
 - Settings > Capture & reminders shows whether notifications are allowed and whether exact timing is available, with links to the Android screens.
 
@@ -24,11 +24,11 @@ Reminders created through the capture flow are inserted inside the finalization 
 
 ## Notification actions
 
-- **Done** completes the reminder. A repeating reminder instead moves to its next occurrence and stays active.
+- **Done** completes the reminder. A repeating reminder has already moved on when its occurrence was shown, so Done on that notification changes nothing; Done from the item page moves it on as before.
 - **Snooze** moves only the notification time by 15 minutes; the target time and edited timestamp are unchanged.
 
 ## Repeating reminders
 
-`repeatRule` stores the rule with the chosen time of day (and, for monthly, the chosen day), for example `weekly@09:00` or `monthly@09:00/31`. Rules: daily, weekdays (Mon–Fri), weekly, monthly (the 31st falls back to the last day of shorter months and returns to the 31st afterwards). Nothing is created for the user. A spring-forward night moves only that one occurrence; later ones return to the chosen time. A long-missed repeat moves to the next future occurrence rather than producing a backlog. Moving the reminder to a new time moves later occurrences too. An unknown token behaves as a one-off reminder and is kept unchanged.
+`repeatRule` stores the rule with the chosen time of day (and, for monthly, the chosen day), for example `weekly@09:00` or `monthly@09:00/31`. Rules: daily, weekdays (Mon–Fri), weekly, monthly (the 31st falls back to the last day of shorter months and returns to the 31st afterwards). Nothing is created for the user. A spring-forward night moves only that one occurrence; later ones return to the chosen time. Each occurrence rings on schedule: as soon as one is shown (on time, late or as missed), the reminder moves to its next occurrence and that alarm is armed, so ignoring or swiping a notification never stops the repeat (owner decision, F04). A snoozed ring keeps the next occurrence. A repeat shown just before the app was stopped, a long-missed repeat, and a past repeat in a restored backup move to the next future occurrence rather than producing a backlog or staying silent. Moving the reminder to a new time moves later occurrences too. An unknown token behaves as a one-off reminder and is kept unchanged.
 
 The Calendar and the Home week strip show later occurrences ahead of time, marked with the repeat rule. They are computed for display only: one reminder row is stored and one notification is scheduled (for the current occurrence). Past days are never filled in for an overdue repeat, and opening a later occurrence opens the same reminder.

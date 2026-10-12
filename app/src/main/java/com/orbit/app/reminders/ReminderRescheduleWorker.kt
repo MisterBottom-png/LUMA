@@ -65,7 +65,11 @@ class ReminderRescheduleWorker(
     companion object {
         private const val UniqueWorkName = "luma_reschedule_reminders"
 
-        /** Queues a reconciliation; repeated requests while one is pending are merged. */
+        /**
+         * Queues a reconciliation; repeated requests collapse into one. A pass replaced
+         * while running gives back any claim it had not shown yet (see ReminderNotifier),
+         * and a repeat shown just before is moved on by the next pass, so nothing is lost.
+         */
         fun enqueue(context: Context) {
             WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
                 UniqueWorkName,
@@ -105,7 +109,25 @@ internal suspend fun reconcileReminders(
         val reminder = ReminderRepeats.reanchoredToZone(stored, now, zoneId)
             ?.also { dao.update(it) }
             ?: stored
-        when (val action = ReminderDeliveryPolicy.reconcile(reminder, now)) {
+        // A repeating reminder whose occurrence was shown (or is long past) moves on to its
+        // next occurrence here too, for example after the app was stopped right after showing it.
+        val action = ReminderDeliveryPolicy.reconcile(reminder, now)
+        val shownTime = reminder.notificationTimeMillis()
+        val occurrenceDone = reminder.repeat != null && reminder.completedAt == null && (
+            (action == ReconcileAction.None && shownTime != null && reminder.deliveredNotificationAt == shownTime) ||
+                action is ReconcileAction.MarkHandled
+            )
+        if (occurrenceDone) {
+            val next = ReminderRepeats.afterOccurrenceShown(reminder, shownTime ?: now, now, zoneId)
+            if (next != null) {
+                dao.update(next)
+                val token = runCatching { scheduler.reschedule(next) }.onFailure { failures += 1 }.getOrNull()
+                dao.updateNotificationWorkId(next.id, token)
+                if (token != null) scheduled += 1
+                return@forEach
+            }
+        }
+        when (action) {
             ReconcileAction.None -> {
                 if (!reminder.shouldScheduleNotification() && reminder.notificationWorkId != null) {
                     runCatching { scheduler.cancel(reminder.id) }

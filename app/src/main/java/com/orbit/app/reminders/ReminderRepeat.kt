@@ -118,6 +118,34 @@ object ReminderRepeats {
     }
 
     /**
+     * A repeating reminder's occurrence was shown (on time or as missed): the reminder
+     * moves on to its next occurrence at once, so it keeps ringing on schedule even when
+     * the notification is ignored or swiped away (owner decision, review F04). A snoozed
+     * ring only clears the snooze, so the next occurrence is not skipped. Null for a
+     * one-off reminder, a completed one, or when there is no next occurrence.
+     */
+    fun afterOccurrenceShown(
+        reminder: ReminderEntity,
+        shownAt: Long,
+        now: Long,
+        zoneId: ZoneId = ZoneId.systemDefault(),
+    ): ReminderEntity? {
+        if (reminder.repeat == null || reminder.completedAt != null) return null
+        if (reminder.snoozedUntil != null && shownAt == reminder.snoozedUntil) {
+            val unsnoozed = reminder.copy(snoozedUntil = null)
+            val ownTime = unsnoozed.notificationTimeMillis()
+            if (ownTime != null && ownTime > now) return unsnoozed
+            return advance(unsnoozed, now, zoneId)
+        }
+        return advance(reminder, now, zoneId)
+    }
+
+    private fun advance(reminder: ReminderEntity, now: Long, zoneId: ZoneId): ReminderEntity? {
+        val next = nextOccurrence(reminder, now, zoneId) ?: return null
+        return reminder.copy(dueAt = next, snoozedUntil = null)
+    }
+
+    /**
      * "Done" on a reminder: a repeating one moves to its next occurrence and stays
      * active; any other one is completed.
      */

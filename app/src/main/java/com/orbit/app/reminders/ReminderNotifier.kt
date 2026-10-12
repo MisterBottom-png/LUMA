@@ -19,6 +19,21 @@ import kotlinx.coroutines.flow.first
 enum class ReminderDeliveryOutcome { Shown, AlreadyHandled, Blocked, Missing }
 
 object ReminderNotifier {
+    /** A repeating reminder that was just shown moves on and is armed for its next occurrence. */
+    internal suspend fun armNextOccurrence(
+        dao: ReminderDao,
+        scheduler: ReminderScheduler,
+        reminderId: Long,
+        shownAt: Long,
+        now: Long = System.currentTimeMillis(),
+    ) {
+        val current = dao.getById(reminderId) ?: return
+        val next = ReminderRepeats.afterOccurrenceShown(current, shownAt, now) ?: return
+        dao.update(next)
+        val token = runCatching { scheduler.schedule(next) }.getOrNull()
+        dao.updateNotificationWorkId(reminderId, token)
+    }
+
     /**
      * Shows one reminder notification at most once per notification time. Both the
      * alarm and the backup worker call this; the database claim decides the winner.
@@ -50,17 +65,28 @@ object ReminderNotifier {
             return ReminderDeliveryOutcome.AlreadyHandled
         }
 
-        val notification = buildReminderNotification(
-            context = appContext,
-            reminder = reminder,
-            notificationTime = expectedNotificationTime,
-            missed = missed,
-        )
+        val notification = try {
+            buildReminderNotification(
+                context = appContext,
+                reminder = reminder,
+                notificationTime = expectedNotificationTime,
+                missed = missed,
+            )
+        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+            // Stopped between claiming and showing: give the claim back, so a later
+            // reconcile can still show this reminder instead of losing it (N004).
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                dao.releaseDelivery(reminderId, expectedNotificationTime)
+            }
+            throw cancellation
+        }
         return try {
             NotificationManagerCompat.from(appContext)
                 .notify(reminderNotificationRequestCode(reminderId), notification)
             ReminderCapabilities.clearBlockedDelivery(appContext)
-            scheduler(appContext).cancelAlternateDelivery(reminderId, deliveredBy)
+            val scheduler = scheduler(appContext)
+            scheduler.cancelAlternateDelivery(reminderId, deliveredBy)
+            armNextOccurrence(dao, scheduler, reminderId, expectedNotificationTime)
             ReminderDeliveryOutcome.Shown
         } catch (_: SecurityException) {
             dao.releaseDelivery(reminderId, expectedNotificationTime)

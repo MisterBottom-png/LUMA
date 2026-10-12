@@ -23,7 +23,7 @@
 - [x] **Not now (decided 2026-10-10):**
   - Home-screen widget. It would need an exported, unprotected `AppWidgetProvider` receiver, which widens the release export allowlist.
   - Encrypted and automatic backups. Backups stay manual (Export / Restore).
-  - "Remind again until done". Each reminder notifies once; Snooze stays.
+  - "Remind again until done". Each occurrence notifies once (a repeating reminder rings each of its occurrences on schedule); Snooze stays.
   - Focus timer.
 
 ## Distribution boundary

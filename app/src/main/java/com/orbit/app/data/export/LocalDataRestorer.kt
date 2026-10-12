@@ -177,8 +177,19 @@ class LocalReminderRestoreReconciler(
                 when {
                     !reminder.shouldScheduleNotification() || notificationTime == null ->
                         reminderDao.updateNotificationWorkId(reminder.id, null)
-                    ReminderDeliveryPolicy.scheduleTime(reminder, currentTime) == null ->
-                        reminderDao.markHandled(reminder.id, notificationTime)
+                    ReminderDeliveryPolicy.scheduleTime(reminder, currentTime) == null -> {
+                        // A past one-off never rings late; a past repeat moves on to its
+                        // next occurrence instead of staying silent (N044).
+                        val next = com.orbit.app.reminders.ReminderRepeats.afterOccurrenceShown(reminder, notificationTime, currentTime)
+                        if (next == null) {
+                            reminderDao.markHandled(reminder.id, notificationTime)
+                        } else {
+                            reminderDao.update(next)
+                            val token = scheduler.schedule(next)
+                            reminderDao.updateNotificationWorkId(next.id, token)
+                            if (token == null) reconciled = false
+                        }
+                    }
                     else -> {
                         val token = scheduler.schedule(reminder)
                         reminderDao.updateNotificationWorkId(reminder.id, token)
