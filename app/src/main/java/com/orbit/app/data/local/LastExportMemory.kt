@@ -7,6 +7,7 @@ import androidx.core.content.edit
 interface LastExportMemory {
     fun lastExportAt(): Long?
     fun recordExport(at: Long)
+    fun clear() = Unit
 }
 
 class SharedPreferencesLastExportMemory(context: Context) : LastExportMemory {
@@ -18,6 +19,10 @@ class SharedPreferencesLastExportMemory(context: Context) : LastExportMemory {
 
     override fun recordExport(at: Long) {
         preferences.edit { putLong(LastExportKey, at) }
+    }
+
+    override fun clear() {
+        preferences.edit { clear() }
     }
 
     private companion object {

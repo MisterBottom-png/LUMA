@@ -10,6 +10,7 @@
         <item quantity="other">%d meeldetuletust jäi vahele</item>
     </plurals>
     <string name="settings_export_unverified">Varukoopiat ei õnnestunud kontrollida, seega midagi ei kirjutatud. Andmed selles telefonis on muutmata.</string>
+    <string name="settings_export_too_large">Sinu andmed on suuremad, kui üks varukoopia mahutab (10 MB), seega midagi ei kirjutatud. Andmed selles telefonis on muutmata.</string>
     <string name="settings_retry_reminder_setup">Seadista meeldetuletused uuesti</string>
     <string name="settings_reminder_setup_restored">Meeldetuletused on selles telefonis taas seadistatud.</string>
     <string name="settings_reminder_setup_still_failing">Mõnda meeldetuletust ei õnnestunud ikka seadistada. Sinu kirjed on alles; kontrolli teavituste sätteid ja proovi uuesti.</string>

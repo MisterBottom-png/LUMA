@@ -68,6 +68,7 @@ import com.orbit.app.ui.screens.review.ReviewViewModel
 import com.orbit.app.ui.screens.search.SearchScreen
 import com.orbit.app.ui.screens.search.SearchViewModel
 import com.orbit.app.ui.screens.settings.AiSettingsViewModel
+import com.orbit.app.ui.screens.settings.LocalDataToolsMessage
 import com.orbit.app.ui.screens.settings.LocalDataToolsViewModel
 import com.orbit.app.ui.screens.settings.SettingsScreen
 import com.orbit.app.ui.screens.situation.SituationAiSheet
@@ -137,7 +138,7 @@ fun OrbitApp(
     )
 
     // A first launch opens straight on Home with the starter Spaces already there.
-    LaunchedEffect(Unit) {
+    LaunchedEffect(settings.hasCompletedFirstTimeTutorial) {
         if (!settings.hasCompletedFirstTimeTutorial) {
             runCatching { seedStarterSpacesSilently(container.spaceRepository) }
         }
@@ -593,6 +594,20 @@ fun OrbitApp(
                     )
                     val localDataToolsUiState by localDataToolsViewModel.uiState.collectAsStateWithLifecycle()
                     val aiSettingsUiState by aiSettingsViewModel.uiState.collectAsStateWithLifecycle()
+                    // F10: after a reset Tallele opens as on its first day: the phone's
+                    // language, Home with the starter Spaces and the first-time guide.
+                    val resetActivity = androidx.activity.compose.LocalActivity.current
+                    LaunchedEffect(localDataToolsUiState.restoreMessage) {
+                        if (localDataToolsUiState.restoreMessage == LocalDataToolsMessage.ResetCompleted) {
+                            localDataToolsViewModel.messageShown()
+                            navController.popBackStack(OrbitDestination.Home.route, inclusive = false)
+                            if (applicationLanguage != AppLanguage.SystemDefault) {
+                                onApplicationLanguageChanged(AppLanguage.SystemDefault)
+                            } else {
+                                resetActivity?.recreate()
+                            }
+                        }
+                    }
                     SettingsScreen(
                         settings = settings,
                         onSettingsChanged = onSettingsChanged,

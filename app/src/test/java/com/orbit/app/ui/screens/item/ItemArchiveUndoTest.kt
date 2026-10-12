@@ -63,6 +63,20 @@ class ItemArchiveUndoTest {
     }
 
     @Test
+    fun undoKeepsAnEditMadeAfterArchiving() = runBlocking {
+        // N037: Undo puts back what archiving changed, not the whole old item.
+        val original = NoteEntity(id = 21, title = "Garden", body = "Old text", createdAt = 100, updatedAt = 200)
+        val notes = FakeNoteRepository(listOf(original))
+        val actions = actions(notes = notes)
+        val operationId = actions.archive(ItemDetailType.Note, original.id).operationId()
+        notes.update(notes.item(original.id)!!.copy(body = "New text", updatedAt = 9_500L))
+
+        assertEquals(UndoOutcome.Restored, actions.undo(operationId))
+        assertEquals("New text", notes.item(original.id)?.body)
+        assertEquals(false, notes.item(original.id)?.archived)
+    }
+
+    @Test
     fun reminderArchiveIsUnsupportedAndChangesNothing() = runBlocking {
         val actions = actions()
 

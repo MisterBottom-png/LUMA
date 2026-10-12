@@ -2,7 +2,6 @@ package com.orbit.app.ui.screens.settings
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
-import androidx.room.withTransaction
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.orbit.app.OrbitContainer
@@ -16,6 +15,9 @@ import com.orbit.app.reminders.ReminderDeliveryPath
 import com.orbit.app.reminders.ReminderNotifier
 import com.orbit.app.reminders.reconcileReminders
 import com.orbit.app.reminders.ReminderCapabilities
+import com.orbit.app.reminders.ReminderRescheduleWorker
+import com.orbit.app.data.local.LocalDataReset
+import androidx.core.app.NotificationManagerCompat
 import com.orbit.app.reminders.ReminderDeliveryOutcome
 import com.orbit.app.domain.capture.LinkedCaptureOutcomes
 import com.orbit.app.domain.usecase.RoomCaptureFinalizationTransaction
@@ -51,10 +53,12 @@ data class LocalDataToolsUiState(
 sealed interface LocalDataToolsMessage {
     data object ExportFailed : LocalDataToolsMessage
     data object ExportUnverified : LocalDataToolsMessage
+    data object ExportTooLarge : LocalDataToolsMessage
     data object RestoreFileInvalid : LocalDataToolsMessage
     data object RestoreFailed : LocalDataToolsMessage
     data object ResetCompleted : LocalDataToolsMessage
     data object ResetFailed : LocalDataToolsMessage
+    data object ResetIncomplete : LocalDataToolsMessage
     data object ReminderSetupRestored : LocalDataToolsMessage
     data object ReminderSetupStillFailing : LocalDataToolsMessage
     data class RestoreCompleted(
@@ -82,8 +86,8 @@ internal fun restoreFailureMessage(failure: Throwable): LocalDataToolsMessage =
 internal enum class LocalDataArea { Export, Restore, Reset }
 
 internal fun LocalDataToolsMessage.area(): LocalDataArea = when (this) {
-    LocalDataToolsMessage.ExportFailed, LocalDataToolsMessage.ExportUnverified -> LocalDataArea.Export
-    LocalDataToolsMessage.ResetCompleted, LocalDataToolsMessage.ResetFailed -> LocalDataArea.Reset
+    LocalDataToolsMessage.ExportFailed, LocalDataToolsMessage.ExportUnverified, LocalDataToolsMessage.ExportTooLarge -> LocalDataArea.Export
+    LocalDataToolsMessage.ResetCompleted, LocalDataToolsMessage.ResetFailed, LocalDataToolsMessage.ResetIncomplete -> LocalDataArea.Reset
     else -> LocalDataArea.Restore
 }
 
@@ -110,10 +114,10 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
                 .onFailure { failure ->
                     _uiState.value = LocalDataToolsUiState(
                         lastExportAt = container.lastExportMemory.lastExportAt(),
-                        errorMessage = if (failure is LocalDataExportVerificationException) {
-                            LocalDataToolsMessage.ExportUnverified
-                        } else {
-                            LocalDataToolsMessage.ExportFailed
+                        errorMessage = when (failure) {
+                            is com.orbit.app.data.export.LocalDataExportTooLargeException -> LocalDataToolsMessage.ExportTooLarge
+                            is LocalDataExportVerificationException -> LocalDataToolsMessage.ExportUnverified
+                            else -> LocalDataToolsMessage.ExportFailed
                         },
                     )
                 }
@@ -158,13 +162,16 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
 
     fun confirmRestore() {
         val plan = _uiState.value.restorePlan ?: return
-        if (_uiState.value.isRestoring) return
+        // N031: a restore never runs while a reset does, or twice.
+        if (_uiState.value.isRestoring || _uiState.value.isResetting) return
         viewModelScope.launch {
             _uiState.update { it.copy(isRestoring = true, errorMessage = null) }
             runCatching { container.localDataRestorer.restore(plan) }
                 .onSuccess { result ->
                     // Task ids now name the restored tasks, not the ones remembered here.
                     container.archivedTaskStatusMemory.clear()
+                    // N036: the last receipt named a thought from before the restore.
+                    runCatching { container.appSettingsRepository.edit { it.copy(lastReceiptCaptureId = null) } }
                     _uiState.update {
                         it.copy(
                             isRestoring = false,
@@ -193,39 +200,38 @@ class LocalDataToolsViewModel(private val container: OrbitContainer) : ViewModel
             _uiState.update { it.copy(isResetting = true, errorMessage = null, restoreMessage = null, exportCompleted = false) }
             runCatching {
                 withContext(Dispatchers.IO) {
-                    // Cancel every scheduled notification first so none can fire
-                    // after the rows they reference are gone.
-                    container.reminderRepository.observeAll().first().forEach { reminder ->
-                        runCatching { container.reminderScheduler.cancel(reminder.id) }
-                    }
-                    container.database.withTransaction {
-                        container.database.captureSuggestionDao().deleteAll()
-                        container.database.labelDao().deleteAllNoteLabels()
-                        container.database.labelDao().deleteAllTaskLabels()
-                        container.database.labelDao().deleteAllReminderLabels()
-                        container.database.reminderDao().deleteAll()
-                        container.database.brainDumpDao().deleteAllItems()
-                        container.database.brainDumpDao().deleteAllSessions()
-                        container.database.noteDao().deleteAll()
-                        container.database.taskDao().deleteAll()
-                        container.database.captureDao().deleteAll()
-                        container.database.labelDao().deleteAllLabels()
-                        container.database.spaceDao().deleteAll()
-                    }
+                    val context = container.applicationContext
+                    LocalDataReset(
+                        database = container.database,
+                        scheduler = container.reminderScheduler,
+                        settings = container.appSettingsRepository,
+                        geminiKey = container.geminiApiKeyStore,
+                        clearPreferences = {
+                            container.archivedTaskStatusMemory.clear()
+                            container.lastExportMemory.clear()
+                            ReminderCapabilities.clearDeliveryHistory(context)
+                        },
+                        cancelNotifications = { NotificationManagerCompat.from(context).cancelAll() },
+                        onItemsKept = { ReminderRescheduleWorker.enqueue(context) },
+                    ).run()
                 }
             }.onSuccess {
-                container.archivedTaskStatusMemory.clear()
                 _uiState.update {
                     it.copy(
                         isResetting = false,
+                        lastExportAt = null,
                         restoreMessage = LocalDataToolsMessage.ResetCompleted,
                     )
                 }
-            }.onFailure {
+            }.onFailure { failure ->
                 _uiState.update {
                     it.copy(
                         isResetting = false,
-                        errorMessage = LocalDataToolsMessage.ResetFailed,
+                        errorMessage = if (failure is com.orbit.app.data.local.LocalDataResetIncomplete) {
+                            LocalDataToolsMessage.ResetIncomplete
+                        } else {
+                            LocalDataToolsMessage.ResetFailed
+                        },
                     )
                 }
             }

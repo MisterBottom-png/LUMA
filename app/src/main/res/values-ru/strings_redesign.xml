@@ -12,6 +12,7 @@
         <item quantity="other">%d напоминания пропущено</item>
     </plurals>
     <string name="settings_export_unverified">Резервную копию не удалось проверить, поэтому ничего не записано. Данные на этом телефоне не изменены.</string>
+    <string name="settings_export_too_large">Ваших данных больше, чем вмещает одна резервная копия (10 МБ), поэтому ничего не записано. Данные на этом телефоне не изменены.</string>
     <string name="settings_retry_reminder_setup">Настроить напоминания заново</string>
     <string name="settings_reminder_setup_restored">Напоминания снова настроены на этом телефоне.</string>
     <string name="settings_reminder_setup_still_failing">Некоторые напоминания всё ещё не удалось настроить. Ваши записи в сохранности; проверьте настройки уведомлений и попробуйте снова.</string>

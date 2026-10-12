@@ -31,7 +31,40 @@ fun interface LocalDataSnapshotReader {
 interface LocalDataRestoreStore : LocalDataSnapshotReader {
     override suspend fun read(): LocalDataSnapshot
     suspend fun replace(snapshot: LocalDataSnapshot)
+
+    /**
+     * F09: check and replace in one step, so nothing can change in between. Returns the
+     * data that was replaced, or null when it no longer matches [expected].
+     */
+    suspend fun replaceIfUnchanged(expected: LocalDataSnapshot, snapshot: LocalDataSnapshot): LocalDataSnapshot? {
+        val current = read()
+        if (!current.sameForTheUser(expected)) return null
+        replace(snapshot)
+        return current
+    }
 }
+
+/**
+ * N032: what the user could have changed. Delivery bookkeeping (a reminder ringing, a
+ * repeat moving on, a thought's outcome following its reminder) does not block a restore.
+ */
+internal fun LocalDataSnapshot.sameForTheUser(other: LocalDataSnapshot): Boolean =
+    userView() == other.userView()
+
+private fun LocalDataSnapshot.userView(): LocalDataSnapshot = copy(
+    reminders = reminders.map {
+        it.copy(
+            deliveredNotificationAt = null,
+            notificationWorkId = null,
+            snoozedUntil = null,
+            dueAt = if (it.repeatRule != null) 0L else it.dueAt,
+        )
+    },
+    captures = captures.map {
+        it.copy(outcome = com.orbit.app.data.local.entity.CaptureOutcome.Saved,
+            outcomeReason = com.orbit.app.data.local.entity.CaptureOutcomeReason.None, outcomeAt = null)
+    },
+)
 
 fun interface ReminderRestoreReconciler {
     suspend fun reconcile(
@@ -57,13 +90,10 @@ class LocalDataRestorer(
     }
 
     suspend fun restore(plan: LocalRestorePlan): LocalRestoreResult {
-        val current = store.read()
-        if (current != plan.existingSnapshot) {
-            throw LocalDataRestoreException(
+        val current = store.replaceIfUnchanged(plan.existingSnapshot, plan.restoredSnapshot)
+            ?: throw LocalDataRestoreException(
                 "Local data changed after the restore summary was prepared. Select the export again.",
             )
-        }
-        store.replace(plan.restoredSnapshot)
         val reconciled = reminderReconciler.reconcile(
             previousReminderIds = current.reminders.mapTo(hashSetOf()) { it.id },
             restoredReminders = plan.restoredSnapshot.reminders,
@@ -99,10 +129,22 @@ class RoomLocalDataRestoreStore(
         )
     }
 
+    override suspend fun replaceIfUnchanged(expected: LocalDataSnapshot, snapshot: LocalDataSnapshot): LocalDataSnapshot? =
+        database.withTransaction {
+            val current = read()
+            if (!current.sameForTheUser(expected)) return@withTransaction null
+            replace(snapshot)
+            current
+        }
+
     override suspend fun replace(snapshot: LocalDataSnapshot) {
         database.withTransaction {
             val aliases = database.spaceAliasMemoryDao().observeAll().first()
             val suggestionHistory = database.aiSuggestionHistoryDao().observeAll().first()
+            // N007: device-only learning is re-linked only to the same thought (same text
+            // and time) or a Space with the same name, never to whatever reuses an id.
+            val oldCaptures = database.captureDao().observeAll().first().associateBy { it.id }
+            val oldSpaceNames = database.spaceDao().observeAll().first().associate { it.id to it.name.trim().lowercase() }
 
             database.captureSuggestionDao().deleteAll()
             database.labelDao().deleteAllNoteLabels()
@@ -130,9 +172,10 @@ class RoomLocalDataRestoreStore(
             database.labelDao().insertReminderLabels(snapshot.reminderLabels)
             database.captureSuggestionDao().insertAll(snapshot.captureSuggestions)
 
-            val restoredSpaceIds = snapshot.spaces.mapTo(hashSetOf()) { it.id }
-            aliases.filter { it.spaceId in restoredSpaceIds }.forEach {
-                database.spaceAliasMemoryDao().insert(it)
+            val restoredSpaceByName = snapshot.spaces.associateBy { it.name.trim().lowercase() }
+            aliases.forEach { alias ->
+                val space = oldSpaceNames[alias.spaceId]?.let(restoredSpaceByName::get) ?: return@forEach
+                database.spaceAliasMemoryDao().insert(alias.copy(spaceId = space.id))
             }
             // Learned rules are merged, never replaced: what this phone learned stays,
             // and rules from the backup are added unless the same rule is already here.
@@ -143,8 +186,12 @@ class RoomLocalDataRestoreStore(
                     database.learnedRuleDao().insert(rule.portableForBackup())
                 }
             }
-            val restoredCaptureIds = snapshot.captures.mapTo(hashSetOf()) { it.id }
-            suggestionHistory.filter { it.captureId in restoredCaptureIds }.forEach {
+            val restoredCaptures = snapshot.captures.associateBy { it.id }
+            suggestionHistory.filter { history ->
+                val before = history.captureId?.let(oldCaptures::get)
+                val after = history.captureId?.let(restoredCaptures::get)
+                before != null && after != null && before.rawText == after.rawText && before.createdAt == after.createdAt
+            }.forEach {
                 database.aiSuggestionHistoryDao().update(it)
             }
         }

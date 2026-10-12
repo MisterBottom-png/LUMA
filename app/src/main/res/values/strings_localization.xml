@@ -131,11 +131,12 @@
     <string name="core_item_detail_notification_update_failed">Could not update the notification.</string>
     <string name="settings_reset_local_data">Reset local data</string>
     <string name="settings_reset_data_title">Reset all local data?</string>
-    <string name="settings_reset_data_body">This deletes every capture, note, task, reminder, Space, and Brain Dump on this device and cancels its notifications. Export first to keep a copy.</string>
+    <string name="settings_reset_data_body">This deletes everything on this phone: every thought, note, task, reminder, Space and Brain Dump, what Tallele has learned, your settings and your Gemini key. Reminders and notifications are cancelled. Tallele then starts as on its first day. Export first to keep a copy.</string>
     <string name="settings_reset_data_confirm">Reset local data</string>
     <string name="settings_reset_complete">Local data reset.</string>
+    <string name="settings_reset_incomplete">Your items were deleted, but some settings could not be cleared. Try Reset again.</string>
     <string name="settings_reset_failed">Reset could not be completed. Existing data was kept.</string>
-    <string name="settings_reset_explanation">Erase all local items and Spaces on this device and return to a fresh start. This cannot be undone.</string>
+    <string name="settings_reset_explanation">Erase everything on this phone, including settings and the Gemini key, and start again as on the first day. This cannot be undone.</string>
     <string name="settings_resetting">Resetting…</string>
     <string name="core_item_detail_schedule_unchanged">Schedule unchanged.</string>
     <string name="core_item_detail_unavailable_message">This item is no longer available.</string>
@@ -157,7 +158,6 @@
     <string name="core_item_detail_default_source">this item</string>
     <string name="core_item_detail_type_changed">Type changed.</string>
     <string name="core_item_detail_type_change_undone">Type change undone.</string>
-    <string name="core_item_detail_type_conflict">Could not change type because another item already uses this identity.</string>
     <string name="core_item_detail_reminder_time_required">Choose a reminder date and time first.</string>
     <string name="core_item_detail_type_change_failed">Could not change the item type.</string>
     <string name="core_item_detail_tiny_task_note">Made smaller from: %1$s</string>

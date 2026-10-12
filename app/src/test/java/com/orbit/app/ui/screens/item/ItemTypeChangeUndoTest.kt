@@ -69,11 +69,11 @@ class ItemTypeChangeUndoTest {
         database.labelDao().insertReminderLabels(listOf(ReminderLabelCrossRef(5, label)))
 
         val snapshot = requireNotNull(conversion.snapshot(ItemDetailType.Reminder, 5))
-        assertEquals(TypeConversionOutcome.Converted, conversion.convert(ItemDetailType.Reminder, 5, ItemDetailType.Task))
+        val taskId = (conversion.convert(ItemDetailType.Reminder, 5, ItemDetailType.Task) as TypeConversionOutcome.Converted).itemId
         assertNull(database.reminderDao().getById(5))
 
-        assertTrue(conversion.undo(snapshot, ItemDetailType.Task, 5))
-        assertNull(database.taskDao().getById(5))
+        assertTrue(conversion.undo(snapshot, ItemDetailType.Task, taskId))
+        assertNull(database.taskDao().getById(taskId))
         val restored = requireNotNull(database.reminderDao().getById(5))
         assertEquals(original.copy(notificationWorkId = restored.notificationWorkId), restored)
         assertEquals(listOf(label), database.labelDao().getLabelIdsForReminder(5))
@@ -87,32 +87,33 @@ class ItemTypeChangeUndoTest {
         val label = database.labelDao().insert(LabelEntity(name = "Home", normalizedName = "home"))
         database.noteDao().insert(NoteEntity(id = 7, title = "Paint the fence", body = "", createdAt = 1, updatedAt = 2))
 
+        var taskId = 0L
         fun convertToTask(): TypeConversionSnapshot = runBlocking {
             val before = requireNotNull(conversion.snapshot(ItemDetailType.Note, 7))
-            assertEquals(TypeConversionOutcome.Converted, conversion.convert(ItemDetailType.Note, 7, ItemDetailType.Task))
-            conversion.afterConversion(before, ItemDetailType.Task, 7)
+            taskId = (conversion.convert(ItemDetailType.Note, 7, ItemDetailType.Task) as TypeConversionOutcome.Converted).itemId
+            conversion.afterConversion(before, ItemDetailType.Task, taskId)
         }
 
-        // Nothing changed since: Undo works.
-        assertTrue(conversion.undo(convertToTask(), ItemDetailType.Task, 7))
+        // Nothing changed since: Undo works, under the note's own id.
+        assertTrue(conversion.undo(convertToTask(), ItemDetailType.Task, taskId))
         assertNotNull(database.noteDao().getById(7))
 
         // The title was edited after the change: Undo refuses and the edit stays.
         var snapshot = convertToTask()
         clock += 1_000
-        val task = requireNotNull(database.taskDao().getById(7))
+        val task = requireNotNull(database.taskDao().getById(taskId))
         database.taskDao().update(task.copy(title = "Paint the fence white", updatedAt = clock))
-        assertFalse(conversion.undo(snapshot, ItemDetailType.Task, 7))
-        assertEquals("Paint the fence white", database.taskDao().getById(7)?.title)
+        assertFalse(conversion.undo(snapshot, ItemDetailType.Task, taskId))
+        assertEquals("Paint the fence white", database.taskDao().getById(taskId)?.title)
         assertNull(database.noteDao().getById(7))
 
         // A label added after the change counts as an edit too.
-        database.taskDao().deleteById(7)
+        database.taskDao().deleteById(taskId)
         database.noteDao().insert(NoteEntity(id = 7, title = "Paint the fence", body = "", createdAt = 1, updatedAt = 2))
         snapshot = convertToTask()
-        database.labelDao().insertTaskLabels(listOf(TaskLabelCrossRef(7, label)))
-        assertFalse(conversion.undo(snapshot, ItemDetailType.Task, 7))
-        assertNotNull(database.taskDao().getById(7))
+        database.labelDao().insertTaskLabels(listOf(TaskLabelCrossRef(taskId, label)))
+        assertFalse(conversion.undo(snapshot, ItemDetailType.Task, taskId))
+        assertNotNull(database.taskDao().getById(taskId))
     }
 
     @Test

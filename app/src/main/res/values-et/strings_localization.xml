@@ -149,7 +149,6 @@
     <string name="core_item_detail_default_source">see üksus</string>
     <string name="core_item_detail_type_changed">Tüüp on muudetud.</string>
     <string name="core_item_detail_type_change_undone">Tüübi muutmine on tühistatud.</string>
-    <string name="core_item_detail_type_conflict">Tüüpi ei saanud muuta, sest teine üksus kasutab juba seda seost.</string>
     <string name="core_item_detail_reminder_time_required">Vali esmalt meeldetuletuse kuupäev ja kellaaeg.</string>
     <string name="core_item_detail_type_change_failed">Üksuse tüüpi ei saanud muuta.</string>
     <string name="core_item_detail_tiny_task_note">Väiksemaks tehtud: %1$s</string>
@@ -171,11 +170,12 @@
     <string name="core_item_detail_notification_update_failed">Teavitust ei saanud uuendada.</string>
     <string name="settings_reset_local_data">Lähtesta kohalikud andmed</string>
     <string name="settings_reset_data_title">Lähtestada kõik kohalikud andmed?</string>
-    <string name="settings_reset_data_body">See kustutab selle seadme kõik kirjed, märkused, ülesanded, meeldetuletused, ruumid ja ajutühjendused ning tühistab nende teavitused. Koopia säilitamiseks eksportige esmalt.</string>
+    <string name="settings_reset_data_body">See kustutab sellest telefonist kõik: kõik mõtted, märkmed, ülesanded, meeldetuletused, ruumid ja ajutühjendused, kõik, mida Tallele on õppinud, sinu seaded ja Gemini võtme. Meeldetuletused ja teavitused tühistatakse. Seejärel alustab Tallele nagu esimesel päeval. Koopia hoidmiseks ekspordi enne.</string>
     <string name="settings_reset_data_confirm">Lähtesta kohalikud andmed</string>
     <string name="settings_reset_complete">Kohalikud andmed lähtestatud.</string>
+    <string name="settings_reset_incomplete">Sinu kirjed kustutati, kuid mõnda seadet ei õnnestunud tühjendada. Proovi lähtestada uuesti.</string>
     <string name="settings_reset_failed">Lähtestamist ei saanud lõpule viia. Olemasolevad andmed säilitati.</string>
-    <string name="settings_reset_explanation">Kustutage selle seadme kõik kohalikud üksused ja ruumid ning alustage puhtalt lehelt. Seda ei saa tagasi võtta.</string>
+    <string name="settings_reset_explanation">Kustuta sellest telefonist kõik, ka seaded ja Gemini võti, ning alusta otsast nagu esimesel päeval. Seda ei saa tagasi võtta.</string>
     <string name="settings_resetting">Lähtestamine…</string>
     <string name="core_home_message_capture_save_failed">Seda sisestust ei saanud salvestada. Sinu tekst on endiselt alles.</string>
     <string name="core_home_message_kept_in_inbox">Jäeti jaotisse „Sorteerida“.</string>

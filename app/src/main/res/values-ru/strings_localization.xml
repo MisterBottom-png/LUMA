@@ -153,7 +153,6 @@
     <string name="core_item_detail_default_source">этот элемент</string>
     <string name="core_item_detail_type_changed">Тип изменён.</string>
     <string name="core_item_detail_type_change_undone">Изменение типа отменено.</string>
-    <string name="core_item_detail_type_conflict">Не удалось изменить тип: другой элемент уже использует эту связь.</string>
     <string name="core_item_detail_reminder_time_required">Сначала выберите дату и время напоминания.</string>
     <string name="core_item_detail_type_change_failed">Не удалось изменить тип элемента.</string>
     <string name="core_item_detail_tiny_task_note">Уменьшено из: %1$s</string>
@@ -175,11 +174,12 @@
     <string name="core_item_detail_notification_update_failed">Не удалось обновить уведомление.</string>
     <string name="settings_reset_local_data">Сбросить локальные данные</string>
     <string name="settings_reset_data_title">Сбросить все локальные данные?</string>
-    <string name="settings_reset_data_body">Это удалит все записи, заметки, задачи, напоминания, пространства и «сбросы мыслей» на этом устройстве и отменит их уведомления. Сначала сделайте экспорт, чтобы сохранить копию.</string>
+    <string name="settings_reset_data_body">Это удалит с телефона всё: все мысли, заметки, задачи, напоминания, пространства и «сбросы мыслей», всё, чему научилось приложение Tallele, ваши настройки и ключ Gemini. Напоминания и уведомления будут отменены. После этого Tallele откроется как в первый день. Чтобы сохранить копию, сначала сделайте экспорт.</string>
     <string name="settings_reset_data_confirm">Сбросить локальные данные</string>
     <string name="settings_reset_complete">Локальные данные сброшены.</string>
+    <string name="settings_reset_incomplete">Ваши записи удалены, но некоторые настройки не удалось очистить. Попробуйте сбросить ещё раз.</string>
     <string name="settings_reset_failed">Не удалось завершить сброс. Существующие данные сохранены.</string>
-    <string name="settings_reset_explanation">Удалите все локальные элементы и пространства на этом устройстве и начните заново. Это действие нельзя отменить.</string>
+    <string name="settings_reset_explanation">Удалить с телефона всё, включая настройки и ключ Gemini, и начать заново, как в первый день. Это действие нельзя отменить.</string>
     <string name="settings_resetting">Сброс…</string>
     <string name="core_home_message_capture_save_failed">Не удалось сохранить эту запись. Ваш текст всё ещё здесь.</string>
     <string name="core_home_message_kept_in_inbox">Оставлено в «Разобрать».</string>

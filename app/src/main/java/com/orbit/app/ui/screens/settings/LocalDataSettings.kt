@@ -292,9 +292,11 @@ private fun formatExportDate(at: Long): String {
 private fun LocalDataToolsMessage.localizedText(): String = when (this) {
     LocalDataToolsMessage.ExportFailed -> stringResource(R.string.settings_export_failed)
     LocalDataToolsMessage.ExportUnverified -> stringResource(R.string.settings_export_unverified)
+    LocalDataToolsMessage.ExportTooLarge -> stringResource(R.string.settings_export_too_large)
     LocalDataToolsMessage.RestoreFileInvalid -> stringResource(R.string.settings_restore_file_invalid)
     LocalDataToolsMessage.RestoreFailed -> stringResource(R.string.settings_restore_failed)
     LocalDataToolsMessage.ResetCompleted -> stringResource(R.string.settings_reset_complete)
+    LocalDataToolsMessage.ResetIncomplete -> stringResource(R.string.settings_reset_incomplete)
     LocalDataToolsMessage.ResetFailed -> stringResource(R.string.settings_reset_failed)
     LocalDataToolsMessage.ReminderSetupRestored -> stringResource(R.string.settings_reminder_setup_restored)
     LocalDataToolsMessage.ReminderSetupStillFailing -> stringResource(R.string.settings_reminder_setup_still_failing)

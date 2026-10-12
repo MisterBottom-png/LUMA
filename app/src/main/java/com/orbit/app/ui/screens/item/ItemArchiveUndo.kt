@@ -33,6 +33,7 @@ private sealed interface ArchivedSnapshot {
 private data class PendingArchive(
     val operationId: Long,
     val snapshot: ArchivedSnapshot,
+    val archivedAt: Long,
 )
 
 internal class ItemArchiveUndo(
@@ -79,7 +80,7 @@ internal class ItemArchiveUndo(
                 ItemDetailType.Reminder -> return ArchiveOutcome.Unsupported
             }
             val operationId = nextOperationId++
-            pendingArchive = PendingArchive(operationId, snapshot)
+            pendingArchive = PendingArchive(operationId, snapshot, now)
             ArchiveOutcome.Archived(operationId)
         } catch (failure: Throwable) {
             pendingArchive = null
@@ -96,16 +97,29 @@ internal class ItemArchiveUndo(
 
         operationInProgress = true
         return try {
-            when (val snapshot = pending.snapshot) {
-                is ArchivedSnapshot.Note -> noteRepository.update(snapshot.item)
-                is ArchivedSnapshot.Task -> {
-                    taskRepository.update(snapshot.item)
+            // N037: untouched since archiving, the item comes back exactly as it was; edited
+            // since, only what archiving changed is put back and the edit stays.
+            val at = pending.archivedAt
+            val restored = when (val snapshot = pending.snapshot) {
+                is ArchivedSnapshot.Note -> noteRepository.getById(snapshot.item.id)?.let {
+                    noteRepository.update(if (it.updatedAt == at) snapshot.item else it.copy(archived = snapshot.item.archived))
+                }
+                is ArchivedSnapshot.Task -> taskRepository.getById(snapshot.item.id)?.let {
+                    taskRepository.update(
+                        if (it.updatedAt == at) {
+                            snapshot.item
+                        } else {
+                            it.copy(status = snapshot.item.status, completedAt = snapshot.item.completedAt)
+                        },
+                    )
                     archivedTaskStatus.forget(snapshot.item.id)
                 }
-                is ArchivedSnapshot.Capture -> captureRepository.update(snapshot.item)
+                is ArchivedSnapshot.Capture -> captureRepository.getById(snapshot.item.id)?.let {
+                    captureRepository.update(if (it.updatedAt == at) snapshot.item else it.copy(status = snapshot.item.status))
+                }
             }
             pendingArchive = null
-            UndoOutcome.Restored
+            if (restored == null) UndoOutcome.Stale else UndoOutcome.Restored
         } catch (failure: Throwable) {
             pendingArchive = null
             throw failure

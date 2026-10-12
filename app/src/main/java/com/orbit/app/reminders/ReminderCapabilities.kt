@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.Context
+import androidx.core.content.edit
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -242,6 +243,11 @@ object ReminderCapabilities {
     private const val SamsungDeviceCarePackage = "com.samsung.android.lool"
     private const val SamsungActivityTypeExtra = "activity_type"
     private const val SamsungNeverSleepingActivityType = 2
+
+    /** Reset: forgets blocked-delivery history (F10). */
+    internal fun clearDeliveryHistory(context: Context) {
+        preferences(context).edit { clear() }
+    }
 
     private fun preferences(context: Context) =
         context.applicationContext.getSharedPreferences(PreferencesName, Context.MODE_PRIVATE)

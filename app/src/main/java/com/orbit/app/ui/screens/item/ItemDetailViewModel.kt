@@ -75,10 +75,12 @@ data class ItemDetailUiState(
 
 class ItemDetailViewModel(
     private val type: ItemDetailType,
-    private val itemId: Long,
+    initialItemId: Long,
     private val container: OrbitContainer,
 ) : ViewModel() {
     private var currentType = type
+    // A type change moves the item to a new id in its new type's table (F07).
+    private var itemId = initialItemId
     // Resolved on every use: this ViewModel outlives the recreation that follows a
     // language change, so a cached context would keep producing the old language.
     private val localizedContext: android.content.Context
@@ -556,21 +558,37 @@ class ItemDetailViewModel(
             runCatching { typeConversion.convert(currentType, itemId, targetType, dueAt) }
                 .onSuccess { outcome ->
                     when (outcome) {
-                        TypeConversionOutcome.Converted -> {
+                        is TypeConversionOutcome.Converted -> {
                             currentType = targetType
+                            itemId = outcome.itemId
                             // The new type's screen takes over and offers Undo.
                             before?.let {
                                 val handover = runCatching { typeConversion.afterConversion(it, targetType, itemId) }
                                     .getOrDefault(it)
                                 container.pendingTypeChanges.put(itemId, handover)
                             }
-                            load(message = localized(R.string.core_item_detail_type_changed), convertedToType = targetType)
+                            var message = localized(R.string.core_item_detail_type_changed)
+                            if (targetType == ItemDetailType.Reminder) {
+                                runCatching { syncThoughtWithReminder(itemId) }
+                                // B5: a reminder made for a time that passed says it won't ring.
+                                val made = runCatching { container.reminderRepository.getById(itemId) }.getOrNull()
+                                if (made != null && timeProblem(made.dueAt, made) != null) {
+                                    message = localized(R.string.reminder_saved_wont_ring)
+                                }
+                            }
+                            load(message = message, convertedToType = targetType)
                         }
-                        TypeConversionOutcome.Conflict -> load(
-                            message = localized(R.string.core_item_detail_type_conflict),
-                        )
                         TypeConversionOutcome.Missing -> load(message = localized(R.string.core_item_detail_unavailable_message))
-                        TypeConversionOutcome.Unsupported -> load(message = localized(R.string.core_item_detail_reminder_time_required))
+                        // N045: the reason fits what was refused.
+                        TypeConversionOutcome.Unsupported -> load(
+                            message = localized(
+                                if (targetType == ItemDetailType.Reminder && (dueAt ?: 0L) <= 0L) {
+                                    R.string.core_item_detail_reminder_time_required
+                                } else {
+                                    R.string.core_item_detail_type_change_failed
+                                },
+                            ),
+                        )
                     }
                 }
                 .onFailure { load(message = localized(R.string.core_item_detail_type_change_failed)) }
@@ -587,6 +605,8 @@ class ItemDetailViewModel(
                 .onSuccess { restored ->
                     if (restored) {
                         currentType = snapshot.type
+                        itemId = snapshot.originalId ?: itemId
+                        if (currentType == ItemDetailType.Reminder) runCatching { syncThoughtWithReminder(itemId) }
                         load(message = localized(R.string.core_item_detail_type_change_undone), convertedToType = snapshot.type)
                     } else {
                         load(message = localized(R.string.core_sort_undo_failed))

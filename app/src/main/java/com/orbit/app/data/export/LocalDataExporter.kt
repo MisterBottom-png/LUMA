@@ -12,10 +12,12 @@ class LocalDataExporter(
         val payload = buildLocalDataExportPayload(snapshotReader, exportedAt)
 
         val resolver = context.contentResolver
+        val output = requireNotNull(resolver.openOutputStream(destination, "wt")) {
+            "The selected export destination could not be opened."
+        }
+        // N033: only a file this export started writing is removed on failure; one that
+        // could not even be opened is left exactly as it was.
         try {
-            val output = requireNotNull(resolver.openOutputStream(destination, "wt")) {
-                "The selected export destination could not be opened."
-            }
             output.bufferedWriter(Charsets.UTF_8).use { writer ->
                 writer.write(payload)
                 writer.flush()
@@ -35,6 +37,10 @@ internal suspend fun buildLocalDataExportPayload(
         snapshot = snapshotReader.read().sanitizedForExport(),
         exportedAt = exportedAt,
     )
+    // N034: over the size restore accepts, say so instead of "could not be verified".
+    if (payload.toByteArray(Charsets.UTF_8).size > LocalDataBackupCodec.MaximumInputBytes) {
+        throw LocalDataExportTooLargeException()
+    }
     // A backup is only useful if it restores. Verify it with the exact validator
     // restore uses before anything is written to the destination file.
     try {
@@ -46,6 +52,9 @@ internal suspend fun buildLocalDataExportPayload(
 }
 
 class LocalDataExportVerificationException(message: String) : IllegalStateException(message)
+
+/** The data is larger than a backup file can hold (and restore accepts). */
+class LocalDataExportTooLargeException : IllegalStateException("Export is larger than a backup can hold.")
 
 /**
  * Repairs rows that older versions could store but restore rejects, so an export

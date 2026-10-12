@@ -40,20 +40,56 @@ class ItemTypeConversionLabelsTest {
         labels.insertNoteLabels(listOf(NoteLabelCrossRef(7, home), NoteLabelCrossRef(7, errand)))
         val expected = setOf(home, errand)
 
-        assertEquals(TypeConversionOutcome.Converted, conversion.convert(ItemDetailType.Note, 7, ItemDetailType.Task))
-        assertEquals(expected, labels.getLabelIdsForTask(7).toSet())
+        val taskId = (conversion.convert(ItemDetailType.Note, 7, ItemDetailType.Task) as TypeConversionOutcome.Converted).itemId
+        assertEquals(expected, labels.getLabelIdsForTask(taskId).toSet())
         assertEquals(emptyList<Long>(), labels.getLabelIdsForNote(7))
 
-        assertEquals(
-            TypeConversionOutcome.Converted,
-            conversion.convert(ItemDetailType.Task, 7, ItemDetailType.Reminder, reminderDueAt = 5_000),
-        )
-        assertEquals(expected, labels.getLabelIdsForReminder(7).toSet())
-        assertEquals(emptyList<Long>(), labels.getLabelIdsForTask(7))
+        val reminderId = (
+            conversion.convert(ItemDetailType.Task, taskId, ItemDetailType.Reminder, reminderDueAt = 5_000)
+                as TypeConversionOutcome.Converted
+            ).itemId
+        assertEquals(expected, labels.getLabelIdsForReminder(reminderId).toSet())
+        assertEquals(emptyList<Long>(), labels.getLabelIdsForTask(taskId))
 
-        assertEquals(TypeConversionOutcome.Converted, conversion.convert(ItemDetailType.Reminder, 7, ItemDetailType.Note))
-        assertEquals(expected, labels.getLabelIdsForNote(7).toSet())
-        assertEquals(emptyList<Long>(), labels.getLabelIdsForReminder(7))
+        val noteId = (conversion.convert(ItemDetailType.Reminder, reminderId, ItemDetailType.Note) as TypeConversionOutcome.Converted).itemId
+        assertEquals(expected, labels.getLabelIdsForNote(noteId).toSet())
+        assertEquals(emptyList<Long>(), labels.getLabelIdsForReminder(reminderId))
+    }
+
+    @Test
+    fun aTaskWithTheSameIdDoesNotBlockTheChange() = runBlocking {
+        // F07: ids are per table; note 7 and task 7 are different items.
+        database.noteDao().insert(NoteEntity(id = 7, title = "Buy bulbs", body = ""))
+        database.taskDao().insert(com.orbit.app.data.local.entity.TaskEntity(id = 7, title = "Someone else's task"))
+
+        val outcome = conversion.convert(ItemDetailType.Note, 7, ItemDetailType.Task)
+
+        val newId = (outcome as TypeConversionOutcome.Converted).itemId
+        assertEquals("Buy bulbs", database.taskDao().getById(newId)?.title)
+        assertEquals("Someone else's task", database.taskDao().getById(7)?.title)
+        assertEquals(null, database.noteDao().getById(7))
+    }
+
+    @Test
+    fun theThoughtFollowsAReminderThatBecomesATask() = runBlocking {
+        // N008: the thought no longer says "Reminder set" for an item that is gone.
+        val captureId = database.captureDao().insert(
+            com.orbit.app.data.local.entity.CaptureEntity(
+                rawText = "Remind me to buy bulbs",
+                status = com.orbit.app.data.local.entity.CaptureStatus.Processed,
+                suggestedType = com.orbit.app.data.local.entity.SuggestedItemType.Reminder,
+                outcome = com.orbit.app.data.local.entity.CaptureOutcome.ReminderSet,
+            ),
+        )
+        val reminderId = database.reminderDao().insert(ReminderEntity(title = "Buy bulbs", dueAt = 5_000, linkedCaptureId = captureId))
+        database.captureDao().update(requireNotNull(database.captureDao().getById(captureId)).copy(linkedItemId = reminderId))
+
+        val taskId = (conversion.convert(ItemDetailType.Reminder, reminderId, ItemDetailType.Task) as TypeConversionOutcome.Converted).itemId
+
+        val capture = requireNotNull(database.captureDao().getById(captureId))
+        assertEquals(taskId, capture.linkedItemId)
+        assertEquals(com.orbit.app.data.local.entity.SuggestedItemType.Task, capture.suggestedType)
+        assertEquals(com.orbit.app.data.local.entity.CaptureOutcome.Filed, capture.outcome)
     }
 
     @Test

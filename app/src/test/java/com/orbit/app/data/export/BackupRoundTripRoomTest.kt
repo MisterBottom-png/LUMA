@@ -224,6 +224,48 @@ class BackupRoundTripRoomTest {
     }
 
     @Test
+    fun aReminderRingingBetweenPreviewAndConfirmDoesNotStopTheRestore() = runBlocking {
+        // N032: delivery bookkeeping is not a change the user made.
+        seed(source)
+        val json = buildLocalDataExportPayload(RoomLocalDataRestoreStore(source), exportedAt = now)
+        val ringing = target.reminderDao().insert(
+            com.orbit.app.data.local.entity.ReminderEntity(title = "Stretch", dueAt = now, notificationWorkId = "work-1"),
+        )
+        val restorer = LocalDataRestorer(
+            RoomLocalDataRestoreStore(target),
+            LocalReminderRestoreReconciler(PolicyRecordingScheduler { now }, target.reminderDao(), now = { now }),
+        )
+        val plan = requireNotNull(restorer.prepare(json))
+        target.reminderDao().claimDelivery(ringing, now)
+
+        restorer.restore(plan)
+        assertEquals(source.noteDao().observeAll().first().size, target.noteDao().observeAll().first().size)
+    }
+
+    @Test
+    fun learningIsNotLinkedToADifferentThoughtThatReusesAnId() = runBlocking {
+        // N007: history about thought 1 on this phone must not attach to the backup's thought 1.
+        target.captureDao().insert(com.orbit.app.data.local.entity.CaptureEntity(id = 1, rawText = "Call the dentist", createdAt = 5))
+        target.aiSuggestionHistoryDao().insert(
+            com.orbit.app.data.local.entity.AiSuggestionHistoryEntity(
+                surface = com.orbit.app.data.local.entity.AiSuggestionSurface.Capture,
+                outcome = com.orbit.app.data.local.entity.AiSuggestionOutcome.Accepted,
+                analyzerSource = "local",
+                captureId = 1,
+            ),
+        )
+        source.captureDao().insert(com.orbit.app.data.local.entity.CaptureEntity(id = 1, rawText = "Buy bread", createdAt = 9))
+        val json = buildLocalDataExportPayload(RoomLocalDataRestoreStore(source), exportedAt = now)
+        val restorer = LocalDataRestorer(
+            RoomLocalDataRestoreStore(target),
+            LocalReminderRestoreReconciler(PolicyRecordingScheduler { now }, target.reminderDao(), now = { now }),
+        )
+        restorer.restore(requireNotNull(restorer.prepare(json)))
+
+        assertNull(target.aiSuggestionHistoryDao().observeAll().first().single().captureId)
+    }
+
+    @Test
     fun restoreNeverRingsHistoricalRemindersAndArmsFutureOnes() = runBlocking {
         seed(source)
         val json = buildLocalDataExportPayload(RoomLocalDataRestoreStore(source), exportedAt = now)
