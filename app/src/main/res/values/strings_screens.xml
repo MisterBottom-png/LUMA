@@ -101,7 +101,7 @@
     <string name="expand_state_closed">Collapsed</string>
     <string name="spaces_icon_travel">Travel</string>
     <string name="search_filter_all">All</string>
-    <string name="search_group_to_sort">Still to sort</string>
+    <string name="search_group_to_sort">To sort</string>
     <string name="search_group_tasks">Tasks</string>
     <string name="search_group_reminders">Reminders</string>
     <string name="search_group_notes">Notes</string>

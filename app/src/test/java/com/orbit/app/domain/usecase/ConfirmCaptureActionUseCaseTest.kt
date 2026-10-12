@@ -232,6 +232,29 @@ class ConfirmCaptureActionUseCaseTest {
         assertEquals(reminderId, captureRepository.getById(captureId)?.linkedItemId)
     }
 
+    @Test
+    fun aReminderKeepsTheWholeThought_soItsDetailsCanBeOpenedAndFound() = runBlocking {
+        val captureRepository = FakeCaptureRepository(CaptureStore())
+        val reminderRepository = RecordingReminderRepository()
+        val thought = "Renew the parking permit tomorrow at 9, form B-12, reference 4826-ZX"
+        val captureId = captureRepository.insert(CaptureEntity(rawText = thought))
+        val useCase = ConfirmCaptureActionUseCase(
+            captureRepository = captureRepository,
+            noteRepository = FakeNoteRepository(NoteStore()),
+            taskRepository = UnusedTaskRepository(),
+            reminderRepository = reminderRepository,
+            transaction = DirectTestCaptureFinalizationTransaction,
+        )
+
+        val reminderId = useCase.createReminder(captureId, null, "Renew the parking permit", 1_784_034_000_000L)
+        assertEquals(thought, reminderRepository.getById(reminderId)?.notes)
+
+        // When the title already is the whole thought, it isn't repeated in the notes.
+        val shortId = captureRepository.insert(CaptureEntity(rawText = "Call the bank"))
+        val shortReminder = useCase.createReminder(shortId, null, "Call the bank", 1_784_034_000_000L)
+        assertEquals("", reminderRepository.getById(shortReminder)?.notes)
+    }
+
     private fun useCase(
         captureRepository: CaptureRepository,
         noteRepository: NoteRepository,

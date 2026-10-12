@@ -227,7 +227,8 @@ fun HomeScreen(
     val voiceAction: (() -> Unit)? = voice.start
 
     LaunchedEffect(uiState.savedPulse) {
-        if (uiState.savedPulse == 0) return@LaunchedEffect
+        // Each send is shown once, not again when Home comes back from another tab.
+        if (!viewModel.claimSavedPulse(uiState.savedPulse)) return@LaunchedEffect
         // One soft buzz for the meaningful moment of letting a thought go.
         view.performHapticFeedback(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

@@ -539,7 +539,7 @@ class ItemDetailViewModel(
                 .onSuccess { restored ->
                     if (restored) {
                         currentType = snapshot.type
-                        load(message = localized(R.string.core_sort_undone), convertedToType = snapshot.type)
+                        load(message = localized(R.string.core_item_detail_type_change_undone), convertedToType = snapshot.type)
                     } else {
                         load(message = localized(R.string.core_sort_undo_failed))
                     }

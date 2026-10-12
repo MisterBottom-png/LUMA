@@ -65,24 +65,30 @@ class LocalSearchTest {
     }
 
     @Test
-    fun excludesRawAndProcessedCaptures() {
-        val results = search.search(
-            query = "private source",
-            corpus = SearchCorpus(
-                captures = listOf(
-                    CaptureEntity(id = 1, rawText = "Private source", status = CaptureStatus.Inbox),
-                    CaptureEntity(id = 2, rawText = "Private source", status = CaptureStatus.Processed),
-                    CaptureEntity(id = 3, rawText = "Private source", status = CaptureStatus.Archived),
-                ),
-                notes = emptyList(),
-                tasks = emptyList(),
-                reminders = emptyList(),
-                spaces = emptyList(),
+    fun aThoughtStillToSortIsFoundOnce_byAWordFromItsMiddleOrEnd_butNotOnceSortedOrLetGo() {
+        val work = SpaceEntity(id = 9, name = "Work", icon = "work", colorAccent = "#4E91D8", sortOrder = 0)
+        val corpus = SearchCorpus(
+            captures = listOf(
+                CaptureEntity(id = 1, rawText = "Ask about the boiler service\nreference 4826-ZX", status = CaptureStatus.Inbox, suggestedSpaceId = 9),
+                CaptureEntity(id = 2, rawText = "boiler filed already", status = CaptureStatus.Processed, linkedItemId = 3),
+                CaptureEntity(id = 3, rawText = "boiler let go", status = CaptureStatus.Archived),
             ),
-            includeArchived = true,
+            notes = emptyList(),
+            tasks = emptyList(),
+            reminders = emptyList(),
+            spaces = listOf(work),
         )
 
-        assertTrue(results.isEmpty())
+        val byEnd = search.search(query = "4826", corpus = corpus).single()
+        assertEquals(ItemDetailType.Capture, byEnd.type)
+        assertEquals(1L, byEnd.id)
+        assertEquals(LocalSearchStatus.ToSort, byEnd.status)
+        assertEquals("Ask about the boiler service", byEnd.title)
+        assertEquals("Work", byEnd.spaceName)
+
+        assertEquals(listOf(1L), search.search(query = "boiler", corpus = corpus).map { it.id })
+        assertEquals(listOf(1L), search.search(query = "boiler", corpus = corpus, includeArchived = true).map { it.id })
+        assertEquals(listOf(1L), search.recent(corpus).map { it.id })
     }
 
     @Test
@@ -164,9 +170,12 @@ class LocalSearchTest {
     }
 
     @Test
-    fun recentShowsTheFiveNewestSavedItems_withoutArchivedOrRawThoughts() {
+    fun recentShowsTheFiveNewestSavedItems_includingAThoughtStillToSort_butNotArchived() {
         val corpus = SearchCorpus(
-            captures = listOf(CaptureEntity(id = 50, rawText = "Private source", status = CaptureStatus.Inbox, createdAt = 99)),
+            captures = listOf(
+                CaptureEntity(id = 50, rawText = "Kept thought", status = CaptureStatus.Inbox, createdAt = 99),
+                CaptureEntity(id = 51, rawText = "Filed thought", status = CaptureStatus.Processed, createdAt = 98),
+            ),
             notes = listOf(
                 NoteEntity(id = 1, title = "Oldest note", body = "", createdAt = 1),
                 NoteEntity(id = 2, title = "Archived note", body = "", createdAt = 90, archived = true),
@@ -186,8 +195,8 @@ class LocalSearchTest {
 
         val recent = search.recent(corpus)
 
-        assertEquals(listOf("Newest note", "Task", "Reminder", "Done task", "Older reminder"), recent.map { it.title })
-        assertTrue(recent.none { it.type == ItemDetailType.Capture || it.status == LocalSearchStatus.Archived })
+        assertEquals(listOf("Kept thought", "Newest note", "Task", "Reminder", "Done task"), recent.map { it.title })
+        assertTrue(recent.none { it.status == LocalSearchStatus.Archived })
         assertEquals(2, search.recent(corpus, limit = 2).size)
     }
 

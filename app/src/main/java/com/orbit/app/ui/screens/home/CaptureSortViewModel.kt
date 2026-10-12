@@ -186,7 +186,7 @@ class CaptureSortViewModel(
                     return@launch
                 }
                 if (brainDumpRepository.getSession(captureId) == null && suggestionDao.getByCaptureId(captureId) == null) {
-                    captureInbox.analyze(captureId)
+                    captureInbox.analyze(captureId, announce = false)
                 }
                 if (brainDumpRepository.getSession(captureId) != null) {
                     savedStateHandle[OpenCaptureIdKey] = null
@@ -229,10 +229,16 @@ class CaptureSortViewModel(
         }
     }
 
+    /**
+     * "Keep in To sort": the user's choice. It is stored on the thought, so automatic
+     * filing never files it later (for example after "Sort right after saving" is turned
+     * off), and it counts as declining the suggestion.
+     */
     fun keepInInbox() {
         if (_uiState.value.isPerformingAction) return
         _uiState.value.suggestion?.let { suggestion ->
             viewModelScope.launch {
+                runCatching { captureResolution.keep(suggestion.captureId) }
                 runCatching {
                     recordAiLearningEvent.recordRejected(
                         context = suggestion.learningContext(),
@@ -241,6 +247,10 @@ class CaptureSortViewModel(
                 }
             }
         }
+        closeSheet()
+    }
+
+    private fun closeSheet() {
         _uiState.update {
             it.copy(
                 suggestion = null,
@@ -257,7 +267,8 @@ class CaptureSortViewModel(
      */
     fun cancelSuggestion() {
         if (_uiState.value.isPerformingAction) return
-        keepInInbox()
+        // Closing is not a choice: nothing is recorded as declined or decided.
+        closeSheet()
     }
 
     fun resumeBrainDump(captureId: Long) {

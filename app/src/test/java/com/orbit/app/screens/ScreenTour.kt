@@ -544,7 +544,7 @@ abstract class ScreenTour(private val theme: String) {
         shot("home-question-time")
         step("just keep it") {
             compose.onNodeWithText("Just keep it").performClick()
-            compose.waitUntil(10_000) { count("Saved as a note.") > 0 }
+            compose.waitUntil(10_000) { count("Kept in To sort.") > 0 }
         }
         shot("home-question-kept")
     }

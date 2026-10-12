@@ -650,4 +650,5 @@ private fun LocalSearchStatus.labelRes(): Int = when (this) {
     LocalSearchStatus.Archived -> R.string.core_archived
     LocalSearchStatus.WaitingFor -> R.string.core_waiting_for
     LocalSearchStatus.Someday -> R.string.core_someday
+    LocalSearchStatus.ToSort -> R.string.review_to_sort_title
 }

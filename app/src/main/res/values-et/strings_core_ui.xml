@@ -142,6 +142,7 @@
     <string name="core_learning_not_now">Mitte praegu</string>
     <!-- The save receipt under the capture box on Home. -->
     <string name="receipt_saved">Salvestatud.</string>
+    <string name="receipt_kept">Jäi sorteerimiseks ootele.</string>
     <string name="receipt_saved_note">Salvestatud märkmena.</string>
     <string name="receipt_saved_task">Salvestatud ülesandena.</string>
     <string name="receipt_filed_note">Lisatud alasse „%1$s“ märkmena.</string>

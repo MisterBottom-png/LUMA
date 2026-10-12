@@ -47,6 +47,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -153,8 +154,57 @@ class HomeCaptureViewModelTest {
         assertEquals(CaptureOutcome.Saved, kept.outcome)
         assertEquals(CaptureOutcomeReason.None, kept.outcomeReason)
         assertNotNull(kept.decidedAt)
-        assertEquals(R.string.receipt_saved_note, requireNotNull(viewModel.receipt.value).line().textRes)
+        assertEquals(R.string.receipt_kept, requireNotNull(viewModel.receipt.value).line().textRes)
         assertTrue(runBlocking { app.database.reminderDao().observeAll().first() }.isEmpty())
+    }
+
+    @Test
+    fun aCalendarThoughtStillGetsItsSheetAfterAndroidStoppedTheApp() {
+        val app = TestApp(scheduler = TokenScheduler(armed = true))
+        val day = java.time.LocalDate.of(2026, 7, 20).toEpochDay()
+        val savedState = SavedStateHandle()
+        val before = app.viewModel(savedState)
+        before.onInputChanged("Dentist")
+        assertTrue(before.send(calendarDateContextEpochDay = day))
+        awaitUntil { before.receipt.value != null }
+        val captureId = requireNotNull(before.receipt.value).captureId
+        // The ViewModel is gone (process death) before the sheet could open...
+        stores.forEach { it.clear() }
+        awaitUntil { runBlocking { app.database.captureSuggestionDao().getByCaptureId(captureId) } != null }
+
+        // ...and the new one, restored from the saved state, still opens it.
+        val after = app.viewModel(SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) }))
+        awaitUntil { after.uiState.value.sortRequest != null }
+        assertEquals(captureId, after.uiState.value.sortRequest?.captureId)
+        after.sortRequestHandled()
+        // Opened once only.
+        val third = app.viewModel(SavedStateHandle(savedState.keys().associateWith { savedState.get<Any>(it) }))
+        shadowOf(Looper.getMainLooper()).idle()
+        Thread.sleep(200)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull(third.uiState.value.sortRequest)
+    }
+
+    @Test
+    fun eachSendIsShownOnce_evenWhenHomeComesBackFromAnotherTab() {
+        val viewModel = TestApp(scheduler = TokenScheduler(armed = true)).viewModel()
+        assertFalse(viewModel.claimSavedPulse(0))
+        assertTrue(viewModel.claimSavedPulse(1))
+        // Home re-entered composition with the same pulse: nothing is replayed.
+        assertFalse(viewModel.claimSavedPulse(1))
+        assertTrue(viewModel.claimSavedPulse(2))
+    }
+
+    @Test
+    fun textSharedWhileAThoughtIsSavingWaitsForTheBoxInsteadOfBeingDropped() {
+        val app = TestApp(scheduler = TokenScheduler(armed = true))
+        val viewModel = app.viewModel()
+        viewModel.onInputChanged("First thought")
+        assertTrue(viewModel.send())
+        viewModel.receiveSharedText("Shared meanwhile")
+
+        awaitUntil { viewModel.receipt.value != null && !viewModel.uiState.value.isProcessing }
+        assertEquals("Shared meanwhile", viewModel.uiState.value.inputText)
     }
 
     @Test
@@ -345,12 +395,12 @@ class HomeCaptureViewModelTest {
             transaction = transaction,
         )
 
-        fun viewModel(): HomeCaptureViewModel {
+        fun viewModel(savedState: SavedStateHandle = SavedStateHandle()): HomeCaptureViewModel {
             val store = ViewModelStore().also { stores += it }
             val factory = HomeCaptureViewModel.Factory(
                 captureInbox = inbox,
                 appSettingsRepository = MemorySettings(settings),
-                savedStateHandle = SavedStateHandle(),
+                savedStateHandle = savedState,
                 receipts = CaptureReceiptReader(captures, notes, tasks, reminders, spaceRepository)::observe,
                 retryReminder = { captureId, reminderId ->
                     rearmReceiptReminder(reminders, outcomes, resolution, captureId, reminderId)

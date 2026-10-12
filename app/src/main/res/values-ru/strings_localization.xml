@@ -152,6 +152,7 @@
     <string name="core_item_detail_delete_failed">Не удалось удалить элемент.</string>
     <string name="core_item_detail_default_source">этот элемент</string>
     <string name="core_item_detail_type_changed">Тип изменён.</string>
+    <string name="core_item_detail_type_change_undone">Изменение типа отменено.</string>
     <string name="core_item_detail_type_conflict">Не удалось изменить тип: другой элемент уже использует эту связь.</string>
     <string name="core_item_detail_reminder_time_required">Сначала выберите дату и время напоминания.</string>
     <string name="core_item_detail_type_change_failed">Не удалось изменить тип элемента.</string>

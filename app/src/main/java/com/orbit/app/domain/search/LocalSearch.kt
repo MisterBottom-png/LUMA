@@ -1,6 +1,7 @@
 package com.orbit.app.domain.search
 
 import com.orbit.app.data.local.entity.CaptureEntity
+import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.NoteEntity
 import com.orbit.app.data.local.entity.ReminderEntity
 import com.orbit.app.data.local.entity.SpaceEntity
@@ -39,6 +40,9 @@ enum class LocalSearchStatus {
     Archived,
     WaitingFor,
     Someday,
+
+    /** A thought that is saved but not sorted into a note, task or reminder yet. */
+    ToSort,
 }
 
 class LocalSearch {
@@ -67,12 +71,20 @@ class LocalSearch {
             corpus.reminders
                 .filter { SearchText.matchesAll(tokens, it.title, it.notes) }
                 .mapTo(this) { it.toResult(spacesById) }
+
+            // A thought appears on its own only while it is not sorted. Once it is filed,
+            // its note, task or reminder carries the full text, so it is found exactly once.
+            // A thought the user let go stays out, as a deleted item would.
+            corpus.captures
+                .filter { it.isUnsorted() }
+                .filter { SearchText.matchesAll(tokens, it.rawText) }
+                .mapTo(this) { it.toResult(spacesById) }
         }.sortedByDescending { it.timestamp }
     }
 
     /**
-     * What Search shows before anything is typed: the newest notes, tasks and reminders,
-     * newest first. Archived items stay out, and raw thoughts stay private here too.
+     * What Search shows before anything is typed: the newest notes, tasks, reminders and
+     * thoughts still to sort, newest first. Archived items stay out.
      */
     fun recent(corpus: SearchCorpus, limit: Int = RecentLimit): List<LocalSearchResult> {
         val spacesById = corpus.spaces.associateBy { it.id }
@@ -80,6 +92,7 @@ class LocalSearch {
             corpus.notes.filterNot { it.archived }.mapTo(this) { it.createdAt to it.toResult(spacesById) }
             corpus.tasks.filter { it.status != TaskStatus.Archived }.mapTo(this) { it.createdAt to it.toResult(spacesById) }
             corpus.reminders.mapTo(this) { it.createdAt to it.toResult(spacesById) }
+            corpus.captures.filter { it.isUnsorted() }.mapTo(this) { it.createdAt to it.toResult(spacesById) }
         }
         return newest
             .sortedWith(compareByDescending<Pair<Long, LocalSearchResult>> { it.first }.thenByDescending { it.second.id })
@@ -117,7 +130,21 @@ class LocalSearch {
         timestamp = dueAt,
     )
 
+    private fun CaptureEntity.isUnsorted() = status == CaptureStatus.Inbox && rawText.isNotBlank()
+
+    private fun CaptureEntity.toResult(spacesById: Map<Long, SpaceEntity>) = LocalSearchResult(
+        type = ItemDetailType.Capture,
+        id = id,
+        title = rawText.trim().lineSequence().first().take(ThoughtTitleLength),
+        snippet = rawText.trim(),
+        spaceName = suggestedSpaceId?.let(spacesById::get)?.name,
+        status = LocalSearchStatus.ToSort,
+        timestamp = updatedAt,
+    )
+
     private companion object {
+        const val ThoughtTitleLength = 80
+
         // One letter is enough: results follow from the first key press.
         const val MinQueryLength = 1
         const val RecentLimit = 5

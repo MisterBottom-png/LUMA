@@ -106,12 +106,33 @@ class CaptureInbox(
         return id
     }
 
+    /** Where a thought added for a Calendar day stands while Home waits to open its sheet. */
+    enum class SheetReadiness { Waiting, Ready, Done }
+
+    /**
+     * For a thought added for a Calendar day: [SheetReadiness.Ready] once it is analysed
+     * (or analysis failed for good is not known, so it keeps waiting) and still unsorted,
+     * [SheetReadiness.Done] once it was sorted, kept or let go.
+     */
+    suspend fun sheetReadiness(captureId: Long): SheetReadiness {
+        val capture = captureRepository.getById(captureId) ?: return SheetReadiness.Done
+        if (capture.status != CaptureStatus.Inbox || capture.decidedAt != null) return SheetReadiness.Done
+        val analysed = suggestionDao.getByCaptureId(captureId) != null ||
+            brainDumpRepository.getSession(captureId) != null
+        return if (analysed) SheetReadiness.Ready else SheetReadiness.Waiting
+    }
+
     /**
      * Analyses one Inbox capture and stores the suggestion. Safe to call repeatedly:
      * a capture that already has a suggestion or Brain Dump session is left as is.
      * The Calendar day, if any, is read from the capture row.
+     *
+     * [announce] is false when the sort sheet analyses a thought the user already has
+     * open: no [CaptureInboxEvent.Analyzed] is sent, so automatic filing cannot act on
+     * it under the open sheet. If the sheet is closed without a choice, the next start
+     * decides it as usual.
      */
-    suspend fun analyze(captureId: Long): CaptureAnalysis? {
+    suspend fun analyze(captureId: Long, announce: Boolean = true): CaptureAnalysis? {
         analysisMutex.withLock {
             if (!inFlight.add(captureId)) return null
         }
@@ -133,7 +154,7 @@ class CaptureInbox(
             // The suggester can take a while (Gemini waits up to its network timeout).
             // If the user acted on the thought meanwhile, the late result is dropped.
             if (!store(captureId, analysis, spaces)) return null
-            _events.tryEmit(CaptureInboxEvent.Analyzed(captureId, analysis))
+            if (announce) _events.tryEmit(CaptureInboxEvent.Analyzed(captureId, analysis))
             return analysis
         } finally {
             analysisMutex.withLock { inFlight.remove(captureId) }

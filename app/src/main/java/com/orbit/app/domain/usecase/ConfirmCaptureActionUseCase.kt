@@ -122,9 +122,12 @@ class ConfirmCaptureActionUseCase(
     ): Long = finalizationMutex.withLock {
         val reminderId = transaction.run {
             val capture = requireInboxCapture(captureId, onlyIfUndecided)
+            val reminderTitle = title.trim().ifBlank { capture.rawText.toNoteTitle() }
             val reminderId = reminderRepository.insertUnscheduled(
                 ReminderEntity(
-                    title = title.trim().ifBlank { capture.rawText.toNoteTitle() },
+                    title = reminderTitle,
+                    // The whole thought stays with the reminder, as it does for notes and tasks.
+                    notes = capture.rawText.takeUnless { it == reminderTitle }.orEmpty(),
                     dueAt = dueAt,
                     spaceId = spaceId,
                     linkedTaskId = linkedTaskId,

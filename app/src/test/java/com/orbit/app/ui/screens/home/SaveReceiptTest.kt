@@ -64,7 +64,7 @@ class SaveReceiptTest {
     private val cases: List<Triple<CaptureReceipt, String, ReceiptAction>> by lazy {
         listOf(
             Triple(receipt(CaptureOutcome.Saved, decided = false), "Saved.", ReceiptAction.View),
-            Triple(receipt(CaptureOutcome.Saved), "Saved as a note.", ReceiptAction.View),
+            Triple(receipt(CaptureOutcome.Saved), "Kept in To sort.", ReceiptAction.View),
             Triple(
                 receipt(CaptureOutcome.Filed, spaceName = "Garden", itemType = ReceiptItemType.Note),
                 "Filed in Garden as a note.",
@@ -155,7 +155,7 @@ class SaveReceiptTest {
                 )
             }
         }
-        composeRule.onNodeWithText("Saved as a note.").assertExists()
+        composeRule.onNodeWithText("Kept in To sort.").assertExists()
         // TalkBack users get the swipe as a named action on the card.
         val hide = context.getString(R.string.core_hide)
         val node = composeRule.onNode(

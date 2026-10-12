@@ -128,6 +128,13 @@ class CaptureResolution(
      */
     suspend fun undo(captureId: Long, itemType: SuggestedItemType, itemId: Long) {
         transaction.run {
+            // Only the item this thought still became may be removed. If it changed since
+            // (its type was changed, or it was deleted), nothing is touched: putting the
+            // thought back in To sort would let it be filed a second time.
+            val capture = captureRepository.getById(captureId)
+            val stillLinked = capture != null && capture.status == CaptureStatus.Processed &&
+                capture.linkedItemId == itemId && itemExists(itemType, itemId)
+            check(stillLinked) { "The sorted item changed since; Undo is no longer possible." }
             when (itemType) {
                 SuggestedItemType.Note -> noteRepository.deleteById(itemId)
                 SuggestedItemType.Task, SuggestedItemType.MondayItem -> taskRepository.deleteById(itemId)
@@ -151,7 +158,7 @@ class CaptureResolution(
     }
 
     /**
-     * "Just keep it": the thought stays a saved thought, in Later and in Search, and
+     * "Just keep it": the thought stays a saved thought, in To sort and in Search, and
      * nothing can ring for it. A reminder made from it (one that cannot ring, or whose
      * time passed) is removed first through [undo], which cancels its alarm and backup
      * work. A thought filed as a note or task is left as it is.
@@ -192,6 +199,12 @@ class CaptureResolution(
         val capture = captureRepository.getById(captureId) ?: return
         if (capture.status != CaptureStatus.Archived) return
         captureRepository.update(capture.copy(status = CaptureStatus.Inbox, updatedAt = now()))
+    }
+
+    private suspend fun itemExists(itemType: SuggestedItemType, itemId: Long): Boolean = when (itemType) {
+        SuggestedItemType.Note -> noteRepository.getById(itemId) != null
+        SuggestedItemType.Task, SuggestedItemType.MondayItem -> taskRepository.getById(itemId) != null
+        SuggestedItemType.Reminder -> reminderRepository.getById(itemId) != null
     }
 
     private suspend fun activeSpaceId(id: Long?): Long? = id?.let { spaceId ->

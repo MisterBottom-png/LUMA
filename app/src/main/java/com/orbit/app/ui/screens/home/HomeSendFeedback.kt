@@ -213,7 +213,7 @@ internal fun receiptText(line: ReceiptLine, timeFormat: OrbitTimeFormat): String
 /**
  * The single question Home may ask, in place of the receipt: the thought is clearly a
  * reminder, but its time is missing or already past. "Just keep it" keeps the thought
- * saved, in Later and in Search, and nothing rings for it.
+ * saved, in To sort and in Search, and nothing rings for it.
  */
 @Composable
 internal fun QuickReminderCard(

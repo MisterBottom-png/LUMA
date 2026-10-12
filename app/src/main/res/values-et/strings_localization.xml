@@ -148,6 +148,7 @@
     <string name="core_item_detail_delete_failed">Üksust ei saanud kustutada.</string>
     <string name="core_item_detail_default_source">see üksus</string>
     <string name="core_item_detail_type_changed">Tüüp on muudetud.</string>
+    <string name="core_item_detail_type_change_undone">Tüübi muutmine on tühistatud.</string>
     <string name="core_item_detail_type_conflict">Tüüpi ei saanud muuta, sest teine üksus kasutab juba seda seost.</string>
     <string name="core_item_detail_reminder_time_required">Vali esmalt meeldetuletuse kuupäev ja kellaaeg.</string>
     <string name="core_item_detail_type_change_failed">Üksuse tüüpi ei saanud muuta.</string>

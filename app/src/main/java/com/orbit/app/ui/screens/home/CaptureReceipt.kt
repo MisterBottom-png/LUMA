@@ -80,7 +80,8 @@ data class ReceiptLine(
 )
 
 fun CaptureReceipt.line(): ReceiptLine = when (outcome) {
-    CaptureOutcome.Saved -> ReceiptLine(if (decided) R.string.receipt_saved_note else R.string.receipt_saved)
+    // A decided Saved thought was kept as it is: it waits in To sort, and no note exists.
+    CaptureOutcome.Saved -> ReceiptLine(if (decided) R.string.receipt_kept else R.string.receipt_saved)
     CaptureOutcome.Filed -> when (itemType) {
         ReceiptItemType.Task -> when {
             taskDueAt != null -> ReceiptLine(R.string.receipt_filed_task, time = ReceiptTime.Moment(taskDueAt))
@@ -207,7 +208,9 @@ class CaptureReceiptReader(
 
     private suspend fun receipt(capture: CaptureEntity): CaptureReceipt? {
         val linkedId = capture.linkedItemId
-        if (capture.status != CaptureStatus.Processed || linkedId == null) return capture.baseReceipt()
+        if (capture.status != CaptureStatus.Processed) return capture.baseReceipt()
+        // A finished Brain Dump has no one item: its items were each saved on their own.
+        if (linkedId == null) return null
         // Filing stores what the thought became in suggestedType next to the link (note
         // and task ids can be equal); older rows fall back to checking what exists.
         val taskFirst = capture.suggestedType == SuggestedItemType.Task || capture.suggestedType == SuggestedItemType.MondayItem

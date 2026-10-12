@@ -266,6 +266,55 @@ class AutoFilerRoomTest {
     }
 
     @Test
+    fun aThoughtTheUserKeptInToSortIsNeverFiledLater_evenOnceSortingInTheSheetIsTurnedOff() = runBlocking {
+        val id = analysed(CabinNote)
+        paused = true
+        // In the sheet the user chose "Keep in To sort".
+        resolution().keep(id)
+
+        paused = false
+        assertEquals(0, autoFiler().applyPending())
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, capture.status)
+        assertNotNull(capture.decidedAt)
+        assertTrue(database.noteDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun analysingAThoughtOpenInTheSheetDoesNotFileItUnderTheSheet() = runBlocking {
+        val live = liveScope()
+        val inbox = inbox(scope = live)
+        autoFiler().listen(live, inbox.events)
+        // Saved while analysis could not run (for example the app was stopped).
+        val id = inbox().save("Buy milk tomorrow")
+
+        // The sheet analyses a thought that had no suggestion; nothing may act on it meanwhile.
+        assertNotNull(inbox.analyze(id, announce = false))
+        delay(300)
+        val capture = requireNotNull(database.captureDao().getById(id))
+        assertEquals(CaptureStatus.Inbox, capture.status)
+        assertNull(capture.decidedAt)
+        assertTrue(database.taskDao().observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun undoingASortAfterTheItemsTypeChangedTouchesNothing_soTheThoughtIsNeverFiledTwice() = runBlocking {
+        val id = analysed(CabinNote)
+        assertTrue(autoFiler().apply(id))
+        val note = database.noteDao().observeAll().first().single()
+
+        // The note was turned into a task on its own page; then the old Undo is tapped.
+        com.orbit.app.ui.screens.item.ItemTypeConversion(database, scheduler) { now }
+            .convert(com.orbit.app.ui.navigation.ItemDetailType.Note, note.id, com.orbit.app.ui.navigation.ItemDetailType.Task)
+        val refused = runCatching { resolution().undo(id, SuggestedItemType.Note, note.id) }
+
+        assertTrue(refused.isFailure)
+        assertEquals(CaptureStatus.Processed, database.captureDao().getById(id)?.status)
+        assertEquals(1, database.taskDao().observeAll().first().size)
+        assertEquals(0, autoFiler().applyPending())
+    }
+
+    @Test
     fun aThoughtAddedFromACalendarDayIsLeftForTheSortSheet() = runBlocking {
         val inbox = inbox()
         val id = inbox.save("Buy milk", contextDateEpochDay = 20_650L)

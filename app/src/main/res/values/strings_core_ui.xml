@@ -151,6 +151,7 @@
     <string name="core_learning_not_now">Not now</string>
     <!-- The save receipt under the capture box on Home. -->
     <string name="receipt_saved">Saved.</string>
+    <string name="receipt_kept">Kept in To sort.</string>
     <string name="receipt_saved_note">Saved as a note.</string>
     <string name="receipt_saved_task">Saved as a task.</string>
     <string name="receipt_filed_note">Filed in %1$s as a note.</string>

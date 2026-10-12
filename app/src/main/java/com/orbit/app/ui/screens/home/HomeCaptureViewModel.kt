@@ -189,30 +189,88 @@ class HomeCaptureViewModel(
         current?.takeIf { !asked && gate is ReceiptGate.Expect && it.wantsNotifications() }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** Text shared or spoken while a save was running; it joins the box once the save ends. */
+    private var heldIncomingText: String? = null
+
+    /** The last send whose moment (buzz, fading words, Calendar day used) Home has shown. */
+    private var shownSavedPulse = 0
+
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
             captureInbox.events.collect { event ->
                 val forCalendarDay = awaitingAnalysis.remove(event.captureId) ?: return@collect
                 when (event) {
                     is CaptureInboxEvent.Analyzed -> onAnalyzed(event.captureId, forCalendarDay)
                     // Added for a Calendar day: still open the sheet, so the day can be used.
-                    is CaptureInboxEvent.AnalysisFailed -> if (forCalendarDay) {
-                        _uiState.update { it.copy(sortRequest = SortRequest(event.captureId, startWithReminderSetup = false)) }
+                    is CaptureInboxEvent.AnalysisFailed -> if (forCalendarDay) requestSort(event.captureId)
+                }
+            }
+        }
+        // A thought added for a Calendar day must still get its sheet after Android
+        // stopped the app before its analysis landed (AutoFiler leaves these alone).
+        savedStateHandle.get<LongArray>(PendingCalendarSortsKey)?.forEach { captureId ->
+            awaitingAnalysis[captureId] = true
+            viewModelScope.launch {
+                when (runCatching { captureInbox.sheetReadiness(captureId) }.getOrNull()) {
+                    CaptureInbox.SheetReadiness.Ready ->
+                        if (awaitingAnalysis.remove(captureId) != null) requestSort(captureId)
+                    CaptureInbox.SheetReadiness.Done -> {
+                        awaitingAnalysis.remove(captureId)
+                        forgetPendingCalendarSort(captureId)
                     }
+                    CaptureInbox.SheetReadiness.Waiting, null -> Unit
                 }
             }
         }
     }
 
+    private fun requestSort(captureId: Long) {
+        _uiState.update { it.copy(sortRequest = SortRequest(captureId, startWithReminderSetup = false)) }
+    }
+
+    private fun rememberPendingCalendarSort(captureId: Long) {
+        val pending = savedStateHandle.get<LongArray>(PendingCalendarSortsKey) ?: LongArray(0)
+        if (captureId !in pending) savedStateHandle[PendingCalendarSortsKey] = pending + captureId
+    }
+
+    private fun forgetPendingCalendarSort(captureId: Long) {
+        val pending = savedStateHandle.get<LongArray>(PendingCalendarSortsKey) ?: return
+        savedStateHandle[PendingCalendarSortsKey] = pending.filterNot { it == captureId }.toLongArray()
+    }
+
+    /**
+     * True the first time Home sees this send's [pulse]. Home leaves composition while
+     * another tab is shown; coming back must not buzz again or use up a Calendar day
+     * chosen since.
+     */
+    internal fun claimSavedPulse(pulse: Int): Boolean {
+        if (pulse == 0 || pulse == shownSavedPulse) return false
+        shownSavedPulse = pulse
+        return true
+    }
+
     /** Text shared from another app joins the draft; the user still decides to send it. */
     fun receiveSharedText(text: String) {
+        if (_uiState.value.isProcessing) {
+            // Saving the previous thought: keep this for the box instead of dropping it.
+            heldIncomingText = heldIncomingText?.let { com.orbit.app.capture.SharedText.mergeIntoDraft(it, text) } ?: text
+            return
+        }
         onInputChanged(com.orbit.app.capture.SharedText.mergeIntoDraft(uiState.value.inputText, text))
+    }
+
+    private fun releaseHeldText() {
+        val held = heldIncomingText ?: return
+        heldIncomingText = null
+        onInputChanged(com.orbit.app.capture.SharedText.mergeIntoDraft(uiState.value.inputText, held))
     }
 
     fun onInputChanged(value: String) {
         if (_uiState.value.isProcessing) return
-        _uiState.update { it.copy(inputText = value) }
-        savedStateHandle[DraftTextKey] = value
+        // The same cap as shared text: a pasted book must not overflow the saved draft.
+        val capped = value.take(com.orbit.app.capture.SharedText.MaxLength)
+        _uiState.update { it.copy(inputText = capped) }
+        savedStateHandle[DraftTextKey] = capped
     }
 
     /** Saves the thought. Returns false when there is nothing to save. */
@@ -237,8 +295,11 @@ class HomeCaptureViewModel(
                 _uiState.update {
                     it.copy(processingState = CaptureProcessingState.Idle, message = HomeMessage.SaveFailed)
                 }
+                releaseHeldText()
                 return@launch
             }
+            // Survives Android stopping the app before the sheet could open.
+            if (safeContext != null && awaitingAnalysis.containsKey(id)) rememberPendingCalendarSort(id)
             receiptGate.value = ReceiptGate.Expect(id)
             savedStateHandle[DraftTextKey] = ""
             _uiState.update {
@@ -248,6 +309,7 @@ class HomeCaptureViewModel(
                     savedPulse = it.savedPulse + 1,
                 )
             }
+            releaseHeldText()
             // The thought is safe; now remember which one the receipt is about.
             storeReceipt {
                 it.copy(lastReceiptCaptureId = id, lastReceiptDismissed = false)
@@ -333,7 +395,7 @@ class HomeCaptureViewModel(
     }
 
     /**
-     * "Just keep it" on the question: the thought stays saved, in Later and in Search,
+     * "Just keep it" on the question: the thought stays saved, in To sort and in Search,
      * and nothing can ring for it. The receipt then says it is saved.
      */
     fun keepQuestionThought() {
@@ -354,6 +416,7 @@ class HomeCaptureViewModel(
     }
 
     fun sortRequestHandled() {
+        _uiState.value.sortRequest?.let { forgetPendingCalendarSort(it.captureId) }
         _uiState.update { it.copy(sortRequest = null) }
     }
 
@@ -390,6 +453,7 @@ class HomeCaptureViewModel(
 
     private companion object {
         const val DraftTextKey = "homeCaptureDraft"
+        const val PendingCalendarSortsKey = "homeCalendarSortsPending"
     }
 }
 

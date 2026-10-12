@@ -156,6 +156,7 @@
     <string name="core_item_detail_delete_failed">Could not delete this item.</string>
     <string name="core_item_detail_default_source">this item</string>
     <string name="core_item_detail_type_changed">Type changed.</string>
+    <string name="core_item_detail_type_change_undone">Type change undone.</string>
     <string name="core_item_detail_type_conflict">Could not change type because another item already uses this identity.</string>
     <string name="core_item_detail_reminder_time_required">Choose a reminder date and time first.</string>
     <string name="core_item_detail_type_change_failed">Could not change the item type.</string>
