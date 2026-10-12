@@ -36,7 +36,7 @@ Each batch appends its rows here: commands, SHA, counts, and the CI run for the 
 | 5 | `7978dda` | 778 tests, 0 failures; lint 0 errors, 48 warnings; both tours pass, including the §9.3 sheet | Success |
 | 6 | `b5b08b6` | 780 tests, 0 failures; lint 0 errors, 48 warnings; both tours pass | Success |
 | 7 | `052284d` | 784 tests, 0 failures; lint 0 errors, 48 warnings; both tours pass | Success |
-| Final | handoff commit | `testDebugUnitTest` and `testReleaseUnitTest`: 784 tests each, 0 failures, 0 errors, 2 skipped (the tour classes, run separately) | Recorded after push |
+| Final | `daf6fff` | `testDebugUnitTest` and `testReleaseUnitTest`: 784 tests each, 0 failures, 0 errors, 2 skipped (the tour classes, run separately) | Recorded after push |
 
 The "API 36 emulator verification" job is not triggered on this branch, so there is **no on-device result** for any batch. It runs when a pull request is opened.
 

@@ -21,7 +21,7 @@ Every finding that changes what Tallele does with your data is fixed and covered
 | 5 | `7978dda` | The Needs you one-item sheet from the design. Answered cards say what happened. Wording is consistent ("No Space", "To sort"). |
 | 6 | `b5b08b6` | Layout fixes for long Estonian/Russian words and large text. TalkBack names and states. One-by-one is modal. |
 | 7 | `052284d` | Calm solid tab bar. Violet for new installs. Glass/Solid only. Gemini and key hardening. Release signing guard. |
-| Final | handoff commit | Calendar no longer ends a full day with "Nothing planned" (B13). Audit docs updated. |
+| Final | `daf6fff` | Calendar no longer ends a full day with "Nothing planned" (B13). Audit docs updated. |
 
 Status for every finding, with its commit and tests, is in `02-findings-register.md`.
 

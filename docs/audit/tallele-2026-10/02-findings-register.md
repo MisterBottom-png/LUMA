@@ -62,7 +62,7 @@ Required fields that every row shares are not repeated in each one:
 | B10 | Weekly look back survives concurrent changes | Every emission clears the summary; the effect is keyed only on page | `ReviewViewModel.kt:252-258, 537`; `ReviewWeekly.kt:108-110` | T | L | 5 | Fixed in `7978dda` | |
 | B11 | "No Space" in Brain Dump overview | Option named `"Inbox"` shown raw | `CaptureSortViewModel.kt:747`; `BrainDumpFlowCoordinator.kt:260`; `BrainDumpOverview.kt:303` | T | L | 5 | Fixed in `7978dda` | |
 | B12 | Learned-rule question localised | English sentence with raw enum names | `domain/usecase/ProposeLearnedRuleUseCase.kt:68-79` | T | L | 5 | Fixed in `7978dda` | LearnedRuleProposalGateTest |
-| B13 | Calendar day doesn't end "Nothing planned" after items | Codified by `CalendarAgendaTest` | `CalendarDayTimelineView.kt:135-146` | T | L | 5 | Fixed in `(handoff commit)` | |
+| B13 | Calendar day doesn't end "Nothing planned" after items | Codified by `CalendarAgendaTest` | `CalendarDayTimelineView.kt:135-146` | T | L | 5 | Fixed in `daf6fff` | |
 | B14 | Item in a hidden or archived Space shows its name | Hidden and archived Spaces dropped, so the item shows "No Space" | `ItemDetailViewModel.kt:669-670`; `ItemDetailScreen.kt:883-884` | T | M | 5 | Fixed in `7978dda` | |
 | B15 | One-by-one shows a dated task's date | Uses only `reminderAt`, so it shows "No date" | `ReviewRedesign.kt:897-901` | T | L | 5 | Fixed in `7978dda` | |
 | B16 | Closing the sort sheet is not a rejection | `cancelSuggestion → keepInInbox → recordRejected` | `CaptureSortViewModel.kt:232-261` | T✔ | L | 2 | Fixed in `f7d3c47` | |
