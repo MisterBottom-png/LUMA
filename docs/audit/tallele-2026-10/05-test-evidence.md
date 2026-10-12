@@ -23,6 +23,25 @@ CI for the same commit, as reported in the review: 58 emulator tests passed. Thi
 
 Each batch appends its rows here: commands, SHA, counts, and the CI run for the pushed commit.
 
+| Batch | SHA | Local result (`testDebugUnitTest`, `lintDebug`, screen tours) | CI "Screens" run |
+| --- | --- | --- | --- |
+| 1a | `f7d3c47` | Unit tests 0 failures; lint 0 errors | Failure (tour steps; fixed in the next batches) |
+| 1b | `e0cdfd3` | Unit tests 0 failures; light and dark tours pass | Cancelled (superseded by 1c) |
+| 1c | `59d8fbd` | Unit tests 0 failures | Success |
+| 2 | `03c1384` | 748 tests, 0 failures; lint 0 errors | Success |
+| 3a | `6af1cc7` | Reminder and data packages pass | Success |
+| 3b | `a8ccd9e` | Reminder, item, settings, capture and data packages pass | Success |
+| 3c | `6d0b3b0` | 765 tests, 0 failures, 2 skipped; lint 0 errors, 48 warnings; both tours pass | Success |
+| 4 | `980c945` | 771 tests, 0 failures; lint 0 errors, 48 warnings; both tours pass | Success |
+| 5 | `7978dda` | 778 tests, 0 failures; lint 0 errors, 48 warnings; both tours pass, including the §9.3 sheet | Success |
+| 6 | `b5b08b6` | 780 tests, 0 failures; lint 0 errors, 48 warnings; both tours pass | Success |
+| 7 | `052284d` | 784 tests, 0 failures; lint 0 errors, 48 warnings; both tours pass | Success |
+| Final | handoff commit | `testDebugUnitTest` and `testReleaseUnitTest`: 784 tests each, 0 failures, 0 errors, 2 skipped (the tour classes, run separately) | Recorded after push |
+
+The "API 36 emulator verification" job is not triggered on this branch, so there is **no on-device result** for any batch. It runs when a pull request is opened.
+
+Screen-tour renders were compared by eye with the "Add to a Space" design (screens 1–11): the layout matches. Colours matched only after batch 7 (violet for new installs).
+
 ## Not run / blocked
 
 | Check | Status |

@@ -126,14 +126,14 @@ fun CalendarDayAgendaView(
         }
         if (uiState.isLoadingEntries) return@LazyColumn
         when (agenda.fillerPlacement) {
-            // "Nothing planned" is said once a day: alone on an empty day...
+            // "Nothing planned" is said only on an empty day.
             CalendarFillerPlacement.EmptyDay -> item(key = "quiet") {
                 CalendarQuietDay(
                     message = stringResource(R.string.calendar_nothing_planned),
                     action = onAddForSelectedDate,
                 )
             }
-            // ...or once, quietly, after the last thing on the day.
+            // B13: a day with items shows them; it does not end with "Nothing planned".
             CalendarFillerPlacement.AfterLastItem -> {
                 item(key = "agenda") {
                     CalendarAgendaList(
@@ -144,7 +144,6 @@ fun CalendarDayAgendaView(
                         compact = false,
                     )
                 }
-                item(key = "nothing-more") { CalendarNothingMoreLine() }
             }
         }
     }
@@ -327,18 +326,6 @@ private fun CalendarNowRow(timeText: String) {
                 .background(accent, RoundedCornerShape(1.dp)),
         )
     }
-}
-
-@Composable
-private fun CalendarNothingMoreLine() {
-    Text(
-        text = stringResource(R.string.calendar_nothing_planned),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 20.dp, top = 12.dp, end = 16.dp),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
 }
 
 /** A day with nothing on it: said kindly, with one gentle way to add something. */
