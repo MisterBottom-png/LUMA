@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.orbit.app.data.local.OrbitDatabase
 import com.orbit.app.data.local.entity.CaptureOutcome
 import com.orbit.app.data.local.entity.CaptureOutcomeReason
+import com.orbit.app.data.local.entity.CaptureEntity
 import com.orbit.app.data.local.entity.CaptureStatus
 import com.orbit.app.data.local.entity.SpaceEntity
 import com.orbit.app.data.local.entity.SuggestedItemType
@@ -368,6 +369,37 @@ class CaptureInboxRoomTest {
             else -> database.taskDao().getById(accepted.itemId)?.spaceId
         }
         assertEquals(household, spaceOfItem)
+    }
+
+    @Test
+    fun aLateAnalysisForAThoughtReplacedMeanwhile_isDropped_notAttachedToTheNewThought() = runBlocking {
+        val idle = CoroutineScope(SupervisorJob()).also { it.cancel() }
+        val id = inbox(scope = idle).save("Pay 40 for the parking permit tomorrow")
+        // While analysis runs, a restore replaces the database: another thought gets the same id.
+        val replacing = inbox(scope = idle, beforeResult = {
+            database.captureDao().deleteById(id)
+            database.captureDao().insert(CaptureEntity(id = id, rawText = "Grandma's birthday ideas", createdAt = now + 5))
+        })
+
+        assertNull(replacing.analyze(id))
+        assertNull(database.captureSuggestionDao().getByCaptureId(id))
+        val survivor = requireNotNull(database.captureDao().getById(id))
+        assertEquals("Grandma's birthday ideas", survivor.rawText)
+        assertNull(survivor.suggestedType)
+    }
+
+    @Test
+    fun aBrainDumpAddedFromASpaceStartsEveryThoughtInThatSpace() = runBlocking {
+        val garden = database.spaceDao().insert(SpaceEntity(name = "Garden", icon = "yard", colorAccent = "#000000", sortOrder = 0))
+        database.spaceDao().insert(SpaceEntity(name = "Work", icon = "work", colorAccent = "#000000", sortOrder = 1))
+        val idle = CoroutineScope(SupervisorJob()).also { it.cancel() }
+        val inbox = inbox(scope = idle)
+        val id = inbox.save("Send the report to the team\nBuy tulip bulbs\nCall the bank", spaceId = garden)
+        inbox.analyze(id)
+
+        val items = database.brainDumpDao().getItems(id)
+        assertTrue(items.size >= 2)
+        assertTrue(items.all { it.suggestedSpaceName == "Garden" })
     }
 
     @Test

@@ -153,7 +153,7 @@ class CaptureInbox(
             }
             // The suggester can take a while (Gemini waits up to its network timeout).
             // If the user acted on the thought meanwhile, the late result is dropped.
-            if (!store(captureId, analysis, spaces)) return null
+            if (!store(capture, analysis, spaces)) return null
             if (announce) _events.tryEmit(CaptureInboxEvent.Analyzed(captureId, analysis))
             return analysis
         } finally {
@@ -190,11 +190,15 @@ class CaptureInbox(
      * linked item, and drop a Space the user picked in the meantime.
      */
     private suspend fun store(
-        captureId: Long,
+        analysed: CaptureEntity,
         analysis: CaptureAnalysis,
         spaces: List<SpaceEntity>,
     ): Boolean = transaction.run storeIfStillWaiting@{
+        val captureId = analysed.id
         val current = captureRepository.getById(captureId) ?: return@storeIfStillWaiting false
+        // A restore or reset can put a different thought under the same id while the
+        // analysis was running: its result belongs to the old text and is dropped.
+        if (current.rawText != analysed.rawText || current.createdAt != analysed.createdAt) return@storeIfStillWaiting false
         val contextDateEpochDay = current.contextDateEpochDay
         if (current.status != CaptureStatus.Inbox) return@storeIfStillWaiting false
         if (suggestionDao.getByCaptureId(captureId) != null) return@storeIfStillWaiting false
@@ -219,7 +223,9 @@ class CaptureInbox(
                     updatedAt = timestamp,
                 ),
                 items = analysis.brainDumpItems.mapIndexed { index, item ->
-                    item.toEntity(captureId, index + 1, timestamp)
+                    // Added from a Space: each thought in the dump starts in that Space too.
+                    (chosenSpace?.let { item.copy(suggestedSpaceName = it.name) } ?: item)
+                        .toEntity(captureId, index + 1, timestamp)
                 },
             )
         }

@@ -62,11 +62,13 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -165,6 +167,8 @@ fun ItemDetailScreen(
     onBack: () -> Unit,
     onTypeChanged: (ItemDetailType, Long) -> Unit = { _, _ -> },
     onResumeBrainDump: (Long) -> Unit = {},
+    /** True while the user has edits that are not saved; shared text then waits (B1). */
+    onUnsavedEditsChanged: (Boolean) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -224,6 +228,7 @@ fun ItemDetailScreen(
             onChangeType = viewModel::changeType,
             onDelete = { confirmDelete = true },
             onResumeBrainDump = { onResumeBrainDump(state.itemId) },
+            onUnsavedEditsChanged = onUnsavedEditsChanged,
         )
         if (confirmDelete) {
             AlertDialog(
@@ -277,6 +282,7 @@ private fun ItemDetailContent(
     onChangeType: (ItemDetailType, Long?) -> Unit,
     onDelete: () -> Unit,
     onResumeBrainDump: () -> Unit,
+    onUnsavedEditsChanged: (Boolean) -> Unit = {},
 ) {
     var isEditing by rememberSaveable(state.itemId) { mutableStateOf(false) }
     var title by rememberSaveable(state.itemId) { mutableStateOf(state.title) }
@@ -288,6 +294,9 @@ private fun ItemDetailContent(
     var pendingTypeChange by rememberSaveable { mutableStateOf<ItemDetailType?>(null) }
     var moreDetailsOpen by rememberSaveable(state.itemId) { mutableStateOf(false) }
     val hasChanges = isEditing && (title != state.title || body != state.body)
+    val reportUnsavedEdits by rememberUpdatedState(onUnsavedEditsChanged)
+    LaunchedEffect(hasChanges) { reportUnsavedEdits(hasChanges) }
+    DisposableEffect(Unit) { onDispose { reportUnsavedEdits(false) } }
 
     LaunchedEffect(state.saveCompletedAt) {
         if (state.saveCompletedAt != null) isEditing = false

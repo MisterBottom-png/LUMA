@@ -152,10 +152,15 @@ fun OrbitApp(
         }
     }
 
+    // An item with unsaved edits is never closed under the user: incoming text and the
+    // "New thought" shortcut wait until the edit is saved or discarded (B1).
+    var unsavedItemEdits by remember { mutableStateOf(false) }
+
     // Shared text waits until Home exists (e.g. after the first-time guide), then
     // lands in the Home draft.
-    LaunchedEffect(sharedText, selectedRoute) {
+    LaunchedEffect(sharedText, selectedRoute, unsavedItemEdits) {
         val text = sharedText ?: return@LaunchedEffect
+        if (unsavedItemEdits) return@LaunchedEffect
         val home = runCatching { navController.getBackStackEntry(OrbitDestination.Home.route) }.getOrNull()
             ?: return@LaunchedEffect
         home.savedStateHandle[SharedTextContext.TextKey] = text
@@ -165,8 +170,8 @@ fun OrbitApp(
         onSharedTextHandled()
     }
 
-    LaunchedEffect(newThoughtRequested, selectedRoute) {
-        if (!newThoughtRequested) return@LaunchedEffect
+    LaunchedEffect(newThoughtRequested, selectedRoute, unsavedItemEdits) {
+        if (!newThoughtRequested || unsavedItemEdits) return@LaunchedEffect
         val home = runCatching { navController.getBackStackEntry(OrbitDestination.Home.route) }.getOrNull()
             ?: return@LaunchedEffect
         home.savedStateHandle[SharedTextContext.FocusCaptureKey] = System.nanoTime()
@@ -706,6 +711,7 @@ fun OrbitApp(
                         onTypeChanged = { changedType, changedId ->
                             navController.replaceCurrentItemDetail(entry, changedType, changedId)
                         },
+                        onUnsavedEditsChanged = { unsavedItemEdits = it },
                         onResumeBrainDump = { captureId ->
                             navController.returnHomeToResumeBrainDump(captureId)
                         },
@@ -744,6 +750,7 @@ fun OrbitApp(
                         onTypeChanged = { changedType, changedId ->
                             navController.replaceCurrentItemDetail(entry, changedType, changedId)
                         },
+                        onUnsavedEditsChanged = { unsavedItemEdits = it },
                         onResumeBrainDump = { captureId ->
                             navController.returnHomeToResumeBrainDump(captureId)
                         },

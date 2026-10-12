@@ -121,10 +121,19 @@ class BrainDumpActions(
         captureId: Long,
         sourceKey: String,
     ): BrainDumpActionResult = apply(captureId, sourceKey, BrainDumpItemOutcome.KeptInInbox) { _, item ->
+        val dump = database.captureDao().getById(captureId)
+        val timestamp = now()
         database.captureDao().insert(
             CaptureEntity(
                 rawText = item.rawText,
                 status = CaptureStatus.Inbox,
+                // It keeps the dump's Space and Calendar day, and it was the user's
+                // choice to keep it: automatic filing never files it later.
+                suggestedSpaceId = dump?.suggestedSpaceId,
+                contextDateEpochDay = dump?.contextDateEpochDay,
+                createdAt = timestamp,
+                updatedAt = timestamp,
+                decidedAt = timestamp,
             ),
         )
         false
@@ -141,10 +150,13 @@ class BrainDumpActions(
             val pending = database.brainDumpDao().getItems(captureId)
                 .filter { it.outcome == BrainDumpItemOutcome.Pending }
             if (pending.isEmpty()) return@withTransaction BrainDumpActionResult(BrainDumpActionStatus.AlreadyHandled)
+            val chosenSpaceId = database.captureDao().getById(captureId)?.suggestedSpaceId
+                ?.let { database.spaceDao().getById(it) }?.takeUnless { it.archived }?.id
             database.noteDao().insert(
                 NoteEntity(
                     title = title.trim().ifBlank { pending.first().suggestedTitle.ifBlank { pending.first().rawText } },
                     body = pending.joinToString("\n") { it.rawText },
+                    spaceId = chosenSpaceId,
                     scheduledDateEpochDay = session.calendarDateContextEpochDay,
                 ),
             )
