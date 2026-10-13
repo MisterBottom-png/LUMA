@@ -157,6 +157,24 @@ class SpaceCaptureViewModelTest {
     }
 
     @Test
+    fun calendarPlusAddsForThatDay_withoutASpace() {
+        // Review: Calendar "+" opens this sheet for the day instead of jumping to Home.
+        val day = java.time.LocalDate.of(2026, 7, 20).toEpochDay()
+        val viewModel = viewModel()
+        viewModel.openForDay(day)
+        assertTrue(viewModel.uiState.value.isOpen)
+        viewModel.onDayDraftChanged("Buy a birthday card")
+        viewModel.onSaveAsChanged(SpaceSaveAs.Task)
+        viewModel.save()
+
+        awaitUntil { viewModel.uiState.value.finished != null }
+        val task = runBlocking { database.taskDao().observeAll().first() }.single()
+        assertEquals(day, task.scheduledDateEpochDay)
+        assertNull(task.spaceId)
+        assertEquals("", runBlocking { viewModel.dayDraftFlow().first() })
+    }
+
+    @Test
     fun quickTimesNeverOfferAPassedEvening() {
         val evening = Instant.parse("2026-07-14T15:50:00Z").toEpochMilli() // 18:50 in Tallinn
         val times = viewModel(clock = evening).quickTimes()

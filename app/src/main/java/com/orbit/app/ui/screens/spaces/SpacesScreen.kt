@@ -547,9 +547,12 @@ private fun SpaceRow(
                 )
             }
             if (openCount > 0) {
+                // Review: the number says what it counts ("4 open").
                 Text(
-                    text = openCount.toString(),
+                    text = stringResource(R.string.spaces_detail_open_count, openCount),
                     modifier = Modifier.padding(end = 4.dp),
+                    maxLines = 1,
+                    softWrap = false,
                     style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

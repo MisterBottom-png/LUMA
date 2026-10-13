@@ -57,8 +57,10 @@ data class SpaceQuickTime(val at: Long, val day: QuickDay)
 enum class QuickDay { Today, Tomorrow, Weekday }
 
 data class SpaceCaptureUiState(
-    /** The Space the sheet is open for; null when the sheet is closed. */
+    /** The Space the sheet is open for; null when it is closed or adds for a day. */
     val spaceId: Long? = null,
+    /** The Calendar day the sheet adds for (Calendar "+"); null for a Space. */
+    val contextDay: Long? = null,
     val step: SpaceCaptureStep = SpaceCaptureStep.Write,
     val saveAs: SpaceSaveAs = SpaceSaveAs.Decide,
     /** The saved thought, once it exists. */
@@ -70,10 +72,12 @@ data class SpaceCaptureUiState(
     val quickTimes: List<SpaceQuickTime> = emptyList(),
     /** Set when the thought became something (or was kept); the screen reports it once. */
     val finished: SpaceCaptureFinished? = null,
-)
+) {
+    val isOpen: Boolean get() = spaceId != null || contextDay != null
+}
 
 /** How a sheet ended: [captureId]'s receipt says what it became; [keptForLater] when "Decide later" was chosen. */
-data class SpaceCaptureFinished(val captureId: Long, val spaceId: Long, val keptForLater: Boolean = false)
+data class SpaceCaptureFinished(val captureId: Long, val spaceId: Long?, val keptForLater: Boolean = false)
 
 /**
  * The Space "+" flow. The thought is saved into the Space the moment the user taps
@@ -112,6 +116,22 @@ class SpaceCaptureViewModel(
         _uiState.value = SpaceCaptureUiState(spaceId = spaceId)
     }
 
+    /** Calendar "+": the same sheet, adding for [epochDay] (review: no jump to Home). */
+    fun openForDay(epochDay: Long) {
+        _uiState.value = SpaceCaptureUiState(contextDay = epochDay)
+    }
+
+    /** The unsent draft for Calendar "+", kept like a Space's. */
+    fun dayDraftFlow(): StateFlow<String> = savedStateHandle.getStateFlow(DayDraftKey, "")
+
+    fun onDayDraftChanged(text: String) {
+        if (_uiState.value.busy) return
+        savedStateHandle[DayDraftKey] = text.take(com.orbit.app.capture.SharedText.MaxLength)
+    }
+
+    private fun draftKeyFor(state: SpaceCaptureUiState): String? =
+        state.spaceId?.let(::draftKey) ?: DayDraftKey.takeIf { state.contextDay != null }
+
     /** "Sort" on a thought under "Not sorted yet": straight to "What should this be?". */
     fun openSort(spaceId: Long, captureId: Long) {
         viewModelScope.launch {
@@ -141,13 +161,13 @@ class SpaceCaptureViewModel(
 
     fun save() {
         val state = _uiState.value
-        val spaceId = state.spaceId ?: return
-        val text = draft(spaceId).trim()
+        val key = draftKeyFor(state) ?: return
+        val text = savedStateHandle.get<String>(key).orEmpty().trim()
         if (text.isBlank() || state.busy) return
         _uiState.update { it.copy(busy = true, failed = false) }
         viewModelScope.launch {
             val captureId = try {
-                captureInbox.save(text, spaceId = spaceId)
+                captureInbox.save(text, contextDateEpochDay = state.contextDay, spaceId = state.spaceId)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
@@ -155,7 +175,7 @@ class SpaceCaptureViewModel(
                 _uiState.update { it.copy(busy = false, failed = true) }
                 return@launch
             }
-            savedStateHandle[draftKey(spaceId)] = ""
+            savedStateHandle[key] = ""
             _uiState.update { it.copy(captureId = captureId, thought = text) }
             when (state.saveAs) {
                 SpaceSaveAs.Note -> fileAsNote()
@@ -204,8 +224,8 @@ class SpaceCaptureViewModel(
     fun decideLater() {
         val state = _uiState.value
         val captureId = state.captureId ?: return
-        val spaceId = state.spaceId ?: return
-        if (state.busy) return
+        if (!state.isOpen || state.busy) return
+        val spaceId = state.spaceId
         _uiState.update { it.copy(busy = true) }
         viewModelScope.launch {
             runCatching { captureResolution.keep(captureId) }
@@ -259,7 +279,12 @@ class SpaceCaptureViewModel(
 
     private suspend fun fileAsNote() {
         val captureId = requireNotNull(_uiState.value.captureId)
-        confirmCaptureAction.saveNote(captureId, activeSpaceId(), suggestedTitle(captureId))
+        confirmCaptureAction.saveNote(
+            captureId,
+            activeSpaceId(),
+            suggestedTitle(captureId),
+            scheduledDateEpochDay = _uiState.value.contextDay,
+        )
         finish(captureId)
     }
 
@@ -270,6 +295,8 @@ class SpaceCaptureViewModel(
             spaceId = activeSpaceId(),
             title = suggestedTitle(captureId),
             dueAt = null,
+            // Added for a Calendar day: the task is on that day.
+            scheduledDateEpochDay = _uiState.value.contextDay,
             // "Someday" and "Waiting for" survive here too (F08).
             status = suggestionDao.getByCaptureId(captureId)?.taskStatus() ?: com.orbit.app.data.local.entity.TaskStatus.Open,
         )
@@ -277,8 +304,8 @@ class SpaceCaptureViewModel(
     }
 
     private fun finish(captureId: Long) {
-        val spaceId = _uiState.value.spaceId ?: return
-        _uiState.value = SpaceCaptureUiState(finished = SpaceCaptureFinished(captureId, spaceId))
+        if (!_uiState.value.isOpen) return
+        _uiState.value = SpaceCaptureUiState(finished = SpaceCaptureFinished(captureId, _uiState.value.spaceId))
     }
 
     private suspend fun activeSpaceId(): Long? =
@@ -310,6 +337,7 @@ class SpaceCaptureViewModel(
 
     private companion object {
         const val LookingPollMillis = 150L
+        const val DayDraftKey = "calendarCaptureDraft"
 
         fun draftKey(spaceId: Long) = "spaceCaptureDraft_$spaceId"
     }

@@ -47,7 +47,7 @@
     <string name="review_to_sort_continue">Continue</string>
     <string name="review_to_sort_more">More options for this thought</string>
     <string name="review_to_sort_hide">Hide suggestion</string>
-    <string name="review_to_sort_let_go">Let it go (archive)</string>
+    <string name="review_to_sort_let_go">Let go (archive)</string>
     <string name="review_show_fewer">Show fewer</string>
     <string name="review_today_empty">Nothing is due today.</string>
     <string name="review_show_more">Show more (%1$d)</string>

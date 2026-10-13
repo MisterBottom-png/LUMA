@@ -95,6 +95,8 @@ private val FieldShape = RoundedCornerShape(20.dp)
 fun SpaceCaptureFlowSheet(
     state: SpaceCaptureUiState,
     spaceName: String,
+    /** Set when the sheet adds for a Calendar day (review: Calendar "+") instead of a Space. */
+    dayLabel: String? = null,
     draft: String,
     timeFormat: OrbitTimeFormat,
     onDraftChange: (String) -> Unit,
@@ -113,6 +115,7 @@ fun SpaceCaptureFlowSheet(
     zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     val busy by rememberUpdatedState(state.busy)
+    val words = sheetWords(spaceName, dayLabel)
     LumaModalBottomSheet(
         onDismissRequest = { if (!busy) onDismiss() },
         sheetState = rememberModalBottomSheetState(
@@ -129,10 +132,10 @@ fun SpaceCaptureFlowSheet(
                 .padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
         ) {
             when (state.step) {
-                SpaceCaptureStep.Write -> WriteStep(state, spaceName, draft, onDraftChange, onSaveAsChange, onSave, onDismiss)
-                SpaceCaptureStep.Looking -> LookingStep(state, spaceName)
+                SpaceCaptureStep.Write -> WriteStep(state, words, draft, onDraftChange, onSaveAsChange, onSave, onDismiss)
+                SpaceCaptureStep.Looking -> LookingStep(state, words)
                 SpaceCaptureStep.TimeQuestion -> TimeQuestionStep(
-                    header = { SavedHeader(state, spaceName) },
+                    header = { SavedHeader(state, words) },
                     busy = state.busy,
                     quickTimes = state.quickTimes,
                     timeFormat = timeFormat,
@@ -140,18 +143,21 @@ fun SpaceCaptureFlowSheet(
                     onRemindAt = onRemindAt,
                     onPickTime = onPickTime,
                     onKeepAsTask = onKeepAsTask,
-                    footnote = stringResource(R.string.space_capture_time_footnote, spaceName),
+                    footnote = words.timeFootnote,
                 )
-                SpaceCaptureStep.PickTime -> PickTimeStep(state.thought, state.busy, timeFormat, now, zoneId, onRemindAt, onBackToTimeQuestion)
+                SpaceCaptureStep.PickTime -> PickTimeStep(
+                    state.thought, state.busy, timeFormat, now, zoneId, onRemindAt, onBackToTimeQuestion,
+                    initialDay = state.contextDay,
+                )
                 SpaceCaptureStep.TypeQuestion -> TypeQuestionStep(
-                    header = { SavedHeader(state, spaceName) },
+                    header = { SavedHeader(state, words) },
                     busy = state.busy,
                     canDecideLater = state.captureId != null,
                     onChooseNote = onChooseNote,
                     onChooseTask = onChooseTask,
                     onChooseReminder = onChooseReminder,
                     onDecideLater = onDecideLater,
-                    footnote = stringResource(R.string.space_capture_type_footnote, spaceName),
+                    footnote = words.typeFootnote,
                 )
             }
             if (state.failed) {
@@ -172,7 +178,7 @@ fun SpaceCaptureFlowSheet(
 @Composable
 private fun WriteStep(
     state: SpaceCaptureUiState,
-    spaceName: String,
+    words: SheetWords,
     draft: String,
     onDraftChange: (String) -> Unit,
     onSaveAsChange: (SpaceSaveAs) -> Unit,
@@ -191,7 +197,7 @@ private fun WriteStep(
             Text(stringResource(R.string.core_cancel))
         }
         Text(
-            text = stringResource(R.string.space_capture_title, spaceName),
+            text = words.title,
             modifier = Modifier
                 .align(Alignment.Center)
                 .padding(horizontal = 88.dp)
@@ -251,7 +257,7 @@ private fun WriteStep(
         }
     }
     Text(
-        text = stringResource(R.string.space_capture_explain, spaceName),
+        text = words.explain,
         modifier = Modifier.padding(top = 8.dp),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -265,13 +271,13 @@ private fun WriteStep(
             .padding(top = 16.dp)
             .heightIn(min = 56.dp),
     ) {
-        Text(stringResource(R.string.space_capture_save_to, spaceName), style = MaterialTheme.typography.titleSmall)
+        Text(words.saveTo, style = MaterialTheme.typography.titleSmall)
     }
 }
 
 /** "✓ Saved to Work" and the thought itself, shown on every step after saving. */
 @Composable
-private fun SavedHeader(state: SpaceCaptureUiState, spaceName: String) {
+private fun SavedHeader(state: SpaceCaptureUiState, words: SheetWords) {
     Row(
         modifier = Modifier
             .padding(top = 12.dp)
@@ -286,7 +292,7 @@ private fun SavedHeader(state: SpaceCaptureUiState, spaceName: String) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = stringResource(R.string.space_capture_saved_to, spaceName),
+            text = words.savedTo,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -324,8 +330,8 @@ internal fun StepTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun LookingStep(state: SpaceCaptureUiState, spaceName: String) {
-    SavedHeader(state, spaceName)
+private fun LookingStep(state: SpaceCaptureUiState, words: SheetWords) {
+    SavedHeader(state, words)
     Row(
         modifier = Modifier.padding(vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -453,10 +459,14 @@ internal fun PickTimeStep(
     zoneId: ZoneId,
     onRemindAt: (Long) -> Unit,
     onBack: () -> Unit,
+    /** A Calendar day the thought was added for; the picker starts there. */
+    initialDay: Long? = null,
 ) {
     val context = LocalContext.current
     val today = remember { Instant.ofEpochMilli(now()).atZone(zoneId).toLocalDate() }
-    var day by rememberSaveable { mutableStateOf(today.plusDays(1).toEpochDay()) }
+    var day by rememberSaveable {
+        mutableStateOf(initialDay?.takeIf { it >= today.toEpochDay() } ?: today.plusDays(1).toEpochDay())
+    }
     var time by rememberSaveable { mutableStateOf(LocalTime.of(9, 0).toSecondOfDay()) }
     val chosenDay = LocalDate.ofEpochDay(day)
     val chosenTime = LocalTime.ofSecondOfDay(time.toLong())
@@ -696,4 +706,35 @@ internal fun TypeRow(icon: ImageVector, title: String, subtitle: String, enabled
             }
         }
     }
+}
+
+/** The sheet's words for a Space, or for a Calendar day. */
+internal data class SheetWords(
+    val title: String,
+    val explain: String,
+    val saveTo: String,
+    val savedTo: String,
+    val timeFootnote: String,
+    val typeFootnote: String,
+)
+
+@Composable
+private fun sheetWords(spaceName: String, dayLabel: String?): SheetWords = if (dayLabel == null) {
+    SheetWords(
+        title = stringResource(R.string.space_capture_title, spaceName),
+        explain = stringResource(R.string.space_capture_explain, spaceName),
+        saveTo = stringResource(R.string.space_capture_save_to, spaceName),
+        savedTo = stringResource(R.string.space_capture_saved_to, spaceName),
+        timeFootnote = stringResource(R.string.space_capture_time_footnote, spaceName),
+        typeFootnote = stringResource(R.string.space_capture_type_footnote, spaceName),
+    )
+} else {
+    SheetWords(
+        title = stringResource(R.string.day_capture_title, dayLabel),
+        explain = stringResource(R.string.day_capture_explain),
+        saveTo = stringResource(R.string.day_capture_save, dayLabel),
+        savedTo = stringResource(R.string.day_capture_saved, dayLabel),
+        timeFootnote = stringResource(R.string.day_capture_time_footnote),
+        typeFootnote = stringResource(R.string.day_capture_type_footnote),
+    )
 }

@@ -214,4 +214,10 @@
         <item>Янтарный</item>
     </string-array>
     <string name="needs_you_waiting">Что-то ждёт</string>
+    <string name="day_capture_title">Добавить на %1$s</string>
+    <string name="day_capture_explain">Мысль сразу сохранится с этим днём. Если Tallele не уверен, что это, он спросит здесь.</string>
+    <string name="day_capture_save">Сохранить на %1$s</string>
+    <string name="day_capture_saved">Сохранено на %1$s</string>
+    <string name="day_capture_time_footnote">Мысль уже сохранена. Пока у неё нет времени, она также ждёт в «Ждёт вас».</string>
+    <string name="day_capture_type_footnote">Мысль останется в «Разобрать» и будет ждать в «Ждёт вас».</string>
 </resources>

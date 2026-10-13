@@ -32,7 +32,7 @@
     <string name="core_capture_action_set_reminder">Поставить напоминание</string>
     <string name="core_capture_action_keep_in_inbox">Оставить в «Разобрать»</string>
     <string name="core_capture_for_date">На %1$s</string>
-    <string name="core_capture_brain_dump_title">Разберите мысли</string>
+    <string name="core_capture_brain_dump_title">Разбор мыслей</string>
     <string name="core_capture_suggested_item">Предложенный элемент</string>
     <string name="core_capture_set_up_task">Настроить задачу</string>
     <string name="core_capture_set_up_reminder">Настроить напоминание</string>

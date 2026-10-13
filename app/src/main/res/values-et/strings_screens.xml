@@ -210,4 +210,10 @@
         <item>Merevaigukollane</item>
     </string-array>
     <string name="needs_you_waiting">Midagi ootab</string>
+    <string name="day_capture_title">Lisa päevaks %1$s</string>
+    <string name="day_capture_explain">See salvestatakse kohe selle päevaga. Kui Tallele pole kindel, mis see on, küsib ta siin.</string>
+    <string name="day_capture_save">Salvesta päevaks %1$s</string>
+    <string name="day_capture_saved">Salvestatud päevaks %1$s</string>
+    <string name="day_capture_time_footnote">See on juba salvestatud. Kuni sel aega pole, ootab see ka vaates „Vajab sind“.</string>
+    <string name="day_capture_type_footnote">See jääb sorteerimiseks ootele ja ootab vaates „Vajab sind“.</string>
 </resources>

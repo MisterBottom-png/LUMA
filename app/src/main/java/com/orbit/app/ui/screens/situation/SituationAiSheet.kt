@@ -38,6 +38,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -160,6 +162,8 @@ fun SituationAiSheet(
         }
     }
 }
+
+private const val FirstSources = 3
 
 internal enum class SituationSheetSection { Question, Answer, Overview, Loading }
 
@@ -295,11 +299,21 @@ private fun AskLumaAnswer(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             if (answer.sourceItems.isNotEmpty()) {
+                // Review: one plain answer first, a few linked items, the rest only when tapped.
+                var showAll by androidx.compose.runtime.saveable.rememberSaveable(answer.answer) {
+                    androidx.compose.runtime.mutableStateOf(false)
+                }
+                val hidden = answer.sourceItems.size - FirstSources
                 SourceList(
                     title = stringResource(R.string.core_sources),
-                    sources = answer.sourceItems,
+                    sources = if (showAll) answer.sourceItems else answer.sourceItems.take(FirstSources),
                     onSourceSelected = onSourceSelected,
                 )
+                if (!showAll && hidden > 0) {
+                    TextButton(onClick = { showAll = true }) {
+                        Text(stringResource(R.string.review_show_more, hidden))
+                    }
+                }
             }
             answer.searchQuery?.takeIf { it.isNotBlank() }?.let { query ->
                 TextButton(onClick = { onSearch(query) }) {
@@ -414,21 +428,34 @@ private fun BriefingSurface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.36f)),
     ) {
+        // Review: the plain answer first; the details only when tapped.
+        var showDetails by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
         Column {
             BriefingSection(
                 title = stringResource(R.string.core_situation_where_am_i),
                 lines = listOf(whereYouAre),
             )
-            BriefingDivider()
-            BriefingSection(
-                title = stringResource(R.string.core_situation_what_matters),
-                lines = whatMatters,
-            )
-            BriefingDivider()
-            BriefingSection(
-                title = stringResource(R.string.core_situation_what_is_stuck),
-                lines = whatIsStuck,
-            )
+            val details = whatMatters.size + whatIsStuck.size
+            if (!showDetails && details > 0) {
+                TextButton(
+                    onClick = { showDetails = true },
+                    modifier = Modifier.padding(horizontal = OrbitSpacing.Small),
+                ) {
+                    Text(stringResource(R.string.review_show_more, details))
+                }
+            }
+            if (showDetails) {
+                BriefingDivider()
+                BriefingSection(
+                    title = stringResource(R.string.core_situation_what_matters),
+                    lines = whatMatters,
+                )
+                BriefingDivider()
+                BriefingSection(
+                    title = stringResource(R.string.core_situation_what_is_stuck),
+                    lines = whatIsStuck,
+                )
+            }
         }
     }
 }

@@ -45,12 +45,17 @@ internal fun SpaceCaptureFinishedMessage(
         ).observe(finished.captureId).first()
     }
     val spaceName by produceState(initialValue = "", finished.spaceId) {
-        value = container.spaceRepository.getById(finished.spaceId)?.name.orEmpty()
+        value = finished.spaceId?.let { container.spaceRepository.getById(it)?.name }.orEmpty()
     }
     val current = receipt
+    // Added for a Calendar day (no Space): the thought waits in To sort.
+    val forDay = finished.spaceId == null
     val message = when {
+        finished.keptForLater && forDay -> stringResource(R.string.receipt_kept)
         finished.keptForLater -> stringResource(R.string.space_capture_kept_later, localizedSpaceName(spaceName))
         current == null -> null
+        (current.outcome == CaptureOutcome.Saved || current.outcome == CaptureOutcome.NeedsYou && current.itemId == null) && forDay ->
+            stringResource(R.string.receipt_kept)
         current.outcome == CaptureOutcome.Saved || current.outcome == CaptureOutcome.NeedsYou && current.itemId == null ->
             stringResource(R.string.space_capture_saved, localizedSpaceName(spaceName))
         else -> receiptText(current.line(), timeFormat)

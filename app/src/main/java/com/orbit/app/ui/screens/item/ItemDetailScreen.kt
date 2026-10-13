@@ -458,7 +458,12 @@ private fun ItemDetailContent(
                     }
                 }
 
-                TinyActionCard(state, onMakeSmaller, onCreateTinyTask, onDismissTinyAction)
+                // Review: "Make smaller" only on open tasks.
+                if (state.type == ItemDetailType.Task && !state.isArchived &&
+                    state.taskStatus != com.orbit.app.data.local.entity.TaskStatus.Done
+                ) {
+                    TinyActionCard(state, onMakeSmaller, onCreateTinyTask, onDismissTinyAction)
+                }
 
                 if (state.isArchived || state.canComplete) {
                     Button(

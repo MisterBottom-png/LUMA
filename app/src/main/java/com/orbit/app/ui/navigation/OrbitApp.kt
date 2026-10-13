@@ -724,8 +724,9 @@ fun OrbitApp(
                                 launchSingleTop = true
                             }
                         },
+                        // Review: Calendar "+" opens the add sheet for that day, without leaving Calendar.
                         onAddForSelectedDate = {
-                            navController.returnHomeWithCalendarCaptureDate(calendarUiState.selectedDate)
+                            spaceCaptureViewModel.openForDay(calendarUiState.selectedDate.toEpochDay())
                         },
                     )
                 }
@@ -863,17 +864,24 @@ fun OrbitApp(
                 )
             }
 
-            spaceCaptureState.spaceId?.let { spaceId ->
+            if (spaceCaptureState.isOpen) {
+                val spaceId = spaceCaptureState.spaceId
+                val contextDay = spaceCaptureState.contextDay
                 val spaceName by produceState(initialValue = "", spaceId) {
-                    value = container.spaceRepository.getById(spaceId)?.name.orEmpty()
+                    value = spaceId?.let { container.spaceRepository.getById(it)?.name }.orEmpty()
                 }
-                val draft by remember(spaceId) { spaceCaptureViewModel.draftFlow(spaceId) }.collectAsStateWithLifecycle()
+                val draft by remember(spaceId, contextDay) {
+                    if (spaceId != null) spaceCaptureViewModel.draftFlow(spaceId) else spaceCaptureViewModel.dayDraftFlow()
+                }.collectAsStateWithLifecycle()
                 com.orbit.app.ui.screens.spaces.SpaceCaptureFlowSheet(
                     state = spaceCaptureState,
                     spaceName = if (spaceName.isEmpty()) "" else com.orbit.app.ui.localization.localizedSpaceName(spaceName),
+                    dayLabel = contextDay?.let { timeFormat.formatDate(java.time.LocalDate.ofEpochDay(it)) },
                     draft = draft,
                     timeFormat = timeFormat,
-                    onDraftChange = { spaceCaptureViewModel.onDraftChanged(spaceId, it) },
+                    onDraftChange = {
+                        if (spaceId != null) spaceCaptureViewModel.onDraftChanged(spaceId, it) else spaceCaptureViewModel.onDayDraftChanged(it)
+                    },
                     onSaveAsChange = spaceCaptureViewModel::onSaveAsChanged,
                     onSave = spaceCaptureViewModel::save,
                     onDismiss = spaceCaptureViewModel::dismiss,
