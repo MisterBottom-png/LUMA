@@ -147,3 +147,28 @@ Ranked by impact on trust and data safety. ✔ = re-checked by hand.
 | N051 | Parser | Inflected Space words match | RU "машину", EN "dogs" get no Space | `CaptureAnalyzer.kt:584-586` — T | L | 2 | Deferred (word forms need a stemmer) |
 | N052 | Docs | Contract docs match code | `reminder-contract.md` says "always 24-hour" (default follows device), that zone changes never move alarms (repeats re-anchor), and that long-missed repeats advance (they don't) | T | L | each batch | Fixed in `6af1cc7` (C8, C9 docs) |
 | N053 | Needs you | One-by-one overlay is modal | The list behind stays reachable by TalkBack, the tab bar stays tappable, and the total is frozen | `ReviewRedesign.kt:700-710`; `OrbitApp.kt:914-924` — T | L | 6 | Fixed in `b5b08b6` |
+
+## Review §6, §7 and §9 items without an F/B/L number (batch 8)
+
+These come straight from the review's screen tables and design sections. Commits: `9748564` (8a), `3630084` (8b), `427c41e` and `ff8bbf4` (8c).
+
+| Review item | Status |
+| --- | --- |
+| §9.4 tab bar: hairline on top, outlined/filled icons, Medium label, accent dot (red only when blocked) | Fixed in `9748564` (FloatingBottomNavigationJvmTest, ReviewNeedsYouTest) |
+| §9.5 violet: #6550C8, #EDE6FF tiles, hand-picked dark colours, ivory/plum sheets | Fixed in `9748564` |
+| §9.3 card shows the real status ("Someday"); "Decide later · Stays in To sort" on one row | Fixed in `9748564` |
+| §9.1 receipt sits under the box | Fixed in `ff8bbf4` |
+| Smaller calls: Calendar "+" opens the add sheet for the day; Ask leads with one answer; Make smaller on open tasks; "Brain Dump"; "Let go"; "4 open" | Fixed in `3630084` (SpaceCaptureViewModelTest) |
+| §7 developer words and one time question | Fixed in `427c41e` |
+| Look-ahead contained "Due today" | Fixed in `427c41e` ("Next 7 days") |
+| Calendar "S" vs "Sun"; overdue only by colour | Fixed in `427c41e` |
+| Hide and Archive had no Undo | Fixed in `427c41e` |
+| New Space got Work's icon or an unrelated hashed icon | Fixed in `427c41e` (SpaceAutoStyleTest) |
+| Needs you empty: three "nothing" lines, "Today" heading always | Fixed in `ff8bbf4` |
+| Task date and status hidden under "More" when set | Fixed in `ff8bbf4` (ItemDetailFieldsTest) |
+| Search chips didn't filter "Recently saved"; chip reset "Search archived too" | Fixed in `ff8bbf4` |
+| Mic doesn't become "Stop listening" | Fixed in `ff8bbf4` |
+| Guide replay page 3 asked to pick Spaces | Fixed in `ff8bbf4` |
+| "Backup and restore" vs "Local data" | Fixed in `ff8bbf4` |
+| Still open | Notifications-off receipt repeats itself; random placeholder vs guide example; old receipt while browsing weeks; Today button shifts the week number; greeting at 130 %; one-by-one stale snackbar and low buttons; Calendar task-row icon differs from Spaces; month view "Nothing planned" while loading; month-grid touch size; empty Space card; reminders can't be ticked on a Space page; Move is long-press only; Edit Space details (restore on hidden name, Save with no change); long titles wrap early; swatches ~40 dp wide; recent reminders show no time in Search; lone Space button stretches; Search bar surface; "Note" three times on a note page; Complete on a repeating reminder has no Undo; Complete on a thought; "Keep as one note" has no Undo; hard-coded amber tags; guide page 2 old picker and silent duplicate Space name; Settings bell colour, restore-summary words, export file name, background tiles, 120 dp gap, Reset vs Restore look; "one look per thing", status colours, Warm ivory, font sizes; large screens and split screen. |
+

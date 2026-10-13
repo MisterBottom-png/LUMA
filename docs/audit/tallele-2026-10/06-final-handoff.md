@@ -21,13 +21,17 @@ Every finding that changes what Tallele does with your data is fixed and covered
 | 5 | `7978dda` | The Needs you one-item sheet from the design. Answered cards say what happened. Wording is consistent ("No Space", "To sort"). |
 | 6 | `b5b08b6` | Layout fixes for long Estonian/Russian words and large text. TalkBack names and states. One-by-one is modal. |
 | 7 | `052284d` | Calm solid tab bar. Violet for new installs. Glass/Solid only. Gemini and key hardening. Release signing guard. |
-| Final | `daf6fff` | Calendar no longer ends a full day with "Nothing planned" (B13). Audit docs updated. |
+| Final (7) | `daf6fff` | Calendar no longer ends a full day with "Nothing planned" (B13). Audit docs updated. |
 
-Status for every finding, with its commit and tests, is in `02-findings-register.md`.
+| 8a | `9748564` | Tab bar and violet colours as designed (§9.4, §9.5). The one-item sheet shows "Someday". |
+| 8b | `3630084` | Calendar "+" opens the add sheet for that day. Ask leads with one answer. "Brain Dump", "Let go", "4 open". |
+| 8c | `427c41e`, `ff8bbf4` | Receipt under the box. Plain words. "Coming up" is the next 7 days. Undo for Hide/Archive. Sensible Space icons. Set task dates in sight. Search filters. Guide and Settings wording. |
+
+Status for every finding, with its commit and tests, is in `02-findings-register.md`. The review's §6 screen items that are still open are listed at its end.
 
 ## Evidence
 
-- 784 unit and Robolectric tests, 0 failures, on both debug and release (the baseline was 726).
+- 787 unit and Robolectric tests, 0 failures, on both debug and release (the baseline was 726).
 - `lintDebug`: 0 errors and 48 warnings, the same as the baseline.
 - Light and dark screen tours pass, including the new sheets. The renders were compared with the "Add to a Space" design.
 - CI "Screens" is green on every batch from 1c on.
