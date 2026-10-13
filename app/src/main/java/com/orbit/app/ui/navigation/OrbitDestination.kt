@@ -1,10 +1,15 @@
 package com.orbit.app.ui.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.annotation.StringRes
@@ -21,22 +26,25 @@ enum class OrbitDestination(
     val route: String,
     @param:StringRes val contentDescriptionRes: Int,
     val icon: ImageVector,
+    /** The tab's icon when it is not selected (review §9.4: outlined, filled when selected). */
+    val outlinedIcon: ImageVector,
     /** Main tabs in the bottom bar; Settings is reached from Home's top-right corner. */
     val inBottomBar: Boolean,
     /** Concrete route used to navigate (patterns with optional arguments resolve here). */
     val navigationRoute: String = route,
 ) {
-    Home("home", R.string.navigation_home, Icons.Rounded.Home, inBottomBar = true),
-    Spaces("spaces", R.string.navigation_spaces, Icons.Rounded.GridView, inBottomBar = true),
+    Home("home", R.string.navigation_home, Icons.Rounded.Home, Icons.Outlined.Home, inBottomBar = true),
+    Spaces("spaces", R.string.navigation_spaces, Icons.Rounded.GridView, Icons.Outlined.GridView, inBottomBar = true),
     Calendar(
         CalendarDestination.Route,
         R.string.navigation_calendar,
         Icons.Rounded.CalendarMonth,
+        Icons.Outlined.CalendarMonth,
         inBottomBar = true,
         navigationRoute = CalendarDestination.BaseRoute,
     ),
-    Review("review", R.string.navigation_review, Icons.AutoMirrored.Rounded.FactCheck, inBottomBar = true),
-    Settings("settings", R.string.navigation_settings, Icons.Rounded.Settings, inBottomBar = false),
+    Review("review", R.string.navigation_review, Icons.Rounded.Inbox, Icons.Outlined.Inbox, inBottomBar = true),
+    Settings("settings", R.string.navigation_settings, Icons.Rounded.Settings, Icons.Outlined.Settings, inBottomBar = false),
     ;
 
     companion object {

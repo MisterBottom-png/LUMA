@@ -209,4 +209,5 @@
         <item>Sinakasroheline</item>
         <item>Merevaigukollane</item>
     </string-array>
+    <string name="needs_you_waiting">Midagi ootab</string>
 </resources>

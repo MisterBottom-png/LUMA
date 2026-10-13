@@ -69,7 +69,7 @@ class FloatingBottomNavigationJvmTest {
     }
 
     @Test
-    fun needsYouShowsADotOnlyWhenSomethingFailed_neverACount() {
+    fun needsYouShowsADotWhenSomethingWaits_redOnlyWhenBlocked_neverACount() {
         var failed by mutableStateOf(false)
         composeRule.setContent {
             MaterialTheme {
@@ -78,6 +78,7 @@ class FloatingBottomNavigationJvmTest {
                         selectedRoute = OrbitDestination.Home.route,
                         onDestinationSelected = {},
                         alertDestinations = if (failed) setOf(OrbitDestination.Review) else emptySet(),
+                        blockedDestinations = if (failed) setOf(OrbitDestination.Review) else emptySet(),
                     )
                 }
             }

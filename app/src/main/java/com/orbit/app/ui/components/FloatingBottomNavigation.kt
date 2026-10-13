@@ -33,6 +33,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -74,8 +76,10 @@ fun FloatingBottomNavigation(
     selectedRoute: String?,
     onDestinationSelected: (OrbitDestination) -> Unit,
     modifier: Modifier = Modifier,
-    /** Tabs that show a small dot: only when something failed there, never as a count. */
+    /** Tabs that show a small dot when something waits there; never a count. */
     alertDestinations: Set<OrbitDestination> = emptySet(),
+    /** Of those, tabs where a reminder is really blocked: the dot is red, not the accent (§9.4). */
+    blockedDestinations: Set<OrbitDestination> = emptySet(),
 ) {
     Box(
         modifier = modifier
@@ -91,10 +95,16 @@ fun FloatingBottomNavigation(
                 .fillMaxWidth()
                 .heightIn(min = OrbitBottomNavigationDefaults.BarMinHeight),
             shape = RoundedCornerShape(30.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
             shadowElevation = 6.dp,
         ) {
+            // Review §9.4: a hairline on top only.
+            val hairline = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .drawBehind { drawLine(hairline, Offset(size.height / 2, 0f), Offset(size.width - size.height / 2, 0f), 1.dp.toPx()) },
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -107,6 +117,7 @@ fun FloatingBottomNavigation(
                         destination = destination,
                         selected = isBottomBarDestinationSelected(selectedRoute, destination),
                         alert = destination in alertDestinations,
+                        blocked = destination in blockedDestinations,
                         onClick = { onDestinationSelected(destination) },
                         modifier = Modifier.weight(1f),
                     )
@@ -123,6 +134,7 @@ private fun NavTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     alert: Boolean = false,
+    blocked: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val contentColor by animateColorAsState(
@@ -140,7 +152,7 @@ private fun NavTab(
         label = "Bottom navigation pill",
     )
     val label = stringResource(destination.contentDescriptionRes)
-    val alertDescription = stringResource(R.string.needs_you_attention)
+    val alertDescription = stringResource(if (blocked) R.string.needs_you_attention else R.string.needs_you_waiting)
     Column(
         modifier = modifier
             .heightIn(min = 56.dp)
@@ -164,7 +176,7 @@ private fun NavTab(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = destination.icon,
+                imageVector = if (selected) destination.icon else destination.outlinedIcon,
                 // The visible label below already names the tab for TalkBack.
                 contentDescription = null,
                 tint = contentColor,
@@ -177,7 +189,7 @@ private fun NavTab(
                         .align(Alignment.TopEnd)
                         .padding(top = 3.dp, end = 10.dp)
                         .size(8.dp)
-                        .background(MaterialTheme.colorScheme.error, CircleShape)
+                        .background(if (blocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, CircleShape)
                         .semantics { contentDescription = alertDescription },
                 )
             }
@@ -186,7 +198,7 @@ private fun NavTab(
             text = label,
             modifier = Modifier.padding(top = 2.dp),
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
             color = contentColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

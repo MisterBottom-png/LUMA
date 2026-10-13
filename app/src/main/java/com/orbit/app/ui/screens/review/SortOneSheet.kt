@@ -128,6 +128,7 @@ fun SortOneSheet(
                     onChooseReminder = onChooseReminder,
                     onDecideLater = onDecideLater,
                     footnote = stringResource(R.string.sort_one_stays),
+                    footnoteBesideButton = true,
                     beforeTypes = { SpaceChips(spaces, state.spaceId, !state.busy, onSelectSpace) },
                 )
                 SortOneStep.Time -> TimeQuestionStep(
@@ -192,12 +193,19 @@ private fun ConfirmStep(
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(kindLine(type, spaceName), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                val whenText = when {
+                    state.reminderAt != null -> timeFormat.formatWeekdayDateTime(state.reminderAt)
+                    state.taskDateEpochDay != null -> timeFormat.formatDate(LocalDate.ofEpochDay(state.taskDateEpochDay))
+                    else -> stringResource(R.string.spaces_section_no_date)
+                }
+                // Review §9.3 / F08: the real status shows, e.g. "Someday".
+                val statusText = when (state.taskStatus.takeIf { type == SuggestedItemType.Task || type == SuggestedItemType.MondayItem }) {
+                    com.orbit.app.data.local.entity.TaskStatus.Someday -> stringResource(R.string.core_someday)
+                    com.orbit.app.data.local.entity.TaskStatus.WaitingFor -> stringResource(R.string.core_waiting_for)
+                    else -> null
+                }
                 Text(
-                    text = when {
-                        state.reminderAt != null -> timeFormat.formatWeekdayDateTime(state.reminderAt)
-                        state.taskDateEpochDay != null -> timeFormat.formatDate(LocalDate.ofEpochDay(state.taskDateEpochDay))
-                        else -> stringResource(R.string.spaces_section_no_date)
-                    },
+                    text = listOfNotNull(statusText, whenText).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }

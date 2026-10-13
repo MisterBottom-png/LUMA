@@ -213,4 +213,5 @@
         <item>Бирюзовый</item>
         <item>Янтарный</item>
     </string-array>
+    <string name="needs_you_waiting">Что-то ждёт</string>
 </resources>

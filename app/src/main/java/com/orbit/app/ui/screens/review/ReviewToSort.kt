@@ -180,8 +180,15 @@ internal fun savedTodayCounts(captures: List<CaptureEntity>, startOfToday: Long,
 }
 
 /** The Needs you tab shows a dot only when something failed (a missed time, notifications off). */
-internal fun needsYouSomethingFailed(captures: List<CaptureEntity>): Boolean = captures.any { capture ->
+/** Review §9.2/§9.4: the Needs you dot shows while a thought waits there (To sort or a question). */
+internal fun needsYouSomethingWaits(captures: List<CaptureEntity>): Boolean = captures.any { capture ->
+    capture.status == CaptureStatus.Inbox ||
+        (capture.outcome == CaptureOutcome.NeedsYou && capture.status != CaptureStatus.Archived)
+}
+
+/** The dot is red only when a reminder really can't ring (notifications off, or not set up). */
+internal fun needsYouReminderBlocked(captures: List<CaptureEntity>): Boolean = captures.any { capture ->
     capture.outcome == CaptureOutcome.NeedsYou &&
         capture.status != CaptureStatus.Archived &&
-        (capture.outcomeReason == CaptureOutcomeReason.TimePassed || capture.outcomeReason == CaptureOutcomeReason.NotificationsOff)
+        (capture.outcomeReason == CaptureOutcomeReason.NotificationsOff || capture.outcomeReason == CaptureOutcomeReason.NotScheduled)
 }

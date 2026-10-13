@@ -170,8 +170,11 @@ class ReviewNeedsYouTest {
         assertEquals(7L, items[0].reminderId)
         assertEquals("Call the bank", items[0].title)
         assertNull(items[1].reminderId)
-        assertTrue(needsYouSomethingFailed(captures))
-        assertFalse(needsYouSomethingFailed(captures.filter { it.id != 3L }))
+        // Review §9.4: a dot while something waits; red only when a reminder can't ring.
+        assertTrue(needsYouReminderBlocked(captures))
+        assertFalse(needsYouReminderBlocked(captures.filter { it.id != 3L }))
+        assertTrue(needsYouSomethingWaits(captures.filter { it.id != 3L }))
+        assertFalse(needsYouSomethingWaits(captures.filter { it.id == 2L || it.id == 4L }))
     }
 
     @Test

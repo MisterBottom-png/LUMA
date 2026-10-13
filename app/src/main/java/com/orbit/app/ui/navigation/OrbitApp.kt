@@ -3,7 +3,8 @@ package com.orbit.app.ui.navigation
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.produceState
-import com.orbit.app.ui.screens.review.needsYouSomethingFailed
+import com.orbit.app.ui.screens.review.needsYouReminderBlocked
+import com.orbit.app.ui.screens.review.needsYouSomethingWaits
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import androidx.compose.animation.scaleIn
@@ -122,12 +123,13 @@ fun OrbitApp(
     val spaceCaptureState by spaceCaptureViewModel.uiState.collectAsStateWithLifecycle()
     val spaceSavedMessages = remember { androidx.compose.material3.SnackbarHostState() }
     val timeFormat = currentOrbitTimeFormat(settings.timeFormatMode)
-    // Needs you gets a dot only when something failed; never a count.
-    val needsYouFailed by remember(container) {
+    // Needs you gets a dot while something waits there, never a count; red only when a
+    // reminder really can't ring (review §9.4).
+    val needsYouDot by remember(container) {
         container.captureRepository.observeAll()
-            .map(::needsYouSomethingFailed)
+            .map { captures -> needsYouSomethingWaits(captures) to needsYouReminderBlocked(captures) }
             .distinctUntilChanged()
-    }.collectAsStateWithLifecycle(initialValue = false)
+    }.collectAsStateWithLifecycle(initialValue = false to false)
     val contentMaxWidth = portraitContentMaxWidth(LocalConfiguration.current.screenWidthDp.dp)
     val imeVisible = with(LocalDensity.current) {
         WindowInsets.ime.getBottom(this) > 0
@@ -839,7 +841,8 @@ fun OrbitApp(
             ) {
                 FloatingBottomNavigation(
                     selectedRoute = selectedRoute,
-                    alertDestinations = if (needsYouFailed) setOf(OrbitDestination.Review) else emptySet(),
+                    alertDestinations = if (needsYouDot.first || needsYouDot.second) setOf(OrbitDestination.Review) else emptySet(),
+                    blockedDestinations = if (needsYouDot.second) setOf(OrbitDestination.Review) else emptySet(),
                     onDestinationSelected = { destination ->
                         // Home is the root of every tab: going back to it is a pop that saves the
                         // tab being left (its tab keeps its place). Navigating to Home with

@@ -211,4 +211,5 @@
         <item>Teal</item>
         <item>Amber</item>
     </string-array>
+    <string name="needs_you_waiting">Something is waiting</string>
 </resources>

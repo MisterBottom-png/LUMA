@@ -617,6 +617,7 @@ private fun TimeChip(label: String, selected: Boolean, enabled: Boolean, onClick
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TypeQuestionStep(
     header: @Composable () -> Unit,
@@ -628,6 +629,8 @@ internal fun TypeQuestionStep(
     onDecideLater: () -> Unit,
     footnote: String,
     beforeTypes: @Composable () -> Unit = {},
+    /** "Decide later · Stays in To sort" on one row (review §9.3); under it otherwise (§9.2). */
+    footnoteBesideButton: Boolean = false,
 ) {
     header()
     beforeTypes()
@@ -636,6 +639,24 @@ internal fun TypeQuestionStep(
     TypeRow(Icons.Rounded.RadioButtonUnchecked, stringResource(R.string.core_task), stringResource(R.string.space_capture_task_hint), !busy, onChooseTask)
     TypeRow(Icons.Rounded.Notifications, stringResource(R.string.core_reminder), stringResource(R.string.space_capture_reminder_hint), !busy, onChooseReminder)
     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+    if (footnoteBesideButton) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            TextButton(onClick = onDecideLater, enabled = !busy && canDecideLater, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.space_capture_decide_later), style = MaterialTheme.typography.titleSmall)
+            }
+            Text(
+                text = footnote,
+                modifier = Modifier.align(Alignment.CenterVertically).padding(vertical = 12.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
     TextButton(onClick = onDecideLater, enabled = !busy && canDecideLater, modifier = Modifier.heightIn(min = 48.dp)) {
         Text(stringResource(R.string.space_capture_decide_later), style = MaterialTheme.typography.titleSmall)
     }

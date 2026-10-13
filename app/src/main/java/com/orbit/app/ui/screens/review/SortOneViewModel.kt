@@ -54,6 +54,8 @@ data class SortOneUiState(
     val spaceId: Long? = null,
     val taskDateEpochDay: Long? = null,
     val reminderAt: Long? = null,
+    /** Someday or Waiting for, shown on the suggestion and kept when filed (F08). */
+    val taskStatus: TaskStatus = TaskStatus.Open,
     /** The type chosen on the Type step, shown above the time question. */
     val chosenType: SuggestedItemType? = null,
     val quickTimes: List<SpaceQuickTime> = emptyList(),
@@ -101,6 +103,7 @@ class SortOneViewModel(
                 spaceId = spaceId,
                 taskDateEpochDay = item.taskDateEpochDay,
                 reminderAt = item.reminderAt,
+                taskStatus = suggestionDao.getByCaptureId(capture.id)?.taskStatus() ?: TaskStatus.Open,
                 chosenType = if (reminderWithoutTime) SuggestedItemType.Reminder else null,
                 quickTimes = quickReminderTimes(now(), zoneId()),
             )

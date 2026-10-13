@@ -141,7 +141,8 @@ internal data class TextPalette(val primary: Color, val secondary: Color)
 private fun accentPalette(accent: AppAccentColor, dark: Boolean): AccentPalette {
     val light = when (accent) {
         AppAccentColor.InkPaper -> AccentPalette(Color(0xFF3D5962), Color.White, Color(0xFFC1DDE4), Color(0xFF001F26), Color(0xFF705D4A), Color.White, Color(0xFFFADDBD), Color(0xFF2A1707))
-        AppAccentColor.LumaViolet -> AccentPalette(Color(0xFF6550C8), Color.White, Color(0xFFE8DFFF), Color(0xFF25145E), Color(0xFF3F7479), Color.White, Color(0xFFC5ECEF), Color(0xFF082F33))
+        // Review §9.5: Tallele violet #6550C8 with #EDE6FF tiles.
+        AppAccentColor.LumaViolet -> AccentPalette(Color(0xFF6550C8), Color.White, Color(0xFFEDE6FF), Color(0xFF25145E), Color(0xFF3F7479), Color.White, Color(0xFFC5ECEF), Color(0xFF082F33))
         AppAccentColor.Sage -> AccentPalette(Color(0xFF3E6F45), Color.White, Color(0xFFD9F2D5), Color(0xFF103117), Color(0xFF74642F), Color.White, Color(0xFFF1E5BB), Color(0xFF2D2508))
         AppAccentColor.Rose -> AccentPalette(Color(0xFF99415E), Color.White, Color(0xFFFFD9E2), Color(0xFF3D061B), Color(0xFF725A42), Color.White, Color(0xFFFBDDBF), Color(0xFF2A1707))
         AppAccentColor.Amber -> AccentPalette(Color(0xFF865400), Color.White, Color(0xFFFFDFA5), Color(0xFF2B1700), Color(0xFF5D6F47), Color.White, Color(0xFFE0EBC8), Color(0xFF182308))
@@ -150,6 +151,8 @@ private fun accentPalette(accent: AppAccentColor, dark: Boolean): AccentPalette 
     if (!dark) return light
     return when (accent) {
         AppAccentColor.InkPaper -> AccentPalette(Color(0xFFA5CAD3), Color(0xFF07363F), Color(0xFF254B54), Color(0xFFC1E6EF), Color(0xFFDEC3A8), Color(0xFF3E2D1D), Color(0xFF574331), Color(0xFFFFDCC0))
+        // Review §9.5: hand-picked dark violet (accent text #CDBDFF on #3A3150 tiles).
+        AppAccentColor.LumaViolet -> AccentPalette(Color(0xFFCDBDFF), Color(0xFF2B1C6B), Color(0xFF3A3150), Color(0xFFE8DFFF), Color(0xFFA5D0D4), Color(0xFF003739), Color(0xFF2E5457), Color(0xFFC5ECEF))
         else -> light.copy(primary = light.primaryContainer, onPrimary = light.onPrimaryContainer, primaryContainer = light.primary.copy(alpha = 0.75f), onPrimaryContainer = light.primaryContainer, secondary = light.secondaryContainer, onSecondary = light.onSecondaryContainer, secondaryContainer = light.secondary.copy(alpha = 0.72f), onSecondaryContainer = light.secondaryContainer)
     }
 }

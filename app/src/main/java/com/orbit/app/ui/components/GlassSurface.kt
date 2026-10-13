@@ -233,6 +233,17 @@ fun ModalSurface(
     shape: Shape = OrbitModalDefaults.Shape,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    // Review §9.5: in Tallele's own look (violet) sheets are solid ivory, or deep plum in dark.
+    if (LocalOrbitAppearance.current.accentColor == com.orbit.app.domain.model.AppAccentColor.LumaViolet) {
+        val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+        androidx.compose.material3.Surface(
+            modifier = modifier,
+            shape = shape,
+            color = if (isDark) TalleleSheetDark else TalleleSheetLight,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) { Box(content = content) }
+        return
+    }
     // Live blur where the route and the Glass setting allow it; otherwise the solid Sheet fallback.
     LiveGlassSurface(
         modifier = modifier,
@@ -241,6 +252,9 @@ fun ModalSurface(
         content = content,
     )
 }
+
+private val TalleleSheetLight = Color(0xFFFFFCF8)
+private val TalleleSheetDark = Color(0xFF221D2C)
 
 object OrbitModalDefaults {
     val Shape: Shape = OrbitShapes.Modal
