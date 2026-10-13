@@ -41,7 +41,7 @@
     <string name="core_capture_discard_remaining">Discard remaining suggestions</string>
     <string name="core_capture_discard_remaining_title">Discard remaining suggestions?</string>
     <string name="core_capture_discard_remaining_message">This archives your original note and discards the remaining suggestions. Items you already saved will stay.</string>
-    <string name="core_capture_analysis_paused">Analysis paused. The raw capture is saved locally.</string>
+    <string name="core_capture_analysis_paused">Sorting is paused. Your thought is saved on this phone.</string>
     <string name="core_capture_keep_until_clearer">This can stay in To sort until it becomes clearer.</string>
     <string name="core_capture_no_due_date">No due date</string>
     <string name="core_capture_add_due_date_time">Add due date and time</string>
@@ -121,7 +121,7 @@
     <string name="core_item_detail_status_waiting_for">Waiting for</string>
     <string name="core_item_detail_status_someday">Someday</string>
     <string name="core_item_detail_status_completed_reminder">Completed reminder</string>
-    <string name="core_item_detail_status_processed">Processed</string>
+    <string name="core_item_detail_status_processed">Sorted</string>
     <string name="core_item_detail_status_inbox">To sort</string>
     <string name="core_item_detail_saved">Saved.</string>
     <string name="core_item_detail_save_failed">Could not save this item.</string>
@@ -165,7 +165,7 @@
     <string name="core_item_detail_tiny_task_failed">Could not create the tiny task.</string>
     <string name="core_item_detail_ai_gemini">Suggested by Gemini</string>
     <string name="core_item_detail_ai_local">Local suggestion</string>
-    <string name="core_item_detail_ai_local_fallback">Local fallback</string>
+    <string name="core_item_detail_ai_local_fallback">Made on your phone (Gemini didn’t answer)</string>
     <string name="core_starter_space_work">Work</string>
     <string name="core_starter_space_personal">Personal</string>
     <string name="core_starter_space_car">Car</string>

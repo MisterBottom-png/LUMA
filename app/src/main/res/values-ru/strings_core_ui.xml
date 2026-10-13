@@ -56,7 +56,7 @@
 
     <string name="core_situation_title">Ваш обзор</string>
     <string name="core_situation_subtitle">Локальный обзор того, что требует внимания</string>
-    <string name="core_situation_close">Закрыть ситуационный ИИ</string>
+    <string name="core_situation_close">Закрыть вопросы</string>
     <string name="core_situation_ask_luma">Спросить Tallele</string>
     <string name="core_situation_ask_placeholder">Спросите о локальных элементах</string>
     <string name="core_situation_generating_answer">Подготовка ответа</string>
@@ -76,17 +76,17 @@
     <string name="core_review_look_back_subtitle">Мягкий взгляд на прошедшую неделю</string>
     <string name="core_review_loose_ends">Незавершённое</string>
     <string name="core_review_loose_ends_subtitle">То, что может подождать вашего внимания</string>
-    <string name="core_review_look_ahead">Посмотреть вперёд</string>
+    <string name="core_review_look_ahead">Впереди</string>
     <string name="core_review_look_ahead_subtitle">Лёгкий взгляд вперёд, без обязательств</string>
     <string name="core_review_page_position">%1$s · %2$d из %3$d</string>
     <string name="core_review_weekly_fallback">Эту неделю можно заметить, не измеряя её.</string>
-    <string name="core_review_local_sources_considered">Учтено локальных источников</string>
+    <string name="core_review_local_sources_considered">Просмотрено записей</string>
     <string name="core_review_open_loops">Ещё не решено</string>
     <string name="core_review_quiet_for_a_while">Давно без изменений</string>
     <string name="core_review_waiting">В ожидании</string>
     <string name="core_review_loose_ends_message">Можно оставить это здесь и вернуться, когда будет полезно.</string>
     <string name="core_review_due_today">Срок сегодня</string>
-    <string name="core_review_possible_carry_forwards">Можно перенести</string>
+    <string name="core_review_possible_carry_forwards">Можно перенести на другой день</string>
     <string name="core_review_look_ahead_message">Эта страница не требует решений.</string>
     <string name="core_review_choose_day_or_smaller">Выберите новый день или уменьшите следующий шаг.</string>
     <string name="core_review_reschedule_if_relevant">Перенесите, если это всё ещё важно.</string>
@@ -101,9 +101,9 @@
     <string name="core_review_show_all_open_loops">Показать все</string>
     <string name="core_review_show_fewer_open_loops">Показать меньше</string>
     <string name="core_review_clear">Всё просмотрено</string>
-    <string name="core_review_reason_open_task">Нужно просмотреть: задача всё ещё открыта.</string>
+    <string name="core_review_reason_open_task">Всё ещё открыта.</string>
     <string name="core_review_reason_brain_dump">В разборе мыслей есть предложения, ожидающие решения.</string>
-    <string name="core_review_reason_unfinalized_capture">Нужно просмотреть: запись не завершена и не отклонена.</string>
+    <string name="core_review_reason_unfinalized_capture">Ждёт разбора.</string>
     <string name="core_review_task_action_explanation">«Оставить активной» сохраняет задачу открытой; «Когда-нибудь» откладывает; «Готово» завершает; архив скрывает.</string>
     <string name="core_review_brain_dump_action_explanation">Продолжение откроет оставшиеся предложения, не создавая повторно уже обработанные элементы.</string>
     <string name="core_review_capture_action_explanation">Подтверждение создаёт одну задачу; отклонение не создаёт элементов; архив убирает источник.</string>
@@ -122,7 +122,7 @@
     <string name="core_review_task_archived">Задача архивирована</string>
     <string name="core_review_suggested_by_gemini">Предложено Gemini</string>
     <string name="core_review_local_suggestion">Локальное предложение</string>
-    <string name="core_review_local_fallback">Локальный резервный вариант</string>
+    <string name="core_review_local_fallback">Сделано на вашем телефоне</string>
 
     <plurals name="core_review_pending_decisions">
         <item quantity="one">%1$d элемент всё ещё требует решения</item>
@@ -156,7 +156,7 @@
     <string name="receipt_filed_task_in_space">Добавлено в «%1$s» как задача.</string>
     <string name="receipt_reminder_set">Напоминание установлено на %1$s.</string>
     <string name="receipt_reminder_not_armed">Сохранено, но напоминание ещё не установлено.</string>
-    <string name="receipt_needs_time">Сохранено. Когда вам напомнить?</string>
+    <string name="receipt_needs_time">Сохранено. Когда вам об этом напомнить?</string>
     <string name="receipt_time_passed">Это время уже прошло. Выбрать новое?</string>
     <string name="receipt_notifications_off">Сохранено, но напоминания не сработают. Уведомления выключены.</string>
     <string name="receipt_not_scheduled">Сохранено, но Tallele не удалось установить напоминание.</string>
@@ -178,4 +178,5 @@
     <string name="sort_one_more_options">Другие варианты</string>
     <string name="sort_one_edit_text">Изменить текст</string>
     <string name="core_remove_label">Убрать метку %1$s</string>
+    <string name="core_review_next_seven_days">Следующие 7 дней</string>
 </resources>

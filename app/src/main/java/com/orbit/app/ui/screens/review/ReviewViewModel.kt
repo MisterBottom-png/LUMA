@@ -104,6 +104,8 @@ data class ReviewUiState(
     /** The time this state was built for; follows the minute clock (F12, N005). */
     val now: Long = 0L,
     val dueToday: List<ReviewItem> = emptyList(),
+    /** Open tasks and reminders in the seven days after today ("Coming up"). */
+    val nextSevenDays: Int = 0,
     val recentInboxCaptures: List<ReviewItem> = emptyList(),
     val morningSuggestion: ReviewSuggestion? = null,
     val unresolvedCaptures: List<ReviewItem> = emptyList(),
@@ -656,6 +658,13 @@ class ReviewViewModel internal constructor(
             .filter { it.completedAt == null && it.dueAt in startOfToday until startOfTomorrow }
             .map { it.asReviewItem() }
         val dueToday = (dueTasks + dueReminders).sortedWith(reviewScheduleOrder)
+        // Review: "Coming up" looks past today: the next seven days.
+        val weekEnd = today.plusDays(8).atStartOfDay(zone).toInstant().toEpochMilli()
+        val nextSevenDays = activeTasks.count { task ->
+            val day = task.scheduledDateEpochDay
+                ?: task.dueAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() }
+            day != null && day > today.toEpochDay() && day <= today.plusDays(7).toEpochDay()
+        } + data.reminders.count { it.completedAt == null && it.dueAt in startOfTomorrow until weekEnd }
         val recentInbox = inboxCaptures
             .filter { it.createdAt >= recentCutoff }
             .sortedByDescending { it.createdAt }
@@ -704,6 +713,7 @@ class ReviewViewModel internal constructor(
         return ReviewUiState(
             now = now,
             dueToday = dueToday,
+            nextSevenDays = nextSevenDays,
             recentInboxCaptures = recentInbox,
             morningSuggestion = morningSource
                 ?.let(analyzer::makeSmaller)

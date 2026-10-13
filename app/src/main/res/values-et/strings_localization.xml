@@ -40,7 +40,7 @@
     <string name="core_capture_discard_remaining">Hülga allesjäänud soovitused</string>
     <string name="core_capture_discard_remaining_title">Kas hülgata allesjäänud soovitused?</string>
     <string name="core_capture_discard_remaining_message">See arhiveerib algse märke ja hülgab allesjäänud soovitused. Juba salvestatud üksused jäävad alles.</string>
-    <string name="core_capture_analysis_paused">Analüüs on peatatud. Algne sisestus on kohalikult salvestatud.</string>
+    <string name="core_capture_analysis_paused">Sorteerimine on peatatud. Sinu mõte on selles telefonis salvestatud.</string>
     <string name="core_capture_keep_until_clearer">See võib jääda jaotisse „Sorteerida“, kuni pilt on selgem.</string>
     <string name="core_capture_no_due_date">Tähtaega pole</string>
     <string name="core_capture_add_due_date_time">Lisa tähtaeg ja kellaaeg</string>
@@ -123,7 +123,7 @@
     <string name="core_item_detail_status_waiting_for">Ootel</string>
     <string name="core_item_detail_status_someday">Kunagi hiljem</string>
     <string name="core_item_detail_status_completed_reminder">Tehtud meeldetuletus</string>
-    <string name="core_item_detail_status_processed">Töödeldud</string>
+    <string name="core_item_detail_status_processed">Sorditud</string>
     <string name="core_item_detail_status_inbox">Sorteerida</string>
     <string name="core_item_detail_saved">Salvestatud.</string>
     <string name="core_item_detail_save_failed">Üksust ei saanud salvestada.</string>
@@ -156,7 +156,7 @@
     <string name="core_item_detail_tiny_task_failed">Väikest ülesannet ei saanud luua.</string>
     <string name="core_item_detail_ai_gemini">Gemini soovitus</string>
     <string name="core_item_detail_ai_local">Kohalik soovitus</string>
-    <string name="core_item_detail_ai_local_fallback">Kohalik varuvariant</string>
+    <string name="core_item_detail_ai_local_fallback">Tehtud sinu telefonis (Gemini ei vastanud)</string>
     <string name="core_starter_space_work">Töö</string>
     <string name="core_starter_space_personal">Isiklik</string>
     <string name="core_starter_space_car">Auto</string>

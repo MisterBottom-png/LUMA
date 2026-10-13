@@ -314,7 +314,8 @@ private fun CalendarWeekStrip(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = date.dayOfWeek.getDisplayName(TextStyle.NARROW_STANDALONE, locale),
+                    text = date.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, locale),
+                    maxLines = 1,
                     style = CalendarTypography.weekday,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

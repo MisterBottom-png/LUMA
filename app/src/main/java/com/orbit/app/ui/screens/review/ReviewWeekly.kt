@@ -239,7 +239,7 @@ private fun WeeklyReviewPageCard(page: WeeklyReviewPage, uiState: ReviewUiState)
                 }
 
                 WeeklyReviewPage.LookAhead -> {
-                    WeeklyMetric(stringResource(R.string.core_review_due_today), uiState.dueToday.size)
+                    WeeklyMetric(stringResource(R.string.core_review_next_seven_days), uiState.nextSevenDays)
                     WeeklyMetric(
                         stringResource(R.string.core_review_possible_carry_forwards),
                         uiState.carryForwardSuggestions.size,

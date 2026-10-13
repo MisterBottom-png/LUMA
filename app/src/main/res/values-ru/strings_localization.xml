@@ -40,7 +40,7 @@
     <string name="core_capture_discard_remaining">Отклонить оставшиеся предложения</string>
     <string name="core_capture_discard_remaining_title">Отклонить оставшиеся предложения?</string>
     <string name="core_capture_discard_remaining_message">Исходная запись будет архивирована, а оставшиеся предложения — отклонены. Уже сохранённые элементы останутся.</string>
-    <string name="core_capture_analysis_paused">Анализ приостановлен. Исходная запись сохранена локально.</string>
+    <string name="core_capture_analysis_paused">Разбор приостановлен. Ваша мысль сохранена на этом телефоне.</string>
     <string name="core_capture_keep_until_clearer">Это может побыть в «Разобрать», пока не станет яснее.</string>
     <string name="core_capture_no_due_date">Без срока</string>
     <string name="core_capture_add_due_date_time">Добавить срок и время</string>
@@ -127,7 +127,7 @@
     <string name="core_item_detail_status_waiting_for">В ожидании</string>
     <string name="core_item_detail_status_someday">Когда-нибудь</string>
     <string name="core_item_detail_status_completed_reminder">Выполненное напоминание</string>
-    <string name="core_item_detail_status_processed">Обработано</string>
+    <string name="core_item_detail_status_processed">Разобрано</string>
     <string name="core_item_detail_status_inbox">Разобрать</string>
     <string name="core_item_detail_saved">Сохранено.</string>
     <string name="core_item_detail_save_failed">Не удалось сохранить элемент.</string>
@@ -160,7 +160,7 @@
     <string name="core_item_detail_tiny_task_failed">Не удалось создать небольшую задачу.</string>
     <string name="core_item_detail_ai_gemini">Предложено Gemini</string>
     <string name="core_item_detail_ai_local">Локальное предложение</string>
-    <string name="core_item_detail_ai_local_fallback">Локальный запасной вариант</string>
+    <string name="core_item_detail_ai_local_fallback">Сделано на вашем телефоне (Gemini не ответил)</string>
     <string name="core_starter_space_work">Работа</string>
     <string name="core_starter_space_personal">Личное</string>
     <string name="core_starter_space_car">Автомобиль</string>

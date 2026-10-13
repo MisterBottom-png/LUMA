@@ -1218,7 +1218,7 @@ internal fun SpaceEditorDialog(
     var chosenAccent by rememberSaveable(space?.id) {
         mutableStateOf(space?.colorAccent ?: accentChoices.first())
     }
-    val icon = if (styleChosen) chosenIcon else iconChoices[SpaceNames.autoIconIndex(name, iconChoices.size)]
+    val icon = if (styleChosen) chosenIcon else SpaceNames.autoIcon(name).takeIf { it in iconChoices } ?: "folder"
     val accent = if (styleChosen) chosenAccent else accentChoices[SpaceNames.autoColorIndex(name, accentChoices.size)]
     val pickStyle: (String, String) -> Unit = { pickedIcon, pickedAccent ->
         chosenIcon = pickedIcon

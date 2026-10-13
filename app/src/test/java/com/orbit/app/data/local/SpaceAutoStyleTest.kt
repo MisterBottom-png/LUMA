@@ -15,23 +15,31 @@ class SpaceAutoStyleTest {
     fun picksStayInRange_andTheSameNameAlwaysLooksTheSame() {
         names.forEach { name ->
             val color = SpaceNames.autoColorIndex(name, 8)
-            val icon = SpaceNames.autoIconIndex(name, 12)
             assertTrue(color in 0 until 8)
-            assertTrue(icon in 0 until 12)
             assertEquals(color, SpaceNames.autoColorIndex("  ${name.uppercase()} ", 8))
-            assertEquals(icon, SpaceNames.autoIconIndex(name.lowercase(), 12))
+            assertEquals(SpaceNames.autoIcon(name), SpaceNames.autoIcon("  ${name.uppercase()} "))
         }
     }
 
     @Test
     fun differentNamesSpreadOverTheChoices() {
         assertTrue(names.map { SpaceNames.autoColorIndex(it, 8) }.toSet().size >= 4)
-        assertTrue(names.map { SpaceNames.autoIconIndex(it, 12) }.toSet().size >= 5)
+        assertTrue(names.map { SpaceNames.autoIcon(it) }.toSet().size >= 5)
     }
 
     @Test
     fun aBlankNameUsesTheFirstChoice() {
         assertEquals(0, SpaceNames.autoColorIndex("", 8))
-        assertEquals(0, SpaceNames.autoIconIndex("   ", 12))
+        assertEquals("folder", SpaceNames.autoIcon("   "))
+    }
+
+    @Test
+    fun theIconMatchesTheName_orIsAPlainFolder() {
+        // Review: "Garden" no longer gets a graduation cap; known words get their picture.
+        assertEquals("folder", SpaceNames.autoIcon("Garden"))
+        assertEquals("work", SpaceNames.autoIcon("Töö"))
+        assertEquals("directions_car", SpaceNames.autoIcon("Car"))
+        assertEquals("payments", SpaceNames.autoIcon("Деньги"))
+        assertEquals("flight", SpaceNames.autoIcon("Summer travel"))
     }
 }

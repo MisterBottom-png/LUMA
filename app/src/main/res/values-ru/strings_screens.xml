@@ -220,4 +220,7 @@
     <string name="day_capture_saved">Сохранено на %1$s</string>
     <string name="day_capture_time_footnote">Мысль уже сохранена. Пока у неё нет времени, она также ждёт в «Ждёт вас».</string>
     <string name="day_capture_type_footnote">Мысль останется в «Разобрать» и будет ждать в «Ждёт вас».</string>
+    <string name="calendar_time_passed">Время прошло</string>
+    <string name="spaces_hidden_message">«%1$s» скрыто.</string>
+    <string name="spaces_archived_message">«%1$s» в архиве.</string>
 </resources>

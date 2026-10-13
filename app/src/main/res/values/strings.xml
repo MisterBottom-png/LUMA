@@ -35,7 +35,7 @@
     <string name="settings_colors_subtitle">Text color and a second color</string>
     <string name="settings_background_title">Background</string>
     <string name="settings_background_subtitle">Preset or custom image</string>
-    <string name="settings_status_gemini_ready">Gemini API ready</string>
+    <string name="settings_status_gemini_ready">Gemini is on</string>
     <string name="settings_status_key_saved">saved</string>
     <string name="settings_status_key_not_saved">not saved</string>
     <string name="settings_status_last_export">Last export ready</string>
@@ -51,7 +51,7 @@
     <string name="accent_ink_paper">Ink &amp; Paper</string>
     <string name="background_ink_paper">Ink &amp; Paper</string>
     <string name="text_neutral">Neutral</string>
-    <string name="settings_adaptive_dimming">Adaptive dimming</string>
+    <string name="settings_adaptive_dimming">Dim to fit the picture</string>
     <string name="settings_manual_dimming">Manual dimming</string>
     <string name="settings_text_color">Text color</string>
     <string name="settings_time_format">Time format</string>
@@ -65,13 +65,13 @@
     <string name="settings_opacity_subtle">Subtle</string>
     <string name="settings_opacity_standard">Standard</string>
     <string name="settings_opacity_prominent">Prominent</string>
-    <string name="settings_live_glass">Live Glass</string>
+    <string name="settings_live_glass">Blur behind glass</string>
     <string name="settings_soft_glass">Soft Glass</string>
     <string name="settings_background_dim">Background dim</string>
     <string name="settings_dim_explanation">Darkens the background without changing surface opacity.</string>
     <string name="settings_bright">Bright</string>
     <string name="settings_dim">Dim</string>
-    <string name="settings_surface_opacity">Surface opacity</string>
+    <string name="settings_surface_opacity">How see-through</string>
     <string name="settings_selected">Selected</string>
     <string name="settings_not_selected">Not selected</string>
     <string name="settings_custom">Custom</string>

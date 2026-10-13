@@ -64,7 +64,7 @@
     <!-- Situation AI -->
     <string name="core_situation_title">Your overview</string>
     <string name="core_situation_subtitle">A local view of what needs your attention</string>
-    <string name="core_situation_close">Close Situation AI</string>
+    <string name="core_situation_close">Close Ask</string>
     <string name="core_situation_ask_luma">Ask Tallele</string>
     <string name="core_situation_ask_placeholder">Ask about your local items</string>
     <string name="core_situation_generating_answer">Generating answer</string>
@@ -85,17 +85,17 @@
     <string name="core_review_look_back_subtitle">A gentle view of what the week held</string>
     <string name="core_review_loose_ends">Loose ends</string>
     <string name="core_review_loose_ends_subtitle">Things that can wait for your attention</string>
-    <string name="core_review_look_ahead">Look ahead</string>
+    <string name="core_review_look_ahead">Coming up</string>
     <string name="core_review_look_ahead_subtitle">A light preview, not a commitment</string>
     <string name="core_review_page_position">%1$s · %2$d of %3$d</string>
     <string name="core_review_weekly_fallback">This week can be noticed without being measured.</string>
-    <string name="core_review_local_sources_considered">Local sources considered</string>
+    <string name="core_review_local_sources_considered">Items looked at</string>
     <string name="core_review_open_loops">Still open</string>
     <string name="core_review_quiet_for_a_while">Quiet for a while</string>
     <string name="core_review_waiting">Waiting</string>
     <string name="core_review_loose_ends_message">You can leave these here and return when it feels useful.</string>
     <string name="core_review_due_today">Due today</string>
-    <string name="core_review_possible_carry_forwards">Possible carry-forwards</string>
+    <string name="core_review_possible_carry_forwards">Could move to another day</string>
     <string name="core_review_look_ahead_message">Nothing on this page asks for a decision.</string>
     <string name="core_review_choose_day_or_smaller">Choose a new day, or make the next step smaller.</string>
     <string name="core_review_reschedule_if_relevant">Reschedule when this still matters.</string>
@@ -110,9 +110,9 @@
     <string name="core_review_show_all_open_loops">Show all</string>
     <string name="core_review_show_fewer_open_loops">Show fewer</string>
     <string name="core_review_clear">Review clear</string>
-    <string name="core_review_reason_open_task">Needs review because this task is still open.</string>
+    <string name="core_review_reason_open_task">Still open.</string>
     <string name="core_review_reason_brain_dump">This Brain Dump has suggestions waiting for a decision.</string>
-    <string name="core_review_reason_unfinalized_capture">Needs review because this capture is not finalized or dismissed.</string>
+    <string name="core_review_reason_unfinalized_capture">Still to sort.</string>
     <string name="core_review_task_action_explanation">Keep active leaves it open; Someday defers it; Done completes it; Archive hides it.</string>
     <string name="core_review_brain_dump_action_explanation">Resume continues with the remaining suggestions without recreating handled items.</string>
     <string name="core_review_capture_action_explanation">Confirm creates one task; Dismiss creates no item; Archive stores the source away.</string>
@@ -131,7 +131,7 @@
     <string name="core_review_task_archived">Task archived</string>
     <string name="core_review_suggested_by_gemini">Suggested by Gemini</string>
     <string name="core_review_local_suggestion">Local suggestion</string>
-    <string name="core_review_local_fallback">Local fallback</string>
+    <string name="core_review_local_fallback">Made on your phone</string>
 
     <plurals name="core_review_pending_decisions">
         <item quantity="one">%1$d item still needs a review decision</item>
@@ -159,7 +159,7 @@
     <string name="receipt_filed_task_in_space">Filed in %1$s as a task.</string>
     <string name="receipt_reminder_set">Reminder set for %1$s.</string>
     <string name="receipt_reminder_not_armed">Saved, but the reminder isn’t set yet.</string>
-    <string name="receipt_needs_time">Saved. What time should it remind you?</string>
+    <string name="receipt_needs_time">Saved. When should this remind you?</string>
     <string name="receipt_time_passed">That time has already passed. Pick a new one?</string>
     <string name="receipt_notifications_off">Saved, but reminders can’t ring. Notifications are off.</string>
     <string name="receipt_not_scheduled">Saved, but Tallele couldn’t set the reminder.</string>
@@ -181,4 +181,5 @@
     <string name="sort_one_more_options">More options</string>
     <string name="sort_one_edit_text">Edit the words</string>
     <string name="core_remove_label">Remove label %1$s</string>
+    <string name="core_review_next_seven_days">Next 7 days</string>
 </resources>

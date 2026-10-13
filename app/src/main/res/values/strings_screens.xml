@@ -218,4 +218,7 @@
     <string name="day_capture_saved">Saved for %1$s</string>
     <string name="day_capture_time_footnote">It’s already saved. Until it has a time, it also waits in Needs you.</string>
     <string name="day_capture_type_footnote">It stays in To sort and waits in Needs you.</string>
+    <string name="calendar_time_passed">Time passed</string>
+    <string name="spaces_hidden_message">%1$s hidden.</string>
+    <string name="spaces_archived_message">%1$s archived.</string>
 </resources>

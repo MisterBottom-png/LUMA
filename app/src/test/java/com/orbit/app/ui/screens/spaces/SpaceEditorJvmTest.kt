@@ -49,7 +49,7 @@ class SpaceEditorJvmTest {
             assertEquals(
                 Triple(
                     "Garden",
-                    iconChoices[SpaceNames.autoIconIndex("Garden", iconChoices.size)],
+                    "folder",
                     accentChoices[SpaceNames.autoColorIndex("Garden", accentChoices.size)],
                 ),
                 created,

@@ -251,6 +251,9 @@ class OrbitContainer(application: Application) {
         com.orbit.app.data.local.SharedPreferencesDeclinedRuleMemory(applicationContext)
     }
 
+    /** The last Space hidden or archived, until its Undo snackbar has been shown. */
+    val spaceVisibilityUndo = kotlinx.coroutines.flow.MutableStateFlow<com.orbit.app.ui.screens.spaces.SpaceVisibilityUndo?>(null)
+
     /** Hands a type change's Undo to the screen that shows the new type. */
     val pendingTypeChanges = com.orbit.app.ui.screens.item.PendingTypeChanges()
 

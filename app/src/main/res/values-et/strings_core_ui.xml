@@ -56,7 +56,7 @@
 
     <string name="core_situation_title">Sinu ülevaade</string>
     <string name="core_situation_subtitle">Kohalik vaade sellele, mis vajab sinu tähelepanu</string>
-    <string name="core_situation_close">Sulge olukorra AI</string>
+    <string name="core_situation_close">Sulge küsimine</string>
     <string name="core_situation_ask_luma">Küsi Tallelelt</string>
     <string name="core_situation_ask_placeholder">Küsi oma kohalike üksuste kohta</string>
     <string name="core_situation_generating_answer">Vastuse koostamine</string>
@@ -76,17 +76,17 @@
     <string name="core_review_look_back_subtitle">Leebe pilk möödunud nädalale</string>
     <string name="core_review_loose_ends">Lahtised otsad</string>
     <string name="core_review_loose_ends_subtitle">Asjad, mis võivad sinu tähelepanu oodata</string>
-    <string name="core_review_look_ahead">Ettevaade</string>
+    <string name="core_review_look_ahead">Tulemas</string>
     <string name="core_review_look_ahead_subtitle">Kerge pilk ettepoole, mitte kohustus</string>
     <string name="core_review_page_position">%1$s · %2$d/%3$d</string>
     <string name="core_review_weekly_fallback">Seda nädalat võib märgata ilma seda mõõtmata.</string>
-    <string name="core_review_local_sources_considered">Arvestatud kohalikud allikad</string>
+    <string name="core_review_local_sources_considered">Vaadatud kirjed</string>
     <string name="core_review_open_loops">Veel otsustamata</string>
     <string name="core_review_quiet_for_a_while">Mõnda aega vaiksed</string>
     <string name="core_review_waiting">Ootel</string>
     <string name="core_review_loose_ends_message">Võid need siia jätta ja naasta, kui see tundub kasulik.</string>
     <string name="core_review_due_today">Tähtaeg täna</string>
-    <string name="core_review_possible_carry_forwards">Võimalik edasi kanda</string>
+    <string name="core_review_possible_carry_forwards">Võiks viia teisele päevale</string>
     <string name="core_review_look_ahead_message">See leht ei nõua ühtegi otsust.</string>
     <string name="core_review_choose_day_or_smaller">Vali uus päev või tee järgmine samm väiksemaks.</string>
     <string name="core_review_reschedule_if_relevant">Ajasta uuesti, kui see on endiselt oluline.</string>
@@ -101,9 +101,9 @@
     <string name="core_review_show_all_open_loops">Näita kõiki</string>
     <string name="core_review_show_fewer_open_loops">Näita vähem</string>
     <string name="core_review_clear">Ülevaade on korras</string>
-    <string name="core_review_reason_open_task">Vajab ülevaatamist, sest ülesanne on endiselt avatud.</string>
+    <string name="core_review_reason_open_task">Endiselt avatud.</string>
     <string name="core_review_reason_brain_dump">Mõtete korrastuses on soovitusi, mis ootavad otsust.</string>
-    <string name="core_review_reason_unfinalized_capture">Vajab ülevaatamist, sest sisestus pole lõpetatud ega kõrvale jäetud.</string>
+    <string name="core_review_reason_unfinalized_capture">Ootab sorteerimist.</string>
     <string name="core_review_task_action_explanation">Aktiivsena hoidmine jätab ülesande avatuks; Kunagi lükkab selle edasi; Tehtud lõpetab; arhiivimine peidab.</string>
     <string name="core_review_brain_dump_action_explanation">Jätkamine avab ülejäänud soovitused ega loo juba käsitletud üksusi uuesti.</string>
     <string name="core_review_capture_action_explanation">Kinnitamine loob ühe ülesande; kõrvalejätmine ei loo üksust; arhiivimine paneb allika kõrvale.</string>
@@ -122,7 +122,7 @@
     <string name="core_review_task_archived">Ülesanne arhiveeriti</string>
     <string name="core_review_suggested_by_gemini">Gemini soovitus</string>
     <string name="core_review_local_suggestion">Kohalik soovitus</string>
-    <string name="core_review_local_fallback">Kohalik varuvariant</string>
+    <string name="core_review_local_fallback">Tehtud sinu telefonis</string>
 
     <plurals name="core_review_pending_decisions">
         <item quantity="one">%1$d üksus vajab veel ülevaatamise otsust</item>
@@ -150,7 +150,7 @@
     <string name="receipt_filed_task_in_space">Lisatud alasse „%1$s“ ülesandena.</string>
     <string name="receipt_reminder_set">Meeldetuletus on seatud: %1$s.</string>
     <string name="receipt_reminder_not_armed">Salvestatud, aga meeldetuletus pole veel seatud.</string>
-    <string name="receipt_needs_time">Salvestatud. Mis kell sulle meelde tuletada?</string>
+    <string name="receipt_needs_time">Salvestatud. Millal sulle sellest meelde tuletada?</string>
     <string name="receipt_time_passed">See aeg on juba möödas. Kas valid uue?</string>
     <string name="receipt_notifications_off">Salvestatud, aga meeldetuletused ei saa heliseda. Teavitused on välja lülitatud.</string>
     <string name="receipt_not_scheduled">Salvestatud, aga Tallele ei saanud meeldetuletust seada.</string>
@@ -172,4 +172,5 @@
     <string name="sort_one_more_options">Rohkem valikuid</string>
     <string name="sort_one_edit_text">Muuda sõnu</string>
     <string name="core_remove_label">Eemalda silt %1$s</string>
+    <string name="core_review_next_seven_days">Järgmised 7 päeva</string>
 </resources>

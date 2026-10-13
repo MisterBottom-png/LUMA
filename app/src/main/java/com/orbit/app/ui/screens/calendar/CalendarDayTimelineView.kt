@@ -188,6 +188,7 @@ internal fun CalendarAgendaList(
                                 CalendarEntryRow(
                                     entry = row.entry,
                                     timeText = timeFormat.formatTime(row.start.toEpochMilli()),
+                                    start = row.start,
                                     space = row.entry.spaceId?.let(spaces::get),
                                     onClick = { onEntrySelected(row.entry.id) },
                                 )
@@ -211,10 +212,15 @@ private fun CalendarEntryRow(
     timeText: String,
     space: SpaceEntity?,
     onClick: () -> Unit,
+    start: java.time.Instant? = null,
 ) {
     val isDone = entry.completedAt != null || entry.taskStatus == TaskStatus.Done
     val colors = MaterialTheme.colorScheme
+    // Review: a time that has passed says so in words, not only by colour.
+    val nowInstant by currentMinuteInstant()
+    val passed = start != null && !isDone && start.isBefore(nowInstant)
     val details = listOfNotNull(
+        stringResource(R.string.calendar_time_passed).takeIf { passed },
         space?.let { localizedSpaceName(it.name) },
         entry.repeat?.let { stringResource(it.labelRes()) },
     ).joinToString(" · ")

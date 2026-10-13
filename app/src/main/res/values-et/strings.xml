@@ -3,7 +3,7 @@
     <string name="accent_ink_paper">Tint ja paber</string>
     <string name="background_ink_paper">Tint ja paber</string>
     <string name="text_neutral">Neutraalne</string>
-    <string name="settings_adaptive_dimming">Kohanduv tumedus</string>
+    <string name="settings_adaptive_dimming">Tumenda pildi järgi</string>
     <string name="settings_manual_dimming">Käsitsi tumedus</string>
     <string name="navigation_home">Avaleht</string>
     <string name="navigation_spaces">Alad</string>
@@ -35,7 +35,7 @@
     <string name="settings_colors_subtitle">Teksti värv ja teine värv</string>
     <string name="settings_background_title">Taust</string>
     <string name="settings_background_subtitle">Valmistaust või oma pilt</string>
-    <string name="settings_status_gemini_ready">Gemini API valmis</string>
+    <string name="settings_status_gemini_ready">Gemini on sees</string>
     <string name="settings_status_key_saved">salvestatud</string>
     <string name="settings_status_key_not_saved">pole salvestatud</string>
     <string name="settings_status_last_export">Viimane eksport on valmis</string>
@@ -60,13 +60,13 @@
     <string name="settings_opacity_subtle">Õrn</string>
     <string name="settings_opacity_standard">Tavaline</string>
     <string name="settings_opacity_prominent">Rõhutatud</string>
-    <string name="settings_live_glass">Elav klaas</string>
+    <string name="settings_live_glass">Hägusus klaasi taga</string>
     <string name="settings_soft_glass">Pehme klaas</string>
     <string name="settings_background_dim">Tausta tumedus</string>
     <string name="settings_dim_explanation">Muudab tausta tumedamaks, mõjutamata pindade läbipaistmatust.</string>
     <string name="settings_bright">Hele</string>
     <string name="settings_dim">Tume</string>
-    <string name="settings_surface_opacity">Pinna läbipaistmatus</string>
+    <string name="settings_surface_opacity">Läbipaistvus</string>
     <string name="settings_selected">Valitud</string>
     <string name="settings_not_selected">Pole valitud</string>
     <string name="settings_custom">Oma pilt</string>

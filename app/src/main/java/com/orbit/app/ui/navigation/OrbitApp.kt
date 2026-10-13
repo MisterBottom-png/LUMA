@@ -2,6 +2,7 @@ package com.orbit.app.ui.navigation
 
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.produceState
 import com.orbit.app.ui.screens.review.needsYouReminderBlocked
 import com.orbit.app.ui.screens.review.needsYouSomethingWaits
@@ -894,6 +895,30 @@ fun OrbitApp(
                     onChooseReminder = spaceCaptureViewModel::chooseReminder,
                     onDecideLater = spaceCaptureViewModel::decideLater,
                 )
+            }
+            // Review: Hide and Archive of a Space can be undone.
+            val visibilityUndo by container.spaceVisibilityUndo.collectAsStateWithLifecycle()
+            visibilityUndo?.let { undo ->
+                val message = stringResource(
+                    if (undo.archived) com.orbit.app.R.string.spaces_archived_message else com.orbit.app.R.string.spaces_hidden_message,
+                    com.orbit.app.ui.localization.localizedSpaceName(undo.name),
+                )
+                val undoLabel = stringResource(com.orbit.app.R.string.core_action_undo)
+                LaunchedEffect(undo) {
+                    val result = spaceSavedMessages.showSnackbar(message, actionLabel = undoLabel, duration = androidx.compose.material3.SnackbarDuration.Long)
+                    if (container.spaceVisibilityUndo.value == undo) {
+                        container.spaceVisibilityUndo.value = null
+                        if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                            container.applicationScope.launch {
+                                container.spaceRepository.getById(undo.spaceId)?.let {
+                                    container.spaceRepository.update(
+                                        it.copy(hidden = undo.wasHidden, archived = undo.wasArchived, updatedAt = System.currentTimeMillis()),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
             spaceCaptureState.finished?.let { finished ->
                 com.orbit.app.ui.screens.spaces.SpaceCaptureFinishedMessage(

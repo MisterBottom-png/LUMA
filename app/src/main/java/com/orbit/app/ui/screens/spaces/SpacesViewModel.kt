@@ -188,6 +188,9 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
     private val selectedSpaceId = MutableStateFlow<Long?>(null)
     private val isUnfiledSelected = MutableStateFlow(false)
     private val moveUndo = MutableStateFlow<SpaceMoveUndo?>(null)
+
+    /** Review: Hide and Archive can be undone from a snackbar (app-wide: the page may close). */
+    private val _visibilityUndo get() = container.spaceVisibilityUndo
     private val moveFailure = MutableStateFlow<SpaceMoveFailure?>(null)
     private val itemMoveActions = SpaceItemMoveActions(
         noteRepository = container.noteRepository,
@@ -313,6 +316,7 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
     }
 
     fun hideSpace(spaceId: Long) {
+        rememberVisibility(spaceId, archived = false)
         updateStoredSpace(spaceId) {
             it.copy(hidden = true, updatedAt = System.currentTimeMillis())
         }
@@ -320,11 +324,18 @@ class SpacesViewModel(private val container: OrbitContainer) : ViewModel() {
     }
 
     fun archiveSpace(spaceId: Long) {
+        rememberVisibility(spaceId, archived = true)
         updateStoredSpace(spaceId) {
             it.copy(archived = true, hidden = false, updatedAt = System.currentTimeMillis())
         }
         if (selectedSpaceId.value == spaceId) selectSpace(null)
     }
+
+    private fun rememberVisibility(spaceId: Long, archived: Boolean) {
+        val space = uiState.value.spaces.firstOrNull { it.id == spaceId } ?: return
+        _visibilityUndo.value = SpaceVisibilityUndo(spaceId, space.name, space.hidden, space.archived, archived)
+    }
+
 
     fun restoreSpace(spaceId: Long) {
         updateStoredSpace(spaceId) {
@@ -571,3 +582,12 @@ internal fun canUseSpaceName(
         it.id != excludingSpaceId && normalizeSpaceName(it.name) == normalizedCandidate
     }
 }
+
+/** What Hide or Archive changed, so a snackbar can undo it. */
+data class SpaceVisibilityUndo(
+    val spaceId: Long,
+    val name: String,
+    val wasHidden: Boolean,
+    val wasArchived: Boolean,
+    val archived: Boolean,
+)
