@@ -220,4 +220,5 @@
         <item quantity="many">%d включено</item>
         <item quantity="other">%d включено</item>
     </plurals>
+    <string name="home_voice_stop">Остановить запись</string>
 </resources>

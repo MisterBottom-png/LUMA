@@ -319,13 +319,14 @@ fun ReviewScreen(
             }
 
             // Today: plain rows, a quieter heading, never cards. A task is not a question.
-            item(key = "today_heading") {
+            // Review §6: no "Today" heading and no third "nothing" line on an empty day.
+            if (uiState.dueToday.isNotEmpty()) item(key = "today_heading") {
                 SectionHeader(
                     title = stringResource(R.string.needs_you_today_heading),
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
-            item(key = "today_list") {
+            if (uiState.dueToday.isNotEmpty()) item(key = "today_list") {
                 TodayGroup(
                     items = uiState.dueToday,
                     showAll = showAllToday,

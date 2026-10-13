@@ -120,20 +120,29 @@ internal data class ItemDetailFields(
 
 /**
  * Only what fits the kind of item: a note has no status or reminder, and its date row
- * reads "Add date" until it has one (F14); a task keeps its date and status one tap
- * away under "More"; a reminder shows its time and alert.
+ * reads "Add date" until it has one (F14); a task shows its date and status once set and
+ * keeps them under "More" until then; a reminder shows its time and alert.
  */
 internal fun itemDetailFields(
     type: ItemDetailType,
     hasNotificationSettings: Boolean,
+    /** A task's date and status show in plain sight once set (review §6); else under "More". */
+    taskIsScheduled: Boolean = false,
+    taskHasLifeState: Boolean = false,
 ): ItemDetailFields = when (type) {
     ItemDetailType.Note -> ItemDetailFields(
         shown = listOf(ItemDetailField.Type, ItemDetailField.Schedule, ItemDetailField.Space),
     )
-    ItemDetailType.Task -> ItemDetailFields(
-        shown = listOf(ItemDetailField.Type, ItemDetailField.Space),
-        underMore = listOf(ItemDetailField.Schedule, ItemDetailField.LifeState),
-    )
+    ItemDetailType.Task -> {
+        val set = listOfNotNull(
+            ItemDetailField.Schedule.takeIf { taskIsScheduled },
+            ItemDetailField.LifeState.takeIf { taskHasLifeState },
+        )
+        ItemDetailFields(
+            shown = listOf(ItemDetailField.Type) + set + ItemDetailField.Space,
+            underMore = listOf(ItemDetailField.Schedule, ItemDetailField.LifeState) - set.toSet(),
+        )
+    }
     ItemDetailType.Reminder -> ItemDetailFields(
         shown = buildList {
             add(ItemDetailField.Type)
@@ -408,6 +417,9 @@ private fun ItemDetailContent(
                             val fields = itemDetailFields(
                                 type = state.type,
                                 hasNotificationSettings = state.notificationEnabled != null,
+                                taskIsScheduled = state.scheduledDateEpochDay != null || state.scheduledAt != null,
+                                taskHasLifeState = state.taskStatus == com.orbit.app.data.local.entity.TaskStatus.Someday ||
+                                    state.taskStatus == com.orbit.app.data.local.entity.TaskStatus.WaitingFor,
                             )
                             val detailRow: @Composable (ItemDetailField) -> Unit = { field ->
                                 when (field) {

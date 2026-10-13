@@ -1248,7 +1248,7 @@ internal fun SpaceEditorDialog(
                     .heightIn(min = 48.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                var cancelWidth by remember { mutableStateOf(0) }
+                var cancelWidth by remember { androidx.compose.runtime.mutableIntStateOf(0) }
                 TextButton(
                     onClick = onDismiss,
                     modifier = Modifier.onSizeChanged { cancelWidth = it.width },

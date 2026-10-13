@@ -52,7 +52,7 @@
     <string name="reminder_health_samsung_steps">Батарея › Ограничения фонового использования › Приложения без спящего режима › добавьте Tallele</string>
     <string name="reminder_health_action_check">Проверить</string>
     <string name="settings_add_name">Добавьте своё имя</string>
-    <string name="settings_backup_title">Резервная копия</string>
+    <string name="settings_backup_title">Резервная копия и восстановление</string>
     <string name="settings_data_footer">Ваши записи хранятся на этом телефоне. Файл резервной копии хранит копию в другом месте.</string>
     <string name="settings_ai_footer">Tallele работает и без ИИ. С вашим ключом Gemini приложение может предлагать больше.</string>
     <string name="settings_version">Версия</string>
@@ -223,4 +223,5 @@
     <string name="calendar_time_passed">Время прошло</string>
     <string name="spaces_hidden_message">«%1$s» скрыто.</string>
     <string name="spaces_archived_message">«%1$s» в архиве.</string>
+    <string name="tutorial_spaces_replay_body">Пространство собирает одну часть жизни. Пространства можно изменить в любое время на вкладке «Пространства».</string>
 </resources>

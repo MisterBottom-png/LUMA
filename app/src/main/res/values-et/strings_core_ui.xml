@@ -85,7 +85,6 @@
     <string name="core_review_quiet_for_a_while">Mõnda aega vaiksed</string>
     <string name="core_review_waiting">Ootel</string>
     <string name="core_review_loose_ends_message">Võid need siia jätta ja naasta, kui see tundub kasulik.</string>
-    <string name="core_review_due_today">Tähtaeg täna</string>
     <string name="core_review_possible_carry_forwards">Võiks viia teisele päevale</string>
     <string name="core_review_look_ahead_message">See leht ei nõua ühtegi otsust.</string>
     <string name="core_review_choose_day_or_smaller">Vali uus päev või tee järgmine samm väiksemaks.</string>

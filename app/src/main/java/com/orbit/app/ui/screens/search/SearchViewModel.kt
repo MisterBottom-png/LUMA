@@ -103,7 +103,8 @@ class SearchViewModel(
             filter = chosen,
             spaces = visibleSpaces,
             searching = currentQuery.isNotBlank() && foundFor != currentQuery,
-            recent = newest,
+            // Review §6: the chips filter "Recently saved" too.
+            recent = newest.filter { it.matches(chosen, showArchived) },
         )
     }.stateIn(
         scope = viewModelScope,
@@ -119,9 +120,19 @@ class SearchViewModel(
         includeArchived.value = value
     }
 
+    // What the user chose for "Search archived too" before the Archived chip turned it on.
+    private var archivedChoiceBeforeChip: Boolean? = null
+
     fun setFilter(value: SearchFilter) {
+        // Review §6: changing chips keeps "Search archived too" as the user set it.
+        if (value == SearchFilter.Archived && filter.value != SearchFilter.Archived) {
+            archivedChoiceBeforeChip = includeArchived.value
+            includeArchived.value = true
+        } else if (value != SearchFilter.Archived && filter.value == SearchFilter.Archived) {
+            archivedChoiceBeforeChip?.let { includeArchived.value = it }
+            archivedChoiceBeforeChip = null
+        }
         filter.value = value
-        includeArchived.value = value == SearchFilter.Archived
     }
 
     private companion object {

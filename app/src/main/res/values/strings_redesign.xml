@@ -206,4 +206,5 @@
         <item quantity="one">%d on</item>
         <item quantity="other">%d on</item>
     </plurals>
+    <string name="home_voice_stop">Stop listening</string>
 </resources>

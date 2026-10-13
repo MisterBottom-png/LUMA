@@ -85,7 +85,6 @@
     <string name="core_review_quiet_for_a_while">Давно без изменений</string>
     <string name="core_review_waiting">В ожидании</string>
     <string name="core_review_loose_ends_message">Можно оставить это здесь и вернуться, когда будет полезно.</string>
-    <string name="core_review_due_today">Срок сегодня</string>
     <string name="core_review_possible_carry_forwards">Можно перенести на другой день</string>
     <string name="core_review_look_ahead_message">Эта страница не требует решений.</string>
     <string name="core_review_choose_day_or_smaller">Выберите новый день или уменьшите следующий шаг.</string>

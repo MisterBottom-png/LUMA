@@ -206,4 +206,5 @@
         <item quantity="one">%d sees</item>
         <item quantity="other">%d sees</item>
     </plurals>
+    <string name="home_voice_stop">Lõpeta kuulamine</string>
 </resources>

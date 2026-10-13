@@ -6,7 +6,7 @@
     <string name="settings_adaptive_dimming">Tumenda pildi järgi</string>
     <string name="settings_manual_dimming">Käsitsi tumedus</string>
     <string name="navigation_home">Avaleht</string>
-    <string name="navigation_spaces">Alad</string>
+    <string name="navigation_spaces">Ruumid</string>
     <string name="navigation_review">Vajab sind</string>
     <string name="navigation_settings">Sätted</string>
 
@@ -22,7 +22,7 @@
     <string name="settings_ai_setup_subtitle">Võti, ühendus ja mudelite valik</string>
     <string name="settings_ai_features_subtitle">Vali, kus Gemini võib aidata</string>
     <string name="settings_ai_learning_subtitle">Privaatne seadmesisene õppimine ja juhtimine</string>
-    <string name="settings_local_data_title">Kohalikud andmed</string>
+    <string name="settings_local_data_title">Varundus ja taastamine</string>
     <string name="settings_local_data_subtitle">Ekspordid ja seadmes hoitavad andmed</string>
 
     <string name="language_system_default">Süsteemi vaikekeel</string>

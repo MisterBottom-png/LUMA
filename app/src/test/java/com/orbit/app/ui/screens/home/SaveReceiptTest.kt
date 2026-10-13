@@ -87,7 +87,7 @@ class SaveReceiptTest {
             ),
             Triple(
                 receipt(CaptureOutcome.NeedsYou, CaptureOutcomeReason.TimeUnclear),
-                "Saved. What time should it remind you?",
+                "Saved. When should this remind you?",
                 ReceiptAction.ChooseTime,
             ),
             Triple(

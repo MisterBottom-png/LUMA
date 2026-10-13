@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithText
 import com.orbit.app.data.local.entity.CaptureOutcomeReason
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.unit.Density
@@ -311,9 +312,8 @@ class ReviewScreenJvmTest {
         composeRule.onNodeWithText("No questions right now.").assertDoesNotExist()
         composeRule.onNodeWithText("Pick a time").performClick()
         assertEquals(1L, picked?.captureId)
-        // The second card sits lower: bring today's plan under it into view first.
-        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Today"))
-        composeRule.onAllNodesWithText("Just keep it")[1].performClick()
+        // The second card sits lower: bring its button into view first.
+        composeRule.onAllNodesWithText("Just keep it")[1].performScrollTo().performClick()
         assertEquals(2L, kept?.captureId)
     }
 }

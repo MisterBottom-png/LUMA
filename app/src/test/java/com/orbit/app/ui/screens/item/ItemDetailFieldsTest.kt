@@ -46,6 +46,14 @@ class ItemDetailFieldsTest {
     }
 
     @Test
+    fun aTaskWithADateOrStatusShowsThemInPlainSight() {
+        // Review §6: set values are not hidden under "More".
+        val fields = itemDetailFields(ItemDetailType.Task, hasNotificationSettings = false, taskIsScheduled = true, taskHasLifeState = true)
+        assertEquals(listOf(ItemDetailField.Type, ItemDetailField.Schedule, ItemDetailField.LifeState, ItemDetailField.Space), fields.shown)
+        assertTrue(fields.underMore.isEmpty())
+    }
+
+    @Test
     fun aRawThoughtHasNoDetailRows() {
         assertTrue(itemDetailFields(ItemDetailType.Capture, hasNotificationSettings = false).shown.isEmpty())
     }

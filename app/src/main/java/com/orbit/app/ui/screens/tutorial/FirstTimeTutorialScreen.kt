@@ -252,7 +252,14 @@ private fun TutorialPageContent(
             color = MaterialTheme.colorScheme.onBackground,
         )
         Text(
-            text = stringResource(page.bodyRes),
+            // Review §6: on replay the Spaces can't be picked here, so the words don't ask to.
+            text = stringResource(
+                if (page.illustration == TutorialIllustration.Spaces && !spaceSetupState.canConfigure) {
+                    R.string.tutorial_spaces_replay_body
+                } else {
+                    page.bodyRes
+                },
+            ),
             modifier = Modifier.padding(top = 10.dp),
             style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, lineHeight = 25.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,

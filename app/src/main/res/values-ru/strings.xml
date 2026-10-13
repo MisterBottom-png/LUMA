@@ -22,7 +22,7 @@
     <string name="settings_ai_setup_subtitle">Ключ, подключение и выбор моделей</string>
     <string name="settings_ai_features_subtitle">Выберите, где может помогать Gemini</string>
     <string name="settings_ai_learning_subtitle">Приватное обучение и управление на устройстве</string>
-    <string name="settings_local_data_title">Локальные данные</string>
+    <string name="settings_local_data_title">Резервная копия и восстановление</string>
     <string name="settings_local_data_subtitle">Экспорт и данные на устройстве</string>
 
     <string name="language_system_default">Язык системы</string>

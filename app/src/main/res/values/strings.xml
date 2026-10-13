@@ -19,7 +19,7 @@
     <string name="settings_ai_setup_subtitle">Key, connection, and model selection</string>
     <string name="settings_ai_features_subtitle">Choose where Gemini may help</string>
     <string name="settings_ai_learning_subtitle">Private on-device learning and controls</string>
-    <string name="settings_local_data_title">Local data</string>
+    <string name="settings_local_data_title">Backup and restore</string>
     <string name="settings_local_data_subtitle">Exports and device-held data</string>
 
     <string name="language_system_default">System default</string>

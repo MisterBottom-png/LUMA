@@ -559,7 +559,7 @@ abstract class ScreenTour(private val theme: String) {
         }
         shot("$prefix-ask-answer-first")
         step("close ask") {
-            compose.onNodeWithContentDescription("Close Situation AI").performClick()
+            compose.onNodeWithContentDescription("Close Ask").performClick()
             compose.mainClock.advanceTimeBy(1_000)
             compose.waitForIdle()
         }

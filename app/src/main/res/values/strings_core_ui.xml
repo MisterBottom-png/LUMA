@@ -94,7 +94,6 @@
     <string name="core_review_quiet_for_a_while">Quiet for a while</string>
     <string name="core_review_waiting">Waiting</string>
     <string name="core_review_loose_ends_message">You can leave these here and return when it feels useful.</string>
-    <string name="core_review_due_today">Due today</string>
     <string name="core_review_possible_carry_forwards">Could move to another day</string>
     <string name="core_review_look_ahead_message">Nothing on this page asks for a decision.</string>
     <string name="core_review_choose_day_or_smaller">Choose a new day, or make the next step smaller.</string>

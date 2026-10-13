@@ -392,16 +392,10 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(if (imeVisible) OrbitSpacing.Large else HomeCaptureGap))
 
+            // Review §9.1: the receipt sits right under the box, so the thought and its
+            // result stay together; the free space goes below them.
             BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (requiresVerticalScroll) {
-                            Modifier
-                        } else {
-                            Modifier.weight(1f)
-                        },
-                    ),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 val captureCardHeight by animateDpAsState(
@@ -490,6 +484,7 @@ fun HomeScreen(
                     onKeep = viewModel::keepQuestionThought,
                 )
             }
+            if (!requiresVerticalScroll) Spacer(modifier = Modifier.weight(1f))
         }
         }
 
@@ -918,6 +913,8 @@ private fun CaptureCard(
                 contentDescription = stringResource(
                     when {
                         isProcessing -> processingStatusRes ?: R.string.core_home_analyzing_capture
+                        // Review §8: while listening, the button says what a tap does.
+                        offersVoice && listening -> R.string.home_voice_stop
                         offersVoice -> R.string.home_voice_capture
                         else -> R.string.core_home_save_and_analyze
                     },
