@@ -95,11 +95,11 @@ internal fun homeTypography(family: FontFamily) = HomeTypographyTokens(
 )
 
 /**
- * One type scale for the whole app. Few sizes, two weights (Normal for reading, SemiBold for
- * titles; Medium only for small labels). Large type is tightened, small type opened slightly,
- * as a premium type system does.
+ * The Material type scale for existing screens, all in Noto Sans (proposal section 6.2). Screen title is
+ * headlineMedium 24/32 semibold. Body is 15-16/23, metadata (bodySmall) 14/20, labels at least 12 sp,
+ * nothing important below 13 sp. No light weights, no all-caps, modest letter spacing.
  */
-private fun style(family: FontFamily, weight: FontWeight, size: Int, line: Int, tracking: Double) = TextStyle(
+private fun style(family: FontFamily, weight: FontWeight, size: Int, line: Int, tracking: Double = 0.0) = TextStyle(
     fontFamily = family,
     fontWeight = weight,
     fontSize = size.sp,
@@ -108,43 +108,116 @@ private fun style(family: FontFamily, weight: FontWeight, size: Int, line: Int, 
 )
 
 internal fun orbitTypography(family: FontFamily) = Typography(
-    displayLarge = style(family, FontWeight.SemiBold, 36, 44, -0.6),
-    displayMedium = style(family, FontWeight.SemiBold, 36, 44, -0.6),
-    displaySmall = style(family, FontWeight.SemiBold, 36, 44, -0.6),
-    headlineLarge = style(family, FontWeight.SemiBold, 30, 38, -0.5),
-    // Screen titles on the main tabs.
-    headlineMedium = style(family, FontWeight.SemiBold, 28, 34, -0.45),
-    headlineSmall = style(family, FontWeight.SemiBold, 22, 28, -0.25),
-    titleLarge = style(family, FontWeight.SemiBold, 20, 26, -0.2),
-    titleMedium = style(family, FontWeight.SemiBold, 17, 23, -0.1),
-    titleSmall = style(family, FontWeight.Medium, 15, 20, 0.0),
-    bodyLarge = style(family, FontWeight.Normal, 17, 25, 0.0),
-    bodyMedium = style(family, FontWeight.Normal, 15, 22, 0.0),
-    bodySmall = style(family, FontWeight.Normal, 13, 18, 0.1),
-    labelLarge = style(family, FontWeight.SemiBold, 14, 18, 0.1),
-    labelMedium = style(family, FontWeight.Medium, 12, 16, 0.2),
-    labelSmall = style(family, FontWeight.Medium, 11, 14, 0.3),
+    displayLarge = style(family, FontWeight.SemiBold, 36, 44),
+    displayMedium = style(family, FontWeight.SemiBold, 32, 40),
+    displaySmall = style(family, FontWeight.SemiBold, 28, 36),
+    headlineLarge = style(family, FontWeight.SemiBold, 28, 36),
+    // Screen titles (section 6.2): 24/32 semibold.
+    headlineMedium = style(family, FontWeight.SemiBold, 24, 32),
+    headlineSmall = style(family, FontWeight.SemiBold, 20, 28),
+    titleLarge = style(family, FontWeight.SemiBold, 20, 28),
+    titleMedium = style(family, FontWeight.SemiBold, 16, 23),
+    // Body and controls (section 6.2): 15/23 semibold.
+    titleSmall = style(family, FontWeight.SemiBold, 15, 23),
+    bodyLarge = style(family, FontWeight.Normal, 16, 23),
+    bodyMedium = style(family, FontWeight.Normal, 15, 23),
+    // Metadata: 14/20.
+    bodySmall = style(family, FontWeight.Normal, 14, 20),
+    labelLarge = style(family, FontWeight.SemiBold, 15, 23),
+    labelMedium = style(family, FontWeight.Medium, 13, 18, 0.1),
+    // Tab labels: 12 sp minimum, grows with the font scale.
+    labelSmall = style(family, FontWeight.SemiBold, 12, 16, 0.1),
 )
 
 /**
- * Tallele's typeface: Google Sans Flex (SIL OFL 1.1, licence in assets/licenses), bundled as
- * three small static Latin instances. It has no Cyrillic, so Russian uses the system font
- * throughout instead of mixing two typefaces in one line.
+ * Noto Sans, the app's voice (SIL OFL 1.1, licence in assets/licenses). It covers Latin, Estonian and
+ * Cyrillic, so Russian uses the same family as English. Only three static weights are bundled: a Bold
+ * request resolves to the semibold file.
  */
 internal val TalleleSans = FontFamily(
-    Font(R.font.google_sans_flex_regular, FontWeight.Normal),
-    Font(R.font.google_sans_flex_medium, FontWeight.Medium),
-    Font(R.font.google_sans_flex_semibold, FontWeight.SemiBold),
-    Font(R.font.google_sans_flex_semibold, FontWeight.Bold),
+    Font(R.font.noto_sans_regular, FontWeight.Normal),
+    Font(R.font.noto_sans_medium, FontWeight.Medium),
+    Font(R.font.noto_sans_semibold, FontWeight.SemiBold),
+    Font(R.font.noto_sans_semibold, FontWeight.Bold),
 )
 
-internal fun orbitFontFamilyFor(language: String): FontFamily =
-    if (language.equals("ru", ignoreCase = true)) FontFamily.SansSerif else TalleleSans
+/**
+ * Literata, the person's own words (SIL OFL 1.1, licence in assets/licenses). Regular and medium are
+ * bundled: SemiBold and Bold requests resolve to medium.
+ */
+internal val TalleleSerif = FontFamily(
+    Font(R.font.literata_regular, FontWeight.Normal),
+    Font(R.font.literata_medium, FontWeight.Medium),
+    Font(R.font.literata_medium, FontWeight.SemiBold),
+    Font(R.font.literata_medium, FontWeight.Bold),
+)
 
-val LocalOrbitFontFamily = staticCompositionLocalOf<FontFamily> { FontFamily.SansSerif }
+/** Every language uses the same family; the old Russian system-font special case is gone. */
+@Suppress("UNUSED_PARAMETER")
+internal fun orbitFontFamilyFor(language: String): FontFamily = TalleleSans
+
+internal val OrbitMaterialTypography: Typography = orbitTypography(TalleleSans)
+
+val LocalOrbitFontFamily = staticCompositionLocalOf<FontFamily> { TalleleSans }
 
 val HomeTypography: HomeTypographyTokens
     @Composable @ReadOnlyComposable get() = homeTypography(LocalOrbitFontFamily.current)
 
 val CalendarTypography: CalendarTypographyTokens
     @Composable @ReadOnlyComposable get() = calendarTypography(LocalOrbitFontFamily.current)
+
+/**
+ * The two voices of the Limestone type system (section 6.2). Sizes are sp so they grow with the font
+ * scale; rows must grow with them and never clip.
+ */
+@Immutable
+data class TalleleTypography(
+    /** Noto Sans 24/32 600. */
+    val screenTitle: TextStyle,
+    /** Literata 24/34 500. */
+    val itemTitle: TextStyle,
+    /** Literata 20/30 400. */
+    val captureText: TextStyle,
+    /** Literata 17/26 400: the person's words in lists. */
+    val listWords: TextStyle,
+    /** Noto Sans 16/23 400. */
+    val body: TextStyle,
+    /** Noto Sans 16/23 600. */
+    val bodyStrong: TextStyle,
+    /** Noto Sans 15/23 600: buttons and controls. */
+    val control: TextStyle,
+    /** Noto Sans 14/20 400. */
+    val metadata: TextStyle,
+    /** Noto Sans 12/16 600; grows with the font scale. */
+    val tabLabel: TextStyle,
+    /** [metadata] with tabular numbers so times line up. */
+    val timeTabular: TextStyle,
+)
+
+private fun voice(family: FontFamily, weight: FontWeight, size: Int, line: Int) = TextStyle(
+    fontFamily = family,
+    fontWeight = weight,
+    fontSize = size.sp,
+    lineHeight = line.sp,
+    letterSpacing = 0.sp,
+)
+
+internal fun talleleTypography(sans: FontFamily = TalleleSans, serif: FontFamily = TalleleSerif): TalleleTypography {
+    val metadata = voice(sans, FontWeight.Normal, 14, 20)
+    return TalleleTypography(
+        screenTitle = voice(sans, FontWeight.SemiBold, 24, 32),
+        itemTitle = voice(serif, FontWeight.Medium, 24, 34),
+        captureText = voice(serif, FontWeight.Normal, 20, 30),
+        listWords = voice(serif, FontWeight.Normal, 17, 26),
+        body = voice(sans, FontWeight.Normal, 16, 23),
+        bodyStrong = voice(sans, FontWeight.SemiBold, 16, 23),
+        control = voice(sans, FontWeight.SemiBold, 15, 23),
+        metadata = metadata,
+        tabLabel = voice(sans, FontWeight.SemiBold, 12, 16),
+        timeTabular = metadata.copy(fontFeatureSettings = "tnum"),
+    )
+}
+
+internal val TalleleTypographyDefault: TalleleTypography = talleleTypography()
+
+val LocalTalleleTypography = staticCompositionLocalOf { TalleleTypographyDefault }
