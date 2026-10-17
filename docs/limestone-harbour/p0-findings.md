@@ -46,7 +46,7 @@ Any store added in P1–P4 must be appended here.
 | Room `orbit.db` v11 (`data/local/OrbitDatabase.kt`) — spaces, captures, notes, tasks, reminders, brain_dump_sessions/items, labels, note/task/reminder_labels, capture_suggestions | `databases/` | user data | **Yes** (12 tables, one transaction) |
 | ↳ `space_alias_memory` | same DB | learned Space aliases | Yes, indirectly (FK cascade from spaces) |
 | ↳ `learned_rules` | same DB | learned rules | **No** |
-| ↳ `ai_suggestion_history`, `ai_correction_history` | same DB | AI history incl. raw text snippets | **No** (only 90-day pruning, `data/local/AiHistoryRetention.kt`) |
+| ↳ `ai_suggestion_history`, `ai_correction_history` | same DB | AI history incl. raw text snippets | **No** (only 90-day pruning, `data/local/AiHistoryRetention.kt`). Deleting a capture nulls the history row's `captureId` but its `sourceTextSnippet` (the raw thought) survives Reset — pinned by `P0ResetScopeCharacterizationTest` |
 | ↳ `person_memory`, `project_memory` | same DB | learned names/projects | **No** |
 | ↳ `sqlite_sequence` | same DB | id counters | No — keep it: non-reused ids protect against stale alarms matching new reminders |
 | DataStore `orbit_settings` (`data/repository/AppSettingsRepository.kt:32`) | `files/datastore/` | all settings, receipt state (`last_receipt_capture_id`, `last_receipt_dismissed`), tutorial/tip flags, `has_asked_for_notifications` | **No** (`reset()` exists, never called) |

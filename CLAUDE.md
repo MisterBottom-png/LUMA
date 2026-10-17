@@ -34,6 +34,8 @@ python3 scripts/codex/check_workplace_privacy.py --strict   # after any text cha
 python3 scripts/codex/check_locale_resource_parity.py       # after string changes
 ```
 
+Only one Gradle build at a time in a checkout. To wait for another run: `while pgrep -f '[G]radleWrapperMain' >/dev/null; do sleep 10; done` (the brackets stop `pgrep` matching its own shell).
+
 CI on every PR:
 - `android-verify.yml`: unit tests, lint, assembleDebug; uploads the `luma-debug-apk-*` artifact the owner installs.
 - `android-release.yml`: clean debug+release unit tests, lintRelease, release build/bundle, privacy check, then an API 36 emulator job (`scripts/run-device-verification.ps1`) that runs instrumentation tests. This is the only place instrumentation tests run; the cloud VM has no emulator.

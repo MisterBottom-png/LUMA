@@ -43,7 +43,21 @@ The local environment and CI agree: the baseline source builds and tests green. 
 
 ## P0 characterization tests
 
-P0_TESTS_PLACEHOLDER
+New JVM (Robolectric) tests in `app/src/test/java/com/orbit/app/limestone/`. Each **passes today** and pins current behavior; its KDoc names the phase that must flip or extend it. No production code changed.
+
+| Test | Pins | Flips / extends in |
+|---|---|---|
+| `P0CalendarDateTimeCharacterizationTest` (4 tests) | B7 **unreproduced**: timed note (`scheduledAt`) and timed task (`dueAt`) appear on their day as `Timed` at their instant; date-only stays `DateOnly` (never 00:00); adding a time through `ItemScheduleActions.apply` keeps items on Calendar; repositories refuse "day + time" rows; a DAO-written "both" row is excluded by the projection | P4 (guard only) |
+| `P0ItemDetailStaleCharacterizationTest` (2 tests) | B10 **reproduced**: Done from the notification (`handleReminderAction`) is stored but the open reminder screen still shows it open; a task renamed elsewhere keeps its old title on the open screen | P4 (B10) |
+| `P0ResetScopeCharacterizationTest` (1 test) | B5 baseline: Reset removes spaces, captures, notes, tasks, reminders and cancels `orbit_reminder_<id>` work; **keeps** learned rules, AI suggestion history (capture link nulled, raw `sourceTextSnippet` survives), person and project memory, and settings | P5 (B5): every KEPT becomes REMOVED |
+| `P0AutoFilingCharacterizationTest` (2 tests) | B1: `CaptureResolution.undo` deletes an auto-filed task even after it was completed and renamed; D-09: a Gemini-failed fallback at high confidence is auto-filed because the stored suggestion loses `analyzerFailed` (while `decide()` on the live analysis returns Keep) | P3 (B1, D-09) |
+
+Not covered by tests (by design or tooling): the Gemini key store (no AndroidKeyStore in Robolectric; Reset doesn't touch it by reading), `ai_correction_history`, `space_alias_memory`, last-export and blocked-delivery prefs; insert-failure on Keep (needs a repository seam, P3).
+
+| Command | Result |
+|---|---|
+| `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.orbit.app.limestone.*'` (test writer) | **PASS** — 9 tests, 0 failures |
+| `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug` (lead, whole suite with the new tests) | P0_FULL_RESULT |
 
 ## Manual checks on a phone (owner)
 
