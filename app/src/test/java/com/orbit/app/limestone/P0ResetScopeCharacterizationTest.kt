@@ -118,7 +118,8 @@ class P0ResetScopeCharacterizationTest {
             assertEquals(SettingsThemeMode.Dark, settingsAfter.themeMode)
         }
 
-        // Reset cancels the reminder's backup work before deleting the row.
+        // Reset cancels the reminder's WorkManager backup work (the AlarmManager alarm and
+        // posted notification are cancelled by the same call; not asserted here).
         assertTrue(
             "the reminder's unique work is no longer enqueued",
             reminderWork(reminderId).none { it.state == WorkInfo.State.ENQUEUED },

@@ -42,18 +42,26 @@ CI on every PR:
 
 Record results as PASS / FAIL / BLOCKED / NOT RUN with the exact command. Never claim a device, emulator, screenshot or phone check you did not run.
 
-## Invariants (do not break)
+## Invariants (true today; do not break)
 
-- Store first: the editor clears and "Kept on this device." shows only after the raw thought is durably saved. On failure, keep the exact text and offer Try again.
+- Store first: the editor clears only after the raw thought is saved; on a failed save the exact text stays.
 - Never say "scheduled", "saved", "restored" or "erased" without proof from the real state.
-- Undo and the user's own edits always win over late sorting.
+- A late sorting result never overrides a decision already made (Undo, user choice).
 - Raw captures stay private source material; a sorted thought never shows twice.
 - AI suggests; important changes need user confirmation. Gemini only through the existing consent path. Local-first and offline must keep working.
 - Due time, notification time and repeat stay separate.
 - No Room schema/version, export format, confidence threshold, auto-filing rule or reminder-semantics change without a recorded decision in `docs/limestone-harbour/decisions.md` and tests.
-- Only the bottom tab bar is glass. Lists, cards, sheets and dialogs stay solid.
 - English, Estonian and Russian for every new string.
 - Zero workplace-person references anywhere (see `docs/codex/WORKPLACE_PRIVACY_POLICY.md`). Example names in designs become placeholders.
+
+## Redesign targets (not true yet; land in the named phase)
+
+- Only the bottom tab bar is glass; lists, cards, sheets and dialogs solid (P1; today five more surfaces use glass).
+- Receipt says "Kept on this device." and offers Try again after a failed save (P3).
+- Undo on automatic filing, refused once the item was edited or completed (P3; today's `CaptureResolution.undo` deletes unconditionally).
+- Erase everything clears every store in `docs/limestone-harbour/p0-findings.md` §3 (P5; today Reset is narrow).
+
+Current behavior and evidence: `docs/limestone-harbour/p0-findings.md`.
 
 ## Before pushing a phase
 

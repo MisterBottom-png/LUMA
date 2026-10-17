@@ -29,7 +29,7 @@ P0 Evidence ──► P1 Visual foundation ──► P2 Navigation & finding ─
 Hard dependencies:
 
 - P1 before everything visual: P2–P5 compose the shared parts (`KeepMark`, `KeepButton`, `CaptureBox`, `Receipt`, `DecisionCard`, `ItemRow`, `FactRow`, `SectionHeader`, `ChoiceSheet`, `SourceRow`, `ReminderStatus`, `UndoMessage`, `TalleleTabBar`, `DayAgenda`).
-- P1 introduces the new appearance enums (Theme, Accent ×4, Background ×6, Tab bar ×3) **behind** the existing settings so old values still read; P5 owns the one-time conversion, the old-backup conversion, and removal of old controls. Until P5 the old Appearance screen keeps working.
+- P1 introduces the new appearance enums (Theme, Accent ×4, Background ×6, Tab bar ×3) **behind** the existing settings so old values still read; P5 owns the one-time conversion of the settings store and removal of old controls. Backups hold no settings, so restore needs no conversion, only a regression test (`decisions.md` D-05). Until P5 the old Appearance screen keeps working.
 - P2 before P3: the receipt's Open/Change targets and Kept thoughts list live in the new shell.
 - P3 before P4: `DecisionCard` and receipt states are reused by Needs you and Add to Space.
 - B5 (Erase everything) is in P5 but its inventory is fixed in P0 (`p0-findings.md` §Erase inventory) so P1–P4 must register any **new** store they add there.
@@ -57,7 +57,7 @@ Paths under `app/src/main/java/com/orbit/app/` unless noted. "Writer" is the age
 | P4 | Detail | `ui/screens/item/*`, reminder detail | compose-implementer (UI), data-implementer (live observe) |
 | P4 | Calendar fixes | `ui/screens/calendar/*`, `data/repository/CalendarRepository.kt` | data-implementer |
 | P5 | Settings UI | `ui/screens/settings/*` | compose-implementer |
-| P5 | Conversion, erase | `AppSettingsRepository.kt`, `data/export/*` (restore hook only), `LocalDataToolsViewModel.kt` + new erase use case | data-implementer |
+| P5 | Conversion, erase | `AppSettingsRepository.kt` (write-once DataStore migration), `LocalDataToolsViewModel.kt` + new erase use case; `data/export/*` untouched (restore regression test only, D-05) | data-implementer |
 | P5 | Icons, notification, shortcuts | `reminders/ReminderNotifier.kt`, `capture/NewThoughtTileService.kt`, `res/xml/shortcuts.xml`, `res/mipmap*`, manifest | assets-i18n |
 | All | Strings | `res/values/strings*.xml`, `values-et/`, `values-ru/` | assets-i18n (single strings writer per phase) |
 
@@ -94,11 +94,11 @@ Each phase: affected tests + `:app:testDebugUnitTest :app:lintDebug :app:assembl
 
 ### P4 — Remaining experiences
 - [ ] Needs you order, To decide vs Waiting optional, badge (tests).
-- [ ] B6 neighbour days, B7 date+time on Calendar, B10 live detail (tests turn the P0 characterization tests around).
+- [ ] B6 neighbour days; B10 live detail (flip `P0ItemDetailStaleCharacterizationTest`). B7 was not reproduced: `P0CalendarDateTimeCharacterizationTest` stays green as a guard (D-12).
 - [ ] Due / notify / repeat / real scheduling state shown separately; notification actions unchanged (tests).
 
 ### P5 — Settings, migration, language, data safety
-- [ ] One-time appearance conversion for every old value, idempotent, also on old-backup restore (test per value).
+- [ ] One-time appearance conversion of the settings store for every old value and unknown values, idempotent (test per value); every old backup format still restores (regression test; backups carry no settings, D-05).
 - [ ] B8, B9 fixed (tests).
 - [ ] Erase everything clears every store in the P0 inventory and cancels every alarm/worker; cancel path tested; fresh-launch state tested; Reset appearance and Clear learned data stay narrow.
 - [ ] EN/ET/RU parity; icons and licences.
@@ -114,7 +114,7 @@ See `p0-findings.md` §Risks for evidence. Summary, highest first:
 |---|---|---|---|
 | R1 | Erase everything misses a store or leaves alarms/workers → stale notifications or data after "erased" | P5 | P0 inventory is the checklist; each new store added later must be registered; test per store; fresh-launch test |
 | R2 | Undo races (late classifier, edit, completion, linked reminder alarm) → data loss or double filing | P3 | Reuse existing `decidedAt`/outcome guards; idempotent rollback; race tests with controlled dispatchers |
-| R3 | Appearance conversion crashes or loses settings on update / old backup restore | P1, P5 | P1 additive only; P5 conversion with one test per old value + unknown values; restore uses same function |
+| R3 | Appearance conversion crashes or loses settings on update or device transfer | P1, P5 | P1 additive only; P5 write-once DataStore migration composed with the existing read-time remaps, one test per old value + unknown values; old backups still restore (D-05) |
 | R4 | Search including kept thoughts creates duplicates or slows down | P2 | De-dup by capture→item link; measure with a large fixture |
 | R5 | Deep links/notification actions break when tabs change | P2 | Inventory-driven tests per entry point |
 | R6 | Glass performance / fallback detection wrong on real phones | P1 | Fallback unit tests; frame check is phone-only, marked pending |

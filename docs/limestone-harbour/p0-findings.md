@@ -49,7 +49,7 @@ Any store added in P1–P4 must be appended here.
 | ↳ `ai_suggestion_history`, `ai_correction_history` | same DB | AI history incl. raw text snippets | **No** (only 90-day pruning, `data/local/AiHistoryRetention.kt`). Deleting a capture nulls the history row's `captureId` but its `sourceTextSnippet` (the raw thought) survives Reset — pinned by `P0ResetScopeCharacterizationTest` |
 | ↳ `person_memory`, `project_memory` | same DB | learned names/projects | **No** |
 | ↳ `sqlite_sequence` | same DB | id counters | No — keep it: non-reused ids protect against stale alarms matching new reminders |
-| DataStore `orbit_settings` (`data/repository/AppSettingsRepository.kt:32`) | `files/datastore/` | all settings, receipt state (`last_receipt_capture_id`, `last_receipt_dismissed`), tutorial/tip flags, `has_asked_for_notifications` | **No** (`reset()` exists, never called) |
+| DataStore `orbit_settings` (`data/repository/AppSettingsRepository.kt:32`) | `files/datastore/` | all settings, receipt state (`last_receipt_capture_id`, `last_receipt_dismissed`), tutorial/tip flags, `has_asked_for_notifications` | **No**. `ui/LocalDataViewModel.kt:103` `resetSettings()` (discards the debounced overlay, then `reset()`) exists but has no callers — reuse it in P5 |
 | SharedPrefs `luma_secure_ai` + Keystore alias `luma_gemini_api_key` (`security/GeminiApiKeyStore.kt`) | `shared_prefs/`, AndroidKeyStore | Gemini key (AES-GCM ciphertext + IV) | **No**; `deleteKey()` also leaves the Keystore alias |
 | SharedPrefs `tallele_archived_task_status` | `shared_prefs/` | pre-archive task status | Yes |
 | SharedPrefs `tallele_local_data_tools` (`data/local/LastExportMemory.kt`) | `shared_prefs/` | last export time | **No** |
@@ -63,7 +63,7 @@ Any store added in P1–P4 must be appended here.
 | Missed-summary notification (id `0x4C554D41`, `ReminderNotifier.kt:217`) | system | notification | **No** |
 | Notification channel `luma_reminders` | system | channel | No — keep |
 | In-memory: `CaptureInbox.inFlight` + events, AutoFiler listener, undo controllers, `ui/DebouncedSettingsWriter.kt` pending overlay, background bitmap cache, Home draft in `SavedStateHandle` | process | transient state | **No** — a pending debounced settings write could rewrite settings after an erase |
-| Cloud backup / device transfer (`res/xml/data_extraction_rules.xml`) | — | cloud excluded; device transfer includes DB, settings, prefs except `luma_secure_ai` | n/a |
+| Cloud backup / device transfer (`res/xml/data_extraction_rules.xml` on API 31+; `res/xml/full_backup_rules.xml` on API 26–30 excludes everything) | — | cloud excluded; API 31+ device transfer includes DB, settings, prefs except `luma_secure_ai` | n/a |
 
 Not present (proposal assumed them): backup/periodic WorkManager jobs. Starter Spaces: seeded by `seedStarterSpacesSilently` (`ui/screens/tutorial/TutorialSpaceSetupViewModel.kt:146`) from `LaunchedEffect(Unit)` in `OrbitApp.kt:137-141` when the tutorial flag is unset and no Spaces exist — after a full erase it would re-seed only on the next activity creation (decision D-08).
 
