@@ -57,7 +57,7 @@ Not covered by tests (by design or tooling): the Gemini key store (no AndroidKey
 | Command | Result |
 |---|---|
 | `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.orbit.app.limestone.*'` (test writer) | **PASS** — 9 tests, 0 failures |
-| `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug` (lead, whole suite with the new tests) | P0_FULL_RESULT |
+| `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug` (lead, whole suite with the new tests) | **PASS** — 146 suites, 735 tests (726 baseline + 9 new), 0 failures, 0 errors, 2 skipped (same opt-in tours); lint 0 errors, 48 warnings, 1 hint (unchanged). 2 m 27 s, warm cache. |
 
 ## Manual checks on a phone (owner)
 
