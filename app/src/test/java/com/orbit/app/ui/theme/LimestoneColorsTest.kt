@@ -160,6 +160,28 @@ class LimestoneColorsTest {
         }
     }
 
+    @Test
+    fun `text text-2 ink and error read on ink-soft for every accent`() {
+        allCombos.forEach { (dark, accent) ->
+            val c = talleleColors(dark, accent)
+            assertText("dark=$dark $accent text on ink-soft", c.text, c.inkSoft)
+            assertText("dark=$dark $accent text-2 on ink-soft", c.text2, c.inkSoft)
+            assertText("dark=$dark $accent ink on ink-soft", c.ink, c.inkSoft)
+            assertText("dark=$dark $accent error on ink-soft", c.error, c.inkSoft)
+        }
+    }
+
+    @Test
+    fun `success reads on sheet and well and error and ochre read on well`() {
+        listOf(false, true).forEach { dark ->
+            val c = talleleColors(dark, AppAccent.Ink)
+            assertText("dark=$dark success on sheet", c.success, c.sheet)
+            assertText("dark=$dark success on well", c.success, c.well)
+            assertText("dark=$dark error on well", c.error, c.well)
+            assertText("dark=$dark ochre on well", c.ochre, c.well)
+        }
+    }
+
     // ---- contrast: non-text UI ----
 
     @Test
@@ -170,6 +192,31 @@ class LimestoneColorsTest {
             assertText("dark=$dark outline on surface", c.outline, c.surface, UiContrastMinimum)
             assertText("dark=$dark outline on sheet", c.outline, c.sheet, UiContrastMinimum)
         }
+    }
+
+    /**
+     * KNOWN VALUE, recorded as decision D-29: the light outline on a `well` (search field, input) is
+     * about 2.90:1, just under the 3:1 non-text target. The edge is not the only cue (the well is a
+     * filled field and focus adds the 2 dp ink ring), but the number is pinned here so a change is
+     * deliberate. Outline against the page, surface and sheet stays at or above 3:1.
+     */
+    @Test
+    fun `outline on well is a documented value below 3 to 1 in light while page and surface stay at 3 to 1`() {
+        listOf(false, true).forEach { dark ->
+            val c = talleleColors(dark, AppAccent.Ink)
+            assertText("dark=$dark outline on page", c.outline, c.page, UiContrastMinimum)
+            assertText("dark=$dark outline on surface", c.outline, c.surface, UiContrastMinimum)
+        }
+        val light = talleleColors(false, AppAccent.Ink)
+        val lightOnWell = readabilityRatio(light.outline, light.well)
+        assertEquals("light outline on well (D-29)", 2.90f, lightOnWell, 0.02f)
+        assertTrue("it is documented as below 3:1", lightOnWell < UiContrastMinimum)
+        val dark = talleleColors(true, AppAccent.Ink)
+        // The dark pair is recorded too, so a change to either is noticed.
+        assertTrue(
+            "dark outline on well stays at least 2.5:1 (is ${readabilityRatio(dark.outline, dark.well)})",
+            readabilityRatio(dark.outline, dark.well) >= 2.5f,
+        )
     }
 
     @Test

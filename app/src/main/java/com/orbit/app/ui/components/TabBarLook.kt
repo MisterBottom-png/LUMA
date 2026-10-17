@@ -2,6 +2,7 @@ package com.orbit.app.ui.components
 
 import android.os.Build
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -65,6 +66,9 @@ fun resolveTabBarLook(
 /**
  * The look the tab bar uses right now: the person's choice from their settings, reduced by
  * [resolveTabBarLook] for this phone, this moment and this route.
+ *
+ * This registers a battery-saver receiver and a lifecycle observer, so [OrbitBackground] calls it
+ * once and shares the answer through [LocalTabBarLook]. Everything else uses [currentTabBarLook].
  */
 @Composable
 internal fun rememberTabBarLook(): TabBarStyle = resolveTabBarLook(
@@ -77,15 +81,28 @@ internal fun rememberTabBarLook(): TabBarStyle = resolveTabBarLook(
 )
 
 /**
+ * The one resolved tab bar look for the whole app, provided by [OrbitBackground] so the blur source,
+ * the page source and the bar itself always agree in the same frame. Null outside [OrbitBackground]
+ * (previews, tests); [currentTabBarLook] then computes it locally.
+ */
+internal val LocalTabBarLook = compositionLocalOf<TabBarStyle?> { null }
+
+/** The shared look from [OrbitBackground], or a locally computed one where there is no provider. */
+@Composable
+internal fun currentTabBarLook(): TabBarStyle = LocalTabBarLook.current ?: rememberTabBarLook()
+
+/**
  * Marks the content the tab bar should blur (the screen area behind the bar, not the bar itself).
  * It records nothing unless the bar really is Glass right now, so Frosted, Solid, battery saver and
- * reduced motion pay no capture cost. Apply it to the container that holds the screens and sits
- * behind the tab bar. It is drawn above the page source in [OrbitBackground] (decision D-27).
+ * reduced motion pay no capture cost. Pass `enabled = false` while the bar is hidden so the screens
+ * are not recorded for nothing. Apply it to the container that holds the screens and sits behind the
+ * tab bar. It is drawn above the page source in [OrbitBackground] (decision D-27).
  */
 @Composable
-fun Modifier.tabBarBlurSource(): Modifier {
+fun Modifier.tabBarBlurSource(enabled: Boolean = true): Modifier {
     val hazeState = LocalOrbitHazeState.current ?: return this
-    return if (rememberTabBarLook() == TabBarStyle.Glass) {
+    val look = currentTabBarLook()
+    return if (enabled && look == TabBarStyle.Glass) {
         hazeSource(hazeState, zIndex = TabBarContentSourceZIndex)
     } else {
         this

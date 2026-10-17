@@ -109,9 +109,9 @@ class GlassRolePolicyTest {
             tabBarSource.indexOf(".hazeSource(") > previewStart,
         )
         val shellUses = mainKotlinSources()
-            .sumOf { Regex("""(?<!fun Modifier)\.tabBarBlurSource\(\)""").findAll(stripComments(it.readText())).count() }
+            .sumOf { Regex("""(?<!fun Modifier)\.tabBarBlurSource\(""").findAll(stripComments(it.readText())).count() }
         assertEquals(1, shellUses)
-        val shellFile = mainKotlinSources().single { Regex("""(?<!fun Modifier)\.tabBarBlurSource\(\)""").containsMatchIn(stripComments(it.readText())) }
+        val shellFile = mainKotlinSources().single { Regex("""(?<!fun Modifier)\.tabBarBlurSource\(""").containsMatchIn(stripComments(it.readText())) }
         assertEquals("OrbitApp.kt", shellFile.name)
     }
 

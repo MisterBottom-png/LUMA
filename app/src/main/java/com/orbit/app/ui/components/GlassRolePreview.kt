@@ -1,5 +1,6 @@
 package com.orbit.app.ui.components
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,8 +31,9 @@ import dev.chrisbanes.haze.rememberHazeState
 
 /**
  * A bounded preview of the two tab bar surfaces, on the old Appearance screen only (removed in P5).
- * "Live" is the Glass tab bar surface over a blur source that never leaves this box; "soft" is the
- * Frosted one. They are the real tab bar surface, not a copy.
+ * "Live" is the Glass tab bar surface over a blur source that never leaves this box, lowered to
+ * Frosted where this phone cannot blur; "soft" is the Frosted one. They are the real tab bar
+ * surface, not a copy. The bands behind are neutral tokens (never ochre, which is a signal colour).
  */
 @Composable
 fun GlassRolePreview(
@@ -40,6 +42,16 @@ fun GlassRolePreview(
 ) {
     val previewHazeState = rememberHazeState()
     val colors = TalleleTheme.colors
+    // The sample shows the look this phone would really get: Frosted where Glass cannot blur
+    // (older Android, battery saver, "Remove animations").
+    val liveLook = resolveTabBarLook(
+        chosen = TabBarStyle.Glass,
+        platformApi = Build.VERSION.SDK_INT,
+        batterySaver = rememberBatterySaver(),
+        animationsRemoved = rememberReducedMotion(),
+        hasHazeSource = true,
+        routeAllowsLive = true,
+    )
     CompositionLocalProvider(
         LocalOrbitHazeState provides previewHazeState,
         LocalGlassRenderingPolicy provides GlassRenderingPolicy.LiveAllowed,
@@ -52,7 +64,7 @@ fun GlassRolePreview(
                     .hazeSource(previewHazeState)
                     .background(colors.page),
             ) {
-                listOf(colors.inkSoft, colors.ochreSoft, colors.well, colors.inkSoft).forEach { band ->
+                listOf(colors.inkSoft, colors.well, colors.text3, colors.hairline).forEach { band ->
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -75,7 +87,7 @@ fun GlassRolePreview(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     TabBarSurface(
-                        look = TabBarStyle.Glass,
+                        look = liveLook,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("glass-preview-live"),

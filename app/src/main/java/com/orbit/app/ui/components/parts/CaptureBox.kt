@@ -20,8 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.orbit.app.ui.theme.TalleleDimens
 import com.orbit.app.ui.theme.TalleleShapes
@@ -33,8 +31,9 @@ import com.orbit.app.ui.theme.TalleleTheme
  *
  * - [minLines] (default 4) is the resting height; the box grows with the text and with the font
  *   scale, and never clips. Scrolling for very long text is the owner's call.
- * - [label] is the TalkBack name of the field (for example "New thought"); [placeholder] is shown in
- *   text-3 while the field is empty.
+ * - [label] (for example "New thought") is shown above the words in text-2 and is announced by
+ *   TalkBack together with them; it never replaces them. [placeholder] is shown in text-3 while the
+ *   field is empty.
  * - [contextSlot] sits above the text (for example a removable date chip). [trailing] sits at the
  *   start of the action row (Voice) and [actions] at the end (Keep). The row wraps at large sizes.
  * - Focus shows a 2 dp ink ring; unfocused the edge is the outline token.
@@ -81,20 +80,28 @@ fun CaptureBox(
                 textStyle = typography.captureText.copy(color = colors.text),
                 cursorBrush = SolidColor(colors.ink),
                 interactionSource = interactionSource,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (label != null) Modifier.semantics { contentDescription = label } else Modifier,
-                    ),
+                modifier = Modifier.fillMaxWidth(),
                 decorationBox = { inner ->
-                    Box(Modifier.fillMaxWidth()) {
-                        if (value.isEmpty()) {
+                    // The label lives inside the field's own decoration, so TalkBack announces it
+                    // together with the typed words. It is not a contentDescription, which would
+                    // replace the typed words.
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (label != null) {
                             Text(
-                                text = placeholder,
-                                style = typography.captureText.copy(color = colors.text3),
+                                text = label,
+                                style = typography.metadata,
+                                color = colors.text2,
                             )
                         }
-                        inner()
+                        Box(Modifier.fillMaxWidth()) {
+                            if (value.isEmpty()) {
+                                Text(
+                                    text = placeholder,
+                                    style = typography.captureText.copy(color = colors.text3),
+                                )
+                            }
+                            inner()
+                        }
                     }
                 },
             )

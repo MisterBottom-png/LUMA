@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -126,6 +127,43 @@ class PartsJvmTest {
     }
 
     @Test
+    fun captureBox_exposesTheTypedWordsAsTheFieldText_andShowsTheLabelWithoutAContentDescription() {
+        rule.setContent {
+            PartsHost {
+                var text by remember { mutableStateOf("") }
+                CaptureBox(
+                    value = text,
+                    onValueChange = { text = it },
+                    placeholder = "A thought, a plan",
+                    label = "New thought",
+                )
+            }
+        }
+        rule.onNode(hasSetTextAction()).performTextInput(EstonianSample)
+        val field = rule.onNode(hasSetTextAction())
+        field.assert(SemanticsMatcher("typed words are the EditableText") {
+            it.config.getOrNull(SemanticsProperties.EditableText)?.text == EstonianSample
+        })
+        // A contentDescription would be read by TalkBack instead of the typed words.
+        field.assert(SemanticsMatcher("no content description on the field") {
+            it.config.getOrNull(SemanticsProperties.ContentDescription) == null
+        })
+        rule.onNodeWithText("New thought", useUnmergedTree = true).assertExists().assertTextFullyShown()
+        // The label sits in the field's own subtree, so the merged field announces it with the words.
+        field.assert(SemanticsMatcher("the label is part of the field's announcement") {
+            it.config.getOrNull(SemanticsProperties.Text)?.any { text -> text.text == "New thought" } == true
+        })
+    }
+
+    @Test
+    fun captureBox_withoutALabelShowsNoLabel() {
+        rule.setContent {
+            PartsHost { CaptureBox(value = "", onValueChange = {}, placeholder = "A thought") }
+        }
+        rule.onAllNodesWithText("New thought", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
     fun captureBox_isLabelledForTalkBack_andGrowsWithFontScale() {
         var scale by mutableStateOf(1f)
         rule.setContent {
@@ -133,7 +171,7 @@ class PartsJvmTest {
                 CaptureBox(value = "", onValueChange = {}, placeholder = "A thought", label = "New thought")
             }
         }
-        rule.onNodeWithContentDescription("New thought").assertExists()
+        rule.onNodeWithText("New thought", useUnmergedTree = true).assertExists()
         val heightAt1x = rule.onNode(hasSetTextAction()).fetchSemanticsNode().size.height
         scale = 2f
         rule.waitForIdle()

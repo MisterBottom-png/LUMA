@@ -26,6 +26,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
  *
  * The setting is read again every time the app comes to the front (proposal section 6.5), so
  * changing it in system settings and returning takes effect without restarting the app.
+ *
+ * [OrbitBackground] reads it once and shares it through [LocalReducedMotionOverride], so inside the
+ * app shell every caller reads that one value and registers no observer of its own.
  */
 @Composable
 fun rememberReducedMotion(): Boolean {
@@ -33,7 +36,14 @@ fun rememberReducedMotion(): Boolean {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var reduced by remember(context) { mutableStateOf(isReducedMotion(context)) }
-    DisposableEffect(context, lifecycleOwner) {
+    val hasOverride = override != null
+    DisposableEffect(context, lifecycleOwner, hasOverride) {
+        // With an override (tests, previews, or the shared value from OrbitBackground) the answer is
+        // already decided, so no observer is registered.
+        if (hasOverride) {
+            return@DisposableEffect onDispose {}
+        }
+        reduced = isReducedMotion(context)
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 reduced = isReducedMotion(context)

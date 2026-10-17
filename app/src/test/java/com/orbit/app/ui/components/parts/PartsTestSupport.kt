@@ -18,8 +18,10 @@ import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.model.SettingsThemeMode
 import com.orbit.app.ui.components.LocalReducedMotionOverride
 import com.orbit.app.ui.theme.OrbitTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 
 /** Samples in the app's other languages. Generic words only. */
 internal const val EstonianSample = "Ära unusta homme hommikul piima osta"
@@ -51,6 +53,35 @@ internal fun SemanticsNodeInteraction.assertTextNotClipped(): SemanticsNodeInter
     action!!.invoke(results)
     assertFalse("no layout result", results.isEmpty())
     results.forEach { assertFalse("text has visual overflow (${it.size}, lines ${it.lineCount})", it.hasVisualOverflow) }
+    return this
+}
+
+/**
+ * Asserts every character of a (usually short) text is laid out and visible: no line limit cut it, no
+ * line is ellipsized, no line is taller than its box and none is wider than the node.
+ *
+ * [assertTextNotClipped] reads `hasVisualOverflow`, which also reports true for a short label whose
+ * node is narrower than the width it was measured against; this check looks at what is really cut.
+ */
+internal fun SemanticsNodeInteraction.assertTextFullyShown(): SemanticsNodeInteraction {
+    val node = fetchSemanticsNode()
+    val results = mutableListOf<TextLayoutResult>()
+    val action = node.config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action
+    assertNotNull("node has no text layout result", action)
+    action!!.invoke(results)
+    assertFalse("no layout result", results.isEmpty())
+    results.forEach { result ->
+        val paragraph = result.multiParagraph
+        val label = "(${result.size}, lines ${result.lineCount})"
+        assertFalse("text exceeded its line limit $label", paragraph.didExceedMaxLines)
+        assertTrue("text is cut in height $label", paragraph.height <= result.size.height)
+        val lastLine = result.lineCount - 1
+        assertEquals("not every character is laid out $label", result.layoutInput.text.length, result.getLineEnd(lastLine, visibleEnd = false))
+        for (line in 0..lastLine) {
+            assertFalse("line $line is ellipsized $label", result.isLineEllipsized(line))
+            assertTrue("line $line runs past the node $label", result.getLineRight(line) - result.getLineLeft(line) <= result.size.width + 1f)
+        }
+    }
     return this
 }
 

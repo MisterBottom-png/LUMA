@@ -41,6 +41,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -51,13 +52,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
@@ -116,17 +118,34 @@ data class TalleleTab(
  * lowered to Frosted where the phone, battery saver, "Remove animations" or the route do not allow
  * blur (see [resolveTabBarLook]).
  *
- * The bar grows in height with the font size; tab labels may use two lines and never need to
- * shrink. Every tab is at least 48 dp square. It keeps clear of the system bars.
+ * The bar grows in height with the font size. A label wraps onto as many lines as it needs (inside a
+ * word only when the word alone is wider than the tab) and is never cut, shrunk or ellipsized.
+ * Every tab is at least 48 dp square. It keeps clear of the system bars. The bar writes its real
+ * height to [LocalTabBarHeight] so screens can clear it at any text size.
  */
 @Composable
 fun TalleleTabBar(
     tabs: List<TalleleTab>,
     modifier: Modifier = Modifier,
-    look: TabBarStyle = rememberTabBarLook(),
+    look: TabBarStyle = currentTabBarLook(),
 ) {
+    // Read once here and passed down, so no tab registers its own lifecycle observer.
+    val reducedMotion = rememberReducedMotion()
+    val heightHolder = LocalTabBarHeight.current
+    val density = LocalDensity.current
+    if (heightHolder != null) {
+        DisposableEffect(heightHolder) {
+            // The bar leaves the screen: nothing needs clearing any more.
+            onDispose { heightHolder.height = 0.dp }
+        }
+    }
     Box(
         modifier = modifier
+            .onSizeChanged { size ->
+                if (heightHolder != null) {
+                    heightHolder.height = with(density) { size.height.toDp() }
+                }
+            }
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
             .padding(horizontal = OrbitBottomNavigationDefaults.HorizontalPadding)
@@ -151,6 +170,7 @@ fun TalleleTabBar(
                 tabs.forEach { tab ->
                     TalleleTabItem(
                         tab = tab,
+                        reducedMotion = reducedMotion,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight(),
@@ -223,10 +243,10 @@ fun <T> talleleTabFadeSpec(reducedMotion: Boolean): FiniteAnimationSpec<T> =
 @Composable
 private fun TalleleTabItem(
     tab: TalleleTab,
+    reducedMotion: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = TalleleTheme.colors
-    val reducedMotion = rememberReducedMotion()
     val fade = talleleTabFadeSpec<Color>(reducedMotion)
     val interactionSource = remember { MutableInteractionSource() }
     // Selected: ink-soft pill, on-ink-soft icon and label. Unselected: text-2, no pill. Transparent
@@ -282,8 +302,7 @@ private fun TalleleTabItem(
             modifier = Modifier.padding(top = 2.dp),
             style = TalleleTheme.typography.tabLabel,
             color = contentColor,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            // No line limit and no ellipsis: at 200 % text the label wraps and the bar grows.
             textAlign = TextAlign.Center,
         )
     }

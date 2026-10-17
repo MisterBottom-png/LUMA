@@ -206,8 +206,9 @@ fun OrbitApp(
                     .fillMaxSize()
                     .align(Alignment.TopCenter)
                     // What the glass tab bar shows through (only while it really is Glass; D-27).
-                    // The bar is a sibling below, never inside this source.
-                    .tabBarBlurSource(),
+                    // The bar is a sibling below, never inside this source. Nothing is recorded while
+                    // the bar is hidden.
+                    .tabBarBlurSource(enabled = showBottomNavigation),
                 enterTransition = { orbitEnterTransition() },
                 exitTransition = { orbitExitTransition() },
                 popEnterTransition = { orbitPopEnterTransition() },

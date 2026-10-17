@@ -1,6 +1,16 @@
 package com.orbit.app.ui.components
 
 import androidx.annotation.StringRes
+import android.content.res.Configuration.UI_MODE_NIGHT_YES
+import com.orbit.app.domain.model.AppSettings
+import com.orbit.app.ui.theme.OrbitTheme
+import com.orbit.app.ui.theme.TalleleDimens
+import com.orbit.app.ui.theme.TalleleShapes
+import com.orbit.app.ui.theme.TalleleTheme
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,8 +29,6 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -31,14 +39,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.orbit.app.R
 import com.orbit.app.ui.navigation.ItemDetailType
-import com.orbit.app.ui.theme.OrbitSpacing
 
+/**
+ * A source row (proposal section 10.3): one thing a suggestion came from, as a tappable card. Solid
+ * `surface` with an `outline` edge, the person's words in the list voice, the type (and date) in
+ * `text-2` under it. The type is always in words, never only an icon or colour. At least 48 dp tall,
+ * wraps and grows with the font size; nothing is cut off.
+ */
 @Composable
 fun SourceRow(
     title: String,
@@ -47,6 +58,8 @@ fun SourceRow(
     modifier: Modifier = Modifier,
     dateTimeText: String? = null,
 ) {
+    val colors = TalleleTheme.colors
+    val typography = TalleleTheme.typography
     val typeLabel = stringResource(itemType.displayLabelRes())
     val untitledLabel = stringResource(itemType.untitledLabelRes())
     val visibleTitle = sourceRowVisibleTitle(title, untitledLabel)
@@ -68,9 +81,9 @@ fun SourceRow(
     }
     val openLabel = stringResource(R.string.core_open_item_type, typeLabel)
     val interactionSource = remember { MutableInteractionSource() }
-    val shape = MaterialTheme.shapes.large
+    val shape = TalleleShapes.Card
 
-    Surface(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .semantics(mergeDescendants = true) {
@@ -80,61 +93,55 @@ fun SourceRow(
                 interactionSource = interactionSource,
                 clipShape = shape,
             )
+            .clip(shape)
+            .background(colors.surface, shape)
+            .border(1.dp, colors.outline, shape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
                 role = Role.Button,
                 onClickLabel = openLabel,
                 onClick = onClick,
-            ),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = OrbitSpacing.Medium),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = itemType.sourceIcon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp),
             )
-            Spacer(Modifier.width(OrbitSpacing.Medium))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(OrbitSpacing.ExtraSmall),
-            ) {
-                Text(
-                    text = visibleTitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = buildString {
-                        append(typeLabel)
-                        visibleDateTime?.let {
-                            append(metadataSeparator)
-                            append(it)
-                        }
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+            .heightIn(min = TalleleDimens.MinTouchTarget)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = itemType.sourceIcon,
+            contentDescription = null,
+            tint = colors.ink,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = visibleTitle,
+                style = typography.listWords,
+                color = colors.text,
+            )
+            Text(
+                text = buildString {
+                    append(typeLabel)
+                    visibleDateTime?.let {
+                        append(metadataSeparator)
+                        append(it)
+                    }
+                },
+                style = typography.metadata,
+                color = colors.text2,
             )
         }
+        Spacer(Modifier.width(10.dp))
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+            contentDescription = null,
+            tint = colors.text2,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -165,12 +172,20 @@ private val ItemDetailType.sourceIcon: ImageVector
         ItemDetailType.Capture -> Icons.Rounded.EditNote
     }
 
-@Preview(showBackground = true, widthDp = 360)
+@Preview(name = "Light 1x", widthDp = 360, fontScale = 1f)
+@Preview(name = "Dark 1x", widthDp = 360, fontScale = 1f, uiMode = UI_MODE_NIGHT_YES)
+@Preview(name = "Light 2x", widthDp = 360, fontScale = 2f)
+@Preview(name = "Dark 2x", widthDp = 360, fontScale = 2f, uiMode = UI_MODE_NIGHT_YES)
+private annotation class SourceRowPreviews
+
+@SourceRowPreviews
 @Composable
 private fun SourceRowPreview() {
-    MaterialTheme {
+    OrbitTheme(AppSettings()) {
         Column(
-            modifier = Modifier.padding(OrbitSpacing.Large),
+            modifier = Modifier
+                .background(TalleleTheme.colors.page)
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             SourceRow(
