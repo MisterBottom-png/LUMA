@@ -18,11 +18,28 @@ Source: `main` at `f2662dd9c7efad43cf657325beb30e6be167b6f7` (the 43a1642 tree t
 
 ### Local results
 
-BASELINE_RESULTS_PLACEHOLDER
+Run from the repository root with `ANDROID_HOME=/root/android-sdk`, first build (cold Gradle cache), 2026-10-17 10:29–10:42 UTC.
+
+| Command | Result | Detail |
+|---|---|---|
+| `./gradlew --no-daemon :app:testDebugUnitTest` | **PASS** | 142 suites, 726 tests, 0 failures, 0 errors, 2 skipped (`ScreenTourDarkTest.tour`, `ScreenTourLightTest.tour` — opt-in screen renders that run only when `LUMA_SCREENS_DIR` is set, as in `screens.yml`). 8 m 14 s. |
+| `./gradlew --no-daemon :app:lintDebug :app:assembleDebug` | **PASS** | Lint: 0 errors, 48 warnings, 1 hint. Debug APK `app-debug.apk` 23,871,126 bytes (size baseline for P1/P6). 4 m 53 s. |
+| `python3 scripts/codex/check_workplace_privacy.py --strict` | **PASS** | heuristic; semantic review of changed text done by the lead |
+| `python3 scripts/codex/check_locale_resource_parity.py` | **PASS** | |
+| `python3 scripts/codex/validate_luma_agent_stack.py` | **PASS** | unchanged by the new `.claude/agents/` files |
+| Instrumentation (`connectedDebugAndroidTest`) | **NOT RUN** locally | no emulator in the cloud VM; runs in CI's API 36 emulator job |
 
 ### CI results
 
-CI_RESULTS_PLACEHOLDER
+Push of `f2662dd` to `main` (GitHub Actions):
+
+| Workflow / job | Run | Result |
+|---|---|---|
+| Android verification / verify (unit tests, lintDebug, assembleDebug, APK upload) | [run 39024798647](https://github.com/MisterBottom-png/LUMA/actions/runs/39024798647) | **PASS**; artifact `luma-debug-apk-164` (22,644,561 bytes zipped) |
+| Android release verification / Fast release gates (clean debug+release unit tests, lintRelease, assembleDebugAndroidTest, assembleRelease, bundleRelease, release verifier, privacy) | [run 39024798643](https://github.com/MisterBottom-png/LUMA/actions/runs/39024798643) | **PASS** |
+| Android release verification / API 36 emulator verification | same run | In progress when P0 was written; see the PR's checks for the P0 branch run |
+
+The local environment and CI agree: the baseline source builds and tests green. There is no build blocker.
 
 ## P0 characterization tests
 
