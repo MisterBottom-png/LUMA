@@ -35,13 +35,13 @@ Push of `f2662dd` to `main` (GitHub Actions):
 
 | Workflow / job | Run | Result |
 |---|---|---|
-| Android verification / verify (unit tests, lintDebug, assembleDebug, APK upload) | [run 39024798647](https://github.com/MisterBottom-png/LUMA/actions/runs/39024798647) | **PASS**; artifact `luma-debug-apk-164` (22,644,561 bytes zipped) |
-| Android release verification / Fast release gates (clean debug+release unit tests, lintRelease, assembleDebugAndroidTest, assembleRelease, bundleRelease, release verifier, privacy) | [run 39024798643](https://github.com/MisterBottom-png/LUMA/actions/runs/39024798643) | **PASS** |
+| Android verification / verify (unit tests, lintDebug, assembleDebug, APK upload) | Actions run 39024798647 | **PASS**; artifact `luma-debug-apk-164` (22,644,561 bytes zipped) |
+| Android release verification / Fast release gates (clean debug+release unit tests, lintRelease, assembleDebugAndroidTest, assembleRelease, bundleRelease, release verifier, privacy) | Actions run 39024798643 | **PASS** |
 | Android release verification / API 36 emulator verification (instrumentation tests on an emulator) | same run | **PASS** (23 min) |
 
 The local environment and CI agree: the baseline source builds and tests green. There is no build blocker.
 
-P0 branch on PR [#14](https://github.com/MisterBottom-png/LUMA/pull/14): at `6986901`, verify, Fast release gates and Screens render **PASS**; the emulator job's result is on the PR's checks for the final head. One earlier run (verify on `74faaa3`, docs-only) failed after 24 s while Gradle downloaded `gson-2.10.1.jar` from Maven Central, before any compile or test; the same configuration passed on `main`, locally and on every later commit, so it was a transient download failure, not a source problem.
+P0 branch on PR #14: at `cb514d3`, verify, Fast release gates, Screens render and the API 36 emulator verification (instrumentation tests, Actions run 39028458098) all **PASS**. One earlier run (verify on `74faaa3`, docs-only) failed after 24 s while Gradle downloaded `gson-2.10.1.jar` from Maven Central, before any compile or test; the same configuration passed on `main`, locally and on every later commit, so it was a transient download failure, not a source problem.
 
 ## P0 characterization tests
 

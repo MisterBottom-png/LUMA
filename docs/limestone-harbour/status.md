@@ -4,7 +4,7 @@ Read this first in every session. Then `implementation-plan.md`, the proposal se
 
 | Phase | State | Branch | Commit | PR | Tests | Next task |
 |---|---|---|---|---|---|---|
-| P0 Evidence, constraints, baseline | Verified (awaiting owner review) | `ccr-bc6d0795-mkakke` | head of PR #14 (content complete at the "QA review fixes" commit) | [#14](https://github.com/MisterBottom-png/LUMA/pull/14) | Local: 735 JVM tests PASS, lint 0 errors, debug build PASS; CI on `main` PASS; 9 P0 characterization tests | Review and merge #14; answer the **Owner** items in `decisions.md` (D-06, D-08, D-09, D-13) when their phase comes |
+| P0 Evidence, constraints, baseline | Verified (awaiting owner review) | `ccr-bc6d0795-mkakke` | head of PR #14 (content complete at the "QA review fixes" commit) | #14 | Local: 735 JVM tests PASS, lint 0 errors, debug build PASS; CI on `main` and on the PR head PASS (incl. API 36 emulator); 9 P0 characterization tests | Review and merge #14; answer the **Owner** items in `decisions.md` (D-06, D-08, D-09, D-13) when their phase comes |
 | P1 Visual foundation | Not started | — | — | — | — | Start after P0 is merged |
 | P2 Navigation and finding | Not started | — | — | — | — | — |
 | P3 Capture and trust | Not started | — | — | — | — | — |
