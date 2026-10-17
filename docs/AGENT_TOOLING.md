@@ -22,6 +22,15 @@ There is one repository skill tree: `.agents/skills/`. Do not create a `.codex/s
 
 Hermes does not turn `.codex/agents/*.toml` into Hermes agents and does not use `.codex/config.toml` as Hermes configuration.
 
+## Claude Code layer
+
+| Location | Purpose |
+|---|---|
+| `CLAUDE.md` | Short evergreen rules and commands for Claude Code sessions; points back to `AGENTS.md` |
+| `.claude/agents/tallele-*.md` | Bounded subagent definitions for the Tallele Limestone Harbour redesign (two read-only, three scoped writers) |
+
+These are Claude Code runtime definitions only. They do not replace `.agents/skills/` playbooks or `.codex/agents/` reviewers. The redesign's plan and progress live in `docs/limestone-harbour/`.
+
 ## Hermes-only layer
 
 Hermes agents are durable profiles stored outside the repository under the active Hermes home directory. On this workstation the LUMA role profiles are:
@@ -66,6 +75,7 @@ The Codex reviewer TOML files do not replace the Hermes reviewer profiles, and t
 portable project policy       -> AGENTS.md
 version-controlled playbooks  -> .agents/skills/
 Codex runtime configuration   -> .codex/
+Claude Code runtime config    -> CLAUDE.md, .claude/agents/
 Hermes runtime configuration  -> active Hermes profile outside the repository
 product and evidence records  -> docs/
 ```
