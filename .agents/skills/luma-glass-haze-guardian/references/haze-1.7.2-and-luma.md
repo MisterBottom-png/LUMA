@@ -19,9 +19,9 @@ For LUMA:
 
 ```text
 OrbitBackground
-  complete rendered preset/custom background -> hazeSource(shared state)
-  route content
-  bounded LiveGlassSurface -> hazeEffect(shared state)
+  plain page colour            -> hazeSource(shared state, zIndex 0)   only while the bar is Glass
+  NavHost container            -> tabBarBlurSource() (zIndex 1)        only while the bar is Glass (D-27)
+  TalleleTabBar (sibling)      -> hazeEffect(shared state)             the only effect in the app
 ```
 
 Keep the effect surface transparent apart from the shared Haze tint, border, and shadow. Preserve modifier order where clipping and overlapping source/effect nodes are involved.
@@ -80,7 +80,7 @@ Validate Settings, Spaces, Review, Search, bottom navigation, and app-owned shee
 
 Flag as must-fix:
 
-- a route or lazy list becoming a Haze source;
+- a lazy list or individual route becoming a Haze source (the shell NavHost behind the tab bar, D-27, is the one exception);
 - live blur on repeated or scrolling surfaces;
 - glass without a readable fallback or content contrast;
 - multiple independent app-shell states/sources;

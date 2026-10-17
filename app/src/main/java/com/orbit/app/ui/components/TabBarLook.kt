@@ -80,10 +80,17 @@ internal fun rememberTabBarLook(): TabBarStyle = resolveTabBarLook(
  * Marks the content the tab bar should blur (the screen area behind the bar, not the bar itself).
  * It records nothing unless the bar really is Glass right now, so Frosted, Solid, battery saver and
  * reduced motion pay no capture cost. Apply it to the container that holds the screens and sits
- * behind the tab bar.
+ * behind the tab bar. It is drawn above the page source in [OrbitBackground] (decision D-27).
  */
 @Composable
 fun Modifier.tabBarBlurSource(): Modifier {
     val hazeState = LocalOrbitHazeState.current ?: return this
-    return if (rememberTabBarLook() == TabBarStyle.Glass) hazeSource(hazeState) else this
+    return if (rememberTabBarLook() == TabBarStyle.Glass) {
+        hazeSource(hazeState, zIndex = TabBarContentSourceZIndex)
+    } else {
+        this
+    }
 }
+
+/** Screens sit above the page colour (zIndex 0) in what the glass tab bar blurs. */
+internal const val TabBarContentSourceZIndex = 1f

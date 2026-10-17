@@ -35,18 +35,17 @@ Prefer SoftGlass unless the surface clearly qualifies for LiveGlass.
 
 1. Inspect the current material role, call sites, shell source, rendering policy, settings inputs, and focused tests.
 2. Establish whether the task is review-only, a focused fix, a new surface, or an explicitly approved version migration.
-3. Preserve one stable app-shell `HazeState` and one background-only source containing the complete rendered background.
+3. Preserve one stable app-shell `HazeState`. Limestone Harbour (D-24, D-27): the only effect is the tab bar; its sources are the page colour (zIndex 0) and the NavHost container (zIndex 1, via `tabBarBlurSource()`), recorded only while the bar resolves to Glass.
 4. Reuse shared roles and recipes in `GlassSurface.kt`; do not create route-local blur/tint/noise constants.
-5. Keep lazy, scrolling, repeated, resizing, and full-screen route content off live backdrop blur.
-6. Derive custom-background glass from the bitmap actually rendered, not merely a requested URI.
+5. Never put live blur on lazy, scrolling, repeated, resizing or full-screen content; only the tab bar blurs.
+6. There is no custom-photo background any more (owner decision); built-in Capture backgrounds carry a fixed wash.
 7. Add focused policy or calculation tests, then run compile/lint and relevant visual/performance checks.
 8. Review the affected theme, background, strength, API fallback, scrolling, and modal matrix.
 
 ## Architecture boundaries
 
-- Never make route content, a lazy list, a scrolling card, or a full-screen route a Haze source.
+- Never make a lazy list, a scrolling card or an individual route a Haze source. The one exception is the shell's NavHost container behind the tab bar (`tabBarBlurSource()`, D-27), gated on the bar being Glass; its cost is measured on a phone before release.
 - Select `GlassRenderingPolicy` from route/platform/effects policy, not ordinary scroll state.
-- Keep user-image background blur bounded and cached; do not replace it with per-frame interface blur.
 - Preserve readable content color, stable shapes, touch targets, semantics, insets, and Back behavior.
 
 ## Verification

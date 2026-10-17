@@ -52,6 +52,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.orbit.app.ui.components.FloatingBottomNavigation
+import com.orbit.app.ui.components.tabBarBlurSource
 import com.orbit.app.ui.components.GlassRenderingPolicy
 import com.orbit.app.ui.components.OrbitBackground
 import com.orbit.app.ui.screens.calendar.CalendarScreen
@@ -203,7 +204,10 @@ fun OrbitApp(
                 modifier = Modifier
                     .widthIn(max = contentMaxWidth)
                     .fillMaxSize()
-                    .align(Alignment.TopCenter),
+                    .align(Alignment.TopCenter)
+                    // What the glass tab bar shows through (only while it really is Glass; D-27).
+                    // The bar is a sibling below, never inside this source.
+                    .tabBarBlurSource(),
                 enterTransition = { orbitEnterTransition() },
                 exitTransition = { orbitExitTransition() },
                 popEnterTransition = { orbitPopEnterTransition() },

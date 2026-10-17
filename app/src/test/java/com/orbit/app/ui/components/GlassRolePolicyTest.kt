@@ -85,6 +85,36 @@ class GlassRolePolicyTest {
         assertEquals(listOf("TalleleTabBar.kt"), users)
     }
 
+    /**
+     * D-27: what the bar blurs is the page (OrbitBackground) and the shell's NavHost container
+     * (tabBarBlurSource, applied once in OrbitApp). No list, card or route may become a source.
+     */
+    @Test
+    fun hazeSourcesAreOnlyThePageAndTheShellContainer() {
+        val sourceFiles = mainKotlinSources()
+            .filter { Regex("""\.hazeSource\(|\bhazeSource\(hazeState""").containsMatchIn(stripComments(it.readText())) }
+            .map { it.name }
+            .sorted()
+        // GlassRolePreview (old Appearance screen) and TalleleTabBar's @Preview frame own bounded,
+        // local preview states; everything in the running app goes through the two shell sources.
+        assertEquals(
+            listOf("GlassRolePreview.kt", "OrbitBackground.kt", "TabBarLook.kt", "TalleleTabBar.kt"),
+            sourceFiles,
+        )
+        val tabBarSource = mainKotlinSources().single { it.name == "TalleleTabBar.kt" }.readText()
+        val previewStart = tabBarSource.indexOf("private fun TabBarPreviewFrame")
+        assertTrue("TalleleTabBar.kt keeps its haze source inside the preview frame", previewStart >= 0)
+        assertTrue(
+            "TalleleTabBar.kt may only use hazeSource inside TabBarPreviewFrame",
+            tabBarSource.indexOf(".hazeSource(") > previewStart,
+        )
+        val shellUses = mainKotlinSources()
+            .sumOf { Regex("""\.tabBarBlurSource\(\)""").findAll(stripComments(it.readText())).count() }
+        assertEquals(1, shellUses)
+        val shellFile = mainKotlinSources().single { Regex("""\.tabBarBlurSource\(\)""").containsMatchIn(stripComments(it.readText())) }
+        assertEquals("OrbitApp.kt", shellFile.name)
+    }
+
     @Test
     fun noOtherFileInTheAppDrawsAHazeEffect() {
         val offenders = mainKotlinSources()
