@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -13,7 +13,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -21,38 +20,47 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.orbit.app.domain.model.AppSettings
 import com.orbit.app.domain.model.SettingsThemeMode
+import com.orbit.app.domain.model.TabBarStyle
 import com.orbit.app.R
 import com.orbit.app.ui.theme.OrbitShapes
 import com.orbit.app.ui.theme.OrbitTheme
+import com.orbit.app.ui.theme.TalleleTheme
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 
-/** A bounded production-component preview; its Haze source never leaves this box. */
+/**
+ * A bounded preview of the two tab bar surfaces, on the old Appearance screen only (removed in P5).
+ * "Live" is the Glass tab bar surface over a blur source that never leaves this box; "soft" is the
+ * Frosted one. They are the real tab bar surface, not a copy.
+ */
 @Composable
 fun GlassRolePreview(
     modifier: Modifier = Modifier,
     title: String = "Glass roles",
 ) {
     val previewHazeState = rememberHazeState()
+    val colors = TalleleTheme.colors
     CompositionLocalProvider(
         LocalOrbitHazeState provides previewHazeState,
         LocalGlassRenderingPolicy provides GlassRenderingPolicy.LiveAllowed,
     ) {
         Box(modifier = modifier) {
-            Box(
+            // Flat colour bands behind the samples, so the blur has something to blur.
+            Row(
                 modifier = Modifier
                     .matchParentSize()
                     .hazeSource(previewHazeState)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primaryContainer,
-                                MaterialTheme.colorScheme.secondaryContainer,
-                                MaterialTheme.colorScheme.background,
-                            ),
-                        ),
-                    ),
-            )
+                    .background(colors.page),
+            ) {
+                listOf(colors.inkSoft, colors.ochreSoft, colors.well, colors.inkSoft).forEach { band ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .background(band),
+                    )
+                }
+            }
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -66,21 +74,21 @@ fun GlassRolePreview(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    LiveGlassSurface(
+                    TabBarSurface(
+                        look = TabBarStyle.Glass,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("glass-preview-live"),
                         shape = OrbitShapes.Standard,
-                        style = GlassSurfaceStyle.Subtle,
                     ) {
                         PreviewLabel(stringResource(R.string.settings_live_glass), Modifier.padding(14.dp))
                     }
-                    SoftGlassSurface(
+                    TabBarSurface(
+                        look = TabBarStyle.Frosted,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("glass-preview-soft"),
                         shape = OrbitShapes.Standard,
-                        style = GlassSurfaceStyle.Subtle,
                     ) {
                         PreviewLabel(stringResource(R.string.settings_soft_glass), Modifier.padding(14.dp))
                     }

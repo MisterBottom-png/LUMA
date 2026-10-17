@@ -1,5 +1,6 @@
 package com.orbit.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
@@ -18,14 +19,13 @@ import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.orbit.app.ui.theme.TalleleTheme
 
 /**
- * The app's pop-up menu: rounded, solid, softly lifted, and grouped with a small gap
+ * The app's pop-up menu: rounded, solid (the `sheet` token, never see-through), softly lifted, and grouped with a small gap
  * ([LumaMenuGap]) instead of a hairline. Every item should carry an icon that names
  * the action (a pencil for Edit), not the thing it acts on.
  */
@@ -43,9 +43,10 @@ fun LumaMenu(
         modifier = modifier.widthIn(min = 208.dp),
         offset = offset,
         shape = LumaMenuShape,
-        containerColor = lumaMenuContainerColor(),
+        containerColor = TalleleTheme.colors.sheet,
         tonalElevation = 0.dp,
         shadowElevation = 10.dp,
+        border = BorderStroke(1.dp, TalleleTheme.colors.hairline),
         content = content,
     )
 }
@@ -60,7 +61,7 @@ fun LumaMenuItem(
     trailingIcon: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
 ) {
-    val colors = MaterialTheme.colorScheme
+    val colors = TalleleTheme.colors
     DropdownMenuItem(
         text = {
             ProvideTextStyle(MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 20.sp)) {
@@ -76,9 +77,9 @@ fun LumaMenuItem(
         trailingIcon = trailingIcon,
         enabled = enabled,
         colors = MenuDefaults.itemColors(
-            textColor = colors.onSurface,
-            leadingIconColor = colors.onSurfaceVariant,
-            trailingIconColor = colors.onSurfaceVariant,
+            textColor = colors.text,
+            leadingIconColor = colors.text2,
+            trailingIconColor = colors.text2,
         ),
         contentPadding = PaddingValues(horizontal = 12.dp),
     )
@@ -92,20 +93,8 @@ fun LumaMenuGap() {
             .padding(vertical = 6.dp)
             .fillMaxWidth()
             .height(6.dp)
-            .background(lumaMenuGapColor()),
+            .background(TalleleTheme.colors.well),
     )
 }
 
 internal val LumaMenuShape = RoundedCornerShape(20.dp)
-
-@Composable
-private fun lumaMenuContainerColor(): Color {
-    val colors = MaterialTheme.colorScheme
-    return if (colors.background.luminance() < 0.5f) colors.surfaceContainerHigh else colors.surfaceContainerLowest
-}
-
-@Composable
-private fun lumaMenuGapColor(): Color {
-    val colors = MaterialTheme.colorScheme
-    return if (colors.background.luminance() < 0.5f) colors.surfaceContainerLow else colors.surfaceContainer
-}

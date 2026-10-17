@@ -1,50 +1,12 @@
 package com.orbit.app.ui.components
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
-import com.orbit.app.R
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.orbit.app.R
 import com.orbit.app.ui.navigation.OrbitDestination
-import com.orbit.app.ui.theme.OrbitMotion
 
 object OrbitBottomNavigationDefaults {
     val ContainerHeight: Dp = 92.dp
@@ -66,9 +28,9 @@ object OrbitBottomNavigationDefaults {
 }
 
 /**
- * Home · Spaces · Calendar · Review, each with a visible label. The bar is live glass:
- * blurred where Android and the Glass setting allow it, near-solid otherwise, so content
- * scrolling behind it never mixes with the icons.
+ * Home · Spaces · Calendar · Review, each with a visible label, drawn by [TalleleTabBar]. The bar is
+ * the app's only glass: blurred where Android, battery saver, "Remove animations" and the Tab bar
+ * setting allow it, Frosted or Solid otherwise.
  */
 @Composable
 fun FloatingBottomNavigation(
@@ -78,119 +40,17 @@ fun FloatingBottomNavigation(
     /** Tabs that show a small dot: only when something failed there, never as a count. */
     alertDestinations: Set<OrbitDestination> = emptySet(),
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
-            .padding(horizontal = OrbitBottomNavigationDefaults.HorizontalPadding)
-            .padding(bottom = OrbitBottomNavigationDefaults.BottomPadding),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        LiveGlassSurface(
-            modifier = Modifier
-                .widthIn(max = OrbitBottomNavigationDefaults.MaxBarWidth)
-                .fillMaxWidth()
-                .heightIn(min = OrbitBottomNavigationDefaults.BarMinHeight),
-            shape = RoundedCornerShape(30.dp),
-            style = GlassSurfaceStyle.NavigationBar,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                OrbitDestination.bottomBar.forEach { destination ->
-                    NavTab(
-                        destination = destination,
-                        selected = isBottomBarDestinationSelected(selectedRoute, destination),
-                        alert = destination in alertDestinations,
-                        onClick = { onDestinationSelected(destination) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun NavTab(
-    destination: OrbitDestination,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    alert: Boolean = false,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val contentColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.onPrimaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        animationSpec = tween(OrbitMotion.StandardDurationMillis),
-        label = "Bottom navigation content",
-    )
-    val pillColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-        animationSpec = tween(OrbitMotion.StandardDurationMillis),
-        label = "Bottom navigation pill",
-    )
-    val label = stringResource(destination.contentDescriptionRes)
     val alertDescription = stringResource(R.string.needs_you_attention)
-    Column(
-        modifier = modifier
-            .semantics { if (alert) stateDescription = alertDescription }
-            .heightIn(min = 56.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .selectable(
-                selected = selected,
-                onClick = onClick,
-                role = Role.Tab,
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-            )
-            .orbitPressFeedback(interactionSource = interactionSource, clipShape = RoundedCornerShape(20.dp))
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 52.dp, height = 30.dp)
-                .background(pillColor, RoundedCornerShape(15.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = destination.icon,
-                // The visible label below already names the tab for TalkBack.
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(22.dp),
-            )
-            if (alert) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 3.dp, end = 10.dp)
-                        .size(8.dp)
-                        .background(MaterialTheme.colorScheme.error, CircleShape),
-                )
-            }
-        }
-        Text(
-            text = label,
-            modifier = Modifier.padding(top = 2.dp),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
+    val tabs = OrbitDestination.bottomBar.map { destination ->
+        TalleleTab(
+            label = stringResource(destination.contentDescriptionRes),
+            icon = destination.icon,
+            selected = isBottomBarDestinationSelected(selectedRoute, destination),
+            onClick = { onDestinationSelected(destination) },
+            badge = if (destination in alertDestinations) TalleleTabBadge.Dot(alertDescription) else null,
         )
     }
+    TalleleTabBar(tabs = tabs, modifier = modifier)
 }
 
 /** A Space's own page ("spaces/…") still belongs to the Spaces tab. */
