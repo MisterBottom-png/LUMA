@@ -17,6 +17,8 @@ Room schema: version 11 (explicit migrations 1→11)
 Local export format: version 7; decoder accepts versions 1 through 7
 ```
 
+Active redesign (from 2026-10-17): Tallele Limestone Harbour, one phase per PR. Plan, status, decisions and evidence: `../limestone-harbour/status.md`. P0 records current behavior only; no app behavior changed.
+
 The current working tree contains the application, tests, Room schemas, canonical documentation, project skills, and reviewer configuration described below. Do not infer current behavior from the baseline commit without the working-tree changes.
 
 ## Integration branch (2026-10-09)
