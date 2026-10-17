@@ -61,6 +61,44 @@ Not covered by tests (by design or tooling): the Gemini key store (no AndroidKey
 | `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.orbit.app.limestone.*'` (test writer) | **PASS** — 9 tests, 0 failures |
 | `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug` (lead, whole suite with the new tests) | **PASS** — 146 suites, 735 tests (726 baseline + 9 new), 0 failures, 0 errors, 2 skipped (same opt-in tours); lint 0 errors, 48 warnings, 1 hint (unchanged). 2 m 27 s, warm cache. |
 
+## P1 visual foundation (2026-10-17)
+
+Branch `ccr-f940f7dc-udg2hj`, from `main` at `d4c24cc` (P0 merged). Same environment as P0 (SDK reinstalled per session to `/root/android-sdk`).
+
+### Local results (lead, on the committed head `e610815`)
+
+| Command | Result | Detail |
+|---|---|---|
+| `./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug` | **PASS** | 158 suites, 837 tests (735 after P0, net +102 in P1), 0 failures, 0 errors, 2 skipped (the same opt-in `ScreenTourDarkTest.tour` / `ScreenTourLightTest.tour`). Lint: 0 errors, 48 warnings, 1 hint (unchanged from baseline; none in P1 files). |
+| `./gradlew --no-daemon clean :app:assembleDebug` (for size) | **PASS** | `app-debug.apk` **25,247,348 bytes** vs P0 baseline 23,871,126: **+1,376,222 bytes (+5.8 %)**. Inside: fonts 665,340 B (Google Sans Flex 282,632 B removed, net +382,708 B), backgrounds 965,842 B. An incremental (non-clean) build measured 26,362,081 B; the clean figure is the comparable one. |
+| `python3 scripts/codex/check_workplace_privacy.py --strict` | **PASS** | heuristic; semantic review of changed text done by the lead |
+| `python3 scripts/codex/check_locale_resource_parity.py` | **PASS** | no strings added in P1 (D-25) |
+| `python3 -I scripts/limestone/verify_fonts.py …` | **PASS** | Estonian and Russian alphabets, tnum/kern/liga/locl, weights; see `p1-assets.md` |
+| `python3 -I scripts/limestone/measure_background_contrast.py app/src/main/res/drawable-nodpi scripts/limestone/background_contrast_results.json` | **PASS** | shipped washes (D-23); every text-2 and accent ≥ 4.5, main text ≥ 10.05; table in `p1-assets.md` §5 |
+| Instrumentation (`connectedDebugAndroidTest`) | **NOT RUN** locally | no emulator in the cloud VM; runs in CI's API 36 emulator job on the PR |
+
+Intermediate runs during the phase (agents and lead) are in their reports; the only failures were in new tests during development (fixed) and one Robolectric artifact download on a first run (passed on rerun once the jar was cached).
+
+### What the P1 tests prove
+
+| Area | Tests | Proves |
+|---|---|---|
+| Appearance model | `domain/model/LimestoneAppearanceTest` (8) | §7.17 conversion for every old accent, glass effect, background preset (with and without own photo) and theme; dropped settings do not change the result; defaults map to defaults |
+| Colour tokens | `ui/theme/LimestoneColorsTest` | exact §6.1 / §7.17 values; every text/background pair in both themes and all four accents ≥ 4.5 (UI edges ≥ 3); Material role mapping (no ochre in any role, flat surfaces); outline on well documented at 2.90 (D-29) |
+| Type, shapes, motion | `TalleleTypographyTest`, `DesignTokensTest` | Literata vs Noto Sans per §6.2 role, sizes/weights, tabular times, Russian uses the same family; §6.3 corners, §6.5 durations, 20/16 dp margins |
+| Tab bar fallback | `TabBarLookTest` (10) | Glass only on API ≥ 33 with battery saver off, animations on, a blur source and a live route; otherwise Frosted; Solid/Frosted stay as chosen |
+| Glass only on the bar | `GlassRolePolicyTest`, `SolidSurfaceJvmTest`, `GlassContrastTest` | `hazeEffect` only in `TalleleTabBar.kt`; Haze sources only the page and the shell NavHost (D-27); every other surface opaque; taps never pass through; tab labels ≥ 4.5 in Glass/Frosted/Solid, both themes, all accents (Glass 5.19/5.34, Frosted 6.39/7.27, Solid 7.16/8.41 for Ink) |
+| Lifecycle | `ReducedMotionJvmTest` | Remove animations re-read on resume; battery-saver broadcast turns the fallback on and off |
+| Tab bar a11y | `TalleleTabBarJvmTest`, `TalleleTabBarLongLabelsJvmTest` | Role.Tab + selected state, ≥ 48 dp, badge announced; the real EN/ET/RU labels at 200 % text in 320 and 360 dp are fully shown (a mutation back to ellipsis fails 4 of 7 cases); measured bar height published (D-28) |
+| Backgrounds | `CaptureBackgroundTest` (6) | wash table (D-23), distinct light/dark resources, None draws nothing, light/dark selection |
+| Shared parts | `parts/PartsJvmTest`, `KeepMarkGeometryTest`, `SourceRowJvmTest` | every §10.3 part (except `TalleleTabBar`, above) rendered at 200 % in 320 dp: text shown, ≥ 48 dp targets, semantics (radio, heading, live region), KeepButton blocks taps while busy, ReminderStatus keeps Due/Notify/Repeat separate, CaptureBox exposes typed text to TalkBack |
+
+Previews at 100 % and 200 % text, light and dark, exist for every shared part (`parts/PartsPreviews.kt`, `SourceRow.kt`, `TalleleTabBar.kt`, `CaptureBackground.kt`). They were not rendered to images in the cloud VM (**NOT RUN**).
+
+### CI
+
+Draft PR #15. CI results are recorded here once its workflows finish; at hand-off they had not finished (**NOT RUN** yet from this session's point of view).
+
 ## Manual checks on a phone (owner)
 
 Every item is `NEEDS OWNER PHONE VERIFICATION`. Run in light and dark, and in English, Estonian and Russian where text is involved. Install the debug APK from the CI run's `luma-debug-apk-*` artifact.
@@ -99,11 +137,15 @@ Every item is `NEEDS OWNER PHONE VERIFICATION`. Run in light and dark, and in En
 - [ ] Needs you badge counts only To decide; TalkBack reads "Needs you, N to decide".
 
 ### Glass and look (after P1)
-- [ ] Android 13+: tab bar is Glass; with battery saver or "Remove animations" it becomes Frosted; on Android 12 or older it is Frosted.
-- [ ] Tab labels readable over the darkest content in Glass, Frosted and Solid.
-- [ ] Lists, cards, sheets and dialogs are never see-through.
-- [ ] Each built-in background, light and dark, looks like the source image (no banding, no blur, no stretching) and text on Capture is readable.
-- [ ] Scrolling under the glass tab bar stays smooth on a mid-range phone.
+- [ ] Android 13+: tab bar is Glass (content shows through, blurred); with battery saver or "Remove animations" it becomes Frosted (re-check after switching either while the app is in the background); on Android 12 or older it is Frosted.
+- [ ] Tab labels readable over the darkest content in Glass, Frosted and Solid (Settings → Appearance → Glass effect: Strong = Glass, Soft = Frosted, Off = Solid until P5).
+- [ ] Lists, cards, sheets, dialogs and menus are never see-through; no gradient or photo shows behind screens.
+- [ ] Light and dark: page, cards and text look like warm paper and blue-black ink; no lavender flash when the app opens in dark mode.
+- [ ] Accent choices map to Ink / Harbour / Moss / Plum (Ink & Paper or Amber → Ink, Ocean → Harbour, Sage → Moss, Violet or Rose → Plum).
+- [ ] English, Estonian and Russian: app text in Noto Sans, no missing letters (õ ä ö ü š ž, ё); Russian looks like English.
+- [ ] Largest font size: tab labels wrap instead of being cut off; note any screen whose last row hides under the taller bar (expected until P2, D-28).
+- [ ] Scrolling under the glass tab bar stays smooth on a mid-range phone (D-27; if not, report it).
+- [ ] Built-in backgrounds (after P3 places them on Capture): each, light and dark, looks like the source (no banding, blur or stretching) and Capture text is readable.
 
 ### Data (after P5)
 - [ ] After updating from the current version, appearance converts without a crash and items/Spaces/reminders are intact.

@@ -1,92 +1,48 @@
 package com.orbit.app.ui.components
 
-import androidx.compose.ui.graphics.Color
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * Decisions D-22 and D-26: the app background is the plain page colour. The own-photo loader, the
+ * dimming overlay and the gradient presets are gone, so there is no custom-background contrast boost
+ * left to protect; the built-in images are checked in CaptureBackgroundTest. This test keeps them gone.
+ */
 class CustomBackgroundContrastTest {
-    @Test
-    fun lightModeUsesStrongThemeTonalProtectionThroughHomeHeader() {
-        val tonalColor = Color(0xFFF7F3FB)
-
-        val style = customBackgroundContrastStyle(
-            isDark = false,
-            tonalColor = tonalColor,
-        )
-
-        assertEquals(tonalColor, style.tonalColor)
-        assertTrue(style.systemBarAlpha >= 0.90f)
-        assertTrue(style.headerAlpha >= 0.85f)
-        assertTrue(style.bodyAlpha >= 0.70f)
-        assertTrue(style.headerStop >= 0.55f)
+    private val source: String by lazy {
+        mainKotlinSources().first { it.name == "OrbitBackground.kt" }.readText()
+            .lines().joinToString("\n") { it.substringBefore("//") }
     }
 
     @Test
-    fun darkModeUsesStrongThemeTonalProtectionThroughHomeHeader() {
-        val tonalColor = Color(0xFF15121B)
-
-        val style = customBackgroundContrastStyle(
-            isDark = true,
-            tonalColor = tonalColor,
-        )
-
-        assertEquals(tonalColor, style.tonalColor)
-        assertTrue(style.systemBarAlpha >= 0.85f)
-        assertTrue(style.headerAlpha >= 0.80f)
-        assertTrue(style.bodyAlpha >= 0.65f)
-        assertTrue(style.headerStop >= 0.55f)
-    }
-
-    @Test
-    fun contrastProtectionRemainsLocalizedToTheTopOfTheImage() {
-        val style = customBackgroundContrastStyle(
-            isDark = false,
-            tonalColor = Color.White,
-        )
-
-        assertTrue(style.endHeightFraction in 0.30f..0.40f)
-        assertTrue(style.headerStop in 0f..1f)
-        assertTrue(style.headerAlpha <= style.systemBarAlpha)
-    }
-
-    @Test
-    fun customBackgroundStrengthensGlassWithoutHidingTheImage() {
-        val presetNavigationAlpha = glassTintAlpha(
-            style = GlassSurfaceStyle.Subtle,
-            isDark = true,
-            glassStrength = 0.72f,
-            hasCustomBackground = false,
-        )
-        val customNavigationAlpha = glassTintAlpha(
-            style = GlassSurfaceStyle.Subtle,
-            isDark = true,
-            glassStrength = 0.72f,
-            hasCustomBackground = true,
-        )
-        val customCaptureAlpha = glassTintAlpha(
-            style = GlassSurfaceStyle.Prominent,
-            isDark = false,
-            glassStrength = 0.72f,
-            hasCustomBackground = true,
-        )
-
-        assertTrue(customNavigationAlpha > presetNavigationAlpha)
-        assertTrue(customNavigationAlpha in 0.52f..0.55f)
-        assertTrue(customCaptureAlpha in 0.55f..0.60f)
-    }
-
-    @Test
-    fun customGlassTintRemainsTranslucent() {
-        GlassSurfaceStyle.entries.forEach { style ->
-            val alpha = glassTintAlpha(
-                style = style,
-                isDark = true,
-                glassStrength = 1f,
-                hasCustomBackground = true,
-            )
-
-            assertTrue(alpha <= 0.82f)
+    fun theAppBackgroundHasNoOwnPhotoLoading() {
+        listOf("BitmapFactory", "Bitmap", "customBackgroundUri", "contentResolver", "boxBlur", "asImageBitmap").forEach {
+            assertFalse("OrbitBackground.kt still uses $it", source.contains(it))
         }
+    }
+
+    @Test
+    fun theAppBackgroundHasNoGradientLightPoolOrDimming() {
+        listOf("Brush.", "verticalGradient", "radialGradient", "linearGradient", "backgroundDim", "BackgroundPreset")
+            .forEach { assertFalse("OrbitBackground.kt still uses $it", source.contains(it)) }
+    }
+
+    @Test
+    fun theAppBackgroundIsThePageColour() {
+        assertTrue(source.contains(".background(colors.page)"))
+    }
+
+    @Test
+    fun noAppSourceStillReadsTheRemovedBackgroundHelpers() {
+        val removed = listOf(
+            "customBackgroundContrastStyle", "LocalOrbitUsesCustomBackground", "backgroundPalette(",
+            "presetAccentPoolAlpha", "presetBloomAlpha", "processedBackgroundCache",
+        )
+        val offenders = mainKotlinSources().flatMap { file ->
+            val text = file.readText()
+            removed.filter { text.contains(it) }.map { "${file.name}: $it" }
+        }
+        assertTrue("Removed helpers still referenced: $offenders", offenders.isEmpty())
     }
 }

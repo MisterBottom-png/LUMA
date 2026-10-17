@@ -43,17 +43,17 @@ Do not run the whole checklist for tiny visual fixes. Use the affected sections.
 - Settings and Spaces internal pane transitions preserve Back behavior and scroll reachability.
 - Sheets, dialogs, keyboard transitions, and bottom-navigation visibility remain reachable and calm.
 - Android Remove animations or a zero animator duration scale produces immediate state changes.
-- Preset and custom backgrounds remain smooth while navigating and scrolling animated surfaces.
-- The app shell owns one stable background-only Haze source; route content and lazy lists are never Haze sources.
-- LiveGlass is confined to bounded fixed regions and resolves to SoftGlass under the route, platform, reduced-effects, or test policy chosen before rendering.
-- No route changes glass material in response to ordinary list scrolling.
+- Only the tab bar is glass (Limestone Harbour D-24); lists, cards, sheets, dialogs, menus and the capture box are solid. `GlassRolePolicyTest` guards that `hazeEffect` appears only in `TalleleTabBar.kt`.
+- The app shell owns one Haze state. Its sources are the page colour and the NavHost container (`tabBarBlurSource()`, D-27), recorded only while the bar resolves to Glass and is shown; no lazy list, card or individual route is a Haze source.
+- Glass resolves to Frosted on Android 12 and older, in battery saver, with Remove animations on, or on SoftOnly routes, before rendering; no route changes the tab bar look in response to ordinary list scrolling.
+- Scrolling under the Glass tab bar stays smooth on a mid-range phone (phone check).
 
 ## Home
 
 - Greeting/header displays correctly.
 - Main capture input remains visually centered and calm.
 - Bottom nav is aligned and tappable.
-- Bottom navigation uses subtle SoftGlass so low surface-opacity settings reveal the background without an opaque Haze backing layer.
+- Bottom navigation is the Limestone tab bar (Glass / Frosted / Solid); tab labels stay readable and are never cut off at 200 % text.
 - Mini calendar/week strip displays correctly if present.
 - The Home month and locale-aware week number share one baseline at opposite edges, 14 dp above the weekday names.
 - Swiping the Home week strip changes exactly one week, updates the month label and item dots, and leaves date selection unchanged.
@@ -134,7 +134,7 @@ Do not run the whole checklist for tiny visual fixes. Use the affected sections.
 
 - Spaces list loads.
 - Space detail opens.
-- Populated Spaces overview and Life Feed scroll smoothly in debug and release builds with preset and custom backgrounds, including maximum blur/glass settings.
+- Populated Spaces overview and Life Feed scroll smoothly in debug and release builds with the Glass tab bar on and off.
 - Space list partitions, item counts, date labels, and feed sorting update when source contents or time format change without being rebuilt inside lazy item composition.
 - Spaces overview and Life Feed retain stable lazy-list keys.
 - Items are grouped correctly if grouping exists.
@@ -175,7 +175,7 @@ Do not run the whole checklist for tiny visual fixes. Use the affected sections.
 - It summarizes/suggests without silently changing data.
 - User confirmation is required for important actions.
 - It handles no-data/empty states.
-- Opening from every available route uses the same app-owned scrim, modal shape, padding, insets, and SoftGlass surface without a route-owned Haze dependency.
+- Opening from every available route uses the same app-owned scrim, modal shape, padding, insets, and solid sheet surface without a route-owned Haze dependency.
 
 ## Ask LUMA
 
@@ -207,18 +207,12 @@ Do not run the whole checklist for tiny visual fixes. Use the affected sections.
 - Appearance subsections show one focused header, hide the Appearance menu and floating bottom navigation, and restore both the index and floating navigation after in-screen or Android Back.
 - Appearance color choices remain a balanced two-column layout with a visible checkmark, selected semantics, and a contrast-safe selected surface in light and dark themes.
 - Theme settings work.
-- Appearance accent and text color choices persist and update app-wide Material colors in light and dark mode.
-- Custom background image choose/remove works and presets remain available as fallback.
-- Choosing Custom hides preset tiles; choosing Preset clears the custom image and shows preset tiles again.
-- Preset-to-custom and custom-to-preset transitions update the rendered background and all glass surfaces atomically; no stale preset color remains inside glass.
-- Custom-background glass preserves readable contrast without masking the image's colors or becoming an opaque theme-colored surface.
-- Settings, Spaces, Review, Search, and glass sheets still scroll smoothly after background/glass changes.
+- Appearance accent choices persist and update app-wide colours in light and dark mode, mapped to the four Limestone accents (Ink, Harbour, Moss, Plum; §7.17).
+- Until P5 (D-22): the old background, photo, text-colour, second-colour, blur, dim and surface-opacity controls are still on screen but have no visible effect; the app background is plain page colour. Nothing they stored is deleted. P5 removes them and converts the stored values once.
+- Settings, Spaces, Review, Search and sheets still scroll smoothly after changing Theme, Accent or Glass effect.
 - Language/time-format settings work if present.
 - Changes persist if designed to persist.
-- Transparency shows a bounded production LiveGlass/SoftGlass preview beside its controls without enabling Haze across Settings.
-- Image blur is enabled only for user-selected images, spans a visibly useful cached range, retains the prior processed image while a new blur step is prepared, and reuses cached results while rendering.
-- Background dim visibly changes preset and custom backgrounds in light and dark themes without changing surface opacity.
-- Surface opacity produces a clear transparent-to-solid change across cards, fixed controls, and app-owned sheets while retaining readable content and translucency at both ends.
+- Transparency shows a bounded preview of the real tab bar surface without enabling Haze across Settings (old Appearance screen, until P5).
 - Reset appearance restores visual defaults without changing profile, time format, AI, or life-inbox data.
 - Profileable frame-timing benchmarks cover Spaces, Review, Settings, Situation AI, Home-to-Spaces navigation, and the Appearance preview before release acceptance.
 - Restore validates the complete export and shows replacement counts before confirmation.

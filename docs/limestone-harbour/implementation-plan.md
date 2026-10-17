@@ -75,11 +75,12 @@ Each phase: affected tests + `:app:testDebugUnitTest :app:lintDebug :app:assembl
 - [ ] Characterization tests added where safe. No UI redesign.
 
 ### P1 — Visual foundation
-- [ ] Light/dark tokens exactly as §6.1; four accents as §7.17; contrast unit test for every text/background pair in both themes (≥ 4.5:1 body, ≥ 3:1 large/UI).
-- [ ] Literata + Noto Sans bundled with OFL texts; Google Sans Flex removed only once nothing references it; APK size delta recorded.
-- [ ] `TalleleTabBar` Glass/Frosted/Solid with automatic fallback (API < 33, battery saver, animations off) unit-tested; nothing else blurs.
-- [ ] Ten WebP backgrounds from the supplied PNGs, underscore names, no upscaling, size measured; per-image wash table (§7.17) encoded and tested; light/dark selection tested.
-- [ ] Previews at 100% and 200% font scale for each shared part.
+_Done locally in P1 (evidence `verification.md` P1); phone checks pending. Washes changed by D-23; bar clearance carried to P2 (D-28)._
+- [x] Light/dark tokens exactly as §6.1; four accents as §7.17; contrast unit test for every text/background pair in both themes (≥ 4.5:1 body, ≥ 3:1 large/UI).
+- [x] Literata + Noto Sans bundled with OFL texts; Google Sans Flex removed only once nothing references it; APK size delta recorded.
+- [x] `TalleleTabBar` Glass/Frosted/Solid with automatic fallback (API < 33, battery saver, animations off) unit-tested; nothing else blurs.
+- [x] Ten WebP backgrounds from the supplied PNGs, underscore names, no upscaling, size measured; per-image wash table (§7.17) encoded and tested; light/dark selection tested.
+- [x] Previews at 100% and 200% font scale for each shared part.
 
 ### P2 — Navigation and finding
 - [ ] Three tabs; Calendar pushed; badge counts To decide only (test).

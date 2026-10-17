@@ -36,7 +36,7 @@ Keep one group focused on one job. If a group becomes difficult to scan, split i
 - Repeated spacing comes from `OrbitSpacing`; component-specific measurements may remain local when they have a distinct role.
 - Comparable surfaces use `OrbitShapes`; circles and pills remain explicit exceptions.
 - App colors come from `MaterialTheme.colorScheme` so appearance choices, light mode, and dark mode remain authoritative.
-- Repeated and scrolling content uses `SoftGlassSurface`. `LiveGlassSurface` remains limited by `LUMA_GLASS_SURFACE_SYSTEM.md`.
+- Content surfaces are solid; only the tab bar is glass (`LUMA_GLASS_SURFACE_SYSTEM.md`). New screens use the shared parts in `ui/components/parts/` and `TalleleTheme`.
 - Motion uses `OrbitMotion`, remains finite, and respects Android's animation accessibility setting.
 
 ## Settings addition rules

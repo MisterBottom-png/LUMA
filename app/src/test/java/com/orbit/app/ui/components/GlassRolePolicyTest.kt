@@ -1,323 +1,143 @@
 package com.orbit.app.ui.components
 
+import androidx.compose.ui.unit.dp
+import com.orbit.app.domain.model.AppAccent
+import com.orbit.app.ui.theme.talleleColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import com.orbit.app.domain.model.BackgroundBlur
-import com.orbit.app.domain.model.BackgroundDimmingMode
-import com.orbit.app.domain.model.GlassPreference
 
+/**
+ * Only the tab bar is glass (proposal sections 0 and 6.4, decisions D-03 and D-24). Every other
+ * surface is an opaque token colour; Haze's blur is used in the tab bar and nowhere else.
+ */
 class GlassRolePolicyTest {
-    @Test
-    fun liveGlassRequiresPolicyPlatformAndSource() {
-        assertTrue(
-            shouldRenderLiveGlass(
-                policy = GlassRenderingPolicy.LiveAllowed,
-                platformApi = 35,
-                hasHazeSource = true,
-                animationsRemoved = false,
-            ),
-        )
-        assertFalse(
-            shouldRenderLiveGlass(
-                policy = GlassRenderingPolicy.SoftOnly,
-                platformApi = 35,
-                hasHazeSource = true,
-                animationsRemoved = false,
-            ),
-        )
-        assertFalse(
-            shouldRenderLiveGlass(
-                policy = GlassRenderingPolicy.LiveAllowed,
-                platformApi = 30,
-                hasHazeSource = true,
-                animationsRemoved = false,
-            ),
-        )
-        assertFalse(
-            shouldRenderLiveGlass(
-                policy = GlassRenderingPolicy.LiveAllowed,
-                platformApi = 35,
-                hasHazeSource = false,
-                animationsRemoved = false,
-            ),
-        )
-    }
+    private val everyTheme = listOf(false, true)
 
     @Test
-    fun liveGlassNeedsAndroid13BecauseOnlyTheShaderPathIsWorthItsCost() {
-        listOf(31, 32).forEach { api ->
-            assertFalse(
-                "api=$api",
-                shouldRenderLiveGlass(
-                    policy = GlassRenderingPolicy.LiveAllowed,
-                    platformApi = api,
-                    hasHazeSource = true,
-                    animationsRemoved = false,
-                ),
-            )
+    fun everySurfaceStyleIsAnOpaqueTokenColourInEveryThemeAndAccent() {
+        everyTheme.forEach { isDark ->
+            AppAccent.entries.forEach { accent ->
+                val colors = talleleColors(isDark, accent)
+                GlassSurfaceStyle.entries.forEach { style ->
+                    val fill = solidSurfaceColorFor(style, colors)
+                    assertEquals("$style dark=$isDark $accent", 1f, fill.alpha)
+                    val expected = when (style) {
+                        GlassSurfaceStyle.Sheet -> colors.sheet
+                        GlassSurfaceStyle.NavigationAction -> colors.inkSoft
+                        else -> colors.surface
+                    }
+                    assertEquals("$style dark=$isDark $accent", expected, fill)
+                }
+            }
         }
-        assertTrue(
-            shouldRenderLiveGlass(
-                policy = GlassRenderingPolicy.LiveAllowed,
-                platformApi = 33,
-                hasHazeSource = true,
-                animationsRemoved = false,
-            ),
-        )
     }
 
     @Test
-    fun liveGlassStaysSoftWhenAnimationsAreRemoved() {
-        assertFalse(
-            shouldRenderLiveGlass(
-                policy = GlassRenderingPolicy.LiveAllowed,
-                platformApi = 35,
-                hasHazeSource = true,
-                animationsRemoved = true,
-            ),
-        )
-    }
-
-    @Test
-    fun onlyTheFloatingLayerMayDrawLiveBlur() {
-        assertEquals(
-            setOf(
+    fun cardsAndTheCaptureBoxUseSurfaceAndSheetsUseSheet() {
+        everyTheme.forEach { isDark ->
+            val colors = talleleColors(isDark, AppAccent.Ink)
+            listOf(
+                GlassSurfaceStyle.Standard,
                 GlassSurfaceStyle.Prominent,
+                GlassSurfaceStyle.Subtle,
                 GlassSurfaceStyle.HomeCapture,
-                GlassSurfaceStyle.NavigationBar,
-                GlassSurfaceStyle.Sheet,
-            ),
-            LiveGlassStyles,
-        )
-        // Cards, list rows and their small actions never blur what is behind them.
-        listOf(
-            GlassSurfaceStyle.Standard,
-            GlassSurfaceStyle.Subtle,
-            GlassSurfaceStyle.HomeNavigation,
-            GlassSurfaceStyle.NavigationAction,
-        ).forEach { style -> assertFalse("$style", style in LiveGlassStyles) }
+                GlassSurfaceStyle.HomeNavigation,
+            ).forEach { style -> assertEquals("$style", colors.surface, solidSurfaceColorFor(style, colors)) }
+            assertEquals(colors.sheet, solidSurfaceColorFor(GlassSurfaceStyle.Sheet, colors))
+            assertEquals(colors.inkSoft, solidSurfaceColorFor(GlassSurfaceStyle.NavigationAction, colors))
+        }
     }
 
     @Test
-    fun liveSheetsKeepAnOpaqueUnderlaySoTheListBehindNeverReadsThrough() {
-        assertTrue(liveGlassNeedsOpaqueUnderlay(GlassSurfaceStyle.Sheet))
-        listOf(GlassSurfaceStyle.HomeCapture, GlassSurfaceStyle.NavigationBar, GlassSurfaceStyle.Prominent)
-            .forEach { style -> assertFalse("$style", liveGlassNeedsOpaqueUnderlay(style)) }
-    }
-
-    @Test
-    fun navigationBarBlursEnoughThatTextBehindItReadsAsColour() {
-        listOf(false, true).forEach { isDark ->
-            assertEquals(20.dp, glassBlurRadius(GlassSurfaceStyle.NavigationBar, isDark))
-            listOf(false, true).forEach { custom ->
-                (GlassPreference.entries.map { it.legacyStrength } + listOf(0f, 1f)).forEach { strength ->
-                    val alpha = glassTintAlpha(
-                        style = GlassSurfaceStyle.NavigationBar,
-                        isDark = isDark,
-                        glassStrength = strength,
-                        hasCustomBackground = custom,
-                    )
-                    assertTrue("alpha=$alpha", alpha >= 0.55f)
-                }
+    fun contentColourIsMainTextExceptOnAnInkSoftAction() {
+        everyTheme.forEach { isDark ->
+            val colors = talleleColors(isDark, AppAccent.Ink)
+            GlassSurfaceStyle.entries.forEach { style ->
+                val expected = if (style == GlassSurfaceStyle.NavigationAction) colors.onInkSoft else colors.text
+                assertEquals("$style", expected, solidSurfaceContentColorFor(style, colors))
             }
         }
     }
 
     @Test
-    fun floatingLiveGlassHasAQuietTopEdge() {
-        listOf(
-            GlassSurfaceStyle.HomeCapture,
-            GlassSurfaceStyle.NavigationBar,
-            GlassSurfaceStyle.Sheet,
-        ).forEach { style ->
-            assertEquals(0.24f, liveGlassTopEdgeAlpha(style, isDark = false))
-            assertEquals(0.14f, liveGlassTopEdgeAlpha(style, isDark = true))
-        }
-        assertEquals(null, liveGlassTopEdgeAlpha(GlassSurfaceStyle.Prominent, isDark = false))
-        assertEquals(null, liveGlassTopEdgeAlpha(GlassSurfaceStyle.Standard, isDark = true))
-    }
-
-    @Test
-    fun backgroundBlurIsBoundedAndOnlyChangesAtCachedRadiusSteps() {
-        assertEquals(0, backgroundBlurRadius(BackgroundBlur.None))
-        assertEquals(8, backgroundBlurRadius(BackgroundBlur.Soft))
-        assertEquals(16, backgroundBlurRadius(BackgroundBlur.Medium))
-        assertEquals(24, backgroundBlurRadius(BackgroundBlur.Strong))
-    }
-
-    @Test
-    fun backgroundDimHasAVisibleBoundedRangeInBothThemes() {
-        assertEquals(0.1232f, backgroundDimAlpha(-1f, isDark = false))
-        assertEquals(0.1408f, backgroundDimAlpha(0f, isDark = true))
-        assertEquals(0f, backgroundDimAlpha(-1f, isDark = false, mode = BackgroundDimmingMode.Manual))
-        assertEquals(0.28f, backgroundDimAlpha(0.5f, isDark = false))
-        assertEquals(0.32f, backgroundDimAlpha(0.5f, isDark = true))
-        assertEquals(0.56f, backgroundDimAlpha(2f, isDark = false))
-        assertEquals(0.64f, backgroundDimAlpha(2f, isDark = true))
-    }
-
-    @Test
-    fun navigationBarStaysNearlySolidAtEveryGlassStrength() {
-        listOf(false, true).forEach { isDark ->
-            listOf(false, true).forEach { custom ->
-                listOf(0f, 0.5f, 1f).forEach { strength ->
-                    val alpha = softGlassContainerAlpha(
-                        style = GlassSurfaceStyle.NavigationBar,
-                        isDark = isDark,
-                        glassStrength = strength,
-                        hasCustomBackground = custom,
-                    )
-                    assertTrue("alpha=$alpha", alpha in 0.85f..0.96f)
-                }
-            }
+    fun onlySheetsAndDialogsFloat_contentStaysFlat() {
+        assertTrue(solidSurfaceElevationFor(GlassSurfaceStyle.Sheet) > 0.dp)
+        GlassSurfaceStyle.entries.filter { it != GlassSurfaceStyle.Sheet }.forEach { style ->
+            assertEquals("$style", 0.dp, solidSurfaceElevationFor(style))
         }
     }
 
     @Test
-    fun surfaceOpacityProducesAVisibleRangeWithoutBecomingOpaque() {
-        GlassSurfaceStyle.entries
-            .filterNot {
-                it == GlassSurfaceStyle.Sheet ||
-                    it == GlassSurfaceStyle.NavigationAction ||
-                    it == GlassSurfaceStyle.NavigationBar
-            }
-            .forEach { style ->
-            val transparent = softGlassContainerAlpha(
-                style = style,
-                isDark = false,
-                glassStrength = 0f,
-                hasCustomBackground = true,
-            )
-            val solid = softGlassContainerAlpha(
-                style = style,
-                isDark = false,
-                glassStrength = 1f,
-                hasCustomBackground = true,
-            )
-
-            assertTrue(solid - transparent >= 0.45f)
-            assertTrue(transparent >= 0.12f)
-            assertTrue(solid <= 0.85f)
-        }
-    }
-
-    @Test
-    fun sheetsAndDialogsStaySolidSoTheListBehindNeverReadsThrough() {
-        listOf(false, true).forEach { isDark ->
-            listOf(false, true).forEach { hasCustomBackground ->
-                listOf(0f, 0.5f, 1f).forEach { strength ->
-                    val alpha = softGlassContainerAlpha(
-                        style = GlassSurfaceStyle.Sheet,
-                        isDark = isDark,
-                        glassStrength = strength,
-                        hasCustomBackground = hasCustomBackground,
-                    )
-                    assertEquals(1f, alpha)
-                }
-            }
-        }
-    }
-
-    @Test
-    fun modalScrimSeparatesTheSheetFromRoutesInBothThemes() {
+    fun modalScrimStaysDarkerInTheDarkTheme() {
         assertEquals(0.32f, modalScrimAlpha(isDark = false))
         assertEquals(0.44f, modalScrimAlpha(isDark = true))
     }
 
     @Test
-    fun displayedThirtyPercentProducesActuallyTranslucentSharedSurfaces() {
-        val navigation = glassTintAlpha(
-            style = GlassSurfaceStyle.Standard,
-            isDark = false,
-            glassStrength = 0.30f,
-            hasCustomBackground = true,
-        )
-        val card = softGlassContainerAlpha(
-            style = GlassSurfaceStyle.Prominent,
-            isDark = false,
-            glassStrength = 0.30f,
-            hasCustomBackground = true,
-        )
+    fun hazeBlurIsOnlyUsedByTheTabBar() {
+        val users = mainKotlinSources()
+            .filter { it.readText().contains("hazeEffect(") }
+            .map { it.name }
+            .sorted()
+        // TabBarSurface is the only blur user; the Appearance preview reuses that same surface.
+        assertEquals(listOf("TalleleTabBar.kt"), users)
+    }
 
-        assertTrue(navigation in 0.27f..0.31f)
-        assertTrue(card in 0.33f..0.36f)
+    /**
+     * D-27: what the bar blurs is the page (OrbitBackground) and the shell's NavHost container
+     * (tabBarBlurSource, applied once in OrbitApp). No list, card or route may become a source.
+     */
+    @Test
+    fun hazeSourcesAreOnlyThePageAndTheShellContainer() {
+        val sourceFiles = mainKotlinSources()
+            .filter { Regex("""\.hazeSource\(|\bhazeSource\(hazeState""").containsMatchIn(stripComments(it.readText())) }
+            .map { it.name }
+            .sorted()
+        // GlassRolePreview (old Appearance screen) and TalleleTabBar's @Preview frame own bounded,
+        // local preview states; everything in the running app goes through the two shell sources.
+        assertEquals(
+            listOf("GlassRolePreview.kt", "OrbitBackground.kt", "TabBarLook.kt", "TalleleTabBar.kt"),
+            sourceFiles,
+        )
+        val tabBarSource = mainKotlinSources().single { it.name == "TalleleTabBar.kt" }.readText()
+        val previewStart = tabBarSource.indexOf("private fun TabBarPreviewFrame")
+        assertTrue("TalleleTabBar.kt keeps its haze source inside the preview frame", previewStart >= 0)
+        assertTrue(
+            "TalleleTabBar.kt may only use hazeSource inside TabBarPreviewFrame",
+            tabBarSource.indexOf(".hazeSource(") > previewStart,
+        )
+        val shellUses = mainKotlinSources()
+            .sumOf { Regex("""(?<!fun Modifier)\.tabBarBlurSource\(""").findAll(stripComments(it.readText())).count() }
+        assertEquals(1, shellUses)
+        val shellFile = mainKotlinSources().single { Regex("""(?<!fun Modifier)\.tabBarBlurSource\(""").containsMatchIn(stripComments(it.readText())) }
+        assertEquals("OrbitApp.kt", shellFile.name)
     }
 
     @Test
-    fun softSurfaceColorsApplyCalculatedOpacityInLightAndDarkThemes() {
-        val baseColor = Color(0xFF123456)
+    fun noOtherFileInTheAppDrawsAHazeEffect() {
+        val offenders = mainKotlinSources()
+            .filter { it.name != "TalleleTabBar.kt" }
+            .filter { Regex("""\bhazeEffect\b|\bhazeChild\b""").containsMatchIn(stripComments(it.readText())) }
+            .map { it.name }
+        assertTrue("Blur outside the tab bar: $offenders", offenders.isEmpty())
+    }
 
-        listOf(false, true).forEach { isDark ->
-            listOf(0f, 1f).forEach { strength ->
-                val expectedAlpha = softGlassContainerAlpha(
-                    style = GlassSurfaceStyle.Subtle,
-                    isDark = isDark,
-                    glassStrength = strength,
-                    hasCustomBackground = true,
-                )
-
-                assertEquals(
-                    expectedAlpha,
-                    baseColor.withAlpha(expectedAlpha).alpha,
-                    1f / 255f,
-                )
+    @Test
+    fun theSolidSurfaceFilesHaveNoGradientNoiseOrBlur() {
+        val files = listOf("GlassSurface.kt", "LumaMenu.kt", "LumaModal.kt", "OrbitBackground.kt")
+        val banned = listOf("Brush.", "noiseFactor", "HazeStyle", "blurRadius", "HazeTint", "RenderEffect", "Modifier.blur")
+        files.forEach { name ->
+            val source = stripComments(mainKotlinSources().first { it.name == name }.readText())
+            banned.forEach { token ->
+                assertFalse("$name uses $token", source.contains(token))
             }
         }
     }
 
-    @Test
-    fun navigationActionKeepsAStableOpaqueFillAcrossBackgroundSettings() {
-        listOf(false, true).forEach { isDark ->
-            listOf(0f, 1f).forEach { strength ->
-                listOf(false, true).forEach { hasCustomBackground ->
-                    assertEquals(
-                        if (isDark) 0.84f else 0.92f,
-                        softGlassContainerAlpha(
-                            style = GlassSurfaceStyle.NavigationAction,
-                            isDark = isDark,
-                            glassStrength = strength,
-                            hasCustomBackground = hasCustomBackground,
-                        ),
-                    )
-                }
-            }
-        }
-    }
-
-    @Test
-    fun homeCaptureRemainsMoreProminentThanHomeNavigationOnCustomBackgrounds() {
-        listOf(false, true).forEach { isDark ->
-            val navigationAlpha = softGlassContainerAlpha(
-                style = GlassSurfaceStyle.HomeNavigation,
-                isDark = isDark,
-                glassStrength = 0f,
-                hasCustomBackground = true,
-            )
-            val captureAlpha = softGlassContainerAlpha(
-                style = GlassSurfaceStyle.HomeCapture,
-                isDark = isDark,
-                glassStrength = 0f,
-                hasCustomBackground = true,
-            )
-
-            assertTrue(navigationAlpha >= 0.26f)
-            assertTrue(captureAlpha > navigationAlpha)
-        }
-    }
-
-    @Test
-    fun liveGlassAccentTintStaysRestrainedAcrossRolesAndThemes() {
-        GlassSurfaceStyle.entries.forEach { style ->
-            val lightAlpha = glassAccentTintAlpha(style = style, isDark = false)
-            val darkAlpha = glassAccentTintAlpha(style = style, isDark = true)
-
-            assertTrue(lightAlpha in 0.03f..0.05f)
-            assertTrue(darkAlpha in 0.04f..0.06f)
-            assertTrue(darkAlpha > lightAlpha)
-        }
-    }
+    private fun stripComments(source: String): String =
+        source.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+            .lines()
+            .joinToString("\n") { it.substringBefore("//") }
 }

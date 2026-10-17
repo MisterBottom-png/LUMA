@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -18,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.orbit.app.ui.theme.TalleleTheme
 
 /** App-owned modal composition with platform dismissal, focus, Back, and inset behavior intact. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,7 +35,7 @@ fun LumaModalBottomSheet(
         sheetState = sheetState,
         shape = OrbitModalDefaults.Shape,
         containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentColor = TalleleTheme.colors.text,
         dragHandle = null,
         scrimColor = orbitModalScrimColor(),
         tonalElevation = 0.dp,
@@ -48,7 +48,7 @@ fun LumaModalBottomSheet(
                         .align(Alignment.CenterHorizontally)
                         .padding(top = 10.dp)
                         .size(width = 36.dp, height = 4.dp)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f), CircleShape),
+                        .background(TalleleTheme.colors.outline, CircleShape),
                 )
                 content()
             }

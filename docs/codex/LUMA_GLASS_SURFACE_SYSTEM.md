@@ -1,51 +1,48 @@
-# LUMA glass surface system
+# Tallele glass surface system (Limestone Harbour)
 
-## Roles
+Owner decision (proposal v1.3 §0, §6.4): glass is used on **one** thing, the floating tab bar.
+Lists, cards, sheets, dialogs, menus, snackbars, editors and the capture box are always solid.
+This replaces the earlier role system (live glass on the capture box and sheets, soft glass on
+cards). Decisions: `docs/limestone-harbour/decisions.md` D-03, D-24.
 
-`LiveGlassSurface` is genuine Haze backdrop blur. It is reserved for small, fixed, high-value surfaces. It must not wrap repeated rows, full screens, scrolling containers, timelines, or continuously resizing content. It uses Haze automatic input scaling and has no progressive or animated blur.
+## Tab bar looks
 
-`SoftGlassSurface` is the default material. It uses the same tint, border, shadow, shape, and color family without backdrop blur. Cards, lists, panels, calendar content, details, and performance fallbacks use this role.
+| Tab bar setting | Look | When it is used |
+|---|---|---|
+| **Glass** (default) | `surface` colour at 84 % over live Haze blur | Android 13 or newer, animations on, not in battery saver, on a top-level route |
+| **Frosted** | `surface` colour at 94 %, no blur | Automatic fallback for Glass on Android 12 and older, in battery saver, with "Remove animations" on, or on a route that does not allow live blur; or when the person picks it |
+| **Solid** | `surface` colour at 100 % | When the person picks it |
 
-`ModalSurface` is a behavioral modal role built from SoftGlass. `LumaModalBottomSheet` owns the shared scrim, shape, elevation, and surface composition while Material 3 continues to own dismissal, focus, Back, and window-inset behavior. Sheets and dialogs are drawn without blur, so their surface is fully opaque: text behind a modal must never read through it.
+The person's choice is `LimestoneAppearance.tabBar` (`domain/model/LimestoneAppearance.kt`). Until
+P5 adds the new Appearance control it is derived from the old Glass effect setting
+(Strong → Glass, Soft → Frosted, Off → Solid). The runtime fallback is a pure function
+(`resolveTabBarLook`, unit-tested branch by branch). Battery saver is followed live; "Remove
+animations" is re-read every time the app comes to the front.
 
-## Route policy
+## Rules
 
-| Route or surface | LiveGlass | SoftGlass / ModalSurface |
-|---|---:|---:|
-| Top-level bottom navigation | Allowed when supported | Required fallback |
-| Home capture | No | Yes |
-| Calendar header, timeline, event cards | No | Yes |
-| Spaces, Review, Settings content and Search | No | Yes |
-| Repeated rows and cards | Never | Yes |
-| Item Details and AI assistance cards | No | Yes |
-| Situation AI | No by default | ModalSurface |
-| Appearance preview | Bounded preview region only | Side-by-side production fallback |
+- `hazeEffect` appears only in the tab bar. A unit test scans the sources to keep it that way.
+- No glass cards, no blur inside lists, no stacked blur, no shine, no noise, no accent tint,
+  no gradients.
+- `SoftGlassSurface`, `LiveGlassSurface` (outside the tab bar) and `ModalSurface` keep their
+  names so existing screens compile, but draw opaque token colours (`surface`, `sheet`,
+  `inkSoft`) with a flat 1 dp `hairline` edge. Screens move to the shared parts
+  (`ui/components/parts/`) in their own phase.
+- The app shell keeps one Haze state. Its sources are the page colour (zIndex 0) and the NavHost
+  container (zIndex 1, `tabBarBlurSource()`), recorded only while the bar resolves to Glass and is
+  shown (D-27). No lazy list, card or individual route is a Haze source; a unit test checks this.
+- Tab labels must read at 4.5:1 or more in every look, theme and accent, worst case with full
+  main text directly under the bar (tested in `ui/components`).
 
-The app shell owns one stable Haze source containing only the rendered ambient background. Route content and lazy lists are siblings above that source and are never Haze sources. `glassRenderingPolicyForRoute` allows the small, fixed bottom navigation to use LiveGlass on top-level routes; other route surfaces still choose their explicit SoftGlass or ModalSurface roles. The policy does not change while a list scrolls.
+## Backgrounds
 
-## Fallback rules
+There is no own-photo background and no background blur any more (§0, §7.17). A built-in
+background shows on Capture only, drawn crop-to-fill with a fixed per-image wash of the page
+colour (`ui/components/CaptureBackground.kt`; washes and evidence in
+`docs/limestone-harbour/p1-assets.md`, D-23). Everywhere else the page is plain `page` colour.
 
-LiveGlass resolves to SoftGlass when the route policy is `SoftOnly`, the Haze source is unavailable, or the platform API is below Android 12. Tests and previews can supply `GlassRenderingPolicy.SoftOnly` explicitly. The fallback shares production role visuals instead of imitating blur.
+## Checks still owed on a phone
 
-## Background blur
-
-“Background blur” applies only to a user-selected image. The image is decoded to a bounded size, processed off the UI thread when the image or quantized blur setting changes, and cached by image URI plus blur radius. Preset backgrounds disable this setting and explain that presets are already softly rendered. Interface glass and background-image processing are independent.
-
-## Changed components
-
-- `GlassSurface.kt`: LiveGlass, SoftGlass, ModalSurface, shared visuals, platform and route fallback.
-- `LumaModal.kt`: app-owned modal composition.
-- `OrbitBackground.kt`: stable background-only Haze source and cached image processing.
-- `GlassRolePreview.kt`: bounded production-component preview plus light/dark role previews.
-- `FloatingBottomNavigation.kt`: route-policy-aware LiveGlass with SoftGlass fallback.
-- Home, Calendar, Spaces, Review, Settings, Item Details, capture modal, and Situation AI call sites now use explicit roles.
-
-## Benchmark coverage and results
-
-The `macrobenchmark` module contains profileable frame-timing scenarios for Spaces, Review, Settings, Situation AI open/close, Home-to-Spaces navigation, and the Appearance preview. Results are intentionally not fabricated: a connected physical device or emulator with representative populated data is required. Compare generated `frameDurationCpuMs` and frame-overrun distributions against a build of the pre-refactor revision; list-heavy routes must show no meaningful regression before release acceptance.
-
-## Remaining visual checks
-
-- Verify the modal shape and IME behavior on a physical phone in portrait and landscape.
-- Compare light/dark and preset/custom backgrounds for the Home navigation and Appearance preview.
-- Run populated list benchmarks; empty-state measurements are not release evidence.
+Every item is `NEEDS OWNER PHONE VERIFICATION` (`docs/limestone-harbour/verification.md`):
+blur smoothness while scrolling on a mid-range phone, the battery-saver and Remove-animations
+fallbacks, and tab-label legibility over real content in light and dark.
