@@ -35,12 +35,14 @@ FG = {
     "light": {"text": "#1B1F27", "text-2": "#4F5562", "ink": "#2D4B7E", "harbour": "#1F5F66", "moss": "#3D6136", "plum": "#69406F"},
     "dark": {"text": "#ECEAE4", "text-2": "#B4B7BE", "ink": "#A8BFE8", "harbour": "#8FCDD3", "moss": "#A9CB9C", "plum": "#D6B4DC"},
 }
-# image key -> (light wash, dark wash)
+# image key -> (light wash, dark wash): the values the app ships (CaptureBackground.kt).
+# Proposal 7.17 had Harbour mist light 40 % and Pine fog light 25 %; both failed 4.5 here and
+# were raised to the smallest passing value (decisions.md D-23).
 WASH = {
     "limestone": (0.10, 0.0),
-    "harbour_mist": (0.40, 0.0),
+    "harbour_mist": (0.45, 0.0),
     "ink_wash": (0.10, 0.0),
-    "pine_fog": (0.25, 0.0),
+    "pine_fog": (0.35, 0.0),
     "linen_light": (0.35, 0.0),
 }
 RATIOS = {"9:16": 9 / 16, "9:19.5": 9 / 19.5, "9:20": 9 / 20}

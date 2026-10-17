@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Limestone dark page colour (proposal 6.1), so no light window shows behind Compose in dark mode. -->
+    <color name="orbit_window_background">#121417</color>
+</resources>

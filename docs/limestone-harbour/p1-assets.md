@@ -35,10 +35,10 @@ The GitHub contents API was blocked in this session ("repository access not enab
 | `res/font/noto_sans_medium.ttf` | 145,932 | `992ec9e7c0cf6d6c70a7db690174ac896b8a10d190cbe839db03c0f97315b9cb` | 500 | 1480 |
 | `res/font/noto_sans_semibold.ttf` | 146,024 | `4b7d582e1187ee4ef87709a588b37e2f0a7f8714d2579e37d47f882c6e723010` | 600 | 1480 |
 | **Total new** | **665,340** | | | |
-| Existing `google_sans_flex_*` (3 files, to be deleted by the lead) | 282,632 | | | |
+| Existing `google_sans_flex_*` (3 files, removed in P1 once `Type.kt` switched) | 282,632 | | | |
 | **Delta after the old fonts are removed** | **+382,708 B (+0.38 MB) of TTF** | | | |
 
-Licence files added: `app/src/main/assets/licenses/literata-OFL.txt`, `noto-sans-OFL.txt`. `google-sans-flex-OFL.txt` is untouched (the lead removes it with the old fonts).
+Licence files added: `app/src/main/assets/licenses/literata-OFL.txt`, `noto-sans-OFL.txt`. `google-sans-flex-OFL.txt` was removed with the old fonts.
 
 ### Verification (`scripts/limestone/verify_fonts.py`): PASS
 
@@ -102,7 +102,7 @@ Model: centre crop-to-fill to 9:16, 9:19.5, 9:20 at source resolution (conservat
 - **FAIL, light theme only, strict minimum below 4.5:**
   - Pine fog 25 %: Harbour 4.43 and Moss 4.32. Smallest passing wash in 5 % steps for every secondary colour at all three ratios: **35 %**.
   - Harbour mist 40 %: Moss 4.498 (a 0.002 miss; 0.1st percentile is 4.69, so only the single lightest blurred pixels at 9:16 fail). Smallest passing wash: **45 %**.
-  - Not changed in code or docs; the decision belongs to the lead. Alternatives to a larger wash: make Moss slightly darker in light theme, or accept the percentile figure (0.1st percentile passes everywhere).
+  - Decided in `decisions.md` D-23: the app uses 45 % (Harbour mist light) and 35 % (Pine fog light). Alternatives to a larger wash: make Moss slightly darker in light theme, or accept the percentile figure (0.1st percentile passes everywhere).
 - **Glass tab labels (targets 6.2 light / 8.1 dark, hard floor 4.5)**: floor PASS everywhere (min 6.18 light, 8.07 dark). Below the stated target by a hair (floor still met): Ink wash light 6.177 (target 6.2), Harbour mist dark 8.073 and Ink wash dark 8.095 (target 8.1). All others meet the target. Using the raw image (no wash) Harbour mist light drops to 5.91 and Pine fog light to 6.17, so the tab bar depends on the wash being under it. The blur here is a 9x9 box, lighter than the real glass blur; a stronger blur raises the minimum, so these values are conservative for the blur but ignore any content scrolling beneath the bar.
 - Limits: this measures glyphs over the bare background. Text on cards or sheets sits on solid surfaces, not the image. Estimated from decoded pixels only; no screenshot or on-device check was run.
 
@@ -126,10 +126,26 @@ python3 -I scripts/limestone/measure_background_contrast.py app/src/main/res/dra
 python3 scripts/codex/check_workplace_privacy.py --strict                # PASS (heuristic; semantic review still required)
 ```
 
-Gradle build, lint, unit tests, APK-size measurement: NOT RUN (lead).
+Gradle build, lint, unit tests and APK size: run by the lead, recorded in `verification.md` (P1).
 
 ## 5. Open points
 
-- Wash for Pine fog light (25 % fails Harbour and Moss) and Harbour mist light (Moss misses by 0.002): lead's decision, recommended 35 % and 45 %.
-- Old fonts (`google_sans_flex_*.ttf`, `google-sans-flex-OFL.txt`) are still present until `Type.kt` is switched.
+- Wash for Pine fog light and Harbour mist light: resolved by D-23 (35 % and 45 %).
+- Old fonts (`google_sans_flex_*.ttf`, `google-sans-flex-OFL.txt`): removed in P1.
 - `tallele-backgrounds-android.zip` was never supplied (D-02); these WebPs were produced from the PNGs.
+
+## 5. Re-measurement with the shipped washes (lead, after D-23)
+
+`WASH` in the script now holds the values the app ships (`CaptureBackground.kt`): Harbour mist light 45 %, Pine fog light 35 %, others as §7.17. `background_contrast_results.json` was regenerated.
+
+Command: `python3 -I scripts/limestone/measure_background_contrast.py app/src/main/res/drawable-nodpi scripts/limestone/background_contrast_results.json` → **PASS**, "FAILURES: none".
+
+| Background | Light wash | Lowest text-2 / accent (light) | Lowest text-2 / accent (dark) | Glass tab label light / dark |
+|---|---:|---|---|---|
+| Limestone | 10 % | 5.18 / 4.91 (Moss) | 8.33 / 8.98 | 6.67 / 8.34 |
+| Harbour mist | 45 % | 4.88 / 4.63 (Moss) | 6.02 / 6.49 | 6.42 / 8.07 |
+| Ink wash | 10 % | 4.79 / 4.54 (Moss) | 7.35 / 7.93 | 6.18 / 8.10 |
+| Pine fog | 35 % | 4.80 / 4.55 (Moss) | 6.20 / 6.68 | 6.48 / 8.40 |
+| Linen light | 35 % | 4.77 / 4.52 (Moss) | 6.11 / 6.59 | 6.74 / 8.12 |
+
+Minimum over the three ratios after a 9×9 px blur. Main text ≥ 10.05 everywhere. Three tab-label values sit a hair under the proposal's quoted 6.2 / 8.1 (Ink wash light 6.18, Harbour mist dark 8.07, Ink wash dark 8.10) but well above the 4.5 floor. These are pixel calculations on the decoded files, not screenshots: **NEEDS OWNER PHONE VERIFICATION** in both themes once P3 places backgrounds on Capture.

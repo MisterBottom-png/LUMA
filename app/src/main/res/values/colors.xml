@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="orbit_window_background">#F4F0FB</color>
+    <!-- Limestone page colour (proposal 6.1); values-night holds the dark page. -->
+    <color name="orbit_window_background">#F3F1EC</color>
     <color name="luma_splash_background">#030712</color>
 </resources>

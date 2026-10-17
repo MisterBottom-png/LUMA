@@ -28,8 +28,9 @@ animations" is re-read every time the app comes to the front.
   names so existing screens compile, but draw opaque token colours (`surface`, `sheet`,
   `inkSoft`) with a flat 1 dp `hairline` edge. Screens move to the shared parts
   (`ui/components/parts/`) in their own phase.
-- The app shell keeps one Haze source containing only the page background; route content and
-  lazy lists are never Haze sources.
+- The app shell keeps one Haze state. Its sources are the page colour (zIndex 0) and the NavHost
+  container (zIndex 1, `tabBarBlurSource()`), recorded only while the bar resolves to Glass and is
+  shown (D-27). No lazy list, card or individual route is a Haze source; a unit test checks this.
 - Tab labels must read at 4.5:1 or more in every look, theme and accent, worst case with full
   main text directly under the bar (tested in `ui/components`).
 
