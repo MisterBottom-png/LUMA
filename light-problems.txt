@@ -1,0 +1,6 @@
+show the tools: AssertionError: No node found that matches Text + InputText + EditableText contains 'Look back at your week' (ignoreCase: false) in scrollable container
+Semantics of the node:
+Node #696 at (l=0.0, t=0.0, r=1233.0, b=2673.0)px
+CollectionInfo = 'CollectionInfo(rowCount=5, columnCount=1)'
+IsTraversalGroup = 'true'
+Sha
