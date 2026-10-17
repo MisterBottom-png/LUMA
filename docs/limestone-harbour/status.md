@@ -5,7 +5,7 @@ Read this first in every session. Then `implementation-plan.md`, the proposal se
 | Phase | State | Branch | Commit | PR | Tests | Next task |
 |---|---|---|---|---|---|---|
 | P0 Evidence, constraints, baseline | Verified (merged) | `ccr-bc6d0795-mkakke` | `d4c24cc` (merge) | #14 | Local and CI PASS; 9 P0 characterization tests | Answer the **Owner** items in `decisions.md` (D-06, D-08, D-09, D-13) when their phase comes |
-| P1 Visual foundation | Verified locally; needs phone verification (awaiting owner review) | `ccr-f940f7dc-udg2hj` | head of the P1 PR | draft PR (see below) | Local: 837 JVM tests PASS, lint 0 errors, debug build PASS, APK +1.38 MB; CI on the PR: see PR checks | Owner reviews the PR and the decisions D-22–D-29; phone checks in `verification.md` → "Glass and look (after P1)"; then P2 |
+| P1 Visual foundation | Verified locally; needs phone verification (awaiting owner review) | `ccr-f940f7dc-udg2hj` | head of PR #15 | #15 (draft) | Local: 837 JVM tests PASS, lint 0 errors, debug build PASS, APK +1.38 MB; CI on PR #15: pending at hand-off | Owner reviews the PR and the decisions D-22–D-29; phone checks in `verification.md` → "Glass and look (after P1)"; then P2 |
 | P2 Navigation and finding | Not started | — | — | — | — | Start after P1 is merged |
 | P3 Capture and trust | Not started | — | — | — | — | — |
 | P4 Remaining experiences | Not started | — | — | — | — | — |

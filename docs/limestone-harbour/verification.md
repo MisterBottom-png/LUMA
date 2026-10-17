@@ -97,7 +97,7 @@ Previews at 100 % and 200 % text, light and dark, exist for every shared part (`
 
 ### CI
 
-Recorded on the PR once its workflows finish (see `status.md`).
+Draft PR #15. CI results are recorded here once its workflows finish; at hand-off they had not finished (**NOT RUN** yet from this session's point of view).
 
 ## Manual checks on a phone (owner)
 
